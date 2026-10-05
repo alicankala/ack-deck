@@ -1,0 +1,21 @@
+{
+  "name": "ack-deck-cloud",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local --test-scheduled",
+    "check": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs",
+    "deploy": "wrangler deploy",
+    "migrate:local": "wrangler d1 migrations apply ack-deck-phone --local"
+  },
+  "dependencies": {
+    "@block65/webcrypto-web-push": "2.0.0"
+  },
+  "devDependencies": {
+    "wrangler": "4.147.0",
+    "@cloudflare/workers-types": "latest",
+    "typescript": "~6.0.3"
+  },
+  "version": "1.1.0"
+}

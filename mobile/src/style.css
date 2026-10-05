@@ -1,0 +1,38 @@
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#101923;color:#f0f5fb;font-size:16px;color-scheme:dark;line-height:1.5}*{box-sizing:border-box}body{margin:0}main{max-width:680px;margin:auto;padding:20px 16px calc(100px + env(safe-area-inset-bottom))}header{display:flex;gap:12px;align-items:center}header img{width:42px;height:42px;border-radius:10px}h1{font-size:21px;flex:1}h2{font-size:23px;margin-top:24px}h3{font-size:18px;overflow-wrap:anywhere}p{color:#becddd;overflow-wrap:anywhere}button,.file{font:inherit;min-height:44px;padding:10px 14px;color:#ecf4ff;background:#23384f;border:1px solid #607c98;border-radius:9px;cursor:pointer;max-width:100%;overflow-wrap:anywhere}button:disabled{opacity:.55}button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid #9bc8f5;outline-offset:2px}input,textarea{font:inherit;width:100%;min-width:0;padding:12px;background:#111e2b;color:#f0f5fb;border:1px solid #647b92;border-radius:8px}textarea{min-height:120px;resize:vertical}label{display:grid;gap:7px;margin:14px 0}.toggle{display:flex;align-items:center}.toggle input{width:22px;height:22px}article{background:#1b2836;border:1px solid #40576c;border-radius:12px;padding:16px;margin:12px 0}.actions{display:flex;gap:8px;flex-wrap:wrap}nav{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:center;gap:4px;padding:10px 8px calc(10px + env(safe-area-inset-bottom));background:#14212fee;border-top:1px solid #52667d}nav button{border-color:transparent;padding-inline:12px;background:transparent}nav button[aria-current]{background:#304a66;color:#fff}.error{color:#ffd9d9;background:#482d34;padding:12px;border-radius:8px}.note-content{white-space:pre-wrap;max-height:250px;overflow:auto}.editor{position:fixed;inset:0;overflow:auto;padding:20px 14px;background:#080e17e8;z-index:2;display:flex;align-items:flex-start}.editor>div{width:100%;max-width:600px;margin:auto;background:#1b2836;padding:20px;border-radius:12px}.file input{margin-top:8px}.status{font-size:14px}summary{padding:10px 0;cursor:pointer}@media(max-width:360px){nav button{padding-inline:8px;font-size:14px}header{flex-wrap:wrap}}
+/* Companion layouts keep actions in normal flow, above the iPhone safe area. */
+main { padding-top: max(16px,env(safe-area-inset-top)); }
+header h1 { min-width: 0; overflow-wrap: anywhere; font-size: 19px; }
+header button { padding: 8px 10px; }
+input,textarea,select { font: inherit; width: 100%; min-width: 0; max-width: 100%; }
+select { min-height: 44px; padding: 10px; background: #111e2b; color: #f0f5fb; border: 1px solid #647b92; border-radius: 8px; }
+.primary-action { background: #315b81; border-color: #83b2dc; }
+.quick-add { margin: 12px 0; }
+.more-list { display: grid; gap: 12px; }
+.more-list button { text-align: left; }
+nav { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); }
+nav button { min-width: 0; padding-inline: 4px; }
+.page-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: center; }
+.editor { padding-top: max(12px,env(safe-area-inset-top)); padding-bottom: max(24px,env(safe-area-inset-bottom)); height: 100dvh; overscroll-behavior: contain; }
+.editor > div { margin-block: 0; padding: 16px; }
+.editor form { max-width: 100%; }
+.editor .actions, .editor .settings-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-block: 16px; }
+.editor .actions > button, .editor .settings-actions > button { flex: 1 1 100px; }
+.editor .actions > button:first-child, .editor .settings-actions > button:first-child { background: #315b81; }
+.subscription-row { display: flex; align-items: flex-start; gap: 12px; }
+.subscription-row > div { flex: 1; min-width: 0; }
+.subscription-row h3, .subscription-row p { margin-block: 4px; }
+.subscription-totals { display: flex; flex-wrap: wrap; gap: 8px 18px; color: #d5e6f5; }
+.subscription-totals > span { width: 100%; color: #aebfd0; }
+.overflow-menu { flex: 0 0 auto; }
+.overflow-menu summary { min-width: 44px; min-height: 44px; padding: 6px 12px; text-align: center; font-size: 24px; list-style: none; border: 1px solid #53687a; border-radius: 8px; }
+.overflow-menu > div { display: grid; gap: 8px; margin-top: 8px; max-width: 120px; }
+.danger-action { color: #ffccd2; border-color: #a8757d; margin-top: 8px; }
+.recurrence-fields { display: grid; gap: 8px; min-width: 0; }
+.weekday-options { display: flex; flex-wrap: wrap; gap: 5px; }
+.weekday-options button { padding-inline: 8px; min-width: 44px; }
+.weekday-options button[aria-pressed="true"] { background: #315b81; border-color: #94c9fa; }
+.recurrence-custom { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.reminder-toggle { display: flex; gap: 10px; align-items: center; }
+.reminder-toggle input { width: 24px; height: 24px; }
+.undo-toast { position: fixed; left: 12px; right: 12px; bottom: calc(90px + env(safe-area-inset-bottom)); display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 12px; background: #29425a; border-radius: 12px; z-index: 3; }
+body:has(.editor) nav { visibility: hidden; }

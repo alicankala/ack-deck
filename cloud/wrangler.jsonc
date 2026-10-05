@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "ack-deck-phone", "main": "src/index.ts", "compatibility_date": "2026-10-04",
+  "workers_dev": true,
+  "account_id": "a93e8003e505be46eaa58fc66ddd2351",
+  "send_metrics": false,
+  "assets": { "directory": "../mobile/dist", "binding": "ASSETS", "not_found_handling": "single-page-application", "run_worker_first": ["/api/*"] },
+  "d1_databases": [{"binding":"DB","database_name":"ack-deck-phone","database_id":"d9cbc61b-c948-4ed6-9a9c-4b7c51ac5683","migrations_dir":"migrations"}],
+  "kv_namespaces": [{"binding":"ATTACHMENTS","id":"172ad1bcbef94b46845d75ce3281fa65"}],
+  "triggers": {"crons":["* * * * *"]},
+  "observability": {"enabled":false}
+}
