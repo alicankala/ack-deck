@@ -18,7 +18,7 @@ import type { NavigationTarget } from "../navigation";
 import { takeDashboardPrompt, type AiPromptHandoff } from "../aiPromptHandoff";
 
 type Props = {
-  prefill?: { id: string; text: string };
+  prefill?: { id: string; text: string; attachment?: AiAttachment };
   onPrefillConsumed?: () => void;
   blocked?: boolean;
   onNewChat?: () => void;
@@ -41,7 +41,6 @@ const starters = [
 export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, initialPrompt, onPromptConsumed, onNewChat, onBusyChange, blocked = false, prefill, onPrefillConsumed }: Props) {
   const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [draft, setDraft] = useState(prefill?.text ?? initialPrompt?.text ?? "");
-  useEffect(() => { if (prefill) { setDraft(prefill.text); onPrefillConsumed?.(); } }, [prefill?.id]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [model, setModel] = useState<AiModel>(getSavedAiModel);
@@ -51,6 +50,14 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
   const [attaching, setAttaching] = useState(false);
   const attachmentRef = useRef<AiAttachment | null>(null);
   attachmentRef.current = attachment;
+  useEffect(() => { if (prefill) {
+    setDraft(prefill.text);
+    if (prefill.attachment) {
+      if (attachmentRef.current && attachmentRef.current.id !== prefill.attachment.id) void releaseAiAttachment(attachmentRef.current.id).catch(() => {});
+      setAttachment(prefill.attachment); setAttachmentPreview("");
+    }
+    onPrefillConsumed?.();
+  } }, [prefill?.id]);
   useEffect(() => () => { if (attachmentRef.current) void releaseAiAttachment(attachmentRef.current.id).catch(() => {}); }, []);
   async function addAttachment(file?: File) {
     if (sending || attaching || pending) return; setAttaching(true);

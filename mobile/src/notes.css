@@ -1,41 +1,41 @@
-.mobile-app.notes-page { background: #191b22; padding-inline: 22px; }
-body:has(.notes-page) { background: #191b22; }
+.mobile-app.notes-page { background: var(--app-bg); padding-inline: 22px; }
+body:has(.notes-page) { background: var(--app-bg); }
 .notes-page :is(.mobile-header,.mobile-sync-status,.mobile-page-heading) { display: none; }
-.notes-page .mobile-nav { background: #191b22f5; border-color: #33343d; }
-.notes-page .mobile-nav button[aria-current] { background: #39352d; color: #f2cf88; }
-.phone-notebook { --note-accent: #f2cf88; color: #f5f2eb; padding-top: 12px; }
-.notebook-brand { display: flex; align-items: center; gap: 8px; color: #97989f; font-size: 10px; letter-spacing: .18em; font-weight: 600; }
+.notes-page .mobile-nav { background: var(--app-nav); border-color: var(--app-hover); }
+.notes-page .mobile-nav button[aria-current] { background: var(--app-accent-soft); color: var(--app-accent); }
+.phone-notebook { --note-accent: var(--app-accent); color: var(--app-text); padding-top: 12px; }
+.notebook-brand { display: flex; align-items: center; gap: 8px; color: var(--app-muted); font-size: 10px; letter-spacing: .18em; font-weight: 600; }
 .notebook-brand-icon { display: inline-flex; color: var(--note-accent); }
 .notebook-heading { display: flex; flex-wrap: nowrap; justify-content: space-between; align-items: center; gap: 12px; margin: 22px 0 24px; }
 .notebook-heading h1 { font-size: 36px; font-weight: 700; letter-spacing: -.055em; line-height: 1.1; margin: 0; }
-.notebook-heading p { margin: 10px 0 0; font-size: 12px; color: #a7a7b0; }
-.notebook-heading p > span { padding-inline: 4px; color: #686975; }
-.notebook-heading .new-note-button { display: flex; align-items: center; justify-content: center; flex-shrink: 0; gap: 7px; padding: 12px 15px; min-height: 46px; border: 0; border-radius: 15px; background: var(--note-accent); color: #322c22; font-size: 13px; font-weight: 650; box-shadow: 0 5px 20px #0002; }
-.notebook-search { display: flex; align-items: center; gap: 10px; background: #24262e; border: 1px solid #363841; border-radius: 14px; padding: 0 14px; color: #999ba6; }
-.notebook-search:focus-within { border-color: #bca36f; box-shadow: 0 0 0 3px #f2cf8810; }
+.notebook-heading p { margin: 10px 0 0; font-size: 12px; color: var(--app-muted); }
+.notebook-heading p > span { padding-inline: 4px; color: var(--app-border-strong); }
+.notebook-heading .new-note-button { display: flex; align-items: center; justify-content: center; flex-shrink: 0; gap: 7px; padding: 12px 15px; min-height: 46px; border: 0; border-radius: 15px; background: var(--note-accent); color: var(--app-on-accent); font-size: 13px; font-weight: 650; box-shadow: 0 5px 20px #0002; }
+.notebook-search { display: flex; align-items: center; gap: 10px; background: var(--app-surface); border: 1px solid var(--app-border); border-radius: 14px; padding: 0 14px; color: var(--app-muted); }
+.notebook-search:focus-within { border-color: var(--app-accent-border); box-shadow: 0 0 0 3px rgb(155 200 245 / 6%); }
 .notebook-search > svg { flex-shrink: 0; }
-.notebook-search input { min-height: 48px; padding: 12px 0; background: transparent; border: 0; border-radius: 0; color: #f5f2eb; font-size: 15px; }
+.notebook-search input { min-height: 48px; padding: 12px 0; background: transparent; border: 0; border-radius: 0; color: var(--app-text); font-size: 15px; }
 .notebook-search input:focus-visible { outline: 0; }
 .notebook-search input::-webkit-search-cancel-button { display: none; }
-.notebook-search button { flex-shrink: 0; min-height: 44px; width: 32px; padding: 0; font-size: 24px; background: transparent; border: 0; color: #cbccd4; }
+.notebook-search button { flex-shrink: 0; min-height: 44px; width: 32px; padding: 0; font-size: 24px; background: transparent; border: 0; color: var(--app-secondary); }
 .notebook-section-heading { display: flex; justify-content: space-between; align-items: center; margin: 28px 0 14px; }
-.notebook-section-heading h2 { margin: 0; color: #b3b2bb; font-size: 12px; font-weight: 500; letter-spacing: .035em; }
-.notebook-section-heading > span { color: #8e8e98; font-size: 11px; }
+.notebook-section-heading h2 { margin: 0; color: var(--app-secondary); font-size: 12px; font-weight: 500; letter-spacing: .035em; }
+.notebook-section-heading > span { color: var(--app-muted); font-size: 11px; }
 .notebook-list { display: grid; grid-template-columns: minmax(0,1fr); gap: 12px; }
-.notebook-row { display: flex; flex-direction: column; min-width: 0; width: 100%; min-height: 205px; gap: 0; padding: 18px; text-align: left; border: 1px solid #373841; border-radius: 18px; background: linear-gradient(145deg,#292b34,#24262e); color: #f5f2eb; box-shadow: 0 5px 18px #0001; }
-.notebook-row:active { background: #33343d; border-color: #b49d71; }
+.notebook-row { display: flex; flex-direction: column; min-width: 0; width: 100%; min-height: 205px; gap: 0; padding: 18px; text-align: left; border: 1px solid var(--app-border); border-radius: 18px; background: linear-gradient(145deg,var(--app-control),var(--app-surface)); color: var(--app-text); box-shadow: 0 5px 18px #0001; }
+.notebook-row:active { background: var(--app-hover); border-color: var(--app-accent-border); }
 .notebook-card-top { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 13px; }
-.notebook-page-icon { display: inline-flex; color: #d9bc83; }
-.notebook-open-arrow { color: #71737f; font-size: 18px; }
+.notebook-page-icon { display: inline-flex; color: var(--app-accent); }
+.notebook-open-arrow { color: var(--app-muted); font-size: 18px; }
 .notebook-row > strong { font-size: 19px; font-weight: 600; line-height: 1.4; letter-spacing: -.025em; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
-.notebook-preview { margin-top: 8px; margin-bottom: 18px; font-size: 14px; line-height: 1.65; color: #afafb9; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; }
-.notebook-card-bottom { margin-top: auto; padding-top: 12px; border-top: 1px solid #3a3b44; width: 100%; display: flex; justify-content: space-between; gap: 8px; color: #93949f; font-size: 11px; }
+.notebook-preview { margin-top: 8px; margin-bottom: 18px; font-size: 14px; line-height: 1.65; color: var(--app-secondary); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; }
+.notebook-card-bottom { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--app-border); width: 100%; display: flex; justify-content: space-between; gap: 8px; color: var(--app-muted); font-size: 11px; }
 .notebook-empty { text-align: center; padding: 55px 14px 30px; }
-.notebook-empty-icon { display: grid; place-items: center; width: 82px; height: 82px; margin: auto; border-radius: 24px; background: #353129; border: 1px solid #514633; color: var(--note-accent); transform: rotate(-5deg); }
+.notebook-empty-icon { display: grid; place-items: center; width: 82px; height: 82px; margin: auto; border-radius: 24px; background: var(--app-accent-soft); border: 1px solid var(--app-accent-border); color: var(--note-accent); transform: rotate(-5deg); }
 .notebook-empty h2 { margin: 26px 0 10px; font-size: 24px; letter-spacing: -.035em; font-weight: 600; }
-.notebook-empty p { max-width: 260px; margin: auto; color: #a8a8b1; font-size: 14px; line-height: 1.75; }
-.notebook-empty button { margin-top: 24px; color: var(--note-accent); background: transparent; border: 1px solid #68604d; border-radius: 12px; font-size: 14px; }
-.phone-notebook button:focus-visible { outline-color: #f2cf88; }
+.notebook-empty p { max-width: 260px; margin: auto; color: var(--app-muted); font-size: 14px; line-height: 1.75; }
+.notebook-empty button { margin-top: 24px; color: var(--note-accent); background: transparent; border: 1px solid var(--app-accent-border); border-radius: 12px; font-size: 14px; }
+.phone-notebook button:focus-visible { outline-color: var(--app-accent); }
 @media (min-width: 400px) { .notebook-list { grid-template-columns: repeat(2,minmax(0,1fr)); } .notebook-row { padding: 17px; } .notebook-row > strong { font-size: 17px; } .notebook-preview { font-size: 13px; -webkit-line-clamp: 4; } }
 @media (max-width: 360px) { .mobile-app.notes-page { padding-inline: 16px; } .notebook-heading h1 { font-size: 32px; } .notebook-heading .new-note-button { padding-inline: 12px; } }
 

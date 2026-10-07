@@ -42,7 +42,7 @@ fn supported(bytes: &[u8], mime: &str) -> bool {
         _ => false,
     }
 }
-fn register(
+pub(crate) fn register(
     app: &tauri::AppHandle,
     name: String,
     mime: String,

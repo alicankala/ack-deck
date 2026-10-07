@@ -1,4 +1,5 @@
 import { validSubscription } from "../shared/subscriptions";
+import { validNoteAttachments } from "./notesStore";
 import { isRecentItem } from "./recentStore";
 import { beginConversationRestore, recoverConversationRestore, flushConversationWrites, loadConversations, isConversation } from "./conversationStore";
 import { invoke } from "@tauri-apps/api/core";
@@ -28,7 +29,7 @@ function validData(data: unknown): boolean {
   if (data.workspaces !== undefined && !array(data.workspaces, isWorkspace) || data.shortcuts !== undefined && !isShortcutData(data.shortcuts) || data.usage !== undefined && (!Array.isArray(data.usage) || data.usage.length > 500 || !data.usage.every(isUsage)) || data.hiddenLegacy !== undefined && (!Array.isArray(data.hiddenLegacy) || !data.hiddenLegacy.every(v => typeof v === "string" && v.length <= 512))) return false;
   return array(data.tasks, (item) => isTask(item) && fields(item, ["id", "text", "completed", "dueDate", "dueTime", "priority", "reminder", "remindedFor", "recurrence", "dueAt", "occurrenceAt", "lastCompletedAt", "snoozedUntil", "timezone"])) &&
     array(data.projects, (item) => fields(item, ["id", "name", "description", "folderPath"]) && object(item) && typeof item.id === "string" && !!item.id && [item.name, item.description, item.folderPath].every((value) => typeof value === "string")) &&
-    array(data.notes, (item) => fields(item, ["id", "title", "content", "updatedAt"]) && object(item) && typeof item.id === "string" && !!item.id && typeof item.title === "string" && typeof item.content === "string" && dateNumber(item.updatedAt)) &&
+    array(data.notes, (item) => fields(item, ["id", "title", "content", "updatedAt", "attachments"]) && object(item) && typeof item.id === "string" && !!item.id && typeof item.title === "string" && typeof item.content === "string" && dateNumber(item.updatedAt) && (item.attachments === undefined || validNoteAttachments(item.attachments))) &&
     array(data.files, (item) => isFileEntry(item) && fields(item, ["id", "name", "path", "fileName", "kind", "extension", "sizeBytes", "modifiedAt"])) &&
     array(data.archive, (item) => isArchiveEntry(item) && fields(item, ["id", "title", "category", "description", "date", "tags", "file", "createdAt", "updatedAt"]) && object(item) && (item.file === null || fields(item.file, ["path", "fileName"]))) &&
     (data.speedTest === null || (isSpeedResult(data.speedTest) && fields(data.speedTest, ["downloadMbps", "uploadMbps", "latencyMs", "jitterMs", "testedAt"]))) &&

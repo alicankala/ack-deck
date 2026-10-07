@@ -27,3 +27,13 @@ test('restore/pause invalidates in-flight cloud responses before any local recor
 test('phone AI Inbox pre-fills only; owner credentials and binary transfers remain outside frontend storage/backup',()=>{
   const app=readFileSync(new URL('../src/components/AckAi.tsx',import.meta.url),'utf8');assert.match(app,/setDraft\(prefill.text\)/);const client=readFileSync(new URL('../src/phoneClient.ts',import.meta.url),'utf8');assert.doesNotMatch(client,/owner.secret|localStorage|bearer/i);const backup=readFileSync(new URL('../src/backupStore.ts',import.meta.url),'utf8');assert.doesNotMatch(backup,/phone-owner|VAPID_PRIVATE|deviceToken/);const native=readFileSync(new URL('../src-tauri/src/phone.rs',import.meta.url),'utf8');assert.match(native,/bearer_auth\(&secret\)/);assert.match(native,/Policy::none/);assert.doesNotMatch(native,/Command::new/);
 });
+test('mobile note edits preserve desktop attachment references without uploading binary data or local cache metadata',async()=>{
+  const attachment={id:'voice-123',name:'ses.ogg',mime:'audio/ogg',size:1024};
+  const env=setup([['ack-deck.notes.v1',JSON.stringify([{id:'n',title:'Toplantı',content:'Özet',updatedAt:1,attachments:[attachment]}])]]),api=env.load('src/phoneSync'),server=transport();
+  await api.synchronizePhone(server.request);
+  assert.equal('attachments' in server.records.get('notes:n').data,false);
+  server.records.set('notes:n',{...server.records.get('notes:n'),version:2,data:{title:'Mobil başlık',content:'Yeni açıklama',updatedAt:2}});
+  await api.synchronizePhone(server.request);
+  const saved=JSON.parse(env.values.get('ack-deck.notes.v1'))[0];assert.equal(saved.title,'Mobil başlık');assert.deepEqual(saved.attachments,[attachment]);
+  assert.equal(JSON.stringify(server.calls).includes('voice-123'),false);
+});

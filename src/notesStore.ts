@@ -1,4 +1,14 @@
-export type Note = { id: string; title: string; content: string; updatedAt: number };
+import { attachmentMimes, MAX_ATTACHMENT } from "../shared/phone";
+export type NoteAttachment = { id: string; name: string; mime: string; size: number };
+export type Note = { id: string; title: string; content: string; updatedAt: number; attachments?: NoteAttachment[] };
+export function validNoteAttachments(value: unknown): value is NoteAttachment[] {
+  return Array.isArray(value) && value.length <= 20 && value.every(file => file &&
+    Object.keys(file).every(key => ["id", "name", "mime", "size"].includes(key)) &&
+    typeof file.id === "string" && /^[a-zA-Z0-9_-]{1,128}$/.test(file.id) &&
+    typeof file.name === "string" && file.name.length > 0 && file.name.length <= 180 && !/[\\/<>:"|?*\x00-\x1f]/.test(file.name) &&
+    attachmentMimes.has(file.mime) && Number.isSafeInteger(file.size) && file.size > 0 && file.size <= MAX_ATTACHMENT) &&
+    new Set(value.map(file => file.id)).size === value.length;
+}
 
 const STORAGE_KEY = "ack-deck.notes.v1";
 
@@ -10,7 +20,8 @@ export function loadNotes(): { notes: Note[]; error: string | null } {
     if (Array.isArray(parsed) && parsed.every((note) => note &&
       typeof note.id === "string" && typeof note.title === "string" &&
       typeof note.content === "string" && typeof note.updatedAt === "number" &&
-      Number.isFinite(note.updatedAt) && Math.abs(note.updatedAt) <= 8.64e15) &&
+      Number.isFinite(note.updatedAt) && Math.abs(note.updatedAt) <= 8.64e15 &&
+      (note.attachments === undefined || validNoteAttachments(note.attachments))) &&
       new Set(parsed.map((note) => note.id)).size === parsed.length) {
       return { notes: parsed, error: null };
     }

@@ -11,6 +11,7 @@ mod launch_targets;
 mod palette;
 mod pc_status;
 mod phone;
+mod phone_media;
 mod projects;
 mod qr;
 mod reminders;
@@ -87,7 +88,10 @@ pub fn run() {
             phone::phone_status,
             phone::phone_configure,
             phone::phone_request,
-            phone::phone_download
+            phone::phone_download,
+            phone_media::phone_cache_attachment,
+            phone_media::phone_ai_attachment,
+            phone_media::phone_read_attachment
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

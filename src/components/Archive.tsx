@@ -73,7 +73,7 @@ export function Archive({ initialId, createNew = false }: { initialId?: string; 
     {initial.warning && <div className="tool-feedback error" role="alert">{initial.warning}</div>}
     {feedback && <div className={"tool-feedback " + (feedback.error ? "error" : "success")} role={feedback.error ? "alert" : "status"}>{feedback.text}</div>}
     <div className="archive-filters"><label className="sr-only" htmlFor="archive-search">Arşivde ara</label><input id="archive-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Başlık, açıklama, etiket veya kategori ara..." /><label className="sr-only" htmlFor="archive-category-filter">Kategori filtresi</label><select id="archive-category-filter" value={category} onChange={(event) => setCategory(event.target.value as ArchiveCategory | "all")}><option value="all">Tüm kategoriler</option>{ARCHIVE_CATEGORIES.map((value) => <option key={value}>{value}</option>)}</select><span>{visible.length} / {entries.length} kayıt</span></div>
-    <div ref={panel} className="archive-panel">
+    <div className={"archive-content " + (selected && !editor ? "has-detail" : "")}><div ref={panel} className="archive-panel">
       {editor ? <EditorDialog title={editor.entry ? "Arşiv kaydını düzenle" : "Yeni arşiv kaydı"} onClose={() => setEditor(null)} error={feedback?.error ? feedback.text : null}><ArchiveEditor key={editor.entry?.id ?? "new"} entry={editor.entry} onSave={save} onCancel={() => setEditor(null)} /></EditorDialog> : selected && <section className="archive-detail surface" aria-label="Arşiv kaydı ayrıntıları">
         <div className="archive-detail-heading"><div><span className="archive-category">{selected.category}</span><h2>{selected.title}</h2></div><button className="button button-secondary" type="button" onClick={() => { setSelectedId(null); setDeleteId(null); }}>Kapat</button></div>
         <p className="archive-detail-date">{archiveDateLabel(selected.date)}</p>
@@ -90,7 +90,7 @@ export function Archive({ initialId, createNew = false }: { initialId?: string; 
       <h2 title={entry.title}>{entry.title}</h2><p className="archive-card-description">{entry.description || "Açıklama eklenmedi."}</p><p className="archive-card-date">{archiveDateLabel(entry.date)}</p>
       <div className="archive-tags">{entry.tags.map((tag, index) => <span key={index}>{tag}</span>)}</div>
       <div className="archive-card-actions"><button type="button" onClick={() => view(entry)} disabled={!!editor}>Ayrıntılar</button><ActionMenu label={entry.title+" işlemleri"}><button type="button" onClick={() => { setSelectedId(entry.id); setEditor({ entry }); setDeleteId(null); setFeedback(null); }} disabled={initial.locked || !!editor}>Düzenle</button><button className="archive-delete" type="button" onClick={() => view(entry, true)} disabled={initial.locked || !!editor}>Sil</button></ActionMenu></div>
-    </article>)}</div>
+    </article>)}</div></div>
     {!visible.length && <div className="files-empty surface"><Icon name="archive" size={30} /><h2>{entries.length ? "Eşleşen arşiv kaydı bulunamadı." : initial.locked ? "Arşiv kayıtları okunamadı." : "Arşiviniz henüz boş."}</h2><p>{entries.length ? "Aramayı veya kategori filtresini değiştirin." : initial.locked ? "Mevcut veriler korunuyor." : "Yeni Kayıt ile ilk önemli kaydınızı ekleyin."}</p></div>}
   </div>;
 }

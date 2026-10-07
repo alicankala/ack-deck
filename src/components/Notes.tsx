@@ -1,4 +1,5 @@
 import { offerUndo } from "../recordUndo";
+import { PhoneMedia } from "./PhoneMedia";
 import { useEffect, useRef, useState } from "react";
 import { loadNotes, saveNotes, type Note } from "../notesStore";
 import { Icon } from "./Icon";
@@ -87,6 +88,7 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
           {confirmDelete && <div className="notes-delete-confirm" role="group" aria-label="Notu silme onayı"><span>Bu not silinsin mi?</span><button type="button" onClick={remove}>Evet, sil</button><button type="button" onClick={() => setConfirmDelete(false)}>Vazgeç</button></div>}
           <label className="sr-only" htmlFor="note-title">Not başlığı</label><input id="note-title" className="notes-title" value={selected.title} onChange={(event) => edit({ title: event.target.value })} maxLength={160} placeholder="Not başlığı" disabled={!!initial.error} />
           <label className="sr-only" htmlFor="note-content">Not içeriği</label><textarea id="note-content" className="notes-content" value={selected.content} onChange={(event) => edit({ content: event.target.value })} maxLength={30000} placeholder="Notunu yaz..." disabled={!!initial.error} />
+          {selected.attachments?.map(file => <section className="note-attachment" key={file.id}><strong>{file.name}</strong><PhoneMedia file={file} cached /></section>)}
           <p className="notes-save-info"><time dateTime={new Date(selected.updatedAt).toISOString()}>{dateFormatter.format(selected.updatedAt)}</time> · Otomatik kaydedilir</p>
         </> : <div className="notes-empty-editor"><span className="feature-icon"><Icon name="note" size={24} /></span><h2>Bir not seç veya yeni not oluştur</h2><p>Başlık ve içerik yazdıkça notun kaydedilir.</p></div>}
       </section>

@@ -10,7 +10,7 @@ import { PhoneCommands } from "./components/PhoneCommands";
 import { useReminders } from "./useReminders";
 import { usePaletteBridge } from "./usePaletteBridge";
 import { GlobalSearch } from "./components/GlobalSearch";
-import type { NavigationTarget } from "./navigation";
+import { useNavigationHistory } from "./useNavigationHistory";
 import { Dashboard } from "./components/Dashboard";
 import type { AiPromptHandoff } from "./aiPromptHandoff";
 import { UndoToast } from "./components/UndoToast";
@@ -39,9 +39,8 @@ import "./desktop-layout.css";
 
 function App() {
   const [preferences, setPreferences] = useState(loadPreferences);
-  const [route, setRoute] = useState<{ target: NavigationTarget; serial: number }>(() => ({ target: { page: loadPreferences().startPage }, serial: 0 }));
+  const { route, navigate } = useNavigationHistory({ page: preferences.startPage }, () => restoring || aiBusy || searchOpen || history.mutating || !desktop.visible);
   const page = route.target.page;
-  const navigate = useCallback((target: NavigationTarget) => setRoute((previous) => ({ target, serial: previous.serial + 1 })), []);
   const setPage = (page: Page) => navigate({ page });
   usePaletteBridge(navigate);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -56,7 +55,7 @@ function App() {
   const desktop = useDesktop(navigateNative);
   const history = useConversations();
   const [aiBusy, setAiBusy] = useState(false);
-  const [phoneAiDraft, setPhoneAiDraft] = useState<{id:string;text:string}>();
+  const [phoneAiDraft, setPhoneAiDraft] = useState<{id:string;text:string;attachment?:import("./aiAttachments").AiAttachment}>();
   const [aiPrompt, setAiPrompt] = useState<AiPromptHandoff>();
   const consumeAiPrompt = useCallback((id: string) => setAiPrompt(current => current?.id === id ? undefined : current), []);
   const askAi = (text: string) => { setAiPrompt({ id: crypto.randomUUID(), text }); navigate({ page: "ai" }); };
@@ -84,7 +83,7 @@ function App() {
     <div className="main-column"><UpdateNotice blocked={restoring || aiBusy} hidden={page === "settings"} /><main className={"main-content " + (page === "home" ? "dashboard-main" : "")}>
       {desktop.visible && page !== "home" && <button className="global-search-trigger button button-secondary" type="button" onClick={() => setSearchOpen(true)}>Genel Arama <kbd>Ctrl+K</kbd></button>}
       <div key={route.serial}>
-      {!desktop.visible ? null : page === "home" ? <Dashboard projects={projects} refreshMs={preferences.pcRefreshMs} onNavigate={navigate} onAskAi={askAi} onOpenSearch={() => setSearchOpen(true)} /> : page === "ai" ? <div className="ai-history-layout"><ConversationHistory history={{ ...history, newChat: () => { setAiPrompt(undefined); history.newChat(); }, select: id => { setAiPrompt(undefined); history.select(id); } }} disabled={aiBusy} />{history.ready ? <AckAi prefill={phoneAiDraft} onPrefillConsumed={() => setPhoneAiDraft(undefined)} key={history.activeId || "unsaved"} blocked={history.mutating} onNewChat={() => { setAiPrompt(undefined); history.newChat(); }} onBusyChange={setAiBusy} messages={history.messages} initialPrompt={aiPrompt} onPromptConsumed={consumeAiPrompt} onMessagesChange={history.setMessages} onOpenSettings={() => setPage("settings")} onNavigate={navigate} /> : <p role="status">{history.error || "Sohbetler yükleniyor..."}</p>}</div> : page === "settings" ? <Settings preferences={preferences} onPreferencesChange={setPreferences} desktop={desktop.status} onDesktopChange={desktop.setStatus} /> : page === "inbox" ? <PhoneInbox onAiDraft={text => { setAiPrompt(undefined); setPhoneAiDraft({id:crypto.randomUUID(),text}); navigate({page:"ai"}); }} /> : page === "workspaces" ? <Projects projects={projects} onChange={changeProjects} fullPage workspaceId={route.target.id} /> : page === "subscriptions" ? <Subscriptions /> : page === "tasks" ? <Tasks fullPage initialId={route.target.id} focusNew={route.target.intent === "new-task"} /> : page === "projects" ? <Projects projects={projects} onChange={changeProjects} fullPage initialId={route.target.id} /> : page === "tools" ? <Tools fullPage onOpen={setPage} /> : page === "notes" ? <Notes initialId={route.target.id} createNew={route.target.intent === "new-note"} /> : page === "qr" ? <QrTool /> : page === "ip" ? <IpTool /> : page === "pc" ? <section><h1>PC Durumu</h1><PcStatus refreshMs={preferences.pcRefreshMs} /></section> : page === "files" ? <Shortcuts initialId={route.target.id} /> : page === "speed" ? <SpeedTest authorizedStart={route.target.intent === "start-speed"} /> : <Archive initialId={route.target.id} createNew={route.target.intent === "new-archive"} />}
+      {!desktop.visible ? null : page === "home" ? <Dashboard projects={projects} refreshMs={preferences.pcRefreshMs} onNavigate={navigate} onAskAi={askAi} onOpenSearch={() => setSearchOpen(true)} /> : page === "ai" ? <div className="ai-history-layout"><ConversationHistory history={{ ...history, newChat: () => { setAiPrompt(undefined); history.newChat(); }, select: id => { setAiPrompt(undefined); history.select(id); } }} disabled={aiBusy} />{history.ready ? <AckAi prefill={phoneAiDraft} onPrefillConsumed={() => setPhoneAiDraft(undefined)} key={history.activeId || "unsaved"} blocked={history.mutating} onNewChat={() => { setAiPrompt(undefined); history.newChat(); }} onBusyChange={setAiBusy} messages={history.messages} initialPrompt={aiPrompt} onPromptConsumed={consumeAiPrompt} onMessagesChange={history.setMessages} onOpenSettings={() => setPage("settings")} onNavigate={navigate} /> : <p role="status">{history.error || "Sohbetler yükleniyor..."}</p>}</div> : page === "settings" ? <Settings preferences={preferences} onPreferencesChange={setPreferences} desktop={desktop.status} onDesktopChange={desktop.setStatus} /> : page === "inbox" ? <PhoneInbox onAiDraft={(text,attachment) => { setAiPrompt(undefined); setPhoneAiDraft({id:crypto.randomUUID(),text,attachment}); navigate({page:"ai"}); }} /> : page === "workspaces" ? <Projects projects={projects} onChange={changeProjects} fullPage workspaceId={route.target.id} /> : page === "subscriptions" ? <Subscriptions /> : page === "tasks" ? <Tasks fullPage initialId={route.target.id} focusNew={route.target.intent === "new-task"} /> : page === "projects" ? <Projects projects={projects} onChange={changeProjects} fullPage initialId={route.target.id} /> : page === "tools" ? <Tools fullPage onOpen={setPage} /> : page === "notes" ? <Notes initialId={route.target.id} createNew={route.target.intent === "new-note"} /> : page === "qr" ? <QrTool /> : page === "ip" ? <IpTool /> : page === "pc" ? <section><h1>PC Durumu</h1><PcStatus refreshMs={preferences.pcRefreshMs} /></section> : page === "files" ? <Shortcuts initialId={route.target.id} /> : page === "speed" ? <SpeedTest authorizedStart={route.target.intent === "start-speed"} /> : <Archive initialId={route.target.id} createNew={route.target.intent === "new-archive"} />}
       </div>
     </main>
     {desktop.visible && !restoring && <FooterTicker />}

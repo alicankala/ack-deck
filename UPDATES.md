@@ -6,6 +6,8 @@ Kurulum öncesi mevcut tam JSON yedek akışıyla kayıtlar, tercihler ve sohbet
 
 ## Release hazırlama
 
+1.1.3 sürümü masaüstü yerleşimini, güvenli sayfa geçmişini ve telefon gelenlerinin dinleme/önizleme/notlara ekleme akışını düzenler. Mobil ve masaüstü koyu mavi/gri paleti paylaşır. Nota eklenen dosyalar bu bilgisayarda kalıcı tutulur; diğer cihazlara dosya ekleri aktarılmaz. Mevcut yedek dosya içeriğini değil ek referanslarını içerir. Önceki updater anahtarı, uygulama kimliği ve kurulum/yedek onayı korunur.
+
 1.1.2 sürümünde Ayarlar > Güncellemeler içinden yapılan denetim ve indirme sonucu aynı kartta gösterilir. Denetim veya hata için üst bar açılmaz; kurulum öncesindeki yedek ve kullanıcı tarafından yeniden başlatma akışı korunur.
 
 İlk updater destekli sürüm elle kurulmalıdır; eski kurulumda bu özellik yoktur. Sonraki release'ler otomatik indirilir. Sürüm numarası kurulu sürümden yüksek olmalıdır.

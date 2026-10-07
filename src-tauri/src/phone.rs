@@ -126,7 +126,7 @@ fn safe_id(value: &str) -> bool {
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || b"_.-".contains(&byte))
 }
-async fn request(
+pub(crate) async fn request(
     app: &tauri::AppHandle,
     method: &str,
     path: &str,
