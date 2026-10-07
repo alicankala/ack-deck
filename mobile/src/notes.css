@@ -39,25 +39,25 @@ body:has(.notes-page) { background: #191b22; }
 @media (min-width: 400px) { .notebook-list { grid-template-columns: repeat(2,minmax(0,1fr)); } .notebook-row { padding: 17px; } .notebook-row > strong { font-size: 17px; } .notebook-preview { font-size: 13px; -webkit-line-clamp: 4; } }
 @media (max-width: 360px) { .mobile-app.notes-page { padding-inline: 16px; } .notebook-heading h1 { font-size: 32px; } .notebook-heading .new-note-button { padding-inline: 12px; } }
 
-.editor.note-editor { padding: 0; overflow: hidden; background: #f6f2e9; color: #302f2b; color-scheme: light; }
-.editor.note-editor > .note-sheet { margin: 0 auto; min-height: 0; height: 100%; max-width: 720px; width: 100%; padding: 0; background: #f6f2e9; display: flex; flex-direction: column; }
-.note-toolbar { display: flex; flex-wrap: nowrap; flex-shrink: 0; align-items: center; gap: 12px; padding: max(10px,env(safe-area-inset-top)) 18px 12px; border-bottom: 1px solid #dcd6c8; background: #f6f2e9; }
-.note-toolbar .note-back { display: grid; place-items: center; width: 44px; flex: 0 0 44px; padding: 0; border: 1px solid #e0d9cb; border-radius: 13px; background: #ede7db; color: #65563c; }
+.editor.note-editor { padding: 0; overflow: hidden; background: var(--app-bg); color: var(--app-text); color-scheme: dark; }
+.editor.note-editor > .note-sheet { margin: 0 auto; min-height: 0; height: 100%; max-width: 720px; width: 100%; padding: 0; background: var(--app-bg); display: flex; flex-direction: column; }
+.note-toolbar { display: flex; flex-wrap: nowrap; flex-shrink: 0; align-items: center; gap: 12px; padding: max(10px,env(safe-area-inset-top)) 18px 12px; border-bottom: 1px solid var(--app-border); background: var(--app-bg); }
+.note-toolbar .note-back { display: grid; place-items: center; width: 44px; flex: 0 0 44px; padding: 0; border: 1px solid var(--app-border); border-radius: 13px; background: var(--app-surface); color: var(--app-accent); }
 .note-toolbar-title { flex: 1; min-width: 0; }
-.note-toolbar-title > span { display: block; color: #958874; font-size: 9px; letter-spacing: .12em; font-weight: 600; }
-.note-toolbar-title h2 { margin: 3px 0 0; font-size: 14px; font-weight: 600; letter-spacing: -.02em; color: #484136; }
-.note-toolbar .note-done { border: 0; border-radius: 13px; padding: 10px 17px; background: #e8c780; color: #42321c; font-size: 14px; font-weight: 650; }
-.note-writing-area { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 26px 26px 40px; scrollbar-color: #c4b89f transparent; }
-.note-paper-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #938572; font-size: 11px; margin-bottom: 26px; }
-.note-writing-area .note-title-input { min-height: 46px; border: 0; border-radius: 0; background: transparent; color: #302d27; padding: 0; font-size: 31px; font-weight: 700; line-height: 1.3; letter-spacing: -.04em; resize: none; overflow: hidden; display: block; }
-.note-title-input::placeholder { color: #b3a58e; opacity: 1; }
-.note-paper-rule { height: 1px; width: 44px; background: #ccbfa8; margin: 20px 0 22px; }
-.note-writing-area .note-body-input { display: block; min-height: 240px; border: 0; border-radius: 0; resize: none; overflow: hidden; background: transparent; color: #49453c; padding: 0; font-size: 17px; line-height: 1.85; letter-spacing: -.01em; }
-.note-body-input::placeholder { color: #a89b85; opacity: 1; }
-.note-writing-area :is(textarea,input):focus-visible { outline: 2px solid #c5a668; outline-offset: 6px; border-radius: 3px; }
-.note-bottom-bar { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 52px; padding: 6px 22px max(8px,env(safe-area-inset-bottom)); border-top: 1px solid #e0d9cb; background: #f0eadf; }
-.note-bottom-bar > span { color: #8e806c; font-size: 11px; }
+.note-toolbar-title > span { display: block; color: var(--app-muted); font-size: 9px; letter-spacing: .12em; font-weight: 600; }
+.note-toolbar-title h2 { margin: 3px 0 0; font-size: 14px; font-weight: 600; letter-spacing: -.02em; color: var(--app-text); }
+.note-toolbar .note-done { border: 0; border-radius: 13px; padding: 10px 17px; background: var(--app-accent); color: var(--app-on-accent); font-size: 14px; font-weight: 650; }
+.note-writing-area { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 26px 26px 40px; scrollbar-color: var(--app-border-strong) transparent; }
+.note-paper-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--app-muted); font-size: 11px; margin-bottom: 26px; }
+.note-writing-area .note-title-input { min-height: 46px; border: 0; border-radius: 0; background: transparent; color: var(--app-text); padding: 0; font-size: 31px; font-weight: 700; line-height: 1.3; letter-spacing: -.04em; resize: none; overflow: hidden; display: block; }
+.note-title-input::placeholder { color: var(--app-muted); opacity: 1; }
+.note-paper-rule { height: 1px; width: 44px; background: var(--app-border-strong); margin: 20px 0 22px; }
+.note-writing-area .note-body-input { display: block; min-height: 240px; border: 0; border-radius: 0; resize: none; overflow: hidden; background: transparent; color: var(--app-secondary); padding: 0; font-size: 17px; line-height: 1.85; letter-spacing: -.01em; }
+.note-body-input::placeholder { color: var(--app-muted); opacity: 1; }
+.note-writing-area :is(textarea,input):focus-visible { outline: 2px solid var(--app-accent); outline-offset: 6px; border-radius: 3px; }
+.note-bottom-bar { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 52px; padding: 6px 22px max(8px,env(safe-area-inset-bottom)); border-top: 1px solid var(--app-border); background: var(--app-surface); }
+.note-bottom-bar > span { color: var(--app-muted); font-size: 11px; }
 .note-bottom-bar > span > span { padding-inline: 3px; }
-.note-bottom-bar button { display: flex; align-items: center; gap: 6px; flex-shrink: 0; padding: 8px 0 8px 8px; border: 0; background: transparent; color: #916a5e; font-size: 12px; }
-.note-sheet button:focus-visible { outline-color: #967542; }
+.note-bottom-bar button { display: flex; align-items: center; gap: 6px; flex-shrink: 0; padding: 8px 0 8px 8px; border: 0; background: transparent; color: #dfa7a4; font-size: 12px; }
+.note-sheet button:focus-visible { outline-color: var(--app-accent); }
 @media (max-width: 360px) { .note-writing-area { padding-inline: 22px; } .note-toolbar { padding-inline: 14px; gap: 9px; } .note-bottom-bar { padding-inline: 18px; } }

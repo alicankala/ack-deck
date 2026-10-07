@@ -46,7 +46,7 @@ test('failed sync preserves a durable retry queue and chained edits use sequenti
   await assert.rejects(store.synchronize(state,async()=>{throw new Error('offline');}));assert.equal((await store.readState()).queue.length,2);
 });
 test('manifest, production service worker, privacy and notification click routing are local-safe',()=>{
-  const manifest=JSON.parse(readFileSync(new URL('../public/manifest.webmanifest',import.meta.url),'utf8'));assert.equal(manifest.name,'ACKDeck Mobile');assert.equal(manifest.short_name,'ACK');assert.equal(manifest.display,'standalone');
+  const manifest=JSON.parse(readFileSync(new URL('../public/manifest.webmanifest',import.meta.url),'utf8'));assert.equal(manifest.name,'ACKDeck');assert.equal(manifest.short_name,'ACKDeck');assert.equal(manifest.display,'standalone');
   const worker=readFileSync(new URL('../dist/sw.js',import.meta.url),'utf8');assert.match(worker,/\/assets\/index-/);assert.match(worker,/pathname.startsWith\('\/api\/'\)/);assert.match(worker,/notificationclick/);assert.doesNotMatch(worker,/__ACK_PRECACHE__/);
   const push=readFileSync(new URL('../src/push.ts',import.meta.url),'utf8');assert.ok(push.indexOf('Notification.requestPermission()')<push.indexOf('const status = await api'));assert.match(push,/Ana Ekranınıza/);
   const main=readFileSync(new URL('../src/main.tsx',import.meta.url),'utf8');assert.match(main,/getUserMedia\(\{audio:true\}\)/);assert.match(main,/setTimeout\(\(\)=>rec.state/);assert.doesNotMatch(main,/speechRecognition|read_file|execute_command/);

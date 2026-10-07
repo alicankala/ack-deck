@@ -1,5 +1,13 @@
 # ACKDeck 1.1 — Uygulama ve doğrulama
 
+## Mobil ortak koyu tema ve bildirim adı — 7 Ekim
+
+Kullanıcının beğendiği Notlar paleti bütün mobil sayfalara taşındı: koyu gri zemin/yüzeyler, sıcak sarı vurgu, nötr yazı ve kenarlık renkleri. CSS ortak renk değişkenleri kullanır; görevler, gönderme kartı, çalışma alanları, abonelikler, ayarlar, eşleştirme, alt menü, formlar ve durum mesajları aynı palettedir. Hata/kayıt ve çevrimiçi durumlarının anlamlı kırmızı/yeşil ayrımı korunur. Not düzenleyicisindeki açık kâğıt rengi kaldırılıp aynı koyu tema uygulanmıştır. PWA theme/background renkleri de eşlenmiştir.
+
+Bildirim başlığı hem service worker hem sunucu/native tarafında zaten ACKDeck'tir. Mobil manifest name/short_name ve Apple ana ekran başlığı ACKDeck olarak birleştirildi; kısa ad ACK kaldırıldı. WebKit, ana ekrana eklenirken seçilen adı uygulama kimliğine dahil eder; mevcut iPhone kurulumunun adı veya sistemin eklediği gönderen satırının otomatik değişmesi bu yayınla garanti edilemez. Eşleşme, push aboneliği, manifest start_url/scope ve veri anahtarları değiştirilmedi; yeniden kurulum veya abonelik rotasyonu yapılmadı.
+
+Mobil build ve 12 test, release audit başarılıdır. Dağıtım `c81a71db-4c55-455d-b619-a659a617eac9`. Görsel/fiziksel iPhone doğrulaması mevcut araç erişimiyle yapılamadı. Masaüstü paketi ve GitHub Release değiştirilmedi.
+
 ## Mobil Notlar görsel yenilemesi — 7 Ekim
 
 Kullanıcının önceki mobil Notlar görünümünü beğenmemesi üzerine yalnız bu bölüm yeniden tasarlandı. Sayfa kendi başlığını, belirgin Yeni not düğmesini, arama alanını ve daha okunaklı başlık/önizleme/tarih kartlarını kullanır; Notes ekranındaki yinelenen genel uygulama başlığı ve PC özeti kaldırılır. Eşitleme durumu not başlığında korunur. Koyu gri kartlar ve sıcak vurgu rengi, açık kâğıt renkli yazma ekranıyla tamamlanır. 400px ve üstünde iki sütun, küçük telefonlarda tek sütun kullanılır.

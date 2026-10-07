@@ -2,7 +2,7 @@ import { api, json, type MobileState } from "./store";
 export async function enablePush(state: MobileState) {
   const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
   const installed = matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & {standalone?:boolean}).standalone;
-  if (ios && !installed) throw new Error("Bildirim almak için ACKDeck Mobile'ı Safari paylaşım menüsünden Ana Ekranınıza ekleyin ve oradan açın.");
+  if (ios && !installed) throw new Error("Bildirim almak için ACKDeck'ı Safari paylaşım menüsünden Ana Ekranınıza ekleyin ve oradan açın.");
   if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) throw new Error("Bu tarayıcı Web Push bildirimlerini desteklemiyor.");
   // Permission is requested immediately inside the user's click handler, before network awaits.
   if(Notification.permission==="denied")throw new Error("Bildirim izni verilmedi. İzni cihaz ayarlarından değiştirebilirsiniz.");
