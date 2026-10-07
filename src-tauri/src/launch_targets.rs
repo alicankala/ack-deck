@@ -19,7 +19,7 @@ fn registry(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
         .map_err(|_| "Kısayol kayıtlarına erişilemiyor.")?
         .join("launch-targets.v1.json"))
 }
-fn read(app: &tauri::AppHandle) -> Result<Vec<SavedTarget>, String> {
+pub(crate) fn read(app: &tauri::AppHandle) -> Result<Vec<SavedTarget>, String> {
     match fs::read(registry(app)?) {
         Ok(bytes) => serde_json::from_slice(&bytes)
             .map_err(|_| "Kısayol kayıtları okunamadı; mevcut veriler korunuyor.".into()),
@@ -128,7 +128,7 @@ pub async fn choose_launch_target(
         if kind == "file"
             && path.extension().is_some_and(|v| {
                 [
-                    "exe", "bat", "cmd", "ps1", "vbs", "js", "lnk", "url", "hta", "com", "msi",
+                    "exe", "bat", "cmd", "ps1", "vbs", "vbe", "js", "jse", "wsf", "wsh", "lnk", "url", "hta", "com", "msi", "scr", "cpl", "dll",
                 ]
                 .iter()
                 .any(|e| v.eq_ignore_ascii_case(e))
@@ -198,6 +198,7 @@ pub async fn open_saved_target(app: tauri::AppHandle, id: String) -> Result<(), 
                     crate::files::EntryKind::File
                 };
                 tauri::async_runtime::block_on(crate::files::access_file_entry(
+                    app.clone(),
                     item.target,
                     kind,
                     crate::files::FileAction::Open,
@@ -220,7 +221,7 @@ pub async fn reveal_saved_target(app: tauri::AppHandle, id: String) -> Result<()
         "folder" => crate::files::EntryKind::Folder,
         _ => return Err("Bu öğe Explorer'da gösterilemez.".into()),
     };
-    crate::files::access_file_entry(item.target, kind, crate::files::FileAction::Reveal).await
+    crate::files::access_file_entry(app, item.target, kind, crate::files::FileAction::Reveal).await
 }
 #[cfg(test)]
 mod tests {
@@ -243,5 +244,31 @@ mod tests {
     fn executable_requires_real_absolute_exe() {
         assert!(!executable(Path::new("cmd.exe")));
         assert!(!executable(Path::new("C:/missing.exe")));
+    }
+}
+
+fn normalized_path(path: &Path) -> String {
+    path.to_string_lossy().trim_start_matches(r"\\?\").replace('/', r"\").to_lowercase()
+}
+pub(crate) fn registered_path(items: &[SavedTarget], path: &Path, kind: &str) -> bool {
+    // Registry targets are canonical; a replaced symlink/junction must not authorize a new location.
+    path.is_absolute() && fs::canonicalize(path).is_ok_and(|canonical| {
+        normalized_path(&canonical) == normalized_path(path)
+            && items.iter().any(|item| item.kind == kind && normalized_path(Path::new(&item.target)) == normalized_path(&canonical))
+    })
+}
+pub(crate) fn authorize_path(app: &tauri::AppHandle, path: &str, kind: &str) -> Result<(),String> {
+    if registered_path(&read(app)?, Path::new(path), kind) { Ok(()) }
+    else { Err("Bu konum izinli değil. Öğeyi Klasör/Dosya Seç ile yeniden seçin; mevcut kayıt korunur.".into()) }
+}
+#[cfg(test)]
+mod boundary_tests {
+    use super::*;
+    #[test] fn only_native_registered_canonical_targets_are_authorized() {
+        let path = fs::canonicalize(std::env::temp_dir()).unwrap();
+        let target = SavedTarget { id:"fixture".into(), kind:"folder".into(), target:path.to_string_lossy().into_owned(), name:"Test".into() };
+        assert!(!registered_path(&[], &path, "folder"));
+        assert!(registered_path(&[target.clone()], &path, "folder"));
+        assert!(!registered_path(&[target], &path, "file"));
     }
 }

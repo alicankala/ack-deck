@@ -35,7 +35,7 @@ fn valid_url(input: &str) -> bool {
     url.scheme() == "https"
         && url
             .host_str()
-            .is_some_and(|host| host.ends_with(".workers.dev"))
+            .is_some_and(|host| host == "ack-deck-phone.ack-deck-cloud.workers.dev")
         && url.username().is_empty()
         && url.password().is_none()
         && url.query().is_none()
@@ -140,7 +140,7 @@ pub(crate) async fn request(
         .get_password()
         .map_err(|_| "Telefon sahibi anahtarı ayarlanmamış.")?;
     let serialized = body.to_string();
-    if serialized.len() > 65536 || serialized.contains("AIza") || serialized.contains(&secret) {
+    if serialized.len() > 65536 || (serialized.contains("AIza") || crate::privacy::unsafe_sync(&body)) || serialized.contains(&secret) {
         return Err("Telefon isteği çok büyük veya gizli bilgi içeriyor.".into());
     }
     let client = reqwest::Client::builder()
@@ -285,7 +285,8 @@ mod tests {
     use super::*;
     #[test]
     fn owner_routes_and_urls_are_bounded() {
-        assert!(valid_url("https://ack-deck-phone.example.workers.dev"));
+        assert!(valid_url("https://ack-deck-phone.ack-deck-cloud.workers.dev"));
+        assert!(!valid_url("https://ack-deck-phone.example.workers.dev"));
         for url in [
             "http://example.workers.dev",
             "https://example.com",

@@ -13,9 +13,12 @@
     "@block65/webcrypto-web-push": "2.0.0"
   },
   "devDependencies": {
-    "wrangler": "4.147.0",
     "@cloudflare/workers-types": "latest",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "wrangler": "4.148.0"
   },
-  "version": "1.2.0"
+  "version": "1.2.0",
+  "overrides": {
+    "sharp": "0.35.5"
+  }
 }

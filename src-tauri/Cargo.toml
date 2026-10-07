@@ -19,6 +19,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+regex = "1"
 base64 = "0.22"
 getrandom = "0.4"
 tauri = { version = "2", features = ["tray-icon"] }

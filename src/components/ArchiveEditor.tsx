@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { open } from "@tauri-apps/plugin-dialog";
+
 import { invoke } from "@tauri-apps/api/core";
 import { ARCHIVE_CATEGORIES, validArchiveDate, type ArchiveCategory, type ArchiveDraft, type ArchiveEntry } from "../archiveStore";
 import type { FileMetadata } from "../fileStore";
@@ -16,7 +16,8 @@ export function ArchiveEditor({ entry, onSave, onCancel }: { entry: ArchiveEntry
     setBusy(true);
     setError("");
     try {
-      const path = await open({ directory: false, multiple: false, title: "Arşiv kaydına bağlanacak dosyayı seç" });
+      const picked = await invoke<{target:string} | null>("choose_launch_target", {kind:"file"});
+      const path = picked?.target;
       if (typeof path !== "string" || !mounted.current) return;
       const metadata = await invoke<FileMetadata>("read_file_entry", { path, kind: "file" });
       if (mounted.current) setDraft((value) => ({ ...value, file: { path: metadata.path, fileName: metadata.fileName } }));

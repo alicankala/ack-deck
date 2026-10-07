@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+
 import { loadFiles, saveFiles, type FileEntry, type FileKind, type FileMetadata, type FileStatus } from "../fileStore";
 import { Icon } from "./Icon";
 import { recordRecent } from "../recentStore";
@@ -87,7 +87,8 @@ export function Files({ initialId }: { initialId?: string }) {
     setBusy(true);
     setFeedback(null);
     try {
-      const path = await open({ directory: kind === "folder", multiple: false, title: kind === "folder" ? "Kısayol eklenecek klasörü seç" : "Kısayol eklenecek dosyayı seç" });
+      const picked = await invoke<{target:string} | null>("choose_launch_target", {kind});
+      const path = picked?.target;
       if (typeof path !== "string" || !mounted.current) return;
       if (entriesRef.current.some((entry) => pathKey(entry.path) === pathKey(path))) {
         setFeedback({ text: "Bu konum zaten listede.", error: false });

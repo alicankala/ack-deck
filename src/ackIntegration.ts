@@ -2,7 +2,7 @@ import { buildIntelligenceContext, loadInboxIndex } from "./productIntelligence"
 import { loadSubscriptions } from "./subscriptionStore";
 import { loadActivity } from "./activityStore";
 import { paymentOccurrence } from "../shared/subscriptions";
-import { redactSecrets } from "./privacy";
+import { redactSecrets, safeAiContext } from "./privacy";
 export { redactSecrets } from "./privacy";
 export { proposeAckAction, executeAckAction } from "./ackActions";
 export type { AckAction, AckProposal } from "./ackActions";
@@ -115,11 +115,11 @@ export async function collectAckContext(text: string, tools: ReadTools = ackRead
         groups.set(result.source, [...(groups.get(result.source) ?? []), record]);
       }
       if (!groups.size) groups.set("projects", []);
-      return { context: [...groups].map(([source, records]) => ({ source, data: redactSecrets(JSON.stringify(records)).slice(0, 4000) })), warnings };
+      return { context: [...groups].map(([source, records]) => ({ source, data: redactSecrets(JSON.stringify(safeAiContext(records))).slice(0, 4000) })), warnings };
     }
   }
   const intelligence=tools===ackReadTools?buildIntelligenceContext(text):null;
-  if(intelligence)return {context:[{source:"activity",data:intelligence.text}],warnings:[]};
+  if(intelligence)return {context:[{source:"activity",data:JSON.stringify(safeAiContext(JSON.parse(intelligence.text)))}],warnings:[]};
   const sources = planAckSources(text);
   const context: AckContext[] = []; const warnings: string[] = [];
   let budget = 16000;
@@ -142,8 +142,8 @@ export async function collectAckContext(text: string, tools: ReadTools = ackRead
           if (Array.isArray(data) && data.length && /ne kaydet|hakkinda|ilgili/.test(normalizeAckText(text))) {
             for (const project of data.slice(0, 2)) {
               const query = project.name;
-              try { context.push({ source: "notes", data: redactSecrets(JSON.stringify(await tools.get_notes(query))).slice(0, 2000) }); } catch { warnings.push("İlgili notlara erişemedim."); }
-              try { context.push({ source: "archive", data: redactSecrets(JSON.stringify(await tools.get_archive_entries(query))).slice(0, 2000) }); } catch { warnings.push("İlgili arşiv kayıtlarına erişemedim."); }
+              try { context.push({ source: "notes", data: redactSecrets(JSON.stringify(safeAiContext(await tools.get_notes(query)))).slice(0, 2000) }); } catch { warnings.push("İlgili notlara erişemedim."); }
+              try { context.push({ source: "archive", data: redactSecrets(JSON.stringify(safeAiContext(await tools.get_archive_entries(query)))).slice(0, 2000) }); } catch { warnings.push("İlgili arşiv kayıtlarına erişemedim."); }
               budget -= 4000;
             }
           }
@@ -157,7 +157,7 @@ export async function collectAckContext(text: string, tools: ReadTools = ackRead
         case "ip": data = await withAiTimeout(Promise.resolve(tools.get_ip_info(text)), 5000); break;
         case "settings": data = await tools.get_settings(); break;
       }
-      const serialized = redactSecrets(JSON.stringify(data) ?? "null");
+      const serialized = redactSecrets(JSON.stringify(safeAiContext(data)) ?? "null");
       if (budget > 0) { context.push({ source, data: serialized.slice(0, Math.min(6000, budget)) }); budget -= Math.min(serialized.length, 6000); }
     } catch { warnings.push(SOURCE_LABELS[source] + " bilgilerine şu anda erişemedim."); }
   }

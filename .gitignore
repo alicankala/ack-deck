@@ -30,3 +30,14 @@ cloud/.test-state/
 *.njsproj
 *.sln
 *.sw?
+
+# Signing and local credential material
+*.pem
+*.key
+credentials.json
+secrets.json
+*.secret
+*.pfx
+*.p12
+*.dump
+*.bak

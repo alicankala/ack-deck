@@ -40,7 +40,8 @@ fn vscode_executable() -> Option<PathBuf> {
 }
 
 #[tauri::command]
-pub fn open_project_folder(path: String) -> Result<(), String> {
+pub fn open_project_folder(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    crate::launch_targets::authorize_path(&app, &path, "folder")?;
     let folder = existing_folder(path)?;
     Command::new("explorer.exe")
         .arg(folder)
@@ -50,7 +51,8 @@ pub fn open_project_folder(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn open_project_in_vscode(path: String) -> Result<(), String> {
+pub fn open_project_in_vscode(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    crate::launch_targets::authorize_path(&app, &path, "folder")?;
     let folder = existing_folder(path)?;
     let vscode =
         vscode_executable().ok_or_else(|| "VS Code bulunamadı veya açılamadı.".to_string())?;

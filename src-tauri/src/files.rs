@@ -113,18 +113,18 @@ fn existing_entry(path: &str, kind: EntryKind) -> Result<FileMetadata, String> {
 }
 
 #[tauri::command]
-pub async fn read_file_entry(path: String, kind: EntryKind) -> Result<FileMetadata, String> {
-    tauri::async_runtime::spawn_blocking(move || existing_entry(&path, kind))
+pub async fn read_file_entry(app: tauri::AppHandle, path: String, kind: EntryKind) -> Result<FileMetadata, String> {
+    tauri::async_runtime::spawn_blocking(move || { authorize(&app, &path, kind)?; existing_entry(&path, kind) })
         .await
         .map_err(|_| "Dosya bilgileri alınamadı.".to_string())?
 }
 
 #[tauri::command]
-pub async fn check_file_entries(items: Vec<FileReference>) -> Result<Vec<FileStatus>, String> {
+pub async fn check_file_entries(app: tauri::AppHandle, items: Vec<FileReference>) -> Result<Vec<FileStatus>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         items
             .iter()
-            .map(|item| inspect_entry(&item.path, item.kind))
+            .map(|item| if authorize(&app, &item.path, item.kind).is_ok() { inspect_entry(&item.path, item.kind) } else { FileStatus {path:item.path.clone(), state:FileState::Unavailable, metadata:None} })
             .collect()
     })
     .await
@@ -140,14 +140,16 @@ pub enum FileAction {
 
 #[tauri::command]
 pub async fn access_file_entry(
+    app: tauri::AppHandle,
     path: String,
     kind: EntryKind,
     action: FileAction,
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
+        authorize(&app, &path, kind)?;
         existing_entry(&path, kind)?;
         if kind == EntryKind::Folder {
-            return crate::projects::open_project_folder(path);
+            return crate::projects::open_project_folder(app, path);
         }
         match action {
             FileAction::Open => tauri_plugin_opener::open_path(PathBuf::from(path), None::<&str>)
@@ -206,4 +208,11 @@ mod tests {
         fs::remove_file(file).unwrap();
         fs::remove_dir(root).unwrap();
     }
+}
+
+fn authorize(app: &tauri::AppHandle, path: &str, kind: EntryKind) -> Result<(), String> {
+    if kind == EntryKind::File && Path::new(path).extension().is_some_and(|ext| ["exe","com","bat","cmd","ps1","vbs","vbe","js","jse","wsf","wsh","lnk","url","hta","msi","scr","cpl","dll"].iter().any(|blocked| ext.eq_ignore_ascii_case(blocked))) {
+        return Err("Çalıştırılabilir dosya veya betik dosya API'sinden açılamaz.".into());
+    }
+    crate::launch_targets::authorize_path(app, path, if kind == EntryKind::Folder {"folder"} else {"file"})
 }

@@ -1,1 +1,1 @@
-export const redactSecrets = (text: string) => text.replace(/AIza[\w-]{20,}/g, "[gizli anahtar]");
+export { redactSecrets, hasCredentials, scrubPrivateText, scrubSync, safeAiContext } from "../shared/privacy";

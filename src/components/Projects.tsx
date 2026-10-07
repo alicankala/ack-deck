@@ -5,7 +5,7 @@ import { EditorDialog } from "./EditorDialog";
 import { ActionMenu } from "./ActionMenu";
 import { useEffect, useState, type FormEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+
 import type { Project } from "../projectStore";
 import { Icon } from "./Icon";
 import { recordRecent } from "../recentStore";
@@ -37,7 +37,8 @@ export function Projects({ projects, onChange, fullPage = false, initialId, work
     setBusy(true);
     setMessage("");
     try {
-      const chosen = await open({ directory: true, multiple: false, title: "Proje klasörünü seç" });
+      const picked = await invoke<{target:string} | null>("choose_launch_target", {kind:"folder"});
+      const chosen = picked?.target;
       if (typeof chosen === "string") setEditor((current) => current ? { ...current, folderPath: chosen } : current);
     } catch {
       setMessage("Klasör seçme penceresi açılamadı.");

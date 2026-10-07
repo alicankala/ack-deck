@@ -112,7 +112,7 @@ npm run migrate:local
 npm run dev
 ```
 
-Yerel Worker/PWA: `http://127.0.0.1:8787`. Yerel secrets aracı yalnızca ignored `.dev.vars` içine sahte test anahtarları üretir; var olan dosyanın üzerine yazmaz. Bu dosyayı production secrets olarak kullanmayın. `http://127.0.0.1:8787/cdn-cgi/local/scheduled?format=json&cron=*+*+*+*+*` yerel Cron'u tetikler. Gerçek iPhone push için dağıtılmış HTTPS sürümü gerekir. Masaüstü ayrı güvenlik sınırı gereği yalnızca HTTPS `workers.dev` sunucusunu kabul eder; masaüstü/mobil eşitleme motorlarının ortak Worker akışları izole workerd/D1 testlerinde çalıştırılır.
+Yerel Worker/PWA: `http://127.0.0.1:8787`. Yerel secrets aracı yalnızca ignored `.dev.vars` içine sahte test anahtarları üretir; var olan dosyanın üzerine yazmaz. Bu dosyayı production secrets olarak kullanmayın. `http://127.0.0.1:8787/cdn-cgi/local/scheduled?format=json&cron=*+*+*+*+*` yerel Cron'u tetikler. Gerçek iPhone push için dağıtılmış HTTPS sürümü gerekir. Masaüstü ayrı güvenlik sınırı gereği yalnızca sabit production origin `https://ack-deck-phone.ack-deck-cloud.workers.dev` adresini kabul eder; masaüstü/mobil eşitleme motorlarının ortak Worker akışları izole workerd/D1 testlerinde çalıştırılır.
 
 Altyapı kaynakları: [Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/), [KV limitleri](https://developers.cloudflare.com/kv/platform/limits/), [kullanılan standart Web Push kütüphanesi](https://github.com/block65/webcrypto-web-push/blob/master/packages/web-push/README.md).
 

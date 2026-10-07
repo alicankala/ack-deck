@@ -1,3 +1,4 @@
+import { scrubSync } from "../shared/privacy";
 import { productMetadata } from "../shared/productivity";
 import { loadProjectSnapshot,saveProjects } from "./projectStore";
 import { validProject,type PhoneProject } from "../shared/phone";
@@ -30,7 +31,7 @@ function localTask(record:CloudRecord):Task {
 function snapshot():Map<string, {kind:Kind;id:string;data:PhoneTask|PhoneNote|Subscription|PhoneProject}> {
   const tasks=loadTasks(),notes=loadNotes(),subscriptions=loadSubscriptions(),projects=loadProjectSnapshot();if(tasks.locked||notes.error||subscriptions.locked||projects.locked)throw new Error("Görev veya not kayıtları okunamadı; eşitleme durduruldu.");
   const safeText=(s:string)=>/[A-Za-z]:[\\/]|\\\\/.test(s)?"":s;
-  return new Map([...projects.entries.map(p=>({kind:"projects" as const,id:p.id,data:{name:safeText(p.name)||"Proje",description:safeText(p.description),nextStep:safeText(p.nextStep??""),workspaceId:p.workspaceId??null,inboxIds:p.inboxIds??[]}})),...tasks.entries.map(task=>({kind:"tasks" as const,id:task.id,data:phoneTask(task)})),...subscriptions.entries.map(data=>({kind:"subscriptions" as const,id:data.id,data})),...notes.notes.map(note=>({kind:"notes" as const,id:note.id,data:{...productMetadata(note),...(note.attachments?{attachments:note.attachments}:{}),title:note.title,content:note.content,updatedAt:note.updatedAt}}))].map(item=>[key(item.kind,item.id),item]));
+  return new Map([...projects.entries.map(p=>({kind:"projects" as const,id:p.id,data:{name:safeText(p.name)||"Proje",description:safeText(p.description),nextStep:safeText(p.nextStep??""),workspaceId:p.workspaceId??null,inboxIds:p.inboxIds??[]}})),...tasks.entries.map(task=>({kind:"tasks" as const,id:task.id,data:phoneTask(task)})),...subscriptions.entries.map(data=>({kind:"subscriptions" as const,id:data.id,data})),...notes.notes.map(note=>({kind:"notes" as const,id:note.id,data:{...productMetadata(note),...(note.attachments?{attachments:note.attachments}:{}),title:note.title,content:note.content,updatedAt:note.updatedAt}}))].map(item=>[key(item.kind,item.id),{...item,data:scrubSync(item.data)}]));
 }
 function fingerprint(record:CloudRecord){return record.deleted?null:JSON.stringify(record.kind==="tasks"?phoneTask(localTask(record)):record.data);}
 function replaceRecord<T extends {id:string}>(entries:T[],id:string,next:T|null):T[]{
@@ -72,7 +73,7 @@ async function sync(request:typeof phoneRequest):Promise<SyncState> {
   const initialEpoch=epoch;
   const guard=()=>{if(paused||epoch!==initialEpoch||window.localStorage.getItem("ack-deck.restore-journal.v1")!==null||window.localStorage.getItem("ack-deck.phone-restore-review.v1")!==null)throw new Error("Telefon eşitlemesi güvenli biçimde duraklatıldı.");};
   guard();
-  let state=readPhoneSync();const local=snapshot();
+  let state=readPhoneSync();state.queue=state.queue.map(row=>({...row,data:scrubSync(row.data)}));const local=snapshot();
   const pending=new Set([...state.queue.map(row=>key(row.kind,row.id)),...state.conflicts.map(row=>key(row.local.kind,row.local.id))]);
   for(const [reference,item] of local){if(pending.has(reference))continue;const baseline=state.base[reference];if(JSON.stringify(item.data)!==baseline?.local)state.queue.push({mutationId:crypto.randomUUID(),kind:item.kind,id:item.id,baseVersion:baseline?.version??0,data:item.data,deleted:false});}
   for(const [reference,baseline] of Object.entries(state.base)){if(local.has(reference)||pending.has(reference)||baseline.local===null)continue;const colon=reference.indexOf(":");state.queue.push({mutationId:crypto.randomUUID(),kind:reference.slice(0,colon) as Kind,id:reference.slice(colon+1),baseVersion:baseline.version,data:null,deleted:true});}
@@ -107,7 +108,7 @@ async function sync(request:typeof phoneRequest):Promise<SyncState> {
     state.cursor=response.cursor;more=response.more;save(state);
   }
   guard();const spaces=loadWorkspaces();
-  if(!spaces.locked){const workspaces=spaces.entries.map(({id,name,icon,description})=>({id,name,icon,description:/[A-Za-z]:[\\/]/.test(description)?"":description}));const signature=JSON.stringify(workspaces);if(signature!==state.workspaceFingerprint){await request("workspaces",{workspaces});guard();state.workspaceFingerprint=signature;save(state);}}
+  if(!spaces.locked){const workspaces=spaces.entries.map(({id,name,icon,description})=>({id,name,icon,description:/[A-Za-z]:[\\/]/.test(description)?"":description}));const signature=JSON.stringify(workspaces);if(signature!==state.workspaceFingerprint){await request("workspaces",{workspaces:scrubSync(workspaces)});guard();state.workspaceFingerprint=signature;save(state);}}
   await request("heartbeat");guard();state.lastSync=Date.now();save(state);window.dispatchEvent(new Event("ack-phone-sync-status"));return state;
 }
 export async function resolvePhoneConflict(index:number,useCloud:boolean){if(running)throw new Error("Eşitleme sürüyor. Biraz sonra deneyin.");const state=readPhoneSync(),conflict=state.conflicts[index];if(!conflict)throw new Error("Çakışma bulunamadı.");const reference=key(conflict.local.kind,conflict.local.id);

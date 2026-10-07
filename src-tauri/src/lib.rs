@@ -13,6 +13,7 @@ mod pc_status;
 mod phone;
 mod phone_media;
 mod projects;
+mod privacy;
 mod qr;
 mod reminders;
 mod system_check;

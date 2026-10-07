@@ -2,7 +2,7 @@ use std::io::Write;
 use tauri_plugin_dialog::DialogExt;
 const MAX_BACKUP_BYTES: usize = 10 * 1024 * 1024;
 pub(crate) fn valid_envelope(content: &str) -> bool {
-    if content.len() > MAX_BACKUP_BYTES || content.contains("AIza") {
+    if content.len() > MAX_BACKUP_BYTES || (content.contains("AIza") || crate::privacy::has_credentials(content)) {
         return false;
     }
     let Ok(value) = serde_json::from_str::<serde_json::Value>(content) else {

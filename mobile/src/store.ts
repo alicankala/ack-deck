@@ -1,3 +1,4 @@
+import { scrubSync } from "../../shared/privacy";
 import { validCloudRecord, validMutation, type CloudRecord, type Mutation } from "../../shared/phone";
 export type MobileState = { taskOrder?: string[]; syncSchema?: 2 | 3; token: string | null; name: string; cursor: number; records: CloudRecord[]; queue: Mutation[]; conflicts: { mutation: Mutation; server: CloudRecord | null }[] };
 export const emptyState = (): MobileState => ({token:null,name:"iPhone",cursor:0,records:[],queue:[],conflicts:[]});
@@ -28,7 +29,7 @@ export async function synchronize(initial: MobileState, request = api, persist =
   if(state.syncSchema!==3){state.cursor=0;state.syncSchema=3;}
   while (state.queue.length) {
     const mutation = state.queue[0];
-    const result = await request<{record:CloudRecord|null;conflict?:boolean}>(state,"mutations",json(mutation));
+    const result = await request<{record:CloudRecord|null;conflict?:boolean}>(state,"mutations",json({...mutation,data:scrubSync(mutation.data)}));
     if((result.record!==null&&!validCloudRecord(result.record))||(!result.conflict&&!result.record))throw new Error("Sunucu kayıtları doğrulanamadı.");
     if (result.conflict) {
       const related = state.queue.filter(row => row.kind === mutation.kind && row.id === mutation.id);

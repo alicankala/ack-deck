@@ -56,7 +56,7 @@ async fn verify(url: String, device: Option<String>) -> Result<(), String> {
     if parsed.scheme() != "https"
         || !parsed
             .host_str()
-            .is_some_and(|host| host.ends_with(".workers.dev"))
+            .is_some_and(|host| host == "ack-deck-phone.ack-deck-cloud.workers.dev")
         || !parsed.username().is_empty()
         || parsed.password().is_some()
         || parsed.path() != "/"
