@@ -1,9 +1,10 @@
 import { Icon, type IconName } from "./Icon";
-export type Page = "home" | "tasks" | "ai" | "workspaces" | "projects" | "tools" | "notes" | "qr" | "ip" | "files" | "speed" | "pc" | "archive" | "settings" | "inbox" | "subscriptions";
+export type Page = "home" | "tasks" | "ai" | "workspaces" | "projects" | "tools" | "notes" | "qr" | "ip" | "files" | "speed" | "pc" | "archive" | "settings" | "inbox" | "subscriptions" | "calendar";
 const navigationGroups: { label: string; items: { id: Page; label: string; icon: IconName }[] }[] = [
   { label: "Günlük", items: [
   { id: "home", label: "Ana Sayfa", icon: "grid" },
   { id: "tasks", label: "Görevler", icon: "check" },
+  { id: "calendar", label: "Haftalık Plan", icon: "grid" },
   { id: "projects", label: "Projeler", icon: "folder" },
   { id: "ai", label: "ACK AI", icon: "spark" },
   ] },

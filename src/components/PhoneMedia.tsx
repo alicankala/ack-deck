@@ -11,7 +11,7 @@ export function PhoneMedia({ file, cached = false }: { file: NoteAttachment; cac
     setUrl(""); setText(""); setError("");
     void (async () => {
       if (!cached) await cachePhoneFile(file.id, file.name);
-      const saved = await readPhoneFile(file.id);
+      const saved = await readPhoneFile(file.id).catch(async()=>{ await cachePhoneFile(file.id,file.name); return readPhoneFile(file.id); });
       const bytes = Uint8Array.from(atob(saved.base64), char => char.charCodeAt(0));
       if (!active) return;
       if (saved.mime === "text/plain") setText(new TextDecoder().decode(bytes));

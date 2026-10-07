@@ -1,3 +1,6 @@
+import { productMetadata } from "../shared/productivity";
+import { loadProjectSnapshot,saveProjects } from "./projectStore";
+import { validProject,type PhoneProject } from "../shared/phone";
 import { loadSubscriptions, saveSubscriptions } from "./subscriptionStore";
 import { type Subscription } from "../shared/subscriptions";
 import { loadTasks, saveTasks, taskDueAt, localDateKey, type Task } from "./taskStore";
@@ -6,33 +9,56 @@ import { loadWorkspaces } from "./workHubStore";
 import { phoneRequest } from "./phoneClient";
 import { validCloudRecord, validMutation, validNote, validTask, type CloudRecord, type Kind, type Mutation, type PhoneTask, type PhoneNote } from "../shared/phone";
 export const PHONE_SYNC_KEY = "ack-deck.phone-sync.v1";
-export type SyncState = {syncSchema?:2;cursor:number;base:Record<string,{version:number;local:string|null}>;queue:Mutation[];conflicts:{local:Mutation;server:CloudRecord|null}[];lastSync:number;workspaceFingerprint?:string};
+export type SyncState = {syncSchema?:2|3;cursor:number;base:Record<string,{version:number;local:string|null}>;queue:Mutation[];conflicts:{local:Mutation;server:CloudRecord|null}[];lastSync:number;workspaceFingerprint?:string};
 const key = (kind:Kind,id:string) => `${kind}:${id}`;
 export function readPhoneSync():SyncState {
   const raw=window.localStorage.getItem(PHONE_SYNC_KEY);
-  if(raw===null)return{syncSchema:2,cursor:0,base:{},queue:[],conflicts:[],lastSync:0};
+  if(raw===null)return{syncSchema:3,cursor:0,base:{},queue:[],conflicts:[],lastSync:0};
   const value=JSON.parse(raw) as SyncState;
-  if((value.syncSchema!==undefined&&value.syncSchema!==2)||!Number.isSafeInteger(value.cursor)||value.cursor<0||!value.base||typeof value.base!=="object"||!Array.isArray(value.queue)||!value.queue.every(validMutation)||!Array.isArray(value.conflicts)||!Number.isFinite(value.lastSync))throw new Error("Telefon eşitleme kaydı okunamadı. Mevcut veriler korunuyor.");
-  if(Array.isArray(value.base)||!Object.entries(value.base).every(([reference,row])=>/^(tasks|notes|subscriptions):[a-zA-Z0-9_.-]{1,128}$/.test(reference)&&row&&Number.isSafeInteger(row.version)&&row.version>=0&&(row.local===null||typeof row.local==="string"))||!value.conflicts.every(row=>row&&validMutation(row.local)&&(row.server===null||validCloudRecord(row.server))))throw new Error("Telefon eşitleme kaydı okunamadı. Mevcut veriler korunuyor.");
-  if(value.syncSchema!==2){value.cursor=0;value.syncSchema=2;}
+  if((value.syncSchema!==undefined&&value.syncSchema!==2&&value.syncSchema!==3)||!Number.isSafeInteger(value.cursor)||value.cursor<0||!value.base||typeof value.base!=="object"||!Array.isArray(value.queue)||!value.queue.every(validMutation)||!Array.isArray(value.conflicts)||!Number.isFinite(value.lastSync))throw new Error("Telefon eşitleme kaydı okunamadı. Mevcut veriler korunuyor.");
+  if(Array.isArray(value.base)||!Object.entries(value.base).every(([reference,row])=>/^(tasks|notes|subscriptions|projects):[a-zA-Z0-9_.-]{1,128}$/.test(reference)&&row&&Number.isSafeInteger(row.version)&&row.version>=0&&(row.local===null||typeof row.local==="string"))||!value.conflicts.every(row=>row&&validMutation(row.local)&&(row.server===null||validCloudRecord(row.server))))throw new Error("Telefon eşitleme kaydı okunamadı. Mevcut veriler korunuyor.");
+  if(value.syncSchema!==3){value.cursor=0;value.syncSchema=3;}
   return value;
 }
 function save(state:SyncState){window.localStorage.setItem(PHONE_SYNC_KEY,JSON.stringify(state));}
-export function phoneTask(task:Task):PhoneTask{return{text:task.text,completed:task.completed,dueDate:task.dueDate??null,dueTime:task.dueTime??null,priority:task.priority??"normal",reminder:task.reminder??false,dueAt:taskDueAt(task),timezone:task.recurrence?.timezone??task.timezone??Intl.DateTimeFormat().resolvedOptions().timeZone,...(task.recurrence!==undefined?{recurrence:task.recurrence,occurrenceAt:task.occurrenceAt??null,lastCompletedAt:task.lastCompletedAt??null,snoozedUntil:task.snoozedUntil??null}:{})};}
+export function phoneTask(task:Task):PhoneTask{return{...productMetadata(task),text:task.text,completed:task.completed,dueDate:task.dueDate??null,dueTime:task.dueTime??null,priority:task.priority??"normal",reminder:task.reminder??false,dueAt:taskDueAt(task),timezone:task.recurrence?.timezone??task.timezone??Intl.DateTimeFormat().resolvedOptions().timeZone,...(task.recurrence!==undefined?{recurrence:task.recurrence,occurrenceAt:task.occurrenceAt??null,lastCompletedAt:task.lastCompletedAt??null,snoozedUntil:task.snoozedUntil??null}:{})};}
 function localTask(record:CloudRecord):Task {
   const data=record.data as PhoneTask;let date=data.dueDate,time=data.dueTime;
   if(data.dueAt!==null&&!data.recurrence){const local=new Date(data.dueAt);date=localDateKey(local);time=`${String(local.getHours()).padStart(2,"0")}:${String(local.getMinutes()).padStart(2,"0")}`;}
-  return{id:record.id,text:data.text,completed:data.completed,dueDate:date,dueTime:time,priority:data.priority,reminder:data.reminder,timezone:data.timezone,...(data.recurrence!==undefined?{recurrence:data.recurrence,occurrenceAt:data.occurrenceAt??null,lastCompletedAt:data.lastCompletedAt??null,snoozedUntil:data.snoozedUntil??null}:{})};
+  return{...productMetadata(data),id:record.id,text:data.text,completed:data.completed,dueDate:date,dueTime:time,priority:data.priority,reminder:data.reminder,timezone:data.recurrence?data.timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,...(data.recurrence!==undefined?{recurrence:data.recurrence,occurrenceAt:data.occurrenceAt??null,lastCompletedAt:data.lastCompletedAt??null,snoozedUntil:data.snoozedUntil??null}:{})};
 }
-function snapshot():Map<string, {kind:Kind;id:string;data:PhoneTask|PhoneNote|Subscription}> {
-  const tasks=loadTasks(),notes=loadNotes(),subscriptions=loadSubscriptions();if(tasks.locked||notes.error||subscriptions.locked)throw new Error("Görev veya not kayıtları okunamadı; eşitleme durduruldu.");
-  return new Map([...tasks.entries.map(task=>({kind:"tasks" as const,id:task.id,data:phoneTask(task)})),...subscriptions.entries.map(data=>({kind:"subscriptions" as const,id:data.id,data})),...notes.notes.map(note=>({kind:"notes" as const,id:note.id,data:{title:note.title,content:note.content,updatedAt:note.updatedAt}}))].map(item=>[key(item.kind,item.id),item]));
+function snapshot():Map<string, {kind:Kind;id:string;data:PhoneTask|PhoneNote|Subscription|PhoneProject}> {
+  const tasks=loadTasks(),notes=loadNotes(),subscriptions=loadSubscriptions(),projects=loadProjectSnapshot();if(tasks.locked||notes.error||subscriptions.locked||projects.locked)throw new Error("Görev veya not kayıtları okunamadı; eşitleme durduruldu.");
+  const safeText=(s:string)=>/[A-Za-z]:[\\/]|\\\\/.test(s)?"":s;
+  return new Map([...projects.entries.map(p=>({kind:"projects" as const,id:p.id,data:{name:safeText(p.name)||"Proje",description:safeText(p.description),nextStep:safeText(p.nextStep??""),workspaceId:p.workspaceId??null,inboxIds:p.inboxIds??[]}})),...tasks.entries.map(task=>({kind:"tasks" as const,id:task.id,data:phoneTask(task)})),...subscriptions.entries.map(data=>({kind:"subscriptions" as const,id:data.id,data})),...notes.notes.map(note=>({kind:"notes" as const,id:note.id,data:{...productMetadata(note),...(note.attachments?{attachments:note.attachments}:{}),title:note.title,content:note.content,updatedAt:note.updatedAt}}))].map(item=>[key(item.kind,item.id),item]));
 }
 function fingerprint(record:CloudRecord){return record.deleted?null:JSON.stringify(record.kind==="tasks"?phoneTask(localTask(record)):record.data);}
+function replaceRecord<T extends {id:string}>(entries:T[],id:string,next:T|null):T[]{
+  if(!next)return entries.filter(item=>item.id!==id);
+  return entries.some(item=>item.id===id)?entries.map(item=>item.id===id?next:item):[...entries,next];
+}
 function apply(record:CloudRecord) {
-  if(record.kind==="tasks") {if(!record.deleted&&!validTask(record.data))throw new Error("Bulut görevi geçersiz. Yerel kayıtlar korunuyor.");const loaded=loadTasks();const existing=loaded.entries.find(task=>task.id===record.id);const next=record.deleted?null:{...localTask(record),...(existing?.remindedFor?{remindedFor:existing.remindedFor}:{})};if(!saveTasks([...loaded.entries.filter(task=>task.id!==record.id),...(next?[next]:[])],loaded))throw new Error("Bulut görevi kaydedilemedi. Yerel kayıtlar korunuyor.");}
-  else if(record.kind==="subscriptions"){const loaded=loadSubscriptions();if(!saveSubscriptions([...loaded.entries.filter(s=>s.id!==record.id),...(record.deleted?[]:[record.data as Subscription])],loaded))throw new Error("Abonelik eşitlenemedi. Kayıtlar korunuyor.");}
-  else {if(!record.deleted&&!validNote(record.data))throw new Error("Bulut notu geçersiz. Yerel kayıtlar korunuyor.");const loaded=loadNotes();const attachments=loaded.notes.find(note=>note.id===record.id)?.attachments;if(loaded.error||!saveNotes([...loaded.notes.filter(note=>note.id!==record.id),...(record.deleted?[]:[{id:record.id,...record.data as PhoneNote,...(attachments?{attachments}:{})}])]))throw new Error("Bulut notu kaydedilemedi. Yerel kayıtlar korunuyor.");}
+  if(record.kind==="projects"){
+    if(!record.deleted&&!validProject(record.data))throw new Error("Bulut projesi geçersiz.");
+    const loaded=loadProjectSnapshot(),previous=loaded.entries.find(p=>p.id===record.id),data=record.data as PhoneProject;
+    const localOnly=previous?Object.fromEntries(["name","description","nextStep"].filter(key=>/[A-Za-z]:[\\/]|\\\\/.test(String(previous[key as keyof typeof previous]??""))).map(key=>[key,previous[key as keyof typeof previous]])):{};
+    const next=record.deleted?null:{...previous,id:record.id,folderPath:previous?.folderPath??"",...data,...localOnly};
+    if(!saveProjects(replaceRecord(loaded.entries,record.id,next),loaded))throw new Error("Proje eşitlenemedi.");
+  }else if(record.kind==="tasks"){
+    if(!record.deleted&&!validTask(record.data))throw new Error("Bulut görevi geçersiz. Yerel kayıtlar korunuyor.");
+    const loaded=loadTasks(),existing=loaded.entries.find(t=>t.id===record.id);
+    const next=record.deleted?null:{...localTask(record),...(existing?.remindedFor?{remindedFor:existing.remindedFor}:{})};
+    if(!saveTasks(replaceRecord(loaded.entries,record.id,next),loaded))throw new Error("Bulut görevi kaydedilemedi. Yerel kayıtlar korunuyor.");
+  }else if(record.kind==="subscriptions"){
+    const loaded=loadSubscriptions();
+    if(!saveSubscriptions(replaceRecord(loaded.entries,record.id,record.deleted?null:record.data as Subscription),loaded))throw new Error("Abonelik eşitlenemedi. Kayıtlar korunuyor.");
+  }else{
+    if(!record.deleted&&!validNote(record.data))throw new Error("Bulut notu geçersiz. Yerel kayıtlar korunuyor.");
+    const loaded=loadNotes(),localAttachments=loaded.notes.find(n=>n.id===record.id)?.attachments,cloudAttachments=(record.data as PhoneNote|null)?.attachments;
+    const attachments=cloudAttachments===undefined?localAttachments:[...cloudAttachments,...(localAttachments??[]).filter(a=>!cloudAttachments.some(b=>b.id===a.id))].slice(0,20);
+    const next=record.deleted?null:{id:record.id,...record.data as PhoneNote,...(attachments?{attachments}:{})};
+    if(loaded.error||!saveNotes(replaceRecord(loaded.notes,record.id,next)))throw new Error("Bulut notu kaydedilemedi. Yerel kayıtlar korunuyor.");
+  }
 }
 let running:Promise<SyncState>|null=null;
 let paused=false, epoch=0;

@@ -1,3 +1,4 @@
+import { PhoneMedia } from "./PhoneMedia";
 import { ActionMenu } from "./ActionMenu";
 import { offerUndo } from "../recordUndo";
 import { useEffect, useRef, useState } from "react";
@@ -79,7 +80,7 @@ export function Archive({ initialId, createNew = false }: { initialId?: string; 
         <p className="archive-detail-date">{archiveDateLabel(selected.date)}</p>
         <div className="archive-tags">{selected.tags.map((tag, index) => <span key={index}>{tag}</span>)}</div>
         <p className="archive-description">{selected.description || "Açıklama eklenmedi."}</p>
-        {selected.file ? <ArchiveFileLink key={selected.file.path} file={selected.file} /> : <p className="archive-no-file">İlişkili dosya eklenmedi.</p>}
+        {selected.attachments?.map(file=><PhoneMedia key={file.id} file={file} cached/>)}{selected.file ? <ArchiveFileLink key={selected.file.path} file={selected.file} /> : <p className="archive-no-file">İlişkili dosya eklenmedi.</p>}
         <div className="archive-timestamps"><span>Oluşturulma: <time dateTime={new Date(selected.createdAt).toISOString()}>{timeFormatter.format(selected.createdAt)}</time></span><span>Son güncelleme: <time dateTime={new Date(selected.updatedAt).toISOString()}>{timeFormatter.format(selected.updatedAt)}</time></span></div>
         <div className="archive-detail-actions"><button className="button button-secondary" type="button" onClick={() => { setEditor({ entry: selected }); setDeleteId(null); }} disabled={initial.locked}>Düzenle</button><button className="button button-secondary archive-delete" type="button" onClick={() => setDeleteId(selected.id)} disabled={initial.locked}>Kaydı Sil</button></div>
         {deleteId === selected.id && <div className="file-remove-confirm" role="group" aria-label="Arşiv kaydını silme onayı"><span>Bu arşiv kaydı silinsin mi? İlişkili dosya silinmez.</span><button type="button" onClick={() => remove(selected.id)}>Evet, sil</button><button type="button" onClick={() => setDeleteId(null)}>Vazgeç</button></div>}

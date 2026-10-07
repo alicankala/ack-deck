@@ -2,7 +2,7 @@ use crate::gemini_models::ModelChoice;
 use keyring::{Entry, Error as KeyringError};
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 use std::time::Duration;
 
 const CREDENTIAL_SERVICE: &str = "com.alican.ackdeck";
@@ -49,6 +49,9 @@ pub enum AckSource {
     Shortcuts,
     Recent,
     Pinned,
+    Inbox,
+    Subscriptions,
+    Activity,
 }
 
 #[derive(Deserialize)]
@@ -73,6 +76,9 @@ impl AckSource {
             Self::Shortcuts => "Kısayollar",
             Self::Recent => "Son Kullanılanlar",
             Self::Pinned => "Sabitlenenler",
+            Self::Inbox => "Gelenler metadata",
+            Self::Subscriptions => "Abonelikler",
+            Self::Activity => "Yerel çalışma geçmişi ve türetilmiş plan",
         }
     }
 }
@@ -157,6 +163,37 @@ fn client() -> Result<Client, String> {
         .map_err(|_| NETWORK_ERROR.to_string())
 }
 
+fn transport_error(error: reqwest::Error) -> String {
+    if error.is_timeout() {
+        "Gemini isteği zaman aşımına uğradı. Model zamanında yanıt vermedi; yeniden deneyebilir veya Hızlı modeli kullanabilirsiniz.".into()
+    } else {
+        "Gemini bağlantısı kurulamadı. Ağ bağlantısını kontrol edin.".into()
+    }
+}
+fn classify_api_error(status: StatusCode, code: &str) -> String {
+    match (status.as_u16(), code) {
+        (408 | 504, _) | (_, "DEADLINE_EXCEEDED") => "Gemini isteği zaman aşımına uğradı. Model zamanında yanıt vermedi; yeniden deneyebilir veya Hızlı modeli kullanabilirsiniz.".into(),
+        (429, _) | (_, "RESOURCE_EXHAUSTED") => "Gemini kotası veya istek sınırı doldu. Daha sonra tekrar deneyin.".into(),
+        (403, _) | (_, "PERMISSION_DENIED") => "Gemini modeline erişim yok. API anahtarının model izinlerini kontrol edin.".into(),
+        (404, _) | (_, "NOT_FOUND") => "Gemini modeli kullanılamıyor. Bu model veya API sürümü anahtarınıza açık değil.".into(),
+        (400, _) | (_, "INVALID_ARGUMENT") => "Gemini isteği desteklenmiyor. Modelin dosya veya araç desteğini kontrol edin.".into(),
+        _ => api_error(status),
+    }
+}
+async fn response_error(mut response: reqwest::Response) -> String {
+    let status = response.status();
+    let mut bytes = Vec::new();
+    while let Ok(Some(chunk)) = response.chunk().await {
+        if bytes.len() + chunk.len() > 65536 {
+            break;
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    // Inspect provider status only. Raw error text can contain request/credential details.
+    let body: Value = serde_json::from_slice(&bytes).unwrap_or_default();
+    classify_api_error(status, body["error"]["status"].as_str().unwrap_or(""))
+}
+
 fn endpoint(model: &str, generation: bool) -> String {
     let model_url = format!("https://generativelanguage.googleapis.com/v1beta/models/{model}");
     if generation {
@@ -205,15 +242,17 @@ pub fn delete_gemini_key() -> Result<(), String> {
 pub async fn test_gemini_connection(model: ModelChoice) -> Result<(), String> {
     let key = require_key()?;
     let response = client()?
-        .get(endpoint(model.model_name(), false))
+        .post(endpoint(model.model_name(), true))
+        .timeout(Duration::from_secs(if matches!(model, ModelChoice::Powerful) { 180 } else { 45 }))
         .header("x-goog-api-key", key)
+        .json(&json!({"contents":[{"role":"user","parts":[{"text":"Reply OK."}]}],"generationConfig":{"maxOutputTokens":2048}}))
         .send()
         .await
-        .map_err(|_| NETWORK_ERROR.to_string())?;
+        .map_err(transport_error)?;
     if response.status().is_success() {
         Ok(())
     } else {
-        Err(api_error(response.status()))
+        Err(response_error(response).await)
     }
 }
 
@@ -269,14 +308,21 @@ pub async fn gemini_chat(
     }
     let response = client()?
         .post(endpoint(model.model_name(), true))
+        .timeout(Duration::from_secs(
+            if matches!(model, ModelChoice::Powerful) {
+                180
+            } else {
+                45
+            },
+        ))
         .header("x-goog-api-key", &key)
         .json(&payload)
         .send()
         .await
-        .map_err(|_| NETWORK_ERROR.to_string())?;
+        .map_err(transport_error)?;
 
     if !response.status().is_success() {
-        return Err(api_error(response.status()));
+        return Err(response_error(response).await);
     }
 
     let result: GeminiResponse = response
@@ -370,5 +416,29 @@ mod tests {
             fake_secret
         )
         .is_err());
+    }
+    #[test]
+    fn provider_errors_distinguish_model_access_quota_feature_timeout_and_server_failure() {
+        assert!(classify_api_error(StatusCode::NOT_FOUND, "NOT_FOUND")
+            .contains("modeli kullanılamıyor"));
+        assert!(
+            classify_api_error(StatusCode::FORBIDDEN, "PERMISSION_DENIED").contains("erişim yok")
+        );
+        assert!(
+            classify_api_error(StatusCode::TOO_MANY_REQUESTS, "RESOURCE_EXHAUSTED")
+                .contains("kotası")
+        );
+        assert!(
+            classify_api_error(StatusCode::BAD_REQUEST, "INVALID_ARGUMENT")
+                .contains("desteklenmiyor")
+        );
+        assert!(
+            classify_api_error(StatusCode::GATEWAY_TIMEOUT, "DEADLINE_EXCEEDED")
+                .contains("zaman aşımına")
+        );
+        assert!(
+            classify_api_error(StatusCode::SERVICE_UNAVAILABLE, "UNAVAILABLE")
+                .contains("şu anda yanıt vermiyor")
+        );
     }
 }

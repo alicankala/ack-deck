@@ -5,6 +5,7 @@ import type { NavigationTarget } from "./navigation";
 import { recordRecent } from "./recentStore";
 export type PaletteCommand = { id: string; label: string; target?: NavigationTarget; projectId?: string; mode?: "folder" | "vscode" };
 const commands: PaletteCommand[] = [
+  { id: "calendar", label: "Haftalık Plan", target: { page: "calendar" } },
   { id: "subscriptions", label: "Abonelikler", target: { page: "subscriptions" } },
   { id: "home", label: "Ana Sayfa", target: { page: "home" } }, { id: "ai", label: "ACK AI", target: { page: "ai" } },
   { id: "new-task", label: "Yeni Görev", target: { page: "tasks", intent: "new-task" } }, { id: "tasks", label: "Görevler", target: { page: "tasks" } },

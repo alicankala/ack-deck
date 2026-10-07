@@ -2,11 +2,17 @@ import { boundedConversation } from "./conversationContext";
 import { invoke } from "@tauri-apps/api/core";
 import type { AckContext, AckSource } from "./ackIntegration";
 
-export type AiMessage = { role: "user" | "model"; text: string; sources?: AckSource[]; attachments?: { name: string; mime: string; size: number }[] };
+export type AiMessage = { role: "user" | "model"; text: string; sources?: AckSource[]; references?: {source:string;id:string;label:string}[]; attachments?: { name: string; mime: string; size: number }[] };
 export type AiModel = "fast" | "powerful";
 export type AiReply = { text: string; action?: { name: string; args: unknown } | null };
 
 const safeErrors = new Set([
+  "Gemini isteği zaman aşımına uğradı. Model zamanında yanıt vermedi; yeniden deneyebilir veya Hızlı modeli kullanabilirsiniz.",
+  "Gemini modeline erişim yok. API anahtarının model izinlerini kontrol edin.",
+  "Gemini modeli kullanılamıyor. Bu model veya API sürümü anahtarınıza açık değil.",
+  "Gemini kotası veya istek sınırı doldu. Daha sonra tekrar deneyin.",
+  "Gemini isteği desteklenmiyor. Modelin dosya veya araç desteğini kontrol edin.",
+  "Gemini bağlantısı kurulamadı. Ağ bağlantısını kontrol edin.",
   "Eklenen dosyanın süresi doldu. Dosyayı yeniden ekleyin.",
   "Dosya gizli anahtar içeriyor; gönderilmedi.",
   "Metin dosyası UTF-8 olmalı.",

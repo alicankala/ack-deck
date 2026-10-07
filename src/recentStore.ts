@@ -1,3 +1,4 @@
+import { recordActivity } from "./activityStore";
 import { loadProjectSnapshot } from "./projectStore";
 import { loadNotes } from "./notesStore";
 import { loadArchive } from "./archiveStore";
@@ -20,7 +21,7 @@ export function loadRecents(): { entries: RecentItem[]; locked: boolean } {
 export function recordRecent(source: RecentSource, id: string, mode?: "folder" | "vscode", now = Date.now()): boolean {
   const item = { source, id, usedAt: now, ...(mode ? { mode } : {}) }, loaded = loadRecents();
   if (loaded.locked || !isRecentItem(item)) return false;
-  try { window.localStorage.setItem(KEY, JSON.stringify([item, ...loaded.entries.filter(entry => entry.source !== source || entry.id !== id)].sort((a, b) => b.usedAt - a.usedAt).slice(0, 20))); updateUsage(source, id, undefined, now); if (typeof Event !== "undefined") window.dispatchEvent?.(new Event("ack-recents-changed")); return true; } catch { return false; }
+  try { window.localStorage.setItem(KEY, JSON.stringify([item, ...loaded.entries.filter(entry => entry.source !== source || entry.id !== id)].sort((a, b) => b.usedAt - a.usedAt).slice(0, 20))); updateUsage(source, id, undefined, now); if(source==="projects"||source==="workspaces"){const record=source==="projects"?loadProjectSnapshot().entries.find(p=>p.id===id):loadWorkspaces().entries.find(p=>p.id===id);if(record)recordActivity({source,recordId:id,projectId:source==="projects"?id:undefined,label:record.name,kind:"used"},now);} if (typeof Event !== "undefined") window.dispatchEvent?.(new Event("ack-recents-changed")); return true; } catch { return false; }
 }
 export function resolveRecents(limit = 5): ResolvedRecent[] {
   const loaded = loadRecents(); if (loaded.locked) return [];

@@ -1,3 +1,4 @@
+import { RecordLinkFields } from "./RecordLinkFields";
 import { offerUndo } from "../recordUndo";
 import { PhoneMedia } from "./PhoneMedia";
 import { useEffect, useRef, useState } from "react";
@@ -38,11 +39,12 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
 
   function createNote() {
     const note: Note = { id: crypto.randomUUID(), title: "Yeni Not", content: "", updatedAt: Date.now() };
-    if (initial.error || !saveNotes([note, ...notes])) {
+    const current=loadNotes();
+    if (initial.error || current.error || !saveNotes([note, ...current.notes])) {
       setError(initial.error ?? "Not oluşturulamadı. Depolama alanını kontrol edin.");
       return;
     }
-    setNotes([note, ...notes]);
+    setNotes([note, ...current.notes]);
     editedNote.current = { id: note.id, usedAt: note.updatedAt };
     setSelectedId(note.id);
     setQuery("");
@@ -50,20 +52,23 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
     setConfirmDelete(false);
   }
 
-  function edit(changes: Partial<Pick<Note, "title" | "content">>) {
+  function edit(changes: Partial<Pick<Note, "title" | "content" | "projectId" | "workspaceId">>) {
     if (!selected) return;
     const updatedAt = Date.now();
-    if (commit(notes.map((note) => note.id === selected.id ? { ...note, ...changes, updatedAt } : note))) editedNote.current = { id: selected.id, usedAt: updatedAt };
+    const current=loadNotes();
+    if(current.error||!current.notes.some(n=>n.id===selected.id)){setError("Not başka bir cihazda değişti veya okunamıyor. Güncel kayıtları kontrol et.");return;}
+    if (commit(current.notes.map((note) => note.id === selected.id ? { ...note, ...changes, updatedAt } : note))) editedNote.current = { id: selected.id, usedAt: updatedAt };
   }
 
   function remove() {
     if (!selected) return;
-    const next = notes.filter((note) => note.id !== selected.id);
+    const current=loadNotes();if(current.error){setError(current.error);return;}const removed=current.notes.find(n=>n.id===selected.id);if(!removed)return;
+    const next = current.notes.filter((note) => note.id !== selected.id);
     if (!saveNotes(next)) {
       setError("Not silinemedi. Depolama alanını kontrol edin.");
       return;
     }
-    offerUndo({ source: "notes", record: selected });
+    offerUndo({ source: "notes", record: removed });
     setNotes(next);
     setSelectedId(null);
     setConfirmDelete(false);
@@ -84,9 +89,9 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
       </aside>
       <section className="notes-editor" aria-label="Not düzenleyici">
         {selected ? <>
-          <div className="notes-editor-top"><span className="note-save-status">{error ? "Kaydedilemedi" : "Kaydedildi"}</span><button className="notes-delete" type="button" onClick={() => setConfirmDelete(true)} disabled={!!initial.error}><Icon name="trash" size={16} /> Notu sil</button></div>
+          <div className="notes-editor-top"><span className="note-save-status">{error ? "Kaydedilemedi" : "Kaydedildi"}</span><button type="button" className="button button-secondary" onClick={() => window.dispatchEvent(new CustomEvent("ack-ai-question", {detail:`Not ID: ${selected.id} — bu nottan 3 görev çıkar.`}))} disabled={!!initial.error}>ACK AI ile işle</button><button className="notes-delete" type="button" onClick={() => setConfirmDelete(true)} disabled={!!initial.error}><Icon name="trash" size={16} /> Notu sil</button></div>
           {confirmDelete && <div className="notes-delete-confirm" role="group" aria-label="Notu silme onayı"><span>Bu not silinsin mi?</span><button type="button" onClick={remove}>Evet, sil</button><button type="button" onClick={() => setConfirmDelete(false)}>Vazgeç</button></div>}
-          <label className="sr-only" htmlFor="note-title">Not başlığı</label><input id="note-title" className="notes-title" value={selected.title} onChange={(event) => edit({ title: event.target.value })} maxLength={160} placeholder="Not başlığı" disabled={!!initial.error} />
+          <RecordLinkFields value={selected} onChange={edit}/><label className="sr-only" htmlFor="note-title">Not başlığı</label><input id="note-title" className="notes-title" value={selected.title} onChange={(event) => edit({ title: event.target.value })} maxLength={160} placeholder="Not başlığı" disabled={!!initial.error} />
           <label className="sr-only" htmlFor="note-content">Not içeriği</label><textarea id="note-content" className="notes-content" value={selected.content} onChange={(event) => edit({ content: event.target.value })} maxLength={30000} placeholder="Notunu yaz..." disabled={!!initial.error} />
           {selected.attachments?.map(file => <section className="note-attachment" key={file.id}><strong>{file.name}</strong><PhoneMedia file={file} cached /></section>)}
           <p className="notes-save-info"><time dateTime={new Date(selected.updatedAt).toISOString()}>{dateFormatter.format(selected.updatedAt)}</time> · Otomatik kaydedilir</p>

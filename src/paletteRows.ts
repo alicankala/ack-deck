@@ -1,3 +1,4 @@
+import { parseSmartCapture } from "../shared/smartCapture";
 import { paletteCommands } from "./commandPalette";
 import { searchLocal, SEARCH_LABELS } from "./localSearch";
 import { resolveRecents } from "./recentStore";
@@ -17,7 +18,9 @@ export function paletteRows(query: string): { rows: PaletteRow[]; warnings: stri
   const records = searchLocal(query), commands = paletteCommands(query).map((command): PaletteRow => ({ id: "command:" + command.id, title: command.label, kind: "Komut", detail: "ACKDeck", group: "Komutlar", score: rankMatch(query, command.label, "", { pinned: false, lastUsedAt: 0, useCount: 0 }), ...(command.id === "new-task" ? { capture: "task" as const } : command.id === "new-note" ? { capture: "note" as const } : { request: command.projectId ? { kind: "project" as const, value: command.projectId, mode: command.mode } : { kind: "navigate" as const, value: JSON.stringify(command.target) } }) }));
   if (query.trim()) {
     const rows = records.results.map(r => ({ ...recordRow(r.source, r.id, r.title, r.detail, { page: r.page, id: r.id }), score: rankMatch(query, r.title, r.detail, usageFor(r.source === "files" ? "shortcuts" : r.source, r.id)) }));
-    const ranked = [...rows, ...commands].sort((a, b) => b.score - a.score || a.title.localeCompare(b.title, "tr")).slice(0, 29);
+    const capture = parseSmartCapture(query, loadProjectSnapshot().entries);
+    const smart:PaletteRow[] = capture ? [{id:"smart-capture",title:"Taslağı gözden geçir",detail:capture.kind==="task"?`${capture.text} · ${capture.dueDate??"Tarihsiz"} ${capture.dueTime??""}`:capture.title,kind:"Akıllı yakalama",group:"Hızlı ekle",score:100000,request:{kind:"ai",value:query.trim()}}] : [];
+    const ranked = [...smart, ...rows, ...commands].sort((a, b) => b.score - a.score || a.title.localeCompare(b.title, "tr")).slice(0, 29);
     if (!ranked.length || ranked[0].score < 1000) ranked.push({ id: "ask-ai", title: "ACK AI\'a sor", detail: query.trim(), kind: "Yapay Zeka", group: "ACK AI", score: 0, request: { kind: "ai", value: query.trim() } });
     return { rows: ranked, warnings: records.warnings };
   }

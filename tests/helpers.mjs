@@ -10,7 +10,7 @@ export function setupModules(initial = [], options = {}) {
   function load(name) {
     if (modules[name]) return modules[name]; const exports = {}; modules[name] = exports;
     const source = ts.transpileModule(readFileSync(new URL('../src/' + name + '.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-    runInNewContext(source, { exports, require: id => id === 'react' && options.react ? options.react : id === '@tauri-apps/api/core' ? { invoke } : id === '@tauri-apps/plugin-dialog' ? {} : load(posix.normalize(posix.join(posix.dirname(name),id))), crypto: webcrypto, URL, TextEncoder, structuredClone, ...(options.indexedDB ? { indexedDB: options.indexedDB } : {}), window: { localStorage: storage, addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: options.events ? event => options.events.push(event) : undefined }, ...(options.events ? { Event, CustomEvent } : {}), Date, setTimeout, clearTimeout });
+    runInNewContext(source, { exports, require: id => id === 'react' && options.react ? options.react : id === '@tauri-apps/api/core' ? { invoke } : id === '@tauri-apps/plugin-dialog' ? {} : load(posix.normalize(posix.join(posix.dirname(name),id))), crypto: webcrypto, URL, TextEncoder, structuredClone, ...(options.indexedDB ? { indexedDB: options.indexedDB } : {}), window: { localStorage: storage, addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: event => options.events?.push(event) }, Event, CustomEvent, Date, setTimeout, clearTimeout });
     return exports;
   }
   return { values, calls, storage, load };

@@ -1,8 +1,12 @@
+import { validNoteAttachments,type NoteAttachment } from "./notesStore";
+import { validReference } from "../shared/productivity";
 export const ARCHIVE_CATEGORIES = ["Cihaz", "Belge", "Fatura", "Garanti", "Lisans", "Abonelik", "Proje", "Diğer"] as const;
 export type ArchiveCategory = typeof ARCHIVE_CATEGORIES[number];
 export type ArchiveFile = { path: string; fileName: string };
 export type ArchiveEntry = {
   id: string;
+  sourceInboxId?:string;
+  attachments?:NoteAttachment[];
   title: string;
   category: ArchiveCategory;
   description: string;
@@ -26,7 +30,7 @@ export function isArchiveEntry(value: unknown): value is ArchiveEntry {
   if (!value || typeof value !== "object") return false;
   const item = value as Partial<ArchiveEntry>;
   const timestamp = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 8.64e15;
-  return typeof item.id === "string" && !!item.id && typeof item.title === "string" && !!item.title.trim() &&
+  return (item.sourceInboxId===undefined||validReference(item.sourceInboxId)) && (item.attachments===undefined||validNoteAttachments(item.attachments)) && typeof item.id === "string" && !!item.id && typeof item.title === "string" && !!item.title.trim() &&
     ARCHIVE_CATEGORIES.includes(item.category as ArchiveCategory) && typeof item.description === "string" &&
     (item.date === null || validArchiveDate(item.date)) && Array.isArray(item.tags) && item.tags.every((tag) => typeof tag === "string") &&
     (item.file === null || (typeof item.file === "object" && typeof item.file.path === "string" && !!item.file.path && typeof item.file.fileName === "string")) &&

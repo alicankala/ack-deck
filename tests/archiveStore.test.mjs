@@ -1,3 +1,4 @@
+import { setupModules } from "./helpers.mjs";
 ﻿import assert from "node:assert/strict";
 import { readFileSync, mkdirSync, mkdtempSync, writeFileSync, existsSync, unlinkSync, rmdirSync } from "node:fs";
 import { join } from "node:path";
@@ -16,7 +17,7 @@ const KEY = "ack-deck.archive.v1";
 
 function store(storage, { readable = true, writable = true } = {}) {
   const exports = {};
-  runInNewContext(code, { exports, crypto: webcrypto, window: { localStorage: {
+  runInNewContext(code, { exports, require:name=>setupModules().load(name), crypto: webcrypto, window: { localStorage: {
     getItem: (key) => { if (!readable) throw new Error("read failed"); return storage.get(key) ?? null; },
     setItem: (key, value) => { if (!writable) throw new Error("quota"); storage.set(key, value); },
   } } });

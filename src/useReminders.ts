@@ -7,8 +7,8 @@ import { listen } from "@tauri-apps/api/event";
 import { loadTasks, reminderKey, saveTasks, taskDueAt, type Task } from "./taskStore";
 export function pendingReminders(tasks: Task[]) {
   return tasks.filter(t=>!t.completed&&t.reminder&&taskDueAt(t)!==null).flatMap(task=>{
-    let due=taskDueAt(task)!;const delivered=Number(task.remindedFor?.split("|")[1]);
-    if(task.recurrence&&delivered>=due){const next=nextOccurrence(task.recurrence,Math.max(delivered,Date.now()-1));if(!next)return [];due=next.at;}
+    const lead=task.snoozedUntil?0:(task.reminderLeadMinutes??0)*60000;let due=taskDueAt(task)!-lead;const delivered=Number(task.remindedFor?.split("|")[1]);
+    if(task.recurrence&&delivered>=due){const next=nextOccurrence(task.recurrence,Math.max(delivered+lead,Date.now()+lead-1));if(!next)return [];due=next.at-lead;}
     if(task.remindedFor===task.id+"|"+due)return [];
     return [{id:task.id,text:task.text,dueAt:due}];
   });

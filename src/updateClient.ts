@@ -1,3 +1,4 @@
+import { recordActivity } from "./activityStore";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { createFullBackup } from "./backupStore";
 import { getDesktopStatus } from "./desktopClient";
@@ -15,6 +16,7 @@ export async function checkUpdates() {
   publish({ phase: "checking" });
   try {
     const version = await invoke<string | null>("check_update");
+    if(version)recordActivity({source:"settings",recordId:"updater",kind:"update",label:`${version} güncellemesi indirildi`});
     publish(version ? { phase: "ready", version } : { phase: "idle", message: "Yeni güncelleme bulunamadı." });
   } catch { publish({ phase: "error", message: "GitHub güncellemesi denetlenemedi veya indirilemedi." }); }
 }

@@ -1,5 +1,7 @@
+import { recordChanges } from "./activityStore";
+import { validLinks, validChecklist, type ChecklistItem, type RecordLinks } from "../shared/productivity";
 import { validRecurrence, zonedAt, scheduleDate, type Recurrence } from "../shared/recurrence";
-export type Task = { id: string; text: string; completed: boolean; dueDate?: string | null; dueTime?: string | null; priority?: "normal" | "important"; reminder?: boolean; recurrence?: Recurrence | null; dueAt?: number | null; occurrenceAt?: number | null; lastCompletedAt?: number | null; snoozedUntil?: number | null; timezone?: string; remindedFor?: string | null };
+export type Task = RecordLinks & { checklist?: ChecklistItem[]; reminderLeadMinutes?: number; id: string; text: string; completed: boolean; dueDate?: string | null; dueTime?: string | null; priority?: "normal" | "important"; reminder?: boolean; recurrence?: Recurrence | null; dueAt?: number | null; occurrenceAt?: number | null; lastCompletedAt?: number | null; snoozedUntil?: number | null; timezone?: string; remindedFor?: string | null };
 export type TaskLoad = { entries: Task[]; preserved: unknown[]; locked: boolean; warning: string | null };
 const KEY = "ack-deck.tasks.v1";
 // Retained only to read old user data safely; the obsolete project folder is never accessed.
@@ -13,7 +15,7 @@ export const validTaskTime = (value: unknown): value is string => typeof value =
 export const isTask = (value: unknown): value is Task => {
   if (!value || typeof value !== "object") return false;
   const task = value as Partial<Task>;
-  return typeof task.id === "string" && !!task.id && typeof task.text === "string" && typeof task.completed === "boolean" &&
+  return validLinks(task as Record<string, unknown>) && (task.checklist === undefined || validChecklist(task.checklist)) && (task.reminderLeadMinutes === undefined || Number.isInteger(task.reminderLeadMinutes) && task.reminderLeadMinutes >= 0 && task.reminderLeadMinutes <= 10080) && typeof task.id === "string" && !!task.id && typeof task.text === "string" && typeof task.completed === "boolean" &&
     (task.dueDate == null || validTaskDate(task.dueDate)) && (task.dueTime == null || validTaskTime(task.dueTime)) &&
     (task.priority === undefined || task.priority === "normal" || task.priority === "important") &&
     (task.reminder === undefined || typeof task.reminder === "boolean") &&
@@ -37,7 +39,7 @@ export function loadTasks(): TaskLoad {
 }
 export function saveTasks(entries: Task[], loaded: TaskLoad): boolean {
   if (loaded.locked || !entries.every(isTask) || new Set(entries.map((task) => task.id)).size !== entries.length) return false;
-  try { window.localStorage.setItem(KEY, JSON.stringify([...entries, ...loaded.preserved])); if (typeof Event !== "undefined") window.dispatchEvent?.(new Event("ack-data-changed")); return true; } catch { return false; }
+  try { window.localStorage.setItem(KEY, JSON.stringify([...entries, ...loaded.preserved])); recordChanges("tasks", loaded.entries, entries); if (typeof Event !== "undefined") window.dispatchEvent?.(new Event("ack-data-changed")); return true; } catch { return false; }
 }
 export function localDateKey(date = new Date()): string { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
 export function taskDueAt(task: Task): number | null {
@@ -48,7 +50,7 @@ export function taskDueAt(task: Task): number | null {
   const date = new Date(task.dueDate + "T" + task.dueTime + ":00");
   return Number.isFinite(date.getTime()) && localDateKey(date) === task.dueDate && `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}` === task.dueTime ? date.getTime() : null;
 }
-export function reminderKey(task: Task): string | null { const due = taskDueAt(task); return due === null ? null : task.id + "|" + due; }
+export function reminderKey(task: Task): string | null { const due = taskDueAt(task); return due === null ? null : task.id + "|" + (due-(task.snoozedUntil?0:(task.reminderLeadMinutes??0)*60000)); }
 export type TaskFilter = "all" | "today" | "upcoming" | "undated" | "completed";
 export function filterTasks(tasks: Task[], filter: TaskFilter, today = localDateKey()): Task[] {
   return tasks.filter((task) => { const date = task.recurrence ? scheduleDate(task, new Date(today + "T12:00:00").getTime()) : task.dueDate; return filter === "completed" ? task.completed : !task.completed && (filter === "all" || (filter === "today" ? !!date && date <= today : filter === "upcoming" ? !!date && date > today : !date)); });

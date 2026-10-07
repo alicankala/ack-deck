@@ -1,5 +1,5 @@
 import { validCloudRecord, validMutation, type CloudRecord, type Mutation } from "../../shared/phone";
-export type MobileState = { taskOrder?: string[]; syncSchema?: 2; token: string | null; name: string; cursor: number; records: CloudRecord[]; queue: Mutation[]; conflicts: { mutation: Mutation; server: CloudRecord | null }[] };
+export type MobileState = { taskOrder?: string[]; syncSchema?: 2 | 3; token: string | null; name: string; cursor: number; records: CloudRecord[]; queue: Mutation[]; conflicts: { mutation: Mutation; server: CloudRecord | null }[] };
 export const emptyState = (): MobileState => ({token:null,name:"iPhone",cursor:0,records:[],queue:[],conflicts:[]});
 function open(): Promise<IDBDatabase> { return new Promise((resolve,reject) => { const request = indexedDB.open("ack-deck-mobile-v1",1); request.onupgradeneeded = () => request.result.createObjectStore("state"); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(new Error("Telefon kayıtlarına erişilemedi.")); }); }
 export async function readState(): Promise<MobileState> { const db = await open(); try { return await new Promise((resolve,reject) => { const tx = db.transaction("state","readonly"), request = tx.objectStore("state").get("current"); request.onsuccess = () => {const value=request.result??emptyState();if(!value||!Array.isArray(value.records)||!value.records.every(validCloudRecord)||!Array.isArray(value.queue)||!value.queue.every(validMutation)||!Array.isArray(value.conflicts)||!value.conflicts.every((row:MobileState["conflicts"][number])=>row&&validMutation(row.mutation)&&(row.server===null||validCloudRecord(row.server)))||typeof value.name!=="string"||!Number.isSafeInteger(value.cursor)||value.cursor<0||(value.token!==null&&typeof value.token!=="string")){reject(new Error("Telefon kayıtları okunamadı. Mevcut veriler korunuyor."));return;}resolve(value);}; request.onerror = () => reject(new Error("Telefon kayıtları okunamadı.")); }); } finally { db.close(); } }
@@ -15,7 +15,7 @@ export function enqueue(state: MobileState, mutation: Mutation): MobileState {
 }
 export async function api<T>(state: MobileState, path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers); if (state.token) headers.set("Authorization",`Bearer ${state.token}`);
-  headers.set("X-ACKDeck-Schema","2");
+  headers.set("X-ACKDeck-Schema","3");
   let response:Response;try{response=await fetch(`/api/${path}`,{...options,headers,cache:"no-store",signal:AbortSignal.timeout(20000)});}catch{throw new Error("Sunucuya ulaşılamadı. İnternet bağlantısını kontrol edin.");}
   let result:T & {error?:string};try{result=await response.json();}catch{throw new Error("Sunucu yanıtı alınamadı. Daha sonra tekrar deneyin.");} if (!response.ok) throw new Error(result.error || "Sunucuya ulaşılamadı."); return result;
 }
@@ -25,7 +25,7 @@ export async function synchronize(initial: MobileState, request = api, persist =
   if (!state.token) return state;
   // Re-read previously skipped 1.1 kinds on upgrade, retaining queued edits and
   // their versions. This does not clear or replace the paired device token.
-  if(state.syncSchema!==2){state.cursor=0;state.syncSchema=2;}
+  if(state.syncSchema!==3){state.cursor=0;state.syncSchema=3;}
   while (state.queue.length) {
     const mutation = state.queue[0];
     const result = await request<{record:CloudRecord|null;conflict?:boolean}>(state,"mutations",json(mutation));

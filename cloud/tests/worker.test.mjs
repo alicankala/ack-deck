@@ -12,9 +12,39 @@ let mf,db,kv,owner,phone,deviceId,env,worker,reminders,security,shared;
 let providerStatus=201;const outbound=[];
 const root=new URL('../',import.meta.url),ownerSecret='local-test-owner-'+ 'x'.repeat(48);
 async function module(path){const result=await build({entryPoints:[fileURLToPath(new URL(path,root))],bundle:true,write:false,format:'esm',platform:'browser',target:'es2022'});return import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'));}
-async function call(path,body,token=ownerSecret,method=body===undefined?'GET':'POST',headers={}){const response=await mf.dispatchFetch('https://ack.example/api/'+path,{method,headers:{...(token?{Authorization:'Bearer '+token}:{}),'X-ACKDeck-Schema':'2',...(body!==undefined?{'Content-Type':'application/json'}:{}),...headers},...(body!==undefined?{body:JSON.stringify(body)}:{})});let data;try{data=await response.json();}catch{}return{response,data};}
+async function call(path,body,token=ownerSecret,method=body===undefined?'GET':'POST',headers={}){const response=await mf.dispatchFetch('https://ack.example/api/'+path,{method,headers:{...(token?{Authorization:'Bearer '+token}:{}),'X-ACKDeck-Schema':'3',...(body!==undefined?{'Content-Type':'application/json'}:{}),...headers},...(body!==undefined?{body:JSON.stringify(body)}:{})});let data;try{data=await response.json();}catch{}return{response,data};}
 const task=(text='SD kart al',due=Date.now()+600000)=>({text,completed:false,dueDate:'2026-10-05',dueTime:'14:00',priority:'normal',reminder:true,dueAt:due,timezone:'Europe/Istanbul'});
 const mutation=(kind,id,data,baseVersion=0,deleted=false,mutationId=crypto.randomUUID())=>({mutationId,kind,id,baseVersion,data,deleted});
+test('project metadata is additive, idempotent, path-free, versioned and invisible to old clients',async()=>{
+  const project={name:'ACKDeck',description:'Ürün',nextStep:'Telefon testi',workspaceId:'workspace-1',inboxIds:['incoming-1']};
+  const create=mutation('projects','product-project',project);
+  assert.equal((await call('mutations',create,phone)).response.status,200);
+  assert.equal((await call('mutations',create,phone)).data.record.version,1);
+  assert.deepEqual((await call('sync?cursor=0',undefined,phone)).data.records.find(r=>r.id==='product-project').data,project);
+  assert.ok(!(await call('sync?cursor=0',undefined,phone,'GET',{'X-ACKDeck-Schema':'2'})).data.records.some(r=>r.kind==='projects'));
+  assert.equal((await call('mutations',mutation('projects','bad-path',{...project,nextStep:'C:\\Users\\private'}),phone)).response.status,400);
+  assert.equal((await call('mutations',mutation('projects','bad-field',{...project,folderPath:'C:/private'}),phone)).response.status,400);
+  assert.equal((await call('mutations',mutation('projects','product-project',{...project,nextStep:'Yeni'},0),phone)).data.conflict,true);
+  assert.equal((await call('mutations',mutation('projects','product-project',null,1,true),phone)).data.record.deleted,true);
+  assert.equal((await call('mutations',mutation('projects','product-project',project,1),phone)).data.record.deleted,true);
+});
+test('schema-2 edits retain checklist, links, reminder lead and note attachments without exposing them to legacy clients',async()=>{
+  const extra={projectId:'product-project',workspaceId:'workspace-1',sourceInboxId:'incoming-1',checklist:[{id:'step-1',text:'Test',completed:true}],reminderLeadMinutes:60};
+  const original={...task('Ürün görevi'),...extra};
+  await call('mutations',mutation('tasks','product-task',original));
+  const response=await call('mutations',mutation('tasks','product-task',{...task('Eski telefondan düzenlendi'),dueAt:original.dueAt},1),phone,'POST',{'X-ACKDeck-Schema':'2'});
+  assert.equal(response.response.status,200);assert.equal('checklist' in response.data.record.data,false);
+  const stored=(await call('sync?cursor=0')).data.records.find(r=>r.id==='product-task').data;
+  assert.deepEqual(stored.checklist,extra.checklist);assert.equal(stored.projectId,extra.projectId);assert.equal(stored.reminderLeadMinutes,60);
+  assert.equal((await db.prepare('SELECT due_at FROM reminders WHERE task_id=?').bind('product-task').first()).due_at,original.dueAt-3600000);
+  const attachment={id:'audio-1',name:'Ses.ogg',mime:'audio/ogg',size:100};
+  await call('mutations',mutation('notes','product-note',{title:'Ses',content:'Özet',updatedAt:1,projectId:'product-project',attachments:[attachment]}));
+  const changed=await call('mutations',mutation('notes','product-note',{title:'Düzenlendi',content:'Korundu',updatedAt:2},1),phone,'POST',{'X-ACKDeck-Schema':'2'});
+  assert.equal('attachments' in changed.data.record.data,false);
+  const note=(await call('sync?cursor=0')).data.records.find(r=>r.id==='product-note').data;
+  assert.deepEqual(note.attachments,[attachment]);assert.equal(note.projectId,'product-project');
+  await call('mutations',mutation('tasks','product-task',null,2,true));
+});
 before(async()=>{
   const result=await build({entryPoints:[fileURLToPath(new URL('src/index.ts',root))],bundle:true,write:false,format:'esm',platform:'browser',target:'es2022'});
   const keys=await webcrypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
@@ -25,6 +55,7 @@ before(async()=>{
   await db.prepare("INSERT INTO records(kind,id,version,data,deleted,updated_at) VALUES('notes','migration-preserved',1,?,0,1)").bind(JSON.stringify({title:'Migration fixture',content:'Preserve',updatedAt:1})).run();
   await db.prepare("INSERT INTO reminder_deliveries(generation,device_id,state,attempts,retry_at) VALUES('migration-fixture','fixture','sent',1,0)").run();
   await db.exec(readFileSync(new URL('migrations/0003_subscriptions_recurrence.sql',root),'utf8').replace(/^--.*$/gm,''));
+  await db.exec(readFileSync(new URL('migrations/0004_project_metadata.sql',root),'utf8').replace(/^--.*$/gm,''));
   assert.equal((await db.prepare("SELECT data FROM records WHERE id='migration-preserved'").first()).data,JSON.stringify({title:'Migration fixture',content:'Preserve',updatedAt:1}));
   assert.equal((await db.prepare("SELECT state FROM reminder_deliveries WHERE generation='migration-fixture'").first()).state,'sent');
   env={...bindings,DB:db,ATTACHMENTS:kv};worker=await module('src/index.ts');reminders=await module('src/reminders.ts');security=await module('src/security.ts');shared=await module('../shared/phone.ts');
@@ -177,4 +208,14 @@ test('real desktop and mobile sync engines round-trip tasks, notes, completion, 
   state=mobile.enqueue(state,mutation('subscriptions',sr.id,{...sr.data,amount:120,updatedAt:2},sr.version));state=await mobile.synchronize(state,phoneRequest,persist);await desktop.synchronizePhone(desktopRequest);assert.equal(load('src/subscriptionStore').loadSubscriptions().entries[0].amount,120);
   const updated=state.records.find(r=>r.id===subscription.id);state=mobile.enqueue(state,mutation('subscriptions',updated.id,null,updated.version,true));state=await mobile.synchronize(state,phoneRequest,persist);await desktop.synchronizePhone(desktopRequest);assert.equal(load('src/subscriptionStore').loadSubscriptions().entries.length,0);
   values.set('ack-deck.tasks.v1',JSON.stringify(JSON.parse(values.get('ack-deck.tasks.v1')).filter(item=>item.id!=='chain-phone-task')));await desktop.synchronizePhone(desktopRequest);state=await mobile.synchronize(state,phoneRequest,persist);assert.equal(state.records.find(item=>item.id==='chain-phone-task').deleted,true);
+  load('src/projectStore').saveProjects([{id:'chain-project',name:'ACKDeck',description:'Ürün',folderPath:'C:/private/ackdeck',nextStep:'Güncelleme testi',workspaceId:null,shortcutIds:['private-reference'],inboxIds:[]}]);
+  const linkedTask=load('src/taskStore').loadTasks();load('src/taskStore').saveTasks(linkedTask.entries.map(t=>t.id==='chain-task'?{...t,completed:false,projectId:'chain-project',checklist:[{id:'chain-step',text:'Telefon testi',completed:false}]}:t),linkedTask);
+  const linkedNotes=load('src/notesStore').loadNotes();load('src/notesStore').saveNotes(linkedNotes.notes.map(n=>n.id==='chain-note'?{...n,projectId:'chain-project',attachments:[{id:'chain-voice',name:'Ses.ogg',mime:'audio/ogg',size:100}]}:n));
+  await desktop.synchronizePhone(desktopRequest);state=await mobile.synchronize(state,phoneRequest,persist);
+  const projectRow=state.records.find(r=>r.id==='chain-project');assert.equal(projectRow.data.nextStep,'Güncelleme testi');assert.equal('folderPath' in projectRow.data,false);assert.equal('shortcutIds' in projectRow.data,false);
+  const checklistRow=state.records.find(r=>r.id==='chain-task');assert.equal(checklistRow.data.checklist[0].id,'chain-step');assert.equal(state.records.find(r=>r.id==='chain-note').data.attachments[0].id,'chain-voice');
+  state=mobile.enqueue(state,mutation('projects',projectRow.id,{...projectRow.data,nextStep:'Telefon kontrolü'},projectRow.version));state=mobile.enqueue(state,mutation('tasks',checklistRow.id,{...checklistRow.data,checklist:[{...checklistRow.data.checklist[0],completed:true}]},checklistRow.version));
+  await assert.rejects(mobile.synchronize(state,async()=>{throw Error('Offline');},persist));state=await mobile.synchronize(state,phoneRequest,persist);await desktop.synchronizePhone(desktopRequest);
+  const localProject=load('src/projectStore').loadProjects()[0];assert.equal(localProject.nextStep,'Telefon kontrolü');assert.equal(localProject.folderPath,'C:/private/ackdeck');assert.deepEqual(Array.from(localProject.shortcutIds),['private-reference']);assert.equal(load('src/taskStore').loadTasks().entries.find(t=>t.id==='chain-task').checklist[0].completed,true);
+  const currentProject=state.records.find(r=>r.id==='chain-project');state=mobile.enqueue(state,mutation('projects',currentProject.id,null,currentProject.version,true));state=await mobile.synchronize(state,phoneRequest,persist);await desktop.synchronizePhone(desktopRequest);assert.equal(load('src/projectStore').loadProjects().length,0);assert.equal(load('src/notesStore').loadNotes().notes.find(n=>n.id==='chain-note').projectId,'chain-project');
 });

@@ -88,19 +88,21 @@ async function handle(request: Request, env: Env): Promise<Response> {
     const cursor = Number(url.searchParams.get("cursor") ?? "0"); if (!Number.isSafeInteger(cursor) || cursor<0) throw new ApiError(400,"Eşitleme bilgisi geçersiz.");
     const changes = await env.DB.prepare("SELECT seq,kind,record_id FROM changes WHERE seq>? ORDER BY seq LIMIT 40").bind(cursor).all<{seq:number;kind:string;record_id:string}>();
     const unique = new Map(changes.results.map(change => [`${change.kind}:${change.record_id}`,change]));
-    const records = await Promise.all([...unique.values()].map(change => env.DB.prepare(`SELECT * FROM ${change.kind==="subscriptions"?"subscriptions":"records"} WHERE kind=? AND id=?`).bind(change.kind,change.record_id).first<RecordRow>()));
+    const records = await Promise.all([...unique.values()].map(change => env.DB.prepare(`SELECT * FROM ${change.kind==="subscriptions"?"subscriptions":change.kind==="projects"?"projects":"records"} WHERE kind=? AND id=?`).bind(change.kind,change.record_id).first<RecordRow>()));
     const views=records.filter((row):row is RecordRow => !!row).map(recordView);
     // Installed 1.0 clients have an exact task/note schema. Keep their original
     // records usable until the user opens the 1.1 desktop/PWA; never flatten a
     // recurring series into a one-shot task or return an unknown record kind.
-    const compatible=request.headers.get("X-ACKDeck-Schema")==="2"?views:views.filter(row=>row.kind!=="subscriptions"&&(row.deleted||row.kind!=="tasks"||!row.data?.recurrence)).map(row=>{
+    const schema=request.headers.get("X-ACKDeck-Schema");
+    const stripped=views.filter(row=>row.kind!=="projects").map(row=>{if(row.deleted||row.kind==="subscriptions")return row;const {projectId:_project,workspaceId:_space,sourceInboxId:_source,checklist:_checklist,reminderLeadMinutes:_lead,attachments:_attachments,...data}=row.data;return {...row,data};});
+    const compatible=schema==="3"?views:schema==="2"?stripped:stripped.filter(row=>row.kind!=="subscriptions"&&(row.deleted||row.kind!=="tasks"||!row.data?.recurrence)).map(row=>{
       if(row.kind!=="tasks"||row.deleted)return row;
       const {recurrence:_rule,occurrenceAt:_occurrence,lastCompletedAt:_completed,snoozedUntil:_snooze,...data}=row.data;
       return {...row,data};
     });
     return reply({ records:compatible, cursor:changes.results.at(-1)?.seq ?? cursor, more:changes.results.length===40 });
   }
-  if (path === "/api/mutations" && request.method === "POST") return reply(await mutate(env,actor,await jsonBody(request)));
+  if (path === "/api/mutations" && request.method === "POST") {const result=await mutate(env,actor,await jsonBody(request),request.headers.get("X-ACKDeck-Schema")??"1");if(request.headers.get("X-ACKDeck-Schema")!=="3"&&result.record?.data&&["tasks","notes"].includes(result.record.kind)){const {projectId:_p,workspaceId:_w,sourceInboxId:_s,checklist:_c,reminderLeadMinutes:_r,attachments:_a,...data}=result.record.data as Record<string,unknown>;return reply({...result,record:{...result.record,data}});}return reply(result);}
   if (path === "/api/heartbeat" && request.method === "POST") {
     owner(actor); await env.DB.prepare("UPDATE desktop_state SET last_seen=? WHERE id=1").bind(now).run(); return reply({ok:true});
   }
@@ -140,7 +142,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
   }
   const inboxMatch = path.match(/^\/api\/inbox\/([\w.-]{1,128})$/);
   if (inboxMatch && ["PATCH","DELETE"].includes(request.method)) {
-    owner(actor); const item = await env.DB.prepare("SELECT kv_key FROM inbox_items WHERE id=?").bind(inboxMatch[1]).first<{kv_key:string|null}>();
+    if(request.method==="DELETE")owner(actor); const item = await env.DB.prepare("SELECT kv_key FROM inbox_items WHERE id=?").bind(inboxMatch[1]).first<{kv_key:string|null}>();
     if (request.method === "PATCH") await env.DB.prepare("UPDATE inbox_items SET handled=1 WHERE id=?").bind(inboxMatch[1]).run();
     else { await env.DB.prepare("DELETE FROM inbox_items WHERE id=?").bind(inboxMatch[1]).run(); if (item?.kv_key) await env.ATTACHMENTS.delete(item.kv_key); }
     return reply({ok:true});

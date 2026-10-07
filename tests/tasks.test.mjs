@@ -5,7 +5,7 @@ import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import { setupModules } from './helpers.mjs';
 const source = ts.transpileModule(readFileSync(new URL('../src/taskStore.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-function setup(value) { const values = new Map(value ? [['ack-deck.tasks.v1', JSON.stringify(value)]] : []), exports = {}; runInNewContext(source, { exports, require:()=>setupModules().load("../shared/recurrence"), window: { localStorage: { getItem: key => values.get(key) ?? null, setItem: (key, data) => values.set(key, data) } } }); return { api: exports, values }; }
+function setup(value) { const values = new Map(value ? [['ack-deck.tasks.v1', JSON.stringify(value)]] : []), exports = {}; runInNewContext(source, { exports, require:name=>setupModules().load(name), window: { localStorage: { getItem: key => values.get(key) ?? null, setItem: (key, data) => values.set(key, data) } } }); return { api: exports, values }; }
 const task = { id: 't', text: 'SD kart al', completed: false };
 test('old tasks safely gain optional defaults; invalid calendar/reminder data is preserved', () => {
   const { api, values } = setup([task, { ...task, id: 'bad', dueDate: '2026-02-30' }]);

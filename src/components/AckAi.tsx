@@ -1,3 +1,4 @@
+import { buildIntelligenceContext,localIntelligenceAnswer } from "../productIntelligence";
 import { useEffect, useRef, useState, type Dispatch, type FormEvent, type KeyboardEvent, type SetStateAction } from "react";
 import { getSavedAiModel, saveAiModel } from "../aiModelPreference";
 import {
@@ -12,8 +13,8 @@ import { chooseAiAttachment, attachmentError, previewAiImage, pasteAiImage, rele
 import { withAiTimeout } from "../aiTimeout";
 import { localAiDestination } from "../localAiRouting";
 import { Icon } from "./Icon";
-import { collectAckContext, executeAckAction, proposeAckAction, redactSecrets, SOURCE_LABELS } from "../ackIntegration";
-import { isActionRequest, proposalFromTool } from "../ackActions";
+import { collectAckContext, contextReferences, executeAckAction, proposeAckAction, redactSecrets, SOURCE_LABELS } from "../ackIntegration";
+import { isActionRequest, proposalFromTool, prepareAckProposal } from "../ackActions";
 import type { NavigationTarget } from "../navigation";
 import { takeDashboardPrompt, type AiPromptHandoff } from "../aiPromptHandoff";
 
@@ -82,7 +83,7 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
   }, []);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ block: "end" }); }, [messages, sending]);
-  function isLocal(text: string) { try { return !!localAiDestination(text) || !!proposeAckAction(text); } catch { return false; } }
+  function isLocal(text: string) { try { return !!localIntelligenceAnswer(text) || !!localAiDestination(text) || !!proposeAckAction(text); } catch { return false; } }
   useEffect(() => {
     if (sendBusy.current || pending) return;
     const text = takeDashboardPrompt(initialPrompt, hasKey || !!(initialPrompt && isLocal(initialPrompt.text)), consumedPrompt);
@@ -130,17 +131,19 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
         if (proposal.action.type === "navigate") { const result = "ACKDeck sayfası açıldı."; onMessagesChange([...next, { role: "model", text: "Yerel komut: " + result }]); onNavigate({ page: proposal.action.page }); return; }
         setPending(createConfirmation(proposal)); onMessagesChange([...next, { role: "model", text: proposal.question, sources: proposal.action.type === "open_workspace" ? ["workspaces"] : proposal.action.type === "open_shortcut" ? ["shortcuts"] : [] }]); return;
       }
+      const localAnswer=!attachment?localIntelligenceAnswer(text):null;if(localAnswer){onMessagesChange([...next,{role:"model",text:localAnswer.answer,references:localAnswer.records}]);if(localAnswer.warnings.length)setError(localAnswer.warnings.join(" · "));return;}
       if (!hasKey) { setError("Gemini API anahtarını Ayarlar bölümünden ekleyin."); return; }
       const { context, warnings } = await collectAckContext(text);
       if (requestId !== generation.current) return;
-      const actionRequest = isActionRequest(text);
-      const reply = await sendGeminiMessage(next, model, context, actionRequest && !attachment, attachment ? [attachment.id] : []);
+      const actionRequest = isActionRequest(text)||/görev.*çıkar|arşiv.*taslak|toparla/iu.test(text);
+      const intelligence=!attachment?buildIntelligenceContext(text):null;
+      const reply = await sendGeminiMessage(next, model, context, actionRequest, attachment ? [attachment.id] : []);
       if (requestId === generation.current) {
         removeAttachment();
         const proposal = reply.action ? proposalFromTool(reply.action, text) : null;
         if (proposal?.action.type === "navigate") { await executeAckAction(proposal.action, false, undefined, onNavigate); return; }
         if (proposal) setPending(createConfirmation(proposal));
-        onMessagesChange((current) => [...current, { role: "model", text: proposal ? proposal.question : actionRequest ? "Uygulanabilir bir işlem taslağı hazırlanamadı. Hiçbir işlem yapılmadı. Tam kayıt adını ve istediğin değişikliği belirt." : redactSecrets(reply.text), sources: [...new Set(context.map((item) => item.source))] }]);
+        onMessagesChange((current) => [...current, { role: "model", text: proposal ? proposal.question : actionRequest ? "Uygulanabilir bir işlem taslağı hazırlanamadı. Hiçbir işlem yapılmadı. Tam kayıt adını ve istediğin değişikliği belirt." : redactSecrets(reply.text), references:intelligence?.records ?? contextReferences(context), sources: [...new Set(context.map((item) => item.source))] }]);
         if (warnings.length) setError(warnings.join(" "));
       }
     } catch (reason) {
@@ -168,6 +171,15 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
     }
   }
 
+  function choosePlannedAction(index: number) {
+    if (!pending || pending.action.type !== "batch" || sending) return;
+    try {
+      const proposal = prepareAckProposal(pending.action.actions[index]);
+      cancelConfirmation(pending);
+      setPending(createConfirmation(proposal));
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "İşlem hazırlanamadı."); }
+  }
+
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
@@ -192,9 +204,9 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
           {hasKey === false && <div className="ai-connect-card"><Icon name="info" size={18}/><div><strong>Yerel komutlar hazır</strong><p>Serbest sohbet için Gemini anahtarını bağla.</p></div><button className="button button-secondary" type="button" onClick={onOpenSettings}>Bağla</button></div>}
         </div> : messages.map((message, index) => <div className={"ai-message " + message.role} key={index}>
           <span className="ai-avatar">{message.role === "user" ? "S" : <Icon name="spark" size={18} />}</span>
-          <div className="ai-message-body"><span className="ai-message-label">{message.role === "user" ? "Sen" : "ACK AI"}</span><div className="ai-bubble">{message.text}</div>{message.attachments?.map((file, i) => <small className="ai-source" key={i}>Ek: {file.name} · {file.mime} · {Math.ceil(file.size / 1024)} KB</small>)}{!!message.sources?.length && <small className="ai-source">ACKDeck verileri kullanıldı: {message.sources.map((source) => SOURCE_LABELS[source]).join(", ")}</small>}</div>
+          <div className="ai-message-body"><span className="ai-message-label">{message.role === "user" ? "Sen" : "ACK AI"}</span><div className="ai-bubble">{message.text}</div>{message.attachments?.map((file, i) => <small className="ai-source" key={i}>Ek: {file.name} · {file.mime} · {Math.ceil(file.size / 1024)} KB</small>)}{!!message.sources?.length && <small className="ai-source">ACKDeck verileri kullanıldı: {message.sources.map((source) => SOURCE_LABELS[source]).join(", ")}</small>}{!!message.references?.length&&<div className="ai-record-links">{message.references.map(ref=><button key={ref.source+ref.id} type="button" onClick={()=>onNavigate({page:ref.source as NavigationTarget["page"],id:ref.id})}>{ref.label}</button>)}</div>}</div>
         </div>)}
-        {pending && <div className="ai-confirm" role="group" aria-label="ACK AI işlem onayı"><p>{pending.question}</p><button className="button button-primary" type="button" onClick={confirmAction} disabled={sending}>{pending.action.type === "open_workspace" ? "Çalışmaya Başla" : "Onayla"}</button><button className="button button-secondary" type="button" onClick={() => { cancelConfirmation(pending); setPending(null); setError(""); onMessagesChange((current) => [...current, { role: "model", text: "İşlem iptal edildi. Değişiklik yapılmadı." }]); }} disabled={sending}>İptal</button></div>}
+        {pending && <div className="ai-confirm" role="group" aria-label="ACK AI işlem onayı"><p>{pending.question}</p>{pending.action.type === "batch" && <div className="ai-record-links">{pending.action.actions.map((_, index) => <button key={index} type="button" disabled={sending} onClick={() => choosePlannedAction(index)}>Yalnız {index + 1}. işlemi incele</button>)}</div>}<button className="button button-primary" type="button" onClick={confirmAction} disabled={sending}>{pending.action.type === "batch" ? "Hepsini uygula" : pending.action.type === "open_workspace" ? "Çalışmaya Başla" : "Onayla"}</button><button className="button button-secondary" type="button" onClick={() => { cancelConfirmation(pending); setPending(null); setError(""); onMessagesChange((current) => [...current, { role: "model", text: "İşlem iptal edildi. Değişiklik yapılmadı." }]); }} disabled={sending}>İptal</button></div>}
         {sending && <div className="ai-message model"><span className="ai-avatar"><Icon name="spark" size={18} /></span><div className="ai-message-body"><span className="ai-message-label">ACK AI</span><div className="ai-bubble ai-loading" role="status">{pending ? "İşlem uygulanıyor" : "Yanıt hazırlanıyor"}<span className="loading-dots">...</span></div></div></div>}
         <div ref={bottomRef} />
       </div>

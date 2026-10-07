@@ -808,3 +808,7 @@ npm run tauri build generated both 1.0.0 bundles successfully. verify-release.mj
 - src-tauri/target/release/bundle/msi/ACKDeck_1.0.0_x64_tr-TR.msi
 
 Cloudflare production was not redeployed or reconfigured, and no credential/VAPID rotation occurred. Read-only production checks returned HTTP 200 for the mobile shell, manifest and service worker, and HTTP 401 for anonymous /api/status. The user reports the phone functionality complete; no new physical iPhone test was performed during this release. Existing manual-validation items stay open rather than being inferred from build success. Feature development is frozen; only confirmed bugs justify further changes.
+
+
+## Final product intelligence 1.2.0 (2026-10-07)
+User explicitly authorized publishing. Additive project metadata, checklist and note attachment references are now permitted in schema 3 Phone sync; native paths/activity/templates/secrets remain local. Existing resources and pairing are preserved. See PRODUCT_INTELLIGENCE_1_2.md for validation and open Powerful-model generation timeout. Feature freeze: only confirmed bugs, visual/UX, performance and security fixes; do not propose or add new features.

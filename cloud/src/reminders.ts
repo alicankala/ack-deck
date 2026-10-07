@@ -56,9 +56,9 @@ export async function runReminders(env: Env, send = sendNotification) {
   for(const row of finished.results){
     const data=JSON.parse(row.data),task=data as PhoneTask;
     if(row.kind==="tasks"&&!task.recurrence)continue;
-    const next=row.kind==="subscriptions"?subscriptionReminder(data as Subscription,now):task.recurrence&&!task.completed?nextOccurrence(task.recurrence,Math.max(now,row.occurrence_at??0)):null;
+    const next=row.kind==="subscriptions"?subscriptionReminder(data as Subscription,now):task.recurrence&&!task.completed?nextOccurrence(task.recurrence,Math.max(now+(task.reminderLeadMinutes??0)*60000,row.occurrence_at??0)):null;
     const occurrence=next?("paymentAt" in next?next.paymentAt:next.at):0;
-    await env.DB.prepare("UPDATE reminders SET due_at=?,occurrence_at=?,generation=?,active=? WHERE task_id=? AND generation=? AND active=1").bind(next?.at??0,occurrence,row.task_id+":occ:"+occurrence,Number(!!next),row.task_id,row.generation).run();
+    await env.DB.prepare("UPDATE reminders SET due_at=?,occurrence_at=?,generation=?,active=? WHERE task_id=? AND generation=? AND active=1").bind(next ? next.at-(row.kind==="tasks"?(task.reminderLeadMinutes??0)*60000:0) : 0,occurrence,row.task_id+":occ:"+occurrence,Number(!!next),row.task_id,row.generation).run();
   }
   await env.DB.batch([env.DB.prepare("DELETE FROM rate_limits WHERE reset_at<?").bind(now-3600000),env.DB.prepare("DELETE FROM pairing_codes WHERE expires_at<?").bind(now-86400000),env.DB.prepare("UPDATE remote_commands SET state='expired' WHERE state IN ('pending','claimed') AND expires_at<?").bind(now)]);
 }

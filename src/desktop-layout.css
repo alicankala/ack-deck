@@ -215,3 +215,70 @@
 .inbox-note-file { margin:0; color:var(--app-secondary); overflow-wrap:anywhere; }
 .main-content .settings-section-panel :is(select,button) { min-height:var(--control-height); }
 .main-content .settings-card>button,.main-content .settings-card form>button { justify-self:start; }
+
+/* Product connections share the existing form/card rhythm. */
+.record-links label,.next-step-form label,.project-hub label { display:grid; gap:.5rem; min-width:0; }
+.record-links select,.project-hub select,.next-step-form input { width:100%; min-width:0; }
+.checklist-editor { border:0; margin:0; padding:0; display:grid; gap:.5rem; min-width:0; }
+.checklist-editor legend { margin-bottom:.65rem; color:var(--app-secondary); font-weight:600; }
+.checklist-row { display:grid; grid-template-columns:1.2rem minmax(0,1fr) 2rem 2rem 2rem; align-items:center; gap:.35rem; }
+.checklist-row>input[type=checkbox] { width:1rem; height:1rem; }
+.checklist-row>button { min-height:2.3rem; padding:.2rem; border:0; background:transparent; color:var(--app-muted); }
+.checklist-editor>button { justify-self:start; }
+.checklist-progress { color:var(--app-accent); margin-left:.65rem; }
+.task-template-picker select { max-width:12rem; }
+.project-hub-open { border:0; padding:0; background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+.project-hub-open:hover { color:var(--app-accent); }
+.project-next-step { color:var(--app-accent)!important; }
+.project-hub { padding:1.4rem; margin-block:1.3rem; background:var(--app-surface); border:1px solid var(--app-border); border-radius:1rem; display:grid; gap:1.3rem; }
+.project-hub h2,.project-hub h3 { margin:0 0 .7rem; }
+.project-hub p { color:var(--app-muted); font-size:.9rem; }
+.project-hub-columns { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; }
+.next-step-form { display:flex; gap:.75rem; align-items:end; }
+.next-step-form label { flex:1; }
+.hub-record-row { display:flex; width:100%; text-align:left; align-items:center; justify-content:space-between; gap:1rem; padding:.7rem 0; border:0; border-bottom:1px solid var(--app-border); background:transparent; color:var(--app-text); overflow-wrap:anywhere; }
+.hub-record-row small { color:var(--app-muted); max-width:50%; }
+.hub-activity-row { display:flex; justify-content:space-between; gap:1rem; padding:.5rem 0; font-size:.85rem; }
+.hub-activity-row time { color:var(--app-muted); white-space:nowrap; }
+.project-hub progress { width:100%; height:.35rem; display:block; margin-top:.6rem; accent-color:var(--app-accent); }
+.plan-toolbar { display:flex; justify-content:center; gap:.7rem; margin:1rem 0; }
+.week-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:.6rem; }
+.week-day { min-width:0; background:var(--app-surface); border:1px solid var(--app-border); border-radius:.8rem; min-height:14rem; padding:.65rem; }
+.week-day-heading { display:flex; justify-content:space-between; gap:.4rem; width:100%; border:0; background:transparent; color:var(--app-secondary); padding:.5rem 0; }
+.plan-event { display:grid; gap:.4rem; text-align:left; width:100%; border:0; border-left:3px solid var(--app-accent); padding:.65rem; margin:.6rem 0; border-radius:.35rem; background:var(--app-field); color:var(--app-text); overflow-wrap:anywhere; }
+.plan-event small { color:var(--app-muted); font-size:.7rem; }
+.plan-event.subscriptions { border-left-color:#baa4e8; }
+.plan-event.reminder { opacity:.75; }
+.weekly-review { padding:1.2rem; margin-top:1rem; display:grid; gap:1rem; }
+.review-counts,.daily-summary-counts { display:flex; flex-wrap:wrap; gap:.6rem; }
+.daily-summary-counts button,.review-counts button { border:1px solid var(--app-border); border-radius:.6rem; background:var(--app-field); color:var(--app-secondary); padding:.6rem .8rem; }
+.daily-summary-counts { margin-bottom:1rem; }
+.daily-next-step { display:flex; justify-content:space-between; gap:.7rem; padding:.6rem 0; color:var(--app-secondary); }
+/* Chat has a sidebar and one canvas, rather than two administrative cards. */
+.main-content .ai-history-layout { max-width:84rem; grid-template-columns:minmax(17rem,23%) minmax(0,1fr); gap:0; border:1px solid var(--app-border); border-radius:1rem; overflow:hidden; min-height:calc(100dvh - 9rem); }
+.main-content .conversation-history { border:0; border-right:1px solid var(--app-border); border-radius:0; background:var(--app-field); padding:1.1rem; gap:.75rem; max-height:calc(100dvh - 9rem); }
+.main-content .conversation-item { border:0; background:transparent; padding:0; gap:.25rem; }
+.main-content .conversation-item>button { padding:.7rem .65rem; min-height:2.7rem; border:0; background:transparent; border-radius:.5rem; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.main-content .conversation-item>button.selected { background:var(--app-accent-soft); color:var(--app-accent); }
+.conversation-item .record-action-menu { opacity:0; }
+.conversation-item:hover .record-action-menu,.conversation-item:focus-within .record-action-menu,.conversation-item:has(.selected) .record-action-menu { opacity:1; }
+.main-content .ai-page { padding:1rem 1.5rem; background:var(--app-surface); min-width:0; display:flex; flex-direction:column; }
+.main-content .ai-heading { margin:0 0 .7rem; }
+.main-content .ai-panel { border:0; border-radius:0; padding:0; background:transparent; flex:1; min-height:30rem; }
+.main-content .ai-messages { padding:1.2rem .5rem; flex:1; }
+.main-content .ai-message { max-width:52rem; margin-inline:auto; width:100%; }
+.main-content .ai-message.user .ai-bubble { max-width:38rem; margin-left:auto; }
+.main-content .ai-message.model .ai-bubble { background:transparent; border:0; padding:.5rem 0; }
+.main-content .ai-composer { margin-inline:auto; width:100%; max-width:52rem; padding:1rem; border:1px solid var(--app-border); border-radius:1rem; background:var(--app-field); }
+.main-content .ai-attachment-row { margin:0 0 .4rem; font-size:.8rem; }
+.main-content .ai-attachment-row>button { min-height:2rem; padding:.35rem .65rem; }
+.ai-record-links { display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.6rem; }
+.ai-record-links button { border:1px solid var(--app-border); background:var(--app-field); color:var(--app-accent); border-radius:.5rem; padding:.3rem .5rem; font-size:.75rem; }
+.task-template-save { display:flex; flex-wrap:wrap; gap:.6rem; align-items:end; padding:.8rem 0; }
+.task-template-save label { flex:1 1 14rem; }
+.project-hub section { min-width:0; }
+.project-hub label { display:grid; gap:.45rem; margin-top:.75rem; }
+.project-hub select,.project-hub input { min-width:0; max-width:100%; }
+.project-hub .hub-record-row { min-height:2.7rem; }
+@container (max-width:64rem) { .week-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } }
+@container (max-width:48rem) { .main-content .ai-history-layout { grid-template-columns:1fr; } .main-content .conversation-history { max-height:13rem; border-right:0; border-bottom:1px solid var(--app-border); } .week-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .project-hub-columns { grid-template-columns:1fr; } .hub-activity-row { flex-direction:column; gap:.3rem; } .conversation-item .action-menu { opacity:1; } }

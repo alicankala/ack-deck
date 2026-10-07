@@ -172,3 +172,34 @@ body:has(.editor) { overflow: hidden; }
 .send-file-name span { color:var(--app-muted); font-size:13px; }
 .send-file-panel .actions>button,.send-audio-panel .actions>button { flex:1 1 120px; min-height:48px; }
 .send-success { padding:12px 14px; border:1px solid var(--app-accent-border); border-radius:12px; background:var(--app-accent-soft); color:var(--app-text); line-height:1.6; }
+/* Compact productivity views; the phone keeps one reading column. */
+.mobile-smart-capture { margin-block:1rem; }
+.mobile-smart-capture form { display:flex; align-items:center; gap:.5rem; }
+.mobile-smart-capture input { min-width:0; flex:1; }
+.capture-preview { display:grid; gap:.7rem; padding:1rem; background:var(--app-surface); border:1px solid var(--app-border); border-radius:1rem; margin-top:.7rem; }
+.mobile-daily-summary { display:grid; gap:.65rem; margin-bottom:.8rem; }
+.mobile-daily-summary>div { display:flex; flex-wrap:wrap; gap:.45rem; color:var(--app-muted); font-size:.8rem; }
+.mobile-daily-summary :is(span,button) { padding:.5rem .65rem; border-radius:.6rem; background:var(--app-surface); font-size:.8rem; }
+.mobile-next-step { display:grid; gap:.35rem; text-align:left; width:100%; }
+.mobile-next-step small { color:var(--app-accent); }
+.mobile-week-toolbar { display:flex; gap:.6rem; justify-content:space-between; margin:1rem 0; }
+.mobile-week-day { padding-block:.7rem; border-bottom:1px solid var(--app-border); }
+.mobile-week-heading { width:100%; display:flex; justify-content:space-between; gap:.8rem; text-align:left; background:transparent; padding:.6rem 0; }
+.mobile-week-heading span { font-size:.8rem; color:var(--app-accent); }
+.mobile-plan-event { display:grid; gap:.3rem; width:100%; text-align:left; margin:.6rem 0; border-left:3px solid var(--app-accent); }
+.mobile-plan-event.subscriptions { border-left-color:#baa4e8; }
+.mobile-plan-event small { color:var(--app-muted); }
+.mobile-project-detail { display:grid; gap:.8rem; border-top:1px solid var(--app-border); padding-top:1rem; }
+.mobile-project-detail form { display:grid; gap:.7rem; }
+.mobile-project-field { display:grid; gap:.5rem; color:var(--app-muted); font-size:.8rem; margin-bottom:.8rem; }
+.checklist-editor { padding:0; margin:.75rem 0; border:0; display:grid; gap:.5rem; min-width:0; }
+.checklist-editor legend { margin-bottom:.5rem; }
+.checklist-row { display:grid; grid-template-columns:1rem minmax(0,1fr) 1.8rem 1.8rem 1.8rem; gap:.25rem; align-items:center; }
+.checklist-row>input[type=checkbox] { width:1rem; min-height:1rem; }
+.checklist-row>input { min-width:0; padding:.5rem; }
+.checklist-row>button { padding:.4rem 0; min-height:2.75rem; background:transparent; }
+.checklist-editor>button { justify-self:start; }
+/* Metadata stays in the existing note, with on-demand file access. */
+.mobile-note-attachments{display:grid;gap:10px;margin:0 0 18px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.mobile-note-attachments button{max-width:100%;overflow-wrap:anywhere;text-align:left}
+.mobile-note-attachments audio,.mobile-note-attachments img{display:block;max-width:100%;margin:12px 0}

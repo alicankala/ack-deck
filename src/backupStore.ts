@@ -1,3 +1,7 @@
+import { validActivity,ACTIVITY_LIMIT } from "./activityStore";
+import { validTemplate } from "./templateStore";
+import { isProject } from "./projectStore";
+import { validLinks } from "../shared/productivity";
 import { validSubscription } from "../shared/subscriptions";
 import { validNoteAttachments } from "./notesStore";
 import { isRecentItem } from "./recentStore";
@@ -13,7 +17,7 @@ import { isWorkspace, isShortcutData } from "./workHubStore";
 import { isUsage } from "./usageStore";
 export type BackupDesktop = DesktopPreferences & { autoStart: boolean };
 export const BACKUP_KEYS = { tasks: "ack-deck.tasks.v1", projects: "ack-deck.projects.v1", notes: "ack-deck.notes.v1", files: "ack-deck.files.v1", speedTest: "ack-deck.speed-test.v1", archive: "ack-deck.archive.v1", preferences: "ack-deck.preferences.v1", aiModel: "ack-deck.ai-model.v1" } as const;
-export const HUB_BACKUP_KEYS = { subscriptions: "ack-deck.subscriptions.v1", workspaces: "ack-deck.workspaces.v1", shortcuts: "ack-deck.shortcuts.v1", usage: "ack-deck.usage.v1", hiddenLegacy: "ack-deck.shortcuts-legacy-hidden.v1", recent: "ack-deck.recent-items.v1" } as const;
+export const HUB_BACKUP_KEYS = { activity: "ack-deck.activity.v1", templates: "ack-deck.templates.v1", subscriptions: "ack-deck.subscriptions.v1", workspaces: "ack-deck.workspaces.v1", shortcuts: "ack-deck.shortcuts.v1", usage: "ack-deck.usage.v1", hiddenLegacy: "ack-deck.shortcuts-legacy-hidden.v1", recent: "ack-deck.recent-items.v1" } as const;
 const JOURNAL_KEY = "ack-deck.restore-journal.v1";
 export type Backup = { formatVersion: 1 | 2; appVersion: string; createdAt: string; data: Record<keyof typeof BACKUP_KEYS, unknown> & Partial<Record<keyof typeof HUB_BACKUP_KEYS, unknown>> & { desktop: BackupDesktop; conversations?: import("./conversationStore").Conversation[]; paletteShortcut?: string } };
 type Store = Pick<Storage, "getItem" | "setItem" | "removeItem">;
@@ -25,13 +29,14 @@ function validDesktop(value: unknown): value is BackupDesktop { return fields(va
 function validData(data: unknown): boolean {
   if (!fields(data, [...Object.keys(BACKUP_KEYS), ...Object.keys(HUB_BACKUP_KEYS), "desktop", "conversations", "paletteShortcut"]) || !object(data) || ![...Object.keys(BACKUP_KEYS), "desktop"].every(key => key in data)) return false;
   if (data.conversations !== undefined && !array(data.conversations, isConversation) || data.paletteShortcut !== undefined && (typeof data.paletteShortcut !== "string" || data.paletteShortcut.length > 80 || !/^(?=.*(?:Ctrl|Control|Alt)\+)[a-z0-9+]+$/i.test(data.paletteShortcut)) || data.recent !== undefined && (!Array.isArray(data.recent) || data.recent.length > 20 || !data.recent.every(isRecentItem))) return false;
+  if(data.activity!==undefined&&(!array(data.activity,validActivity)||(data.activity as unknown[]).length>ACTIVITY_LIMIT)||data.templates!==undefined&&(!array(data.templates,validTemplate)||(data.templates as unknown[]).length>100))return false;
   if(data.subscriptions!==undefined&&!array(data.subscriptions,validSubscription))return false;
   if (data.workspaces !== undefined && !array(data.workspaces, isWorkspace) || data.shortcuts !== undefined && !isShortcutData(data.shortcuts) || data.usage !== undefined && (!Array.isArray(data.usage) || data.usage.length > 500 || !data.usage.every(isUsage)) || data.hiddenLegacy !== undefined && (!Array.isArray(data.hiddenLegacy) || !data.hiddenLegacy.every(v => typeof v === "string" && v.length <= 512))) return false;
-  return array(data.tasks, (item) => isTask(item) && fields(item, ["id", "text", "completed", "dueDate", "dueTime", "priority", "reminder", "remindedFor", "recurrence", "dueAt", "occurrenceAt", "lastCompletedAt", "snoozedUntil", "timezone"])) &&
-    array(data.projects, (item) => fields(item, ["id", "name", "description", "folderPath"]) && object(item) && typeof item.id === "string" && !!item.id && [item.name, item.description, item.folderPath].every((value) => typeof value === "string")) &&
-    array(data.notes, (item) => fields(item, ["id", "title", "content", "updatedAt", "attachments"]) && object(item) && typeof item.id === "string" && !!item.id && typeof item.title === "string" && typeof item.content === "string" && dateNumber(item.updatedAt) && (item.attachments === undefined || validNoteAttachments(item.attachments))) &&
+  return array(data.tasks, (item) => isTask(item) && fields(item, ["id", "text", "completed", "dueDate", "dueTime", "priority", "reminder", "remindedFor", "recurrence", "dueAt", "occurrenceAt", "lastCompletedAt", "snoozedUntil", "timezone", "checklist", "projectId", "workspaceId", "sourceInboxId", "reminderLeadMinutes"])) &&
+    array(data.projects, (item) => isProject(item) && fields(item, ["id", "name", "description", "folderPath", "nextStep", "workspaceId", "inboxIds", "shortcutIds", "fileIds"]) && object(item) && typeof item.id === "string" && !!item.id && [item.name, item.description, item.folderPath].every((value) => typeof value === "string")) &&
+    array(data.notes, (item) => fields(item, ["id", "title", "content", "updatedAt", "attachments", "projectId", "workspaceId", "sourceInboxId"]) && object(item) && typeof item.id === "string" && !!item.id && typeof item.title === "string" && typeof item.content === "string" && validLinks(item) && dateNumber(item.updatedAt) && (item.attachments === undefined || validNoteAttachments(item.attachments))) &&
     array(data.files, (item) => isFileEntry(item) && fields(item, ["id", "name", "path", "fileName", "kind", "extension", "sizeBytes", "modifiedAt"])) &&
-    array(data.archive, (item) => isArchiveEntry(item) && fields(item, ["id", "title", "category", "description", "date", "tags", "file", "createdAt", "updatedAt"]) && object(item) && (item.file === null || fields(item.file, ["path", "fileName"]))) &&
+    array(data.archive, (item) => isArchiveEntry(item) && fields(item, ["id", "title", "category", "description", "date", "tags", "file", "createdAt", "updatedAt", "attachments", "sourceInboxId"]) && object(item) && (item.file === null || fields(item.file, ["path", "fileName"]))) &&
     (data.speedTest === null || (isSpeedResult(data.speedTest) && fields(data.speedTest, ["downloadMbps", "uploadMbps", "latencyMs", "jitterMs", "testedAt"]))) &&
     fields(data.preferences, ["startPage", "pcRefreshMs"]) && object(data.preferences) && ["home", "ai", "projects", "tools", "archive"].includes(data.preferences.startPage as string) && [2500, 5000, 10000].includes(data.preferences.pcRefreshMs as number) &&
     ["fast", "powerful"].includes(data.aiModel as string) && validDesktop(data.desktop);

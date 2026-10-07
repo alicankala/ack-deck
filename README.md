@@ -2,7 +2,7 @@
 
 İlk kararlı sürüm: **1.0.0**. Uygulama kimliği `com.alican.ackdeck` korunur; güncelleme mevcut yerel kayıtları sıfırlamaz.
 
-**1.1 çalışma kaynakları hazır:** Abonelikler, tekrarlayan görev/hatırlatmalar ve masaüstü/mobil sadeleştirmesi. Worker ve mobil mevcut üretim adresinde güncellenmiştir. Windows 1.1 yükleyicisi henüz oluşturulmamıştır; önce manuel test yapılacaktır. Davranış, veri güvenliği ve doğrulama ayrıntıları: [ITERATION_1_1.md](ITERATION_1_1.md).
+**Güncel sürüm: 1.2.0.** Final product intelligence, Windows setup ve mobil yayın ayrıntıları: [PRODUCT_INTELLIGENCE_1_2.md](PRODUCT_INTELLIGENCE_1_2.md).
 
 Görsel marka işareti **ACK**, uygulama adı **ACKDeck**.
 

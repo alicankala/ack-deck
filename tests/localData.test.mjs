@@ -7,7 +7,7 @@ import { setupModules } from "./helpers.mjs";
 function load(name, values, writable = true) {
   const exports = {};
   const source = ts.transpileModule(readFileSync(new URL("../src/" + name + ".ts", import.meta.url), "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-  runInNewContext(source, { exports, require:()=>setupModules().load("../shared/recurrence"), window: { localStorage: { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => { if (!writable) throw new Error("quota"); values.set(key, value); } } } });
+  runInNewContext(source, { exports, require:name=>setupModules().load(name), window: { localStorage: { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => { if (!writable) throw new Error("quota"); values.set(key, value); } } } });
   return exports;
 }
 test("preferences validate values and preserve the existing AI model preference", () => {
