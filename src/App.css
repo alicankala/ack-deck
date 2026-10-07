@@ -850,3 +850,121 @@ dialog:not(.standalone-palette) { max-width: calc(100vw - 2rem); max-height: cal
 @container (max-width: 30rem) {
   .projects-page .project-grid, .speed-results { grid-template-columns: minmax(0, 1fr); }
 }
+.update-notice { margin: 12px 20px 0; padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.update-notice span { flex: 1; }
+
+/* Shared desktop finish: quiet surfaces, consistent controls and clear spacing. */
+:root { --surface-radius: .9rem; --section-gap: 1.4rem; --card-padding: 1.4rem; }
+.app-shell { background: #11151b; }
+.sidebar { background: #151a22; border-right-color: #2b3440; }
+.sidebar .brand-mark { transform: none; border: 0; width: 2.4rem; height: 2.4rem; }
+.sidebar-nav-group + .sidebar-nav-group { border-top: 0; margin-top: 1rem; padding-top: .4rem; }
+.sidebar-nav-group .sidebar-section-label { color: #8695a8; letter-spacing: .08em; }
+.sidebar .nav-item { font-size: .93rem; font-weight: 500; border-radius: .7rem; }
+.sidebar .nav-item.active { background: #24364b; border-color: #345373; color: #edf5ff; }
+.surface { background: #1a212b; border-color: #303c4b; border-radius: var(--surface-radius); }
+.main-content :is(.hub-editor, .project-editor, .archive-editor, .settings-card, .subscription-form) { box-shadow: none; }
+.main-content :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select) { background-color: #131b25; border-color: #435165; border-radius: .6rem; }
+.main-content :is(.feature-heading, .section-heading) h1 { font-weight: 650; }
+.main-content .button-secondary { background: #202b39; border-color: #40516a; }
+.dashboard.work-dashboard { gap: 1.7rem; }
+.dashboard-header { border-bottom-color: #2d3745; padding-bottom: 1.4rem; }
+.dashboard-projects-open { display: grid; gap: 1.5rem; }
+.dashboard-subscription-body { padding: 1.2rem; border-top: 1px solid #303c4b; }
+.dashboard-subscription-body h2 { font-size: 1rem; }
+.dashboard-pc { background: #171e28; border-color: #303c4b; }
+.dashboard-pc > summary { min-height: 3.5rem; }
+.project-workspaces { margin-top: 2.2rem; padding-top: 1.7rem; border-top: 1px solid #303c4b; }
+.project-workspaces .hub-card h3 { font-size: 1.1rem; overflow-wrap: anywhere; }
+.project-workspaces .section-heading { margin-bottom: 1.2rem; }
+.main-content .tools-page .tool-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.2rem; }
+.tools-page .tool-card { min-height: 10rem; padding: 1.6rem; position: relative; align-items: flex-start; flex-direction: column; gap: 1rem; }
+.tools-page .tool-icon { width: 3rem; height: 3rem; border-radius: .85rem; }
+.tools-page .tool-copy strong { font-size: 1.13rem; }
+.tools-page .tool-copy small { font-size: .87rem; line-height: 1.5; }
+.tools-page .tool-arrow { position: absolute; right: 1.5rem; top: 1.7rem; }
+.tasks-description { color: #aebdd0; font-size: .9rem; margin-top: .5rem; }
+.tasks-page .tasks-card { padding: 1.4rem; }
+.tasks-page .task-form { height: 3.5rem; background: #151f2c; border-color: #425773; border-radius: .8rem; }
+.tasks-page .task-form button { width: 2.2rem; height: 2.2rem; border-radius: .6rem; }
+.tasks-page .task-filters { margin-block: 1.2rem; gap: .5rem; }
+.tasks-page .task-filters button { padding: .6rem 1rem; border-color: #36465b; border-radius: 2rem; }
+.tasks-page .task-filters button[aria-pressed="true"] { background: #2b4663; border-color: #628bb4; }
+.tasks-page .task-list { display: grid; gap: .65rem; overflow: visible; }
+.tasks-page .task-item { padding: 1rem; min-height: 5rem; border: 1px solid #303f52; border-radius: .75rem; background: #171f2a; align-items: center; }
+.tasks-page .task-item.overdue { border-left: 3px solid #d4a270; }
+.tasks-page .task-item.important .task-text > span { font-weight: 600; }
+.tasks-page .task-toggle { width: 1.55rem; height: 1.55rem; border-radius: .5rem; }
+.tasks-page .task-meta { font-size: .8rem; color: #aabbd0; }
+.tasks-page .task-footer { margin-top: 1rem; padding-top: .9rem; border-top: 1px solid #303c4b; min-height: 0; }
+.tasks-page .empty-tasks { padding: 2.5rem 1rem; border: 1px dashed #3b4b61; border-radius: .75rem; }
+.subscription-form { display: grid; gap: 1rem; }
+.subscription-form .archive-field { margin: 0; }
+.subscription-options { display: grid; gap: 1rem; padding-top: 1.2rem; border-top: 1px solid #354257; }
+.field-optional { color: #a6b6ca; font-size: .8rem; font-weight: 400; }
+.subscription-form textarea { min-height: 5rem; }
+.subscription-form-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.subscription-form-heading button { width: 2.7rem; height: 2.7rem; border: 0; border-radius: .6rem; font-size: 1.5rem; color: #c9d9eb; background: #26364a; }
+@container (max-width: 58rem) { .main-content .tools-page .tool-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (max-width: 30rem) { .main-content .tools-page .tool-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* Record editors have their own viewport instead of expanding the record list. */
+.editor-dialog { width: min(44rem, calc(100vw - 2rem)); max-height: calc(100dvh - 3rem); padding: 0; margin: auto; color: #edf4fd; background: #192330; border: 1px solid #465c76; border-radius: 1rem; overflow: hidden; box-shadow: 0 24px 80px #0009; }
+.editor-dialog[open] { display: flex; flex-direction: column; }
+.editor-dialog::backdrop { background: #060c16b8; }
+.editor-dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1.3rem 1.5rem; border-bottom: 1px solid #34465d; flex-shrink: 0; }
+.editor-dialog-heading h2 { font-size: 1.25rem; margin: 0; letter-spacing: -.025em; }
+.editor-dialog-heading p { color: #aebed2; margin-top: .4rem; font-size: .86rem; }
+.editor-close { flex: 0 0 2.5rem; width: 2.5rem; height: 2.5rem; padding: 0; border: 1px solid #405672; border-radius: .65rem; background: #233449; color: #cbdff6; font-size: 1.5rem; }
+.editor-dialog-body { min-height: 0; overflow: auto; padding: 1.5rem; overscroll-behavior: contain; }
+.editor-dialog-body form:is(.task-editor, .project-editor, .hub-editor, .subscription-form, .archive-editor) { max-width: none; width: 100%; margin: 0; padding: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; display: grid; gap: 1rem; }
+.editor-dialog-body form > h2 { display: none; }
+.editor-dialog-body label { font-size: .88rem; color: #d5e1ef; }
+.editor-dialog-body .archive-field, .editor-dialog-body form > label { display: grid; gap: .5rem; }
+.editor-dialog-body input:not([type="checkbox"]), .editor-dialog-body select, .editor-dialog-body textarea { width: 100%; min-width: 0; min-height: 2.7rem; border: 1px solid #465e7c; border-radius: .6rem; background: #111b28; color: #edf4fd; padding: .65rem .8rem; font: inherit; }
+.editor-dialog-body .reminder-toggle { display: flex; align-items: center; gap: .65rem; padding: .75rem; background: #223247; border-radius: .65rem; }
+.editor-dialog-body .reminder-toggle input { width: 1.2rem; height: 1.2rem; }
+.editor-dialog-body .task-hint { margin: 0; font-size: .8rem; }
+.editor-dialog-body form > :is(.settings-actions, .project-editor-actions, .archive-editor-actions, .hub-actions):last-child { position: sticky; bottom: -1.5rem; margin: .25rem -1.5rem -1.5rem; padding: 1rem 1.5rem; border-top: 1px solid #34465d; background: #192330; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .6rem; z-index: 1; }
+.editor-dialog-body .button { min-height: 2.7rem; }
+.editor-dialog-body .hub-item { border: 1px solid #354b66; padding: .75rem; border-radius: .6rem; }
+.record-action-menu { display: inline-flex; flex: 0 0 auto; margin-left: auto; }
+.record-menu-trigger { width: 2.7rem; height: 2.7rem; display: grid; place-items: center; padding: 0; border: 1px solid #3d5069; border-radius: .6rem; background: #1b2a3c; color: #cbdcf2; font-size: 1.4rem; }
+.record-menu-panel { position: fixed; inset: auto; margin: 0; padding: .5rem; border: 1px solid #48627f; border-radius: .8rem; color: #dce9fa; background: #1c2a3c; overflow: auto; box-shadow: 0 12px 35px #0008; }
+.record-menu-panel:popover-open { display: flex; flex-direction: column; gap: .25rem; }
+.record-menu-panel button { display: flex; align-items: center; gap: .5rem; width: 100%; height: auto; min-height: 2.7rem; text-align: left; padding: .65rem .75rem; margin: 0; border: 0; border-radius: .5rem; background: transparent; color: #d4e4f9; font-size: .88rem; }
+.record-menu-panel button:hover { background: #2a405c; }
+.record-menu-panel :is(.danger-action, .task-delete, .project-delete, .archive-delete) { color: #f0b7c0; }
+.settings-page { max-width: 90rem; }
+.settings-layout { display: grid; grid-template-columns: 16rem minmax(0,1fr); gap: 1.5rem; align-items: start; }
+.settings-navigation { display: grid; gap: .45rem; position: sticky; top: 1rem; }
+.settings-navigation button { display: flex; gap: .85rem; align-items: center; text-align: left; padding: 1rem; color: #bdd0e8; border: 1px solid transparent; border-radius: .8rem; background: transparent; }
+.settings-navigation button[aria-selected="true"] { background: #233b57; border-color: #496d93; color: #e7f2ff; }
+.settings-navigation button > span { display: grid; gap: .3rem; }
+.settings-navigation strong { font-size: .95rem; font-weight: 600; }
+.settings-navigation small { font-size: .78rem; color: #a3b8d1; }
+.settings-section-panel:not([hidden]) { display: grid; gap: 1.2rem; }
+.settings-section-panel[hidden] { display: none; }
+.settings-section-panel .settings-card { margin: 0; padding: 1.4rem; }
+.settings-section-panel h2 { font-size: 1.2rem; margin-bottom: .6rem; }
+.settings-section-panel .settings-actions { margin-top: 1rem; }
+.settings-section-panel .archive-form-grid { margin-top: 1rem; }
+.settings-explanation { color: #afc1d9; font-size: .9rem; line-height: 1.6; }
+.notes-layout { grid-template-columns: minmax(15rem,21rem) minmax(0,1fr); min-height: 35rem; overflow: hidden; }
+.notes-sidebar { background: #162130; border-color: #34465d; padding-bottom: .75rem; }
+.notes-sidebar-top { padding: 1.2rem; }
+.notes-sidebar-top > strong { font-weight: 500; color: #adbed3; font-size: .85rem; }
+.notes-list { padding: .6rem; }
+.note-list-item { border: 1px solid transparent; border-radius: .7rem; padding: .9rem; margin-block: .25rem; background: transparent; }
+.note-list-item.active { background: #263c56; border-color: #426588; }
+.note-list-item strong { font-weight: 600; font-size: .95rem; }
+.note-list-item span { color: #a6bdd6; font-size: .83rem; line-height: 1.5; margin-top: .35rem; }
+.note-list-item time { color: #8ca7c6; font-size: .73rem; margin-top: .65rem; }
+.notes-editor { background: #1b2635; padding: 1.7rem 2rem; display: flex; flex-direction: column; min-width: 0; }
+.notes-editor-top { padding-bottom: 1.1rem; border-bottom: 1px solid #34465d; }
+.note-save-status { font-size: .8rem; color: #a4cfb9; }
+.notes-editor .notes-title { font-size: 1.6rem; font-weight: 650; letter-spacing: -.04em; background: transparent; border: 0; padding: 1.1rem 0 .7rem; border-radius: 0; }
+.notes-editor .notes-content { flex: 1; min-height: 24rem; resize: vertical; background: transparent; border: 0; padding: .7rem 0; line-height: 1.85; color: #d9e5f4; font-size: 1rem; border-radius: 0; }
+.notes-editor .notes-save-info { border-top: 1px solid #34465d; padding-top: .8rem; font-size: .75rem; color: #9cb4cf; }
+@container (max-width: 58rem) { .settings-layout { grid-template-columns: minmax(0,1fr); } .settings-navigation { position: static; grid-template-columns: repeat(3,minmax(0,1fr)); } .settings-navigation small { display: none; } .settings-navigation button { padding: .75rem; } .notes-layout { grid-template-columns: minmax(0,1fr); } .notes-editor { padding: 1.3rem; } }
+@media (max-height: 650px) { .editor-dialog { max-height: calc(100dvh - 1rem); } }

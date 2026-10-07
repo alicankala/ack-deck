@@ -1,6 +1,42 @@
 # ACKDeck 1.1 — Uygulama ve doğrulama
 
-Abonelikler, tekrarlayan görevler ve masaüstü/mobil sadeleştirmesi uygulanmıştır. ACKDeck adı, ACK işareti, `com.alican.ackdeck`, mevcut depolama anahtarları ve telefon eşleşmeleri korunmuştur. Yeni paket eklenmemiştir. Windows yükleyicisi oluşturulmamıştır; mevcut 1.0 kurulum dosyaları değiştirilmemiştir.
+## 1.1.1 yayın ve mobil not defteri
+
+Kullanıcı 1.1.0'ı kurduğunu bildirip GitHub üzerinden güncelleme yayımlanmasını açıkça istedi. Depo özel olduğu için anonim updater erişimi mümkün değildi; kaynak kodu ve geçmişi görünür kılma onayı ayrıca alındı. Takip edilen mevcut dosyalar ve tüm Git geçmişindeki blob'lar üzerinde 494 dosyalık kimlik bilgisi taraması sıfır bulgu verdi; repo public yapıldı. Ürün ve lockfile sürümleri 1.1.1'e yükseltildi; updater adresi, public anahtarı ve uygulama/veri kimliği korunur.
+
+Mobil Notlar genel formdan ayrıldı. Aramalı başlık/önizleme/tarih listesi; üstte Notlar ve Bitti, kenarlı form kutuları yerine geniş başlık ve metin alanı, altta ayrı silme kontrolü olan tam ekran not defteri kullanılır. Bitti mevcut çevrimdışı dayanıklı kayıt/eşitleme akışına kaydeder; yazılmamış veya değişmiş nottan kaydetmeden çıkış onay ister. Yeni içerik türü veya depolama şeması eklenmedi.
+
+Mobil build ve 11 test, masaüstü build ve 137 test, bulut 13 test, release audit başarılıdır. Mobil son dağıtım `cdf5842c-adf2-4790-9304-f7184ebffbcc`; canlı HTML/SW/manifest/JS/CSS yerel build ile hash eşleşti, anonim API 401 verdi. Native/tarayıcı envanteri boş olduğundan gerçek ekran ve fiziksel updater kurulum testi bu sonuçlardan çıkarılmaz.
+
+1.1.1 NSIS installer ve `.sig` üretildi; EXE frontend asseti ve ProductVersion 1.1.1 doğrulandı. Installer updater imzası yapılandırmadaki public anahtarla kriptografik olarak doğrulandı. `latest.json` 1.1.1 ve aynı release'teki installer adresini içerir. Windows Authenticode imzası yoktur. Build wrapper exit 1 döndürse de Rust release/NSIS/signature çıktıları ve bağımsız artifact doğrulaması başarılıdır. Paket kullanıcı tarafından talep edilen normal `v1.1.1` GitHub Release için hazırlanmıştır.
+
+## 7 Ekim ikinci arayüz düzenlemesi
+
+Mobil Gelenler başlığı Gönderilenler oldu. Metin, bağlantı, ACK AI, fotoğraf/dosya ve sesli not gönderme kartı sürekli açık; ses kaydı dinlenebilir ve yalnızca Gönder ile iletilir. Alt menü Bugün, Gönderilenler, Notlar ve Diğer şeklindedir; çalışma alanları Diğer'e taşındı. Mevcut eşleşme, çevrimdışı kuyruk ve API davranışları korunur.
+
+Masaüstü görev, proje, çalışma alanı, kısayol, arşiv, abonelik ve sohbet adı düzenleme formları ortak modal pencereye alındı. İşlem menüleri kartları genişletmeyen üst katman popover'ları kullanır. Notlar liste/düzenleyici düzeni ve kayıt durumu ile sadeleştirildi. Ayarlar Genel, Görünüm, ACK AI, Telefon, Veriler ve Güncelleme bölümlerine ayrıldı; elle güncelleme kontrolü ve indirilen sürümü kurma eklendi. Kâtip 64-bit yalnız anlaşılabilirlik referansı olarak incelendi.
+
+Masaüstü build, 137 test; mobil build, 11 test; release audit sıfır hata ile geçti. Yeni modal yaşam döngüsü, yoğun işlem sırasında Escape engeli ve güncelleme bulunamadığında yeniden kontrol davranışı test edildi. Tarayıcı/native envanteri hâlâ boş; render ve fiziksel cihaz testi yapılmış sayılmaz.
+
+Mobil yeni build mevcut adrese yayımlandı: `401e7571-6573-416f-ad92-ce3f1d5e2274`. Canlı HTML, service worker, manifest, JS ve CSS yerel build ile SHA-256 eşleşti; anonim API erişimi HTTP 401 ile reddedildi. Backend, migration ve gerçek kullanıcı kayıtları değiştirilmedi.
+
+NSIS 1.1.0 setup bu arayüzle yeniden üretildi; `index-ByukI63R.js` assetinin release EXE içinde bulunduğu doğrulandı. Tauri updater imzası ve `latest.json` yeniden hazırlandı. Build wrapper exit 1 döndürmesine rağmen Rust release, NSIS ve updater signature çıktıları başarılı; ayrıca oluşan paketin ACKDeck 1.1.0 metadatası doğrulandı. Authenticode yayıncı imzası yoktur. Kurulum çalıştırılmadı; GitHub release/commit/push yapılmadı.
+
+## 7 Ekim arayüz düzenlemesi
+
+Kullanıcının yeni talebiyle masaüstü kartları, boşlukları ve kontrolleri ortak sade görünümde düzenlendi. Tamamlanan görevler yalnız Tamamlanan filtresinde görünür; aramadan tamamlanmış göreve gidildiğinde bu filtre açılır. Ana sayfada projeler açık, abonelikler PC Durumu gibi açılır özettir. Çalışma alanları Projeler sayfasının alt bölümüne taşındı; eski arama/AI bağlantıları aynı bölüme açılır. Sol menü Günlük, Kayıtlar ve Yardımcılar gruplarındadır. Kısayollar menüden kaldırıldı; mevcut kayıtlar Araçlar içinden erişilir. Araç kartları büyütüldü.
+
+Abonelik formunda kategori, durum, yenileme ve isteğe bağlı not doğrudan görünür. Web adresi ve simge girişleri kaldırıldı; daha önce kaydedilmiş değerler düzenleme sırasında korunur. Aynı form masaüstü ve mobilde kullanılır.
+
+Mobil görünüm simgeli dört bölümlü alt menü, sayfa başlıkları, ayrı Notlar sayfası, cihaz/bildirim/gizlilik ayar kartları, geçici durum mesajları ve tam ekran düzenleyicilerle yenilendi. Düzenleyici açıkken arka içerik inert olur; mevcut odak tuzağı, visualViewport ve safe-area desteği korunur. Veri anahtarları, eşitleme kuyruğu, bulut API'si ve push akışı değiştirilmedi.
+
+Doğrulama: masaüstü production build ve 134 test, mobil production build ve 11 test geçti; release audit sıfır hata bildirdi. Önceki güncelleyici değişikliğinin Rust check/fmt ve 19 test sonucu başarılıdır. Bu oturumda tarayıcı envanteri boştu ve IAB açılamadı; fiziksel Windows/iPhone görünümü, dokunma, klavye ve taşma kontrolü yapılmış sayılmaz. Mobil production yayını yapılmadı. Kullanıcı tüm değişikliklerin ardından ilk kurulum için NSIS setup oluşturulmasını açıkça istedi.
+
+İlk kurulum paketi: `src-tauri/target/release/bundle/nsis/ACKDeck_1.1.0_x64-setup.exe`. Yeni frontend assetinin release EXE içinde bulunduğu `verify-release.mjs` ile doğrulandı. Aynı build için updater `.sig` ve `latest.json` oluşturuldu. Windows Authenticode yayıncı imzası yoktur; Tauri güncelleme doğrulama imzası ayrıdır. Installer çalıştırılmadı, gerçek kullanıcı verisi değiştirilmedi; GitHub release/commit/push yapılmadı.
+
+Mobil yayın devamı (7 Ekim): kullanıcı production yayınını açıkça istedi. Mobil build ve 11 test, Worker type-check ve 13 test geçti; remote migration listesi bekleyen migration olmadığını doğruladı. Mevcut Worker, D1/KV binding'leri ve dakikalık Cron korunarak `https://ack-deck-phone.ack-deck-cloud.workers.dev` adresine `e9b40a51-05b3-4b18-9c23-bfd4fef9c7f3` sürümü yayımlandı. Canlı HTML, JS, CSS, manifest ve service worker HTTP 200 verdi ve SHA-256 karşılaştırmasında yerel build ile birebir eşleşti. Anonim `/api/status` HTTP 401 verdi. Credential/VAPID rotasyonu, yeniden eşleştirme, gerçek veri mutasyonu veya GitHub yayını yapılmadı. Fiziksel iPhone görünümü ve yeni dokunma/klavye kontrolü hâlâ manuel doğrulamadır.
+
+İlk 1.1 iterasyonunda abonelikler, tekrarlayan görevler ve masaüstü/mobil sadeleştirmesi uygulanmıştır. ACKDeck adı, ACK işareti, `com.alican.ackdeck`, mevcut depolama anahtarları ve telefon eşleşmeleri korunmuştur. O aşamada yeni paket eklenmemiş ve Windows yükleyicisi oluşturulmamıştır; mevcut 1.0 kurulum dosyaları değiştirilmemiştir. 7 Ekim güncelleyici ve setup hazırlığı yukarıdaki sonraki çalışmadır.
 
 ## Abonelikler
 

@@ -15,10 +15,13 @@ mod projects;
 mod qr;
 mod reminders;
 mod system_check;
+mod updates;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(updates::UpdateState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _| {
             if !args.iter().any(|arg| arg == "--autostart") {
                 desktop::show_window(app, None)
@@ -78,6 +81,8 @@ pub fn run() {
             reminders::sync_task_reminders,
             backup::save_backup,
             backup::choose_backup,
+            updates::check_update,
+            updates::install_update,
             system_check::system_health,
             phone::phone_status,
             phone::phone_configure,

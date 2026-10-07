@@ -2,6 +2,7 @@ import { Icon, type IconName } from "./Icon";
 import type { Page } from "./Sidebar";
 
 const tools: { label: string; subtitle: string; icon: IconName; page: Page }[] = [
+  { label: "Kısayollar", subtitle: "Dosya, klasör ve uygulamalarını aç", icon: "files", page: "files" },
   { label: "QR", subtitle: "Kod oluştur", icon: "qr", page: "qr" },
   { label: "IP", subtitle: "Ağ bilgisi", icon: "globe", page: "ip" },
   { label: "Hız Testi", subtitle: "Bağlantını ölç", icon: "speed", page: "speed" },

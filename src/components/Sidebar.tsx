@@ -4,19 +4,15 @@ const navigationGroups: { label: string; items: { id: Page; label: string; icon:
   { label: "Günlük", items: [
   { id: "home", label: "Ana Sayfa", icon: "grid" },
   { id: "tasks", label: "Görevler", icon: "check" },
+  { id: "projects", label: "Projeler", icon: "folder" },
   { id: "ai", label: "ACK AI", icon: "spark" },
   ] },
-  { label: "Çalışma", items: [
-  { id: "workspaces", label: "Çalışma Alanları", icon: "folder" },
-  { id: "projects", label: "Projeler", icon: "folder" },
-  { id: "files", label: "Kısayollar", icon: "files" },
-  ] },
-  { label: "Kişisel", items: [
+  { label: "Kayıtlar", items: [
   { id: "notes", label: "Notlar", icon: "note" },
   { id: "inbox", label: "Gelenler", icon: "files" },
   { id: "subscriptions", label: "Abonelikler", icon: "archive" },
   ] },
-  { label: "Araçlar", items: [
+  { label: "Yardımcılar", items: [
   { id: "tools", label: "Araçlar", icon: "tool" },
   ] },
 ];

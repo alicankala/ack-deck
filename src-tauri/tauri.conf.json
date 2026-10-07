@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "ACKDeck",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "identifier": "com.alican.ackdeck",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -45,6 +45,18 @@
         "languages": [
           "Turkish"
         ]
+      }
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDBBMUJFM0RDMjBBN0M0M0MKUldROHhLY2czT01iQ2xyZ0t3VFYybTluS1VKMHJtalpLZ2dIVDhKcnVieHBmVVBudGR1RDBYdzQK",
+      "endpoints": [
+        "https://github.com/alicankala/ack-deck/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
       }
     }
   }

@@ -24,7 +24,8 @@ test('recurring completion and subscription metadata survive offline restart, de
 });
 test('mobile hierarchy, safe areas, keyboard viewport, labels and bounded forms use shared controls',()=>{
   const ui=readFileSync(new URL('../src/main.tsx',import.meta.url),'utf8'),css=readFileSync(new URL('../src/style.css',import.meta.url),'utf8');
-  assert.match(ui,/\["more","Daha"\]/);assert.doesNotMatch(ui,/\["subscriptions","Abonelikler"\]/);assert.match(ui,/RecurrenceFields/);assert.match(ui,/SubscriptionForm/);assert.match(ui,/visualViewport\?\.height/);assert.match(ui,/event.key!=="Tab"/);assert.match(css,/safe-area-inset-top/);assert.match(css,/safe-area-inset-bottom/);assert.match(css,/repeat\(4,minmax\(0,1fr\)\)/);assert.match(css,/min-height:44px/);assert.match(css,/body:has\(\.editor\) nav/);
+  const nav=readFileSync(new URL('../src/MobileNav.tsx',import.meta.url),'utf8');
+  assert.match(nav,/id: "more", label: "Diğer"/);assert.doesNotMatch(nav,/id: "subscriptions"/);assert.match(ui,/<MobileNav/);assert.match(ui,/inert=\{!!form \|\| !!subscriptionDraft\}/);assert.match(ui,/page==="notes"/);assert.match(ui,/RecurrenceFields/);assert.match(ui,/SubscriptionForm/);assert.match(ui,/visualViewport\?\.height/);assert.match(ui,/event.key!=="Tab"/);assert.match(css,/safe-area-inset-top/);assert.match(css,/safe-area-inset-bottom/);assert.match(css,/repeat\(4,minmax\(0,1fr\)\)/);assert.match(css,/min-height:44px/);assert.match(css,/body:has\(\.editor\) nav/);
 });
 test('offline task/note queue and visible data survive a PWA restart',async()=>{
   const env=runtime(),store=env.load('mobile/src/store');let state=store.emptyState();state.token='test-mobile-token';state=store.enqueue(state,mutation('tasks','t',task));state=store.enqueue(state,mutation('notes','n',{title:'Not',content:'FAT32 kullan',updatedAt:1}));await store.saveState(state);

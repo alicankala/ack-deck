@@ -16,6 +16,9 @@ test('old tasks safely gain optional defaults; invalid calendar/reminder data is
 test('date groups include overdue tasks in today and keep completed items separate', () => {
   const { api } = setup(); const items = [task, { ...task, id: 'today', dueDate: '2026-10-04' }, { ...task, id: 'past', dueDate: '2026-10-03' }, { ...task, id: 'future', dueDate: '2026-10-05' }, { ...task, id: 'done', completed: true, dueDate: '2026-10-04' }];
   assert.equal(api.filterTasks(items, 'today', '2026-10-04').length, 2); assert.equal(api.filterTasks(items, 'upcoming', '2026-10-04')[0].id, 'future'); assert.equal(api.filterTasks(items, 'undated')[0].id, 't'); assert.equal(api.filterTasks(items, 'completed')[0].id, 'done');
+  assert.deepEqual(Array.from(api.filterTasks(items, 'all'), item => item.id), ['t', 'today', 'past', 'future']);
+  assert.equal(api.filterTasks([{ ...task, completed: true }], 'all').length, 0);
+  assert.equal(api.filterTasks([{ ...task, completed: true }], 'undated').length, 0);
 });
 test('rescheduling changes reminder identity and local date/time round trips', () => {
   const { api } = setup(); const scheduled = { ...task, dueDate: '2026-10-05', dueTime: '14:00', reminder: true };

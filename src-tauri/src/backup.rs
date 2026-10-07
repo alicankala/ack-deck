@@ -1,7 +1,7 @@
 use std::io::Write;
 use tauri_plugin_dialog::DialogExt;
 const MAX_BACKUP_BYTES: usize = 10 * 1024 * 1024;
-fn valid_envelope(content: &str) -> bool {
+pub(crate) fn valid_envelope(content: &str) -> bool {
     if content.len() > MAX_BACKUP_BYTES || content.contains("AIza") {
         return false;
     }

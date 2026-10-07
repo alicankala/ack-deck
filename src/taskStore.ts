@@ -51,5 +51,5 @@ export function taskDueAt(task: Task): number | null {
 export function reminderKey(task: Task): string | null { const due = taskDueAt(task); return due === null ? null : task.id + "|" + due; }
 export type TaskFilter = "all" | "today" | "upcoming" | "undated" | "completed";
 export function filterTasks(tasks: Task[], filter: TaskFilter, today = localDateKey()): Task[] {
-  return tasks.filter((task) => filter === "all" || (filter === "completed" ? task.completed : !task.completed && (filter === "today" ? !!task.dueDate && task.dueDate <= today : filter === "upcoming" ? !!task.dueDate && task.dueDate > today : !task.dueDate)));
+  return tasks.filter((task) => filter === "completed" ? task.completed : !task.completed && (filter === "all" || (filter === "today" ? !!task.dueDate && task.dueDate <= today : filter === "upcoming" ? !!task.dueDate && task.dueDate > today : !task.dueDate)));
 }

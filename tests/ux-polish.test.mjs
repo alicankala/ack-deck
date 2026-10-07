@@ -58,18 +58,19 @@ test('ticker preserves last data on refresh failure and never shows another city
   env.unmount();
 });
 
-test('sidebar retains all routes once, settings uses four sections and compact desktop rules remain bounded', () => {
+test('sidebar uses consolidated destinations, settings uses six panels and compact desktop rules remain bounded', () => {
   const sidebar = read('src/components/Sidebar.tsx');
-  for (const page of ['home', 'tasks', 'ai', 'workspaces', 'projects', 'files', 'notes', 'inbox', 'subscriptions', 'tools']) assert.equal(sidebar.match(new RegExp(`id: "${page}"`, 'g'))?.length, 1);
-  assert.match(sidebar, /label: "Kişisel"/); assert.doesNotMatch(sidebar, /label: "Finans"|label: "Kayıtlar"/);
+  for (const page of ['home', 'tasks', 'ai', 'projects', 'notes', 'inbox', 'subscriptions', 'tools']) assert.equal(sidebar.match(new RegExp(`id: "${page}"`, 'g'))?.length, 1);
+  assert.doesNotMatch(sidebar, /id: "workspaces"|id: "files"/);
+  assert.match(sidebar, /label: "Kayıtlar"/);
   const settings = read('src/components/Settings.tsx');
-  assert.equal(settings.match(/settings-fold settings-group/g)?.length, 4);
-  for (const title of ['Genel', 'Görünüm', 'Bağlantılar', 'Yedekleme']) assert.ok(settings.includes(`<summary>${title}</summary>`));
-  for (const child of ['DesktopSettings', 'PaletteShortcutSettings', 'DisplayScaleSettings', 'WeatherSettings', 'PhoneSettings', 'BackupSettings', 'AboutSettings']) assert.equal(settings.match(new RegExp(`<${child}[ />]`, 'g'))?.length, 1);
+  assert.equal(settings.match(/role="tabpanel"/g)?.length, 6);
+  for (const id of ['general', 'appearance', 'ai', 'phone', 'data', 'updates']) assert.ok(settings.includes(`id="settings-panel-${id}"`));
+  for (const child of ['DesktopSettings', 'PaletteShortcutSettings', 'DisplayScaleSettings', 'WeatherSettings', 'PhoneSettings', 'BackupSettings', 'AboutSettings', 'UpdateSettings']) assert.equal(settings.match(new RegExp(`<${child}[ />]`, 'g'))?.length, 1);
   const css = read('src/App.css');
   assert.match(css, /\.main-content \{ padding: var\(--page-padding\); container-type: inline-size; \}/);
   assert.match(css, /\.toast, \.undo-toasts \{ bottom: var\(--footer-clearance\)/);
-  assert.match(css, /\.main-content \.overflow-menu\[open\] \{ flex: 1 1 100%/);
+  assert.match(css, /\.record-menu-panel[^}]*position: fixed/s);
   assert.match(css, /@container \(max-width: 58rem\)/);
   for (const [width, height] of [[1280,720],[1366,768],[1440,900],[1920,1080],[2560,1440],[2560,1600]]) for (const scale of [90,100,105,110,115,125]) {
     const rem = 15 * scale / 100, content = Math.min(1800, width - 228 * scale / 100 - 3.2 * rem);

@@ -12,7 +12,7 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
   useEffect(() => () => { if (editedNote.current) recordRecent("notes", editedNote.current.id, undefined, editedNote.current.usedAt); }, []);
   const [initial] = useState(loadNotes);
   const [notes, setNotes] = useState<Note[]>(initial.notes);
-  const [selectedId, setSelectedId] = useState<string | null>(initialId ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialId ?? [...initial.notes].sort((a, b) => b.updatedAt - a.updatedAt)[0]?.id ?? null);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(initial.error);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -74,7 +74,7 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
     {error && <div className="tool-feedback error" role="alert">{error}</div>}
     <div className="notes-layout surface">
       <aside className="notes-sidebar" aria-label="Not listesi">
-        <div className="notes-sidebar-top"><strong>Notlar</strong><button className="button button-primary" type="button" onClick={createNote} disabled={!!initial.error}><Icon name="plus" size={16} /> Yeni</button></div>
+        <div className="notes-sidebar-top"><strong>{notes.length} not</strong><button className="button button-primary" type="button" onClick={createNote} disabled={!!initial.error}><Icon name="plus" size={16} /> Yeni not</button></div>
         <label className="sr-only" htmlFor="notes-search">Notlarda ara</label>
         <input id="notes-search" className="notes-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Notlarda ara..." />
         <div className="notes-list">{visible.length ? visible.map((note) => <button className={"note-list-item " + (selectedId === note.id ? "active" : "")} key={note.id} type="button" onClick={() => { setSelectedId(note.id); setConfirmDelete(false); }}>
@@ -83,11 +83,11 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
       </aside>
       <section className="notes-editor" aria-label="Not düzenleyici">
         {selected ? <>
-          <div className="notes-editor-top"><span>Son düzenleme: <time dateTime={new Date(selected.updatedAt).toISOString()}>{dateFormatter.format(selected.updatedAt)}</time></span><button className="notes-delete" type="button" onClick={() => setConfirmDelete(true)} disabled={!!initial.error}><Icon name="trash" size={16} /> Sil</button></div>
+          <div className="notes-editor-top"><span className="note-save-status">{error ? "Kaydedilemedi" : "Kaydedildi"}</span><button className="notes-delete" type="button" onClick={() => setConfirmDelete(true)} disabled={!!initial.error}><Icon name="trash" size={16} /> Notu sil</button></div>
           {confirmDelete && <div className="notes-delete-confirm" role="group" aria-label="Notu silme onayı"><span>Bu not silinsin mi?</span><button type="button" onClick={remove}>Evet, sil</button><button type="button" onClick={() => setConfirmDelete(false)}>Vazgeç</button></div>}
           <label className="sr-only" htmlFor="note-title">Not başlığı</label><input id="note-title" className="notes-title" value={selected.title} onChange={(event) => edit({ title: event.target.value })} maxLength={160} placeholder="Not başlığı" disabled={!!initial.error} />
           <label className="sr-only" htmlFor="note-content">Not içeriği</label><textarea id="note-content" className="notes-content" value={selected.content} onChange={(event) => edit({ content: event.target.value })} maxLength={30000} placeholder="Notunu yaz..." disabled={!!initial.error} />
-          <p className="notes-save-info">Değişiklikler otomatik olarak yerel depolamaya kaydedilir.</p>
+          <p className="notes-save-info"><time dateTime={new Date(selected.updatedAt).toISOString()}>{dateFormatter.format(selected.updatedAt)}</time> · Otomatik kaydedilir</p>
         </> : <div className="notes-empty-editor"><span className="feature-icon"><Icon name="note" size={24} /></span><h2>Bir not seç veya yeni not oluştur</h2><p>Başlık ve içerik yazdıkça notun kaydedilir.</p></div>}
       </section>
     </div>
