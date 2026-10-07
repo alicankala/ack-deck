@@ -151,33 +151,3 @@ body:has(.editor) { overflow: hidden; }
 .send-audio-preview .actions > button { flex: 1; }
 .sent-history-title { font-size: 17px; margin: 26px 0 14px; }
 .mobile-empty { padding: 18px; background: #192636; border: 1px dashed #3b5472; border-radius: 16px; font-size: 14px; color: #adc3dd; }
-/* A dedicated notebook and writing surface, independent of record forms. */
-.phone-notebook { margin-top: 20px; }
-.notebook-tools { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
-.notebook-tools input { border: 0; background: #223043; border-radius: 12px; min-height: 48px; }
-.new-note-button { display: grid; place-items: center; flex: 0 0 48px; width: 48px; height: 48px; padding: 0; background: #a4ccf4; color: #102b47; border: 0; border-radius: 14px; }
-.notebook-list { background: #1b2736; border-radius: 16px; overflow: hidden; }
-.notebook-row { display: grid; grid-template-columns: minmax(0,1fr) auto; width: 100%; text-align: left; border: 0; border-radius: 0; background: transparent; padding: 18px; gap: 7px 14px; }
-.notebook-row + .notebook-row { border-top: 1px solid #344255; }
-.notebook-row strong { grid-column: 1 / -1; font-size: 17px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.notebook-row > span { color: #acbfd5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
-.notebook-row time { font-size: 12px; color: #92abc7; align-self: center; }
-.notebook-count { text-align: center; font-size: 13px; color: #99abc1; margin-top: 18px; }
-.notebook-empty { text-align: center; padding: 50px 24px; color: #a4ccf4; }
-.notebook-empty h2 { font-size: 21px; margin: 16px 0 10px; }
-.notebook-empty p { line-height: 1.6; }
-.editor.note-editor { padding: 0; overflow: hidden; background: #162130; }
-.editor.note-editor > .note-sheet { margin: 0 auto; min-height: 0; height: 100%; max-width: 720px; padding: 0; background: #162130; display: flex; flex-direction: column; }
-.note-toolbar { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; padding: max(10px,env(safe-area-inset-top)) 16px 10px; border-bottom: 1px solid #2c3b50; }
-.note-toolbar button { background: transparent; border: 0; color: #a4ccf4; padding: 8px; }
-.note-toolbar .note-back { display: flex; align-items: center; gap: 6px; }
-.note-back > span { font-size: 30px; line-height: 24px; }
-.note-toolbar .note-done { font-weight: 650; }
-.note-writing-area { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: auto; padding: 16px 24px; }
-.note-edit-date { text-align: center; color: #8da5c0; font-size: 12px; margin: 0 0 16px; }
-.note-writing-area .note-title-input { border: 0; border-radius: 0; background: transparent; font-size: 27px; font-weight: 650; line-height: 1.3; padding: 4px 0 12px; }
-.note-writing-area .note-body-input { flex: 1; min-height: 160px; resize: none; border: 0; border-radius: 0; background: transparent; font-size: 17px; line-height: 1.8; padding: 4px 0; }
-.note-writing-area :is(input,textarea):focus-visible { outline: none; }
-.note-bottom-bar { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; min-height: 50px; padding: 6px 20px max(10px,env(safe-area-inset-bottom)); border-top: 1px solid #2c3b50; }
-.note-bottom-bar > span { color: #91a9c5; font-size: 12px; }
-.note-bottom-bar button { display: grid; place-items: center; width: 44px; padding: 0; border: 0; background: transparent; color: #d6a5ae; }

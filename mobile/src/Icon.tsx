@@ -1,7 +1,9 @@
-export type IconName = "check" | "files" | "folder" | "grid" | "note" | "archive" | "settings" | "refresh" | "link" | "mic" | "spark" | "trash" | "compose";
+export type IconName = "check" | "files" | "folder" | "grid" | "note" | "archive" | "settings" | "refresh" | "link" | "mic" | "spark" | "trash" | "compose" | "search" | "back";
 
 export function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   const paths = {
+    search: <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></>,
+    back: <path d="m15 5-7 7 7 7" />,
     trash: <><path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7" /></>,
     compose: <><path d="M12 4H4v16h16v-8M10 14l1-4L19 2l3 3-8 8z" /></>,
     check: <path d="m5 12 4 4L19 6" />,

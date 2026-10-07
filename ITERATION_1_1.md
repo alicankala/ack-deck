@@ -1,5 +1,13 @@
 # ACKDeck 1.1 — Uygulama ve doğrulama
 
+## Mobil Notlar görsel yenilemesi — 7 Ekim
+
+Kullanıcının önceki mobil Notlar görünümünü beğenmemesi üzerine yalnız bu bölüm yeniden tasarlandı. Sayfa kendi başlığını, belirgin Yeni not düğmesini, arama alanını ve daha okunaklı başlık/önizleme/tarih kartlarını kullanır; Notes ekranındaki yinelenen genel uygulama başlığı ve PC özeti kaldırılır. Eşitleme durumu not başlığında korunur. Koyu gri kartlar ve sıcak vurgu rengi, açık kâğıt renkli yazma ekranıyla tamamlanır. 400px ve üstünde iki sütun, küçük telefonlarda tek sütun kullanılır.
+
+Yazma ekranında başlık çok satıra açılır ve içerik yazdıkça uzar; iç içe metin kaydırma yerine sayfa kayar. Kaydet üstte sabit, silme ve kelime/karakter sayısı altta ayrı durur. Mevcut kayıt, silme onayı/geri alma, eşitleme ve kaydetmeden çıkış onayı korunur. Notlara özel CSS ayrı dosyaya alındı.
+
+Mobil build ve 12 test başarılı; uzun başlık/metin boyutlandırma, genişlik değişimi, küçülme ve resize listener temizliği test edildi. Release audit sıfır hata; tarayıcı/native envanteri boş olduğundan gerçek iPhone görsel/klavye testi yapılmış sayılmaz. Mobil dağıtım `ea787af7-82ca-4794-8e87-7b23bfdb781c`; canlı HTML, SW, manifest, JS ve CSS yerel build ile hash eşleşti ve anonim API erişimi 401 verdi. İlk SW kontrolündeki geçici edge yayılma farkı sonraki doğrulamada giderildi. Masaüstü paketi, GitHub Release ve kullanıcı verisi değiştirilmedi.
+
 ## 1.1.1 yayın ve mobil not defteri
 
 Kullanıcı 1.1.0'ı kurduğunu bildirip GitHub üzerinden güncelleme yayımlanmasını açıkça istedi. Depo özel olduğu için anonim updater erişimi mümkün değildi; kaynak kodu ve geçmişi görünür kılma onayı ayrıca alındı. Takip edilen mevcut dosyalar ve tüm Git geçmişindeki blob'lar üzerinde 494 dosyalık kimlik bilgisi taraması sıfır bulgu verdi; repo public yapıldı. Ürün ve lockfile sürümleri 1.1.1'e yükseltildi; updater adresi, public anahtarı ve uygulama/veri kimliği korunur.
