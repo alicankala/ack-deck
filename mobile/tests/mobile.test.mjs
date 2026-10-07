@@ -10,6 +10,13 @@ function runtime(database=new IDBFactory()){
 }
 const task={text:'SD kart al',completed:false,dueDate:null,dueTime:null,priority:'normal',reminder:false,dueAt:null,timezone:'UTC'};
 const mutation=(kind,id,data,version=0)=>({mutationId:crypto.randomUUID(),kind,id,baseVersion:version,data,deleted:false});
+test('custom phone task order survives offline capture and restart without changing record data',async()=>{
+  const env=runtime(),store=env.load('mobile/src/store');let state=store.emptyState();
+  state=store.enqueue(state,mutation('tasks','a',task));state=store.enqueue(state,mutation('tasks','b',{...task,text:'B'}));
+  state={...state,taskOrder:['b','a']};await store.saveState(state);
+  const restored=await runtime(env.database).load('mobile/src/store').readState();assert.deepEqual(Array.from(restored.taskOrder),['b','a']);
+  const next=store.enqueue(restored,mutation('tasks','c',{...task,text:'C'}));assert.deepEqual(Array.from(next.taskOrder),['b','a']);assert.equal(next.records.find(r=>r.id==='a').data.text,task.text);
+});
 test('recurring completion and subscription metadata survive offline restart, deletion and undo queue',async()=>{
   const env=runtime(),store=env.load('mobile/src/store'),rec=env.load('shared/recurrence');
   const rule={frequency:'weekly',interval:1,weekdays:[1,3,5],dayOfMonth:15,start:'2026-10-05',time:'20:00',timezone:'Europe/Istanbul',endDate:null,count:null};

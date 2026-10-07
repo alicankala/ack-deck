@@ -48,6 +48,18 @@ export function recurrenceLabel(r:Recurrence|null|undefined):string {
   return r.interval===1?days:`Her ${r.interval} haftada · ${days}`;
 }
 export type RecurringFields = { completed:boolean; dueDate?:string|null; dueTime?:string|null; dueAt?:number|null; recurrence?:Recurrence|null; occurrenceAt?:number|null; lastCompletedAt?:number|null; snoozedUntil?:number|null; remindedFor?:string|null };
+// Presentation only: missed calendar days never become a pile of overdue tasks.
+// The persisted notification cursor and completion history remain unchanged.
+export function scheduleDate(task: RecurringFields, now = Date.now()): string | null {
+  if (!task.recurrence || task.completed) return task.dueDate ?? null;
+  const rule = task.recurrence;
+  if (task.snoozedUntil != null) return zonedParts(task.snoozedUntil, rule.timezone).date;
+  const today = zonedParts(now, rule.timezone).date;
+  const dayStart = zonedAt(today, "00:00", rule.timezone);
+  if (task.occurrenceAt != null && task.occurrenceAt >= dayStart && task.occurrenceAt > (task.lastCompletedAt ?? 0)) return zonedParts(task.occurrenceAt, rule.timezone).date;
+  const after = Math.max(dayStart - 1, task.lastCompletedAt ?? 0);
+  return nextOccurrence(rule, after)?.date ?? task.dueDate ?? null;
+}
 export function completeOccurrence<T extends RecurringFields>(task:T,now=Date.now()):T {
   if(!task.recurrence)return {...task,completed:!task.completed};
   const current=task.occurrenceAt ?? task.dueAt ?? zonedAt(task.dueDate!,task.dueTime!,task.recurrence.timezone);

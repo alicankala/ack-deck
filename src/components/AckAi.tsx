@@ -31,6 +31,13 @@ type Props = {
   onPromptConsumed: (id: string) => void;
 };
 
+const starters = [
+  { icon: "check", title: "Günümü planla", text: "Bugünkü görevlerim neler?", hint: "Görevlerine birlikte bakalım" },
+  { icon: "note", title: "Notlarımı bul", text: "Notlarımı listele.", hint: "Kayıtlarından devam et" },
+  { icon: "plus", title: "Bir görev oluştur", text: "Yeni görev: ", hint: "Yapacaklarını sıraya koy" },
+  { icon: "spark", title: "Bir fikri geliştir", text: "Şu fikri birlikte geliştirelim: ", hint: "Birlikte düşün, netleştir" },
+] as const;
+
 export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, initialPrompt, onPromptConsumed, onNewChat, onBusyChange, blocked = false, prefill, onPrefillConsumed }: Props) {
   const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [draft, setDraft] = useState(prefill?.text ?? initialPrompt?.text ?? "");
@@ -163,22 +170,19 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
 
   return <div className="ai-page">
     <header className="feature-heading ai-heading">
-      <div><h1>ACK AI</h1><p>Gemini sohbeti ve kontrollü ACKDeck desteği.</p></div>
+      <div className="ai-page-title"><span className="ai-page-mark"><Icon name="spark" size={24}/></span><div><h1>ACK AI</h1><p>Düşün, planla, harekete geç.</p></div></div>
       {!onNewChat && <button className="button button-secondary" type="button" onClick={newChat} disabled={blocked || attaching || actionBusy.current || (messages.length === 0 && !draft && !error)}>
         <Icon name="plus" size={17} /> Yeni sohbet
       </button>}
     </header>
     <section className="ai-panel surface" aria-label="ACK AI sohbeti">
       <div className="ai-messages" aria-live="polite">
-        {hasKey === false && messages.length === 0 ? <div className="ai-empty">
+        {messages.length === 0 ? <div className="ai-empty">
           <div className="ai-empty-icon"><Icon name="spark" size={28} /></div>
-          <h2>API anahtarı gerekli</h2>
-          <p>Gemini API anahtarını Ayarlar bölümünden ekleyin.</p>
-          <button className="button button-primary" type="button" onClick={onOpenSettings}>Ayarlara git <Icon name="arrowRight" size={16} /></button>
-        </div> : messages.length === 0 ? <div className="ai-empty">
-          <div className="ai-empty-icon"><Icon name="spark" size={28} /></div>
-          <h2>Nasıl yardımcı olabilirim?</h2>
-          <p>Mesajın ve yalnızca ilgili ACKDeck verileri Gemini'ye gönderilir. Yalnızca seçip gönderdiğin dosya Gemini'ye iletilir. İşlemler için ayrıca onayın istenir; sohbet geçmişi yalnızca bu bilgisayarda saklanır.</p>
+          <h2>Ne yapmak istersin?</h2>
+          <p>Gününü planla, bir fikri netleştir ya da kayıtlarınla çalış.</p>
+          <div className="ai-starter-grid">{starters.map(starter=><button type="button" className="ai-starter-card" key={starter.title} disabled={blocked || sending || attaching || !!pending} onClick={()=>{setDraft(starter.text);document.getElementById("ai-prompt")?.focus();}}><Icon name={starter.icon} size={22}/><strong>{starter.title}</strong><small>{starter.hint}</small><span aria-hidden="true">↗</span></button>)}</div>
+          {hasKey === false && <div className="ai-connect-card"><Icon name="info" size={18}/><div><strong>Yerel komutlar hazır</strong><p>Serbest sohbet için Gemini anahtarını bağla.</p></div><button className="button button-secondary" type="button" onClick={onOpenSettings}>Bağla</button></div>}
         </div> : messages.map((message, index) => <div className={"ai-message " + message.role} key={index}>
           <span className="ai-avatar">{message.role === "user" ? "S" : <Icon name="spark" size={18} />}</span>
           <div className="ai-message-body"><span className="ai-message-label">{message.role === "user" ? "Sen" : "ACK AI"}</span><div className="ai-bubble">{message.text}</div>{message.attachments?.map((file, i) => <small className="ai-source" key={i}>Ek: {file.name} · {file.mime} · {Math.ceil(file.size / 1024)} KB</small>)}{!!message.sources?.length && <small className="ai-source">ACKDeck verileri kullanıldı: {message.sources.map((source) => SOURCE_LABELS[source]).join(", ")}</small>}</div>
@@ -190,17 +194,10 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
       {error && <div className="ai-error" role="alert"><Icon name="info" size={17} />{error}</div>}
       <form className="ai-composer" onSubmit={send}>
         <div className="ai-attachment-row"><button className="button button-secondary" type="button" disabled={blocked || sending || attaching || !!pending} onClick={() => void addAttachment()}>{attaching ? "Dosya hazırlanıyor..." : "Dosya Ekle"}</button><details className="advanced-fields"><summary>Desteklenen dosyalar</summary><small>PNG, JPEG, WebP, PDF veya UTF-8 TXT · En fazla 8 MB · TXT: 128 KB</small></details>{attachment && <div role="status">{attachmentPreview && <img className="ai-attachment-preview" src={attachmentPreview} alt="Gönderilecek görüntünün önizlemesi" />}<strong>{attachment.name}</strong> · {attachment.mime} · {Math.ceil(attachment.size / 1024)} KB<p>Bu dosya Gemini'ye gönderilecek. Gönder düğmesine basılmadan iletilmez.</p><button type="button" disabled={sending} onClick={removeAttachment}>Dosyayı kaldır</button></div>}</div>
-        <details className="advanced-fields"><summary>Model: {model === "fast" ? "Hızlı" : "Güçlü"}</summary><div className="ai-model-row">
-          <span className="ai-model-label">Model</span>
-          <div className="ai-model-options" role="group" aria-label="ACK AI modeli">
-            <button type="button" className={model === "fast" ? "selected" : ""} aria-pressed={model === "fast"} onClick={() => chooseModel("fast")} disabled={sending}>Hızlı</button>
-            <button type="button" className={model === "powerful" ? "selected" : ""} aria-pressed={model === "powerful"} onClick={() => chooseModel("powerful")} disabled={sending}>Güçlü</button>
-          </div>
-          {model === "powerful" && <span className="ai-model-hint">Daha iyi yanıtlar için güçlü modeli kullanır. Günlük ücretsiz kotası daha sınırlı olabilir.</span>}
-        </div>
-        </details><label className="sr-only" htmlFor="ai-prompt">ACK AI mesajı</label>
+        <label className="sr-only" htmlFor="ai-prompt">ACK AI mesajı</label>
         <textarea id="ai-prompt" value={draft} onChange={(event) => setDraft(event.target.value)} onPaste={event => { const file = Array.from(event.clipboardData.files).find(item => item.type.startsWith("image/")); if (file) { event.preventDefault(); void addAttachment(file); } }} onKeyDown={handleKeyDown} placeholder={pending ? "Önce işlemi onaylayın veya iptal edin" : hasKey ? "Mesajını yaz..." : "Yerel komut yazabilir veya Ayarlar'dan Gemini anahtarı ekleyebilirsin"} maxLength={8000} rows={3} disabled={sending || !!pending} />
-        <div className="ai-composer-bottom"><span>Enter ile gönder · Shift+Enter ile yeni satır</span><button className="button button-primary" type="submit" disabled={sending || attaching || !!pending || !draft.trim()}>Gönder <Icon name="arrowRight" size={16} /></button></div>
+        <div className="ai-composer-bottom"><label className="ai-model-picker"><Icon name="spark" size={16}/><span className="sr-only">Yanıt modeli</span><select value={model} onChange={event=>chooseModel(event.target.value as AiModel)} disabled={sending || blocked}><option value="fast">Hızlı model</option><option value="powerful">Güçlü model</option></select></label><button className="button button-primary" type="submit" disabled={blocked || sending || attaching || !!pending || !draft.trim()}>Gönder <Icon name="arrowRight" size={16} /></button></div>
+        <div className="ai-composer-help"><small>Enter ile gönder · Shift+Enter ile yeni satır</small><details className="ai-privacy"><summary>Gizlilik ve kullanım</summary><p>Mesajın ve yalnızca ilgili ACKDeck verileri Gemini'ye gönderilir. Seçtiğin dosya yalnız Gönder ile iletilir. İşlemler için onayın istenir; sohbet geçmişi bu bilgisayarda saklanır. Güçlü modelin ücretsiz kotası daha sınırlı olabilir.</p></details></div>
       </form>
     </section>
   </div>;

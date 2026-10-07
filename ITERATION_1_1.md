@@ -1,5 +1,15 @@
 # ACKDeck 1.1 — Uygulama ve doğrulama
 
+## 1.1.2 — Masaüstü ve mobil düzenlemeleri, 7 Ekim
+
+Mobil notların koyu gri/sıcak sarı paleti masaüstünün tüm sayfalarına uygulandı. Ana sayfada gerçek görev/proje/not sayıları, daha kısa metinler ve sağ sütunda hızlı işlemler bulunur. ACK AI başlangıç kartları ve görünür model seçimiyle düzenlendi. Masaüstü notların liste/yazı alanı büyütüldü; mobil aramanın görünür çift etiketi erişilebilir gizli etiket stiliyle düzeltildi.
+
+Yeni görev düğmesi hızlı ekleme alanıyla bütünleştirildi. Normal/Önemli seçimi ve kart etiketleri kaldırıldı; eski verilerin priority alanı uyumluluk için korunur. Görev ve abonelik kartlarında tıklama/dokunma düzenleme açar; erteleme/silme üç nokta menüsündedir. Projeler ve masaüstü görevler sürükleme veya menüden taşınabilir. Mobil görev sırası IndexedDB'de cihaz tercihi olarak saklanır; kayıtların tamamlanma, tarih ve eşitleme sürümleri değişmez. İki cihazın özel sıralaması bağımsızdır.
+
+Tekrar seçimi boş başlangıç/saat alanlarını bugün/09:00 ile doldurur. Başlangıç kullanıcı tarafından değiştirilebilir. Bitiş seçenekleri açılır bölüm yerine formda açık yer alır. Ortak scheduleDate yalnız görünümü/filtreyi takvim gününe göre hesaplar; eski günlük başlangıcını gecikmiş tek seferlik son tarih saymaz. Tamamlama sonrası gelecek occurrence ve erteleme korunur; bildirim kuyruğu, bulut teslim kaydı ve gerçek görevler sessizce değiştirilmez. Ayarlarda güncelleme denetimi aynı bölümde görünür; üstte denetim/hata barı oluşturmaz.
+
+Doğrulama: iki frontend build, masaüstü 146, mobil 13, bulut 13, Rust 19 test; bulut type-check, cargo fmt --check, kaynak denetimi ve git diff --check. Windows 1.1.2 NSIS, aynı updater anahtarıyla imzalanır; uygulama/paket kimliği ve veri yolları korunur. Kullanıcı commit/push/release/mobil yayınını açıkça istedi. CUA envanteri boş olduğu için fiziksel görünüm, telefon klavyesi, sürükleme ve kurulu uygulamada gerçek güncelleme kurulumu doğrulanmış sayılmaz. Gerçek kullanıcı verisi/kurulumuna müdahale edilmez.
+
 ## Mobil ortak koyu tema ve bildirim adı — 7 Ekim
 
 Kullanıcının beğendiği Notlar paleti bütün mobil sayfalara taşındı: koyu gri zemin/yüzeyler, sıcak sarı vurgu, nötr yazı ve kenarlık renkleri. CSS ortak renk değişkenleri kullanır; görevler, gönderme kartı, çalışma alanları, abonelikler, ayarlar, eşleştirme, alt menü, formlar ve durum mesajları aynı palettedir. Hata/kayıt ve çevrimiçi durumlarının anlamlı kırmızı/yeşil ayrımı korunur. Not düzenleyicisindeki açık kâğıt rengi kaldırılıp aynı koyu tema uygulanmıştır. PWA theme/background renkleri de eşlenmiştir.

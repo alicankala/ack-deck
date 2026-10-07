@@ -6,6 +6,8 @@ Kurulum öncesi mevcut tam JSON yedek akışıyla kayıtlar, tercihler ve sohbet
 
 ## Release hazırlama
 
+1.1.2 sürümünde Ayarlar > Güncellemeler içinden yapılan denetim ve indirme sonucu aynı kartta gösterilir. Denetim veya hata için üst bar açılmaz; kurulum öncesindeki yedek ve kullanıcı tarafından yeniden başlatma akışı korunur.
+
 İlk updater destekli sürüm elle kurulmalıdır; eski kurulumda bu özellik yoktur. Sonraki release'ler otomatik indirilir. Sürüm numarası kurulu sürümden yüksek olmalıdır.
 
 Güncelleme imza anahtarı repo dışında `%USERPROFILE%/.tauri/ack-deck-updater.key` konumundadır. Anahtarı güvenli biçimde yedekleyin ve değiştirmeyin; yalnız public karşılığı uygulama yapılandırmasındadır. Bu imza Windows Authenticode imzasından ayrıdır.

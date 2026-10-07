@@ -1,3 +1,4 @@
+import { moveTo, moveBy } from "../reorder";
 import { EditorDialog } from "./EditorDialog";
 import { ActionMenu } from "./ActionMenu";
 import { useEffect, useState, type FormEvent } from "react";
@@ -17,6 +18,7 @@ export function Projects({ projects, onChange, fullPage = false, initialId, work
   useEffect(() => { if (initialId) document.getElementById("project-" + initialId)?.scrollIntoView({ block: "center" }); }, [initialId]);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [dragged,setDragged]=useState<string|null>(null),[dragOver,setDragOver]=useState<string|null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -90,11 +92,11 @@ export function Projects({ projects, onChange, fullPage = false, initialId, work
       <div className="project-folder-row"><input id="project-folder" value={editor.folderPath} placeholder="Klasör seçilmedi" readOnly /><button className="button button-secondary" type="button" onClick={chooseFolder} disabled={busy}>Klasör Seç</button>{editor.folderPath && <button className="button button-secondary" type="button" onClick={() => setEditor({ ...editor, folderPath: "" })}>Kaldır</button>}</div>
       <div className="project-editor-actions"><button className="button button-primary" type="submit" disabled={!editor.name.trim() || busy}>Kaydet</button><button className="button button-secondary" type="button" onClick={() => setEditor(null)}>Vazgeç</button></div>
     </form></EditorDialog>}
-    <div className="project-grid">
-      {projects.map((project, index) => <article id={"project-" + project.id} className={"project-card surface " + (initialId === project.id ? "record-highlight" : "")} key={project.id}>
+    {projects.length>1&&<p className="project-reorder-hint">Kartları sürükleyerek sırala. İşlemler menüsünden de taşıyabilirsin.</p>}<div className="project-grid">
+      {projects.map((project, index) => <article draggable={!busy} onDragStart={event=>{setDragged(project.id);event.dataTransfer.setData("text/plain",project.id);event.dataTransfer.effectAllowed="move";}} onDragOver={event=>{if(dragged){event.preventDefault();setDragOver(project.id);}}} onDrop={event=>{event.preventDefault();if(dragged)onChange(moveTo(projects,dragged,project.id));setDragged(null);setDragOver(null);}} onDragEnd={()=>{setDragged(null);setDragOver(null);}} id={"project-" + project.id} className={"project-card surface " + (initialId === project.id ? "record-highlight " : "")+(dragged===project.id?"dragging ":"")+(dragOver===project.id?"drag-over":"")} key={project.id}>
         <div className="project-top"><span className="project-avatar">{project.name.trim().charAt(0).toLocaleUpperCase("tr-TR") || "P"}</span><span className="project-number">{String(index + 1).padStart(2, "0")} / {String(projects.length).padStart(2, "0")}</span></div>
         <div className="project-info"><h3>{project.name}</h3><p>{project.description || "Açıklama yok"}</p><span className="project-path" title={project.folderPath}>{project.folderPath || "Klasör bağlanmadı"}</span></div>
-        <div className="project-actions"><button type="button" aria-label={project.name + " klasörünü aç"} onClick={() => launch(project, "open_project_folder")} disabled={!project.folderPath || busy}>Klasörü Aç</button><button type="button" aria-label={project.name + " projesini VS Code'da aç"} onClick={() => launch(project, "open_project_in_vscode")} disabled={!project.folderPath || busy}>VS Code'da Aç</button><ActionMenu label={project.name+" işlemleri"}><button type="button" aria-label={project.name + " projesini düzenle"} onClick={() => startEdit(project)}>Düzenle</button><button className="project-delete" type="button" aria-label={project.name + " projesini sil"} onClick={() => setDeleteId(project.id)}>Sil</button></ActionMenu></div>
+        <div className="project-actions"><button type="button" aria-label={project.name + " klasörünü aç"} onClick={() => launch(project, "open_project_folder")} disabled={!project.folderPath || busy}>Klasörü Aç</button><button type="button" aria-label={project.name + " projesini VS Code'da aç"} onClick={() => launch(project, "open_project_in_vscode")} disabled={!project.folderPath || busy}>VS Code'da Aç</button><ActionMenu label={project.name+" işlemleri"}><button type="button" disabled={index===0||busy} onClick={()=>onChange(moveBy(projects,project.id,-1))}>Öne taşı</button><button type="button" disabled={index===projects.length-1||busy} onClick={()=>onChange(moveBy(projects,project.id,1))}>Arkaya taşı</button><button type="button" aria-label={project.name + " projesini düzenle"} onClick={() => startEdit(project)}>Düzenle</button><button className="project-delete" type="button" aria-label={project.name + " projesini sil"} onClick={() => setDeleteId(project.id)}>Sil</button></ActionMenu></div>
         {deleteId === project.id && <div className="project-confirm"><span>Bu proje silinsin mi?</span><button type="button" aria-label={project.name + " projesini silmeyi onayla"} onClick={() => remove(project.id)}>Evet, sil</button><button type="button" onClick={() => setDeleteId(null)}>Vazgeç</button></div>}
       </article>)}
       <button className="project-add" type="button" onClick={() => startEdit()}><span className="add-icon"><Icon name="plus" size={22} /></span><strong>+ Proje</strong><span>Yeni bir proje ekle</span></button>
