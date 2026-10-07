@@ -1,6 +1,6 @@
 [package]
 name = "ack-deck"
-version = "1.2.0"
+version = "1.2.1"
 description = "ACKDeck personal desktop dashboard"
 authors = ["Alican"]
 edition = "2021"

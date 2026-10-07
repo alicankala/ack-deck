@@ -616,7 +616,7 @@ kbd { font-size: calc(var(--ui-unit) * 11); color: #bbd6ee; border: 1px solid #5
 .brand-mark { transform: none; border: 0; width: calc(var(--ui-unit) * 38); height: calc(var(--ui-unit) * 38); }
 
 .ai-history-layout { display: grid; grid-template-columns: calc(var(--ui-unit) * 220) minmax(0, 1fr); gap: calc(var(--ui-unit) * 20); align-items: start; }
-.conversation-history { padding: calc(var(--ui-unit) * 16); display: grid; gap: calc(var(--ui-unit) * 12); max-height: 78vh; overflow: auto; }
+.conversation-history { padding: calc(var(--ui-unit) * 16); display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: calc(var(--ui-unit) * 12); min-width: 0; max-height: 78vh; overflow-y: auto; }
 .conversation-history h2 { font-size: calc(var(--ui-unit) * 17); margin: 0; }
 .conversation-history input { width: 100%; min-width: 0; }
 .conversation-item > button { width: 100%; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: calc(var(--ui-unit) * 10); background: transparent; color: var(--text); border: 1px solid transparent; border-radius: calc(var(--ui-unit) * 6); }
@@ -969,3 +969,30 @@ dialog:not(.standalone-palette) { max-width: calc(100vw - 2rem); max-height: cal
 .notes-editor .notes-save-info { border-top: 1px solid #34465d; padding-top: .8rem; font-size: .75rem; color: #9cb4cf; }
 @container (max-width: 58rem) { .settings-layout { grid-template-columns: minmax(0,1fr); } .settings-navigation { position: static; grid-template-columns: repeat(3,minmax(0,1fr)); } .settings-navigation small { display: none; } .settings-navigation button { padding: .75rem; } .notes-layout { grid-template-columns: minmax(0,1fr); } .notes-editor { padding: 1.3rem; } }
 @media (max-height: 650px) { .editor-dialog { max-height: calc(100dvh - 1rem); } }
+
+/* Bounded history columns: long text stays inside each card at every UI scale. */
+.notes-list { min-width: 0; scrollbar-width: thin; scrollbar-color: #50647c transparent; }
+.note-list-item { min-width: 0; max-width: 100%; gap: .35rem; padding: 1rem; }
+.note-list-item > :is(strong, span, time) { min-width: 0; max-width: 100%; }
+.note-list-item strong { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.45; }
+.note-list-item span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow-wrap: anywhere; overflow: hidden; margin-top: .15rem; }
+.note-list-item time { white-space: normal; margin-top: .5rem; }
+.notes-sidebar-top { flex-wrap: wrap; gap: .75rem; }
+.ai-history-layout { grid-template-columns: minmax(0, 17rem) minmax(0, 1fr); }
+.conversation-history { gap: .75rem; padding: 1rem; background: #162130; border-color: #34465d; scrollbar-width: thin; scrollbar-color: #50647c transparent; }
+.conversation-history > * { min-width: 0; max-width: 100%; }
+.conversation-history h2 { font-size: 1rem; padding: .15rem 0 .4rem; }
+.conversation-history > .button { width: 100%; }
+.conversation-history > input { margin-bottom: .35rem; }
+.conversation-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .25rem; align-items: center; min-width: 0; padding: .25rem; border: 1px solid transparent; border-radius: .65rem; }
+.conversation-item:hover { background: #1c2b3d; }
+.conversation-item:has(> button.selected) { background: #263c56; border-color: #426588; }
+.conversation-item > button { width: 100%; min-width: 0; padding: .7rem .55rem; line-height: 1.5; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; background: transparent; }
+.conversation-item > button.selected { background: transparent; }
+.conversation-item > .record-action-menu { flex: none; }
+.conversation-item .record-menu-trigger { background: transparent; }
+.conversation-item > :is(form, div) { grid-column: 1 / -1; min-width: 0; overflow-wrap: anywhere; }
+@container (max-width: 58rem) {
+  .ai-history-layout { grid-template-columns: minmax(0, 1fr); }
+  .notes-sidebar { border-right: 0; border-bottom: 1px solid #34465d; }
+}
