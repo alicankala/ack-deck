@@ -1,8 +1,9 @@
 import { WeeklyPlan } from "./components/WeeklyPlan";
+import { nativeNavigation } from "./nativeNavigation";
 import { FooterTicker } from "./components/FooterTicker";
 import { UpdateNotice } from "./components/UpdateNotice";
 import { Subscriptions } from "./components/Subscriptions";
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState, type ReactNode } from "react";
 import { useDesktop } from "./useDesktop";
 import { getDesktopStatus } from "./desktopClient";
 import { usePhoneCompanion } from "./usePhoneCompanion";
@@ -15,27 +16,28 @@ import { useNavigationHistory } from "./useNavigationHistory";
 import { Dashboard } from "./components/Dashboard";
 import type { AiPromptHandoff } from "./aiPromptHandoff";
 import { UndoToast } from "./components/UndoToast";
-import { ConversationHistory } from "./components/ConversationHistory";
+const ConversationHistory = lazy(() => import("./components/ConversationHistory").then(module => ({ default: module.ConversationHistory })));
 import { useConversations } from "./useConversations";
-import { AckAi } from "./components/AckAi";
+const AckAi = lazy(() => import("./components/AckAi").then(module => ({ default: module.AckAi })));
 import { Icon } from "./components/Icon";
 import { Projects } from "./components/Projects";
 import { Sidebar, type Page } from "./components/Sidebar";
-import { Settings } from "./components/Settings";
+const Settings = lazy(() => import("./components/Settings").then(module => ({ default: module.Settings })));
 import { Tasks } from "./components/Tasks";
 import { Tools } from "./components/Tools";
-import { Notes } from "./components/Notes";
-import { QrTool } from "./components/QrTool";
-import { IpTool } from "./components/IpTool";
+const Notes = lazy(() => import("./components/Notes").then(module => ({ default: module.Notes })));
+const QrTool = lazy(() => import("./components/QrTool").then(module => ({ default: module.QrTool })));
+const IpTool = lazy(() => import("./components/IpTool").then(module => ({ default: module.IpTool })));
 import { Shortcuts } from "./components/Shortcuts";
 
 import { PcStatus } from "./components/PcStatus";
-import { SpeedTest } from "./components/SpeedTest";
-import { Archive } from "./components/Archive";
+const SpeedTest = lazy(() => import("./components/SpeedTest").then(module => ({ default: module.SpeedTest })));
+const Archive = lazy(() => import("./components/Archive").then(module => ({ default: module.Archive })));
 import { loadPreferences } from "./preferences";
 
 import { loadProjectSnapshot, saveProjects, type Project } from "./projectStore";
 import "./App.css";
+import "./content-polish.css";
 import "./desktop-layout.css";
 
 function App() {
@@ -50,8 +52,7 @@ function App() {
   useEffect(() => { const blocked = () => { setRestoreBlocked(true); setRestoring(true); }; window.addEventListener("ack-restore-blocked", blocked); return () => window.removeEventListener("ack-restore-blocked", blocked); }, []);
   useEffect(() => { const active = (event: Event) => { setRestoring((event as CustomEvent).detail === true); setSearchOpen(false); }; window.addEventListener("ack-restore-active", active); return () => window.removeEventListener("ack-restore-active", active); }, []);
   const navigateNative = useCallback((target: string) => {
-    if (target === "new-task") navigate({ page: "tasks", intent: "new-task" });
-    else if (target === "ai") navigate({ page: "ai" });
+    const next = nativeNavigation(target); if (next) navigate(next);
   }, [navigate]);
   const desktop = useDesktop(navigateNative);
   const history = useConversations();
@@ -80,12 +81,32 @@ function App() {
     return () => window.clearTimeout(timeout);
   }, [notice]);
 
+  const pageViews: Record<Page, ReactNode> = {
+    home: <Dashboard projects={projects} refreshMs={preferences.pcRefreshMs} onNavigate={navigate} onAskAi={askAi} onOpenSearch={() => setSearchOpen(true)} />,
+    ai: <div className="ai-history-layout"><ConversationHistory history={{ ...history, newChat: () => { setAiPrompt(undefined); history.newChat(); }, select: id => { setAiPrompt(undefined); history.select(id); } }} disabled={aiBusy} />{history.ready ? <AckAi prefill={phoneAiDraft} onPrefillConsumed={() => setPhoneAiDraft(undefined)} key={history.activeId || "unsaved"} blocked={history.mutating} onNewChat={() => { setAiPrompt(undefined); history.newChat(); }} onBusyChange={setAiBusy} messages={history.messages} initialPrompt={aiPrompt} onPromptConsumed={consumeAiPrompt} onMessagesChange={history.setMessages} onOpenSettings={() => setPage("settings")} onNavigate={navigate} /> : <p role="status">{history.error || "Sohbetler yükleniyor..."}</p>}</div>,
+    settings: <Settings preferences={preferences} onPreferencesChange={setPreferences} desktop={desktop.status} onDesktopChange={desktop.setStatus} />,
+    inbox: <PhoneInbox initialId={route.target.id} onAiDraft={(text,attachment) => { setAiPrompt(undefined); setPhoneAiDraft({id:crypto.randomUUID(),text,attachment}); navigate({page:"ai"}); }} />,
+    workspaces: <Projects projects={projects} onChange={changeProjects} fullPage workspaceId={route.target.id} onNavigate={navigate} onAskAi={askAi} />,
+    subscriptions: <Subscriptions initialId={route.target.id} />,
+    calendar: <WeeklyPlan onNavigate={navigate} onAskAi={askAi} />,
+    tasks: <Tasks fullPage initialId={route.target.id} focusNew={route.target.intent === "new-task"} initialDate={route.target.date} />,
+    projects: <Projects projects={projects} onChange={changeProjects} fullPage initialId={route.target.id} onNavigate={navigate} onAskAi={askAi} />,
+    tools: <Tools fullPage onOpen={setPage} />,
+    notes: <Notes initialId={route.target.id} createNew={route.target.intent === "new-note"} />,
+    qr: <QrTool />,
+    ip: <IpTool />,
+    pc: <section><h1>PC Durumu</h1><PcStatus refreshMs={preferences.pcRefreshMs} /></section>,
+    files: <Shortcuts initialId={route.target.id} />,
+    speed: <SpeedTest authorizedStart={route.target.intent === "start-speed"} />,
+    archive: <Archive initialId={route.target.id} createNew={route.target.intent === "new-archive"} />,
+  };
+
   return <><div className="app-shell" inert={restoring}>
     <Sidebar activePage={page === "qr" || page === "ip" || page === "speed" || page === "pc" || page === "archive" || page === "files" ? "tools" : page === "workspaces" ? "projects" : page} onNavigate={setPage} />
     <div className="main-column"><UpdateNotice blocked={restoring || aiBusy} hidden={page === "settings"} /><main className={"main-content " + (page === "home" ? "dashboard-main" : "")}>
       {desktop.visible && page !== "home" && <button className="global-search-trigger button button-secondary" type="button" onClick={() => setSearchOpen(true)}>Genel Arama <kbd>Ctrl+K</kbd></button>}
       <div key={route.serial}>
-      {!desktop.visible ? null : page === "home" ? <Dashboard projects={projects} refreshMs={preferences.pcRefreshMs} onNavigate={navigate} onAskAi={askAi} onOpenSearch={() => setSearchOpen(true)} /> : page === "ai" ? <div className="ai-history-layout"><ConversationHistory history={{ ...history, newChat: () => { setAiPrompt(undefined); history.newChat(); }, select: id => { setAiPrompt(undefined); history.select(id); } }} disabled={aiBusy} />{history.ready ? <AckAi prefill={phoneAiDraft} onPrefillConsumed={() => setPhoneAiDraft(undefined)} key={history.activeId || "unsaved"} blocked={history.mutating} onNewChat={() => { setAiPrompt(undefined); history.newChat(); }} onBusyChange={setAiBusy} messages={history.messages} initialPrompt={aiPrompt} onPromptConsumed={consumeAiPrompt} onMessagesChange={history.setMessages} onOpenSettings={() => setPage("settings")} onNavigate={navigate} /> : <p role="status">{history.error || "Sohbetler yükleniyor..."}</p>}</div> : page === "settings" ? <Settings preferences={preferences} onPreferencesChange={setPreferences} desktop={desktop.status} onDesktopChange={desktop.setStatus} /> : page === "inbox" ? <PhoneInbox initialId={route.target.id} onAiDraft={(text,attachment) => { setAiPrompt(undefined); setPhoneAiDraft({id:crypto.randomUUID(),text,attachment}); navigate({page:"ai"}); }} /> : page === "workspaces" ? <Projects projects={projects} onChange={changeProjects} fullPage workspaceId={route.target.id} onNavigate={navigate} onAskAi={askAi} /> : page === "subscriptions" ? <Subscriptions initialId={route.target.id} /> : page === "calendar" ? <WeeklyPlan onNavigate={navigate} onAskAi={askAi} /> : page === "tasks" ? <Tasks fullPage initialId={route.target.id} focusNew={route.target.intent === "new-task"} initialDate={route.target.date} /> : page === "projects" ? <Projects projects={projects} onChange={changeProjects} fullPage initialId={route.target.id} onNavigate={navigate} onAskAi={askAi} /> : page === "tools" ? <Tools fullPage onOpen={setPage} /> : page === "notes" ? <Notes initialId={route.target.id} createNew={route.target.intent === "new-note"} /> : page === "qr" ? <QrTool /> : page === "ip" ? <IpTool /> : page === "pc" ? <section><h1>PC Durumu</h1><PcStatus refreshMs={preferences.pcRefreshMs} /></section> : page === "files" ? <Shortcuts initialId={route.target.id} /> : page === "speed" ? <SpeedTest authorizedStart={route.target.intent === "start-speed"} /> : <Archive initialId={route.target.id} createNew={route.target.intent === "new-archive"} />}
+      {desktop.visible && <Suspense fallback={<div className="page-skeleton" role="status" aria-label="Sayfa yükleniyor"><div/><div/><div/><span className="sr-only">Sayfa yükleniyor</span></div>}>{pageViews[page]}</Suspense>}
       </div>
     </main>
     {desktop.visible && !restoring && <FooterTicker />}

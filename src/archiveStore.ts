@@ -1,3 +1,4 @@
+import { captureDeleted } from "./trashStore";
 import { validNoteAttachments,type NoteAttachment } from "./notesStore";
 import { validReference } from "../shared/productivity";
 export const ARCHIVE_CATEGORIES = ["Cihaz", "Belge", "Fatura", "Garanti", "Lisans", "Abonelik", "Proje", "Diğer"] as const;
@@ -59,6 +60,7 @@ export function loadArchive(): ArchiveLoad {
 export function saveArchive(entries: ArchiveEntry[], loaded: ArchiveLoad): boolean {
   if (loaded.locked || !entries.every(isArchiveEntry) || new Set(entries.map((entry) => entry.id)).size !== entries.length) return false;
   try {
+    if (!captureDeleted("archive", loaded.entries, entries)) return false;
     // Preserve unreadable records instead of overwriting them with the visible subset.
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...entries, ...loaded.preserved]));
     return true;

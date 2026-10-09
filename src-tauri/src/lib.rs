@@ -14,6 +14,7 @@ mod phone;
 mod phone_media;
 mod projects;
 mod privacy;
+mod portable_backup;
 mod qr;
 mod reminders;
 mod system_check;
@@ -24,6 +25,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(updates::UpdateState::default())
+        .manage(portable_backup::PortableState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _| {
             if !args.iter().any(|arg| arg == "--autostart") {
                 desktop::show_window(app, None)
@@ -48,6 +50,9 @@ pub fn run() {
             gemini::save_gemini_key,
             gemini::delete_gemini_key,
             gemini::test_gemini_connection,
+            gemini::test_gemini_model,
+            gemini_models::get_gemini_models,
+            gemini_models::save_gemini_models,
             gemini::gemini_chat,
             attachments::choose_ai_attachment,
             attachments::paste_ai_image,
@@ -83,6 +88,10 @@ pub fn run() {
             reminders::sync_task_reminders,
             backup::save_backup,
             backup::choose_backup,
+            portable_backup::save_portable_backup,
+            portable_backup::choose_portable_backup,
+            portable_backup::prepare_portable_restore,
+            portable_backup::finish_portable_restore,
             updates::check_update,
             updates::install_update,
             system_check::system_health,

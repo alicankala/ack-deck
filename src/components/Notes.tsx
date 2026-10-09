@@ -1,3 +1,4 @@
+import { MarkdownText } from "./MarkdownText";
 import { RecordLinkFields } from "./RecordLinkFields";
 import { offerUndo } from "../recordUndo";
 import { PhoneMedia } from "./PhoneMedia";
@@ -10,6 +11,7 @@ const dateFormatter = new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: 
 
 export function Notes({ initialId, createNew = false }: { initialId?: string; createNew?: boolean }) {
   const created = useRef(false);
+  const [view, setView] = useState<"edit" | "split" | "preview">("edit");
   const editedNote = useRef<{ id: string; usedAt: number } | null>(null);
   useEffect(() => () => { if (editedNote.current) recordRecent("notes", editedNote.current.id, undefined, editedNote.current.usedAt); }, []);
   const [initial] = useState(loadNotes);
@@ -92,7 +94,7 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
           <div className="notes-editor-top"><span className="note-save-status">{error ? "Kaydedilemedi" : "Kaydedildi"}</span><button type="button" className="button button-secondary" onClick={() => window.dispatchEvent(new CustomEvent("ack-ai-question", {detail:`Not ID: ${selected.id} — bu nottan 3 görev çıkar.`}))} disabled={!!initial.error}>ACK AI ile işle</button><button className="notes-delete" type="button" onClick={() => setConfirmDelete(true)} disabled={!!initial.error}><Icon name="trash" size={16} /> Notu sil</button></div>
           {confirmDelete && <div className="notes-delete-confirm" role="group" aria-label="Notu silme onayı"><span>Bu not silinsin mi?</span><button type="button" onClick={remove}>Evet, sil</button><button type="button" onClick={() => setConfirmDelete(false)}>Vazgeç</button></div>}
           <RecordLinkFields value={selected} onChange={edit}/><label className="sr-only" htmlFor="note-title">Not başlığı</label><input id="note-title" className="notes-title" value={selected.title} onChange={(event) => edit({ title: event.target.value })} maxLength={160} placeholder="Not başlığı" disabled={!!initial.error} />
-          <label className="sr-only" htmlFor="note-content">Not içeriği</label><textarea id="note-content" className="notes-content" value={selected.content} onChange={(event) => edit({ content: event.target.value })} maxLength={30000} placeholder="Notunu yaz..." disabled={!!initial.error} />
+          <div className="note-view-switch" role="group" aria-label="Not görünümü">{([["edit", "Düzenle"], ["split", "Bölünmüş görünüm"], ["preview", "Önizleme"]] as const).map(([key, label]) => <button type="button" key={key} aria-pressed={view === key} onClick={() => setView(key)}>{label}</button>)}</div><div className={"note-writing-area " + view}><label className="sr-only" htmlFor="note-content">Not içeriği</label>{view !== "preview" && <textarea id="note-content" className="notes-content" value={selected.content} onChange={(event) => edit({ content: event.target.value })} maxLength={30000} placeholder="Notunu Markdown ile yaz..." disabled={!!initial.error} />}{view !== "edit" && <section className="note-preview" aria-label="Not önizlemesi"><MarkdownText text={selected.content || "Henüz içerik yok."}/></section>}</div>
           {selected.attachments?.map(file => <section className="note-attachment" key={file.id}><strong>{file.name}</strong><PhoneMedia file={file} cached /></section>)}
           <p className="notes-save-info"><time dateTime={new Date(selected.updatedAt).toISOString()}>{dateFormatter.format(selected.updatedAt)}</time> · Otomatik kaydedilir</p>
         </> : <div className="notes-empty-editor"><span className="feature-icon"><Icon name="note" size={24} /></span><h2>Bir not seç veya yeni not oluştur</h2><p>Başlık ve içerik yazdıkça notun kaydedilir.</p></div>}

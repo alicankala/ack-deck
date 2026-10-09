@@ -1,3 +1,5 @@
+import { validStudyReminder } from "./studyReminderStore";
+import { validGeminiModels, type GeminiModels } from "../shared/geminiModels";
 import { validStudyProgram } from "../shared/studyPrograms";
 import { hasCredentials } from "../shared/privacy";
 import { validActivity,ACTIVITY_LIMIT } from "./activityStore";
@@ -19,9 +21,9 @@ import { isWorkspace, isShortcutData } from "./workHubStore";
 import { isUsage } from "./usageStore";
 export type BackupDesktop = DesktopPreferences & { autoStart: boolean };
 export const BACKUP_KEYS = { tasks: "ack-deck.tasks.v1", projects: "ack-deck.projects.v1", notes: "ack-deck.notes.v1", files: "ack-deck.files.v1", speedTest: "ack-deck.speed-test.v1", archive: "ack-deck.archive.v1", preferences: "ack-deck.preferences.v1", aiModel: "ack-deck.ai-model.v1" } as const;
-export const HUB_BACKUP_KEYS = { studyPrograms: "ack-deck.study-programs.v1", activity: "ack-deck.activity.v1", templates: "ack-deck.templates.v1", subscriptions: "ack-deck.subscriptions.v1", workspaces: "ack-deck.workspaces.v1", shortcuts: "ack-deck.shortcuts.v1", usage: "ack-deck.usage.v1", hiddenLegacy: "ack-deck.shortcuts-legacy-hidden.v1", recent: "ack-deck.recent-items.v1" } as const;
+export const HUB_BACKUP_KEYS = { studyReminders: "ack-deck.study-reminders.v1", studyPrograms: "ack-deck.study-programs.v1", activity: "ack-deck.activity.v1", templates: "ack-deck.templates.v1", subscriptions: "ack-deck.subscriptions.v1", workspaces: "ack-deck.workspaces.v1", shortcuts: "ack-deck.shortcuts.v1", usage: "ack-deck.usage.v1", hiddenLegacy: "ack-deck.shortcuts-legacy-hidden.v1", recent: "ack-deck.recent-items.v1" } as const;
 const JOURNAL_KEY = "ack-deck.restore-journal.v1";
-export type Backup = { formatVersion: 1 | 2; appVersion: string; createdAt: string; data: Record<keyof typeof BACKUP_KEYS, unknown> & Partial<Record<keyof typeof HUB_BACKUP_KEYS, unknown>> & { desktop: BackupDesktop; conversations?: import("./conversationStore").Conversation[]; paletteShortcut?: string } };
+export type Backup = { formatVersion: 1 | 2; appVersion: string; createdAt: string; data: Record<keyof typeof BACKUP_KEYS, unknown> & Partial<Record<keyof typeof HUB_BACKUP_KEYS, unknown>> & { desktop: BackupDesktop; conversations?: import("./conversationStore").Conversation[]; paletteShortcut?: string; geminiModels?: GeminiModels } };
 type Store = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 const fields = (value: unknown, allowed: string[]) => object(value) && Object.keys(value).every((key) => allowed.includes(key));
@@ -29,9 +31,11 @@ const dateNumber = (value: unknown) => typeof value === "number" && Number.isFin
 function array(value: unknown, validator: (value: unknown) => boolean): boolean { return Array.isArray(value) && value.length <= 100000 && value.every(validator) && new Set(value.map((item) => item.id)).size === value.length; }
 function validDesktop(value: unknown): value is BackupDesktop { return fields(value, ["closeToTray", "startInTray", "autoStart"]) && object(value) && [value.closeToTray, value.startInTray, value.autoStart].every((entry) => typeof entry === "boolean"); }
 function validData(data: unknown): boolean {
-  if (!fields(data, [...Object.keys(BACKUP_KEYS), ...Object.keys(HUB_BACKUP_KEYS), "desktop", "conversations", "paletteShortcut"]) || !object(data) || ![...Object.keys(BACKUP_KEYS), "desktop"].every(key => key in data)) return false;
+  if (!fields(data, [...Object.keys(BACKUP_KEYS), ...Object.keys(HUB_BACKUP_KEYS), "desktop", "conversations", "paletteShortcut", "geminiModels"]) || !object(data) || ![...Object.keys(BACKUP_KEYS), "desktop"].every(key => key in data)) return false;
+  if (data.geminiModels !== undefined && !validGeminiModels(data.geminiModels)) return false;
   if (data.conversations !== undefined && !array(data.conversations, isConversation) || data.paletteShortcut !== undefined && (typeof data.paletteShortcut !== "string" || data.paletteShortcut.length > 80 || !/^(?=.*(?:Ctrl|Control|Alt)\+)[a-z0-9+]+$/i.test(data.paletteShortcut)) || data.recent !== undefined && (!Array.isArray(data.recent) || data.recent.length > 20 || !data.recent.every(isRecentItem))) return false;
   if(data.activity!==undefined&&(!array(data.activity,validActivity)||(data.activity as unknown[]).length>ACTIVITY_LIMIT)||data.templates!==undefined&&(!array(data.templates,validTemplate)||(data.templates as unknown[]).length>100))return false;
+  if(data.studyReminders!==undefined&&!array(data.studyReminders,validStudyReminder))return false;
   if(data.studyPrograms!==undefined&&(!array(data.studyPrograms,validStudyProgram)||(data.studyPrograms as unknown[]).length>100))return false;
   if(data.subscriptions!==undefined&&!array(data.subscriptions,validSubscription))return false;
   if (data.workspaces !== undefined && !array(data.workspaces, isWorkspace) || data.shortcuts !== undefined && !isShortcutData(data.shortcuts) || data.usage !== undefined && (!Array.isArray(data.usage) || data.usage.length > 500 || !data.usage.every(isUsage)) || data.hiddenLegacy !== undefined && (!Array.isArray(data.hiddenLegacy) || !data.hiddenLegacy.every(v => typeof v === "string" && v.length <= 512))) return false;
@@ -62,13 +66,14 @@ export function createBackup(desktop: BackupDesktop, appVersion: string, storage
 }
 function signalRestored(outcome: "success" | "rollback") { if (typeof Event !== "undefined") { window.dispatchEvent?.(new Event("ack-data-changed")); window.dispatchEvent?.(typeof CustomEvent !== "undefined" ? new CustomEvent("ack-data-restored", { detail: outcome }) : new Event("ack-data-restored")); } }
 function signalRestoreActive(active: boolean) { if (typeof CustomEvent !== "undefined") window.dispatchEvent?.(new CustomEvent("ack-restore-active", { detail: active })); }
-type Journal = { formatVersion: 1; snapshot: Record<string, string | null>; desktop: BackupDesktop; conversations?: boolean; paletteShortcut?: string; paletteRegistered?: boolean };
+type Journal = { formatVersion: 1; snapshot: Record<string, string | null>; desktop: BackupDesktop; conversations?: boolean; paletteShortcut?: string; paletteRegistered?: boolean; geminiModels?: GeminiModels };
 function parseJournal(raw: string): Journal {
   const value = JSON.parse(raw), keys = Object.values(BACKUP_KEYS), allowed: string[] = [...keys, ...Object.values(HUB_BACKUP_KEYS)];
-  if (!fields(value, ["formatVersion", "snapshot", "desktop", "conversations", "paletteShortcut", "paletteRegistered"]) || value.formatVersion !== 1 || !object(value.snapshot) || !keys.every((key) => key in value.snapshot) || !Object.entries(value.snapshot).every(([key, v]) => allowed.includes(key) && (v === null || typeof v === "string")) || !validDesktop(value.desktop) || (value.paletteRegistered !== undefined && typeof value.paletteRegistered !== "boolean") || (value.conversations !== undefined && typeof value.conversations !== "boolean") || (value.paletteShortcut !== undefined && (typeof value.paletteShortcut !== "string" || value.paletteShortcut.length > 80))) throw new Error("Geri yükleme kurtarma kaydı okunamadı.");
+  if (!fields(value, ["formatVersion", "snapshot", "desktop", "conversations", "paletteShortcut", "paletteRegistered", "geminiModels"]) || (value.geminiModels !== undefined && !validGeminiModels(value.geminiModels)) || value.formatVersion !== 1 || !object(value.snapshot) || !keys.every((key) => key in value.snapshot) || !Object.entries(value.snapshot).every(([key, v]) => allowed.includes(key) && (v === null || typeof v === "string")) || !validDesktop(value.desktop) || (value.paletteRegistered !== undefined && typeof value.paletteRegistered !== "boolean") || (value.conversations !== undefined && typeof value.conversations !== "boolean") || (value.paletteShortcut !== undefined && (typeof value.paletteShortcut !== "string" || value.paletteShortcut.length > 80))) throw new Error("Geri yükleme kurtarma kaydı okunamadı.");
   return value;
 }
 async function rollback(journal: Journal, storage: Store, native: typeof invoke) {
+  if (journal.geminiModels) await native("save_gemini_models", { settings: journal.geminiModels });
   if (journal.conversations) await recoverConversationRestore(true);
   if (journal.paletteShortcut !== undefined) await native(journal.paletteRegistered === false ? "restore_unregistered_palette_shortcut" : "set_palette_shortcut", { value: journal.paletteShortcut });
   await native("save_desktop_preferences", { preferences: { closeToTray: journal.desktop.closeToTray, startInTray: journal.desktop.startInTray }, autoStart: journal.desktop.autoStart });
@@ -89,11 +94,14 @@ export async function restoreBackup(input: Backup, confirmed: boolean, previousD
   const restoredKeys = [...Object.values(BACKUP_KEYS), ...Object.entries(HUB_BACKUP_KEYS).filter(([name]) => name in backup.data).map(([, key]) => key)];
   const paletteState = backup.data.paletteShortcut !== undefined ? await native<{ shortcut: string; registered: boolean }>("get_palette_shortcut_state") : undefined;
   if (paletteState && (typeof paletteState.shortcut !== "string" || typeof paletteState.registered !== "boolean")) throw new Error("Kısayol kurtarma bilgisi alınamadı. Mevcut veriler değişmedi.");
-  const journal: Journal = { formatVersion: 1, snapshot: Object.fromEntries(restoredKeys.map((key) => [key, storage.getItem(key)])), desktop: previousDesktop, ...(backup.data.conversations ? { conversations: true } : {}), ...(backup.data.paletteShortcut !== undefined ? { paletteShortcut: paletteState!.shortcut, paletteRegistered: paletteState!.registered } : {}) };
+  const models = backup.data.geminiModels ? await native<GeminiModels>("get_gemini_models") : undefined;
+  if (models !== undefined && !validGeminiModels(models)) throw new Error("Model kurtarma bilgisi alınamadı. Mevcut veriler değişmedi.");
+  const journal: Journal = { formatVersion: 1, ...(models ? { geminiModels: models } : {}), snapshot: Object.fromEntries(restoredKeys.map((key) => [key, storage.getItem(key)])), desktop: previousDesktop, ...(backup.data.conversations ? { conversations: true } : {}), ...(backup.data.paletteShortcut !== undefined ? { paletteShortcut: paletteState!.shortcut, paletteRegistered: paletteState!.registered } : {}) };
   try { storage.setItem(JOURNAL_KEY, JSON.stringify(journal)); } catch { throw new Error("Güvenli geri yükleme snapshot'ı oluşturulamadı. Mevcut veriler değişmedi."); }
   signalRestoreActive(true);
   let safeToUnlock = false;
   try {
+    if (backup.data.geminiModels) await native("save_gemini_models", { settings: backup.data.geminiModels });
     if (backup.data.conversations) await beginConversationRestore(backup.data.conversations);
     if (backup.data.paletteShortcut !== undefined) await native("set_palette_shortcut", { value: backup.data.paletteShortcut });
     await native("sync_task_reminders", { reminders: [] });
@@ -109,4 +117,4 @@ export async function restoreBackup(input: Backup, confirmed: boolean, previousD
   } finally { if (safeToUnlock) signalRestoreActive(false); else if (typeof Event !== "undefined") window.dispatchEvent?.(new Event("ack-restore-blocked")); }
 }
 
-export async function createFullBackup(desktop: BackupDesktop, appVersion: string): Promise<Backup> { await flushConversationWrites(); const backup = createBackup(desktop, appVersion); backup.formatVersion = 2; backup.data.conversations = await loadConversations(); backup.data.paletteShortcut = await invoke<string>("get_palette_shortcut"); return parseBackup(JSON.stringify(backup)); }
+export async function createFullBackup(desktop: BackupDesktop, appVersion: string): Promise<Backup> { await flushConversationWrites(); const backup = createBackup(desktop, appVersion); backup.formatVersion = 2; backup.data.conversations = await loadConversations(); backup.data.paletteShortcut = await invoke<string>("get_palette_shortcut"); backup.data.geminiModels = await invoke<GeminiModels>("get_gemini_models"); return parseBackup(JSON.stringify(backup)); }

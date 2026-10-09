@@ -6,6 +6,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tauri::{Emitter, Manager};
+#[cfg(not(windows))]
 use tauri_plugin_notification::NotificationExt;
 
 #[derive(Clone, Deserialize)]
@@ -49,6 +50,38 @@ fn now_ms() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64
+}
+fn reminder_target(id: &str) -> String {
+    if id.starts_with("study:") {
+        "study".into()
+    } else if let Some(id) = id.strip_prefix("subscription:") {
+        format!("subscription:{id}")
+    } else {
+        format!("task:{id}")
+    }
+}
+#[cfg(windows)]
+fn show_reminder(app: &tauri::AppHandle, reminder: &Reminder) -> Result<(), ()> {
+    let handle = app.clone();
+    let target = reminder_target(&reminder.id);
+    tauri_winrt_notification::Toast::new(&app.config().identifier)
+        .title("ACKDeck")
+        .text1(&reminder.text)
+        .on_activated(move |_| {
+            crate::desktop::show_window(&handle, Some(&target));
+            Ok(())
+        })
+        .show()
+        .map_err(|_| ())
+}
+#[cfg(not(windows))]
+fn show_reminder(app: &tauri::AppHandle, reminder: &Reminder) -> Result<(), ()> {
+    app.notification()
+        .builder()
+        .title("ACKDeck")
+        .body(&reminder.text)
+        .show()
+        .map_err(|_| ())
 }
 fn validate(items: &[Reminder]) -> bool {
     items.len() <= 10000
@@ -122,14 +155,7 @@ pub fn setup(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                                 "ack-reminder-error",
                                 "Hatırlatma kaydedilemedi; bildirim gönderilmedi.",
                             );
-                        } else if handle
-                            .notification()
-                            .builder()
-                            .title("ACKDeck")
-                            .body(&reminder.text)
-                            .show()
-                            .is_ok()
-                        {
+                        } else if show_reminder(&handle, &reminder).is_ok() {
                             let _ = handle.emit(
                                 "ack-reminder-delivered",
                                 Delivered {
@@ -181,6 +207,14 @@ pub fn sync_task_reminders(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn notification_targets_keep_record_identity_and_distinguish_payment_from_task() {
+        assert_eq!(reminder_target("task-1"), "task:task-1");
+        assert_eq!(
+            reminder_target("subscription:payment-1"),
+            "subscription:payment-1"
+        );
+    }
     #[test]
     fn replacing_queue_cancels_removed_tasks_and_delivery_history_suppresses_duplicates() {
         let sent = Reminder {

@@ -7,6 +7,9 @@ export type AiModel = "fast" | "powerful";
 export type AiReply = { text: string; action?: { name: string; args: unknown } | null };
 
 const safeErrors = new Set([
+  "Geçerli bir Gemini model adı girin.",
+  "Model ayarları okunamadı.",
+  "Model ayarları kaydedilemedi.",
   "Gemini isteği zaman aşımına uğradı. Model zamanında yanıt vermedi; yeniden deneyebilir veya Hızlı modeli kullanabilirsiniz.",
   "Gemini modeline erişim yok. API anahtarının model izinlerini kontrol edin.",
   "Gemini modeli kullanılamıyor. Bu model veya API sürümü anahtarınıza açık değil.",

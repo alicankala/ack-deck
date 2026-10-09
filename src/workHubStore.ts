@@ -1,3 +1,4 @@
+import { captureDeleted } from "./trashStore";
 import { invoke } from "@tauri-apps/api/core";
 import { loadFiles } from "./fileStore";
 export type SavedTarget = { id: string; kind: "file" | "folder" | "url" | "application"; target: string; name: string };
@@ -17,7 +18,7 @@ export const isWorkspace = (v: unknown): v is Workspace => object(v) && fields(v
 export const isShortcut = (v: unknown): v is Shortcut => object(v) && fields(v, ["id", "name", "description", "type", "target", "savedId", "legacy", "pinned", "lastUsedAt", "useCount"]) && text(v.id, 512) && !!v.id && text(v.name, 160) && !!v.name.trim() && text(v.description, 2000) && ["file", "folder", "url", "application"].includes(String(v.type)) && text(v.target) && !!v.target && usageFields(v) && (v.type !== "url" || validWebUrl(v.target)) && (v.legacy === true ? ["file", "folder"].includes(String(v.type)) && v.savedId === undefined : text(v.savedId, 512) && !!v.savedId);
 export type HubSnapshot<T> = { entries: T[]; locked: boolean; error: string | null };
 function read<T extends { id: string }>(key: string, valid: (v: unknown) => v is T): HubSnapshot<T> { try { const raw = window.localStorage.getItem(key); if (raw === null) return { entries: [], locked: false, error: null }; const value: unknown = JSON.parse(raw); if (!Array.isArray(value) || !value.every(valid) || new Set(value.map(v => v.id)).size !== value.length) throw new Error(); return { entries: value, locked: false, error: null }; } catch { return { entries: [], locked: true, error: "Kayıtlar okunamadı. Mevcut veriler korunuyor; kaydetme kapatıldı." }; } }
-function write<T extends { id: string }>(key: string, entries: T[], valid: (v: unknown) => v is T): boolean { if (read(key, valid).locked || !entries.every(valid) || new Set(entries.map(v => v.id)).size !== entries.length) return false; try { window.localStorage.setItem(key, JSON.stringify(entries)); changed(); return true; } catch { return false; } }
+function write<T extends { id: string }>(key: string, entries: T[], valid: (v: unknown) => v is T): boolean { if (read(key, valid).locked || !entries.every(valid) || new Set(entries.map(v => v.id)).size !== entries.length) return false; try { if (key === WORKSPACE_KEY && !captureDeleted("workspaces", read(WORKSPACE_KEY, isWorkspace).entries, entries)) return false; window.localStorage.setItem(key, JSON.stringify(entries)); changed(); return true; } catch { return false; } }
 export function changed() { if (typeof Event !== "undefined") window.dispatchEvent?.(new Event("ack-data-changed")); }
 export const loadWorkspaces = () => read(WORKSPACE_KEY, isWorkspace);
 export const saveWorkspaces = (entries: Workspace[]) => write(WORKSPACE_KEY, entries, isWorkspace);
@@ -43,7 +44,7 @@ const REMOVED_KEY = "ack-deck.shortcuts-legacy-hidden.v1";
 function readRemoved(): string[] | null { try { const raw = window.localStorage.getItem(REMOVED_KEY); const v: unknown = raw ? JSON.parse(raw) : []; return Array.isArray(v) && v.every(i => typeof i === "string") ? v : null; } catch { return null; } }
 function writeShortcutData(entries: Shortcut[], hiddenLegacyIds: string[]): boolean {
   if (loadShortcuts().locked || !isShortcutData({ entries, hiddenLegacyIds })) return false;
-  try { window.localStorage.setItem(SHORTCUT_KEY, JSON.stringify({ entries, hiddenLegacyIds })); changed(); return true; } catch { return false; }
+  try { if (!captureDeleted("shortcuts", loadShortcuts().entries, entries)) return false; window.localStorage.setItem(SHORTCUT_KEY, JSON.stringify({ entries, hiddenLegacyIds })); changed(); return true; } catch { return false; }
 }
 export function saveShortcuts(entries: Shortcut[]): boolean { const state = readShortcutData(); if (!state) return false; return writeShortcutData(entries, state.hiddenLegacyIds); }
 export function removeShortcut(id: string): boolean {

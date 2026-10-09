@@ -14,6 +14,7 @@ import { Icon } from "./Icon";
 import { filterTasks, loadTasks, localDateKey, saveTasks, taskDueAt, type Task, type TaskFilter } from "../taskStore";
 const filters: [TaskFilter, string][] = [["all", "Aktif"], ["today", "Bugün"], ["upcoming", "Yaklaşan"], ["undated", "Tarihsiz"], ["completed", "Tamamlanan"]];
 export function Tasks({ fullPage = false, initialId, focusNew = false, initialDate }: { fullPage?: boolean; initialId?: string; focusNew?: boolean; initialDate?: string }) {
+  const [projectFilter, setProjectFilter] = useState("");
   const [loaded, setLoaded] = useState(loadTasks);
   const [tasks, setTasks] = useState<Task[]>(loaded.entries), [error, setError] = useState(loaded.warning ?? "");
   const [dragged,setDragged]=useState<string|null>(null);
@@ -39,12 +40,13 @@ export function Tasks({ fullPage = false, initialId, focusNew = false, initialDa
     if(!editor.recurrence){updated={...updated,recurrence:null,...(previous?.recurrence||editor.dueDate!==previous?.dueDate||editor.dueTime!==previous?.dueTime?{occurrenceAt:null,snoozedUntil:null,remindedFor:null}:{})};}
     if (commit(current.some((task) => task.id === editor.id) ? current.map((task) => task.id === editor.id ? updated : task) : [updated, ...current])) { setEditor(null); setDraft(""); }
   }
-  const remaining = tasks.filter((task) => !task.completed).length, shown = filterTasks(tasks, filter);
+  const remaining = tasks.filter((task) => !task.completed).length, shown = filterTasks(tasks, filter).filter(t => !projectFilter || (projectFilter === "__none" ? !t.projectId : t.projectId === projectFilter));
   return <section className={"section tasks-section " + (fullPage ? "tasks-page" : "")} aria-labelledby="tasks-heading">
     <div className="section-heading"><div>{!fullPage && <span className="eyebrow">GÜNÜN AKIŞI</span>}{fullPage ? <><h1 id="tasks-heading">Görevler</h1><p className="tasks-description">Yapılacaklarını planla, tamamladıklarını ayrı tut.</p></> : <h2 id="tasks-heading">Yapılacaklar</h2>}</div><span className="task-count">{remaining} KALDI</span></div>
     <div className="task-capture-row"><label className="task-template-picker"><span className="sr-only">Şablondan oluştur</span><select value="" onChange={e=>{const t=[RELEASE_TEMPLATE,...loadTemplates().entries].find(t=>t.id===e.target.value);if(t)setEditor(templateTask(t));}}><option value="">Şablon…</option>{[RELEASE_TEMPLATE,...loadTemplates().entries].map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label><form className="task-form" onSubmit={addTask}><label className="sr-only" htmlFor="new-task">Hızlı görev ekle</label><Icon name="plus" size={18} /><input id="new-task" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Yapılacak bir şey yaz…" maxLength={160} disabled={loaded.locked} /><button type="submit" disabled={!draft.trim() || loaded.locked} aria-label="Görev ekle"><Icon name="arrowRight" size={17} /></button></form><button className="button button-primary task-create-button" type="button" title="Tarih ve hatırlatma ile yeni görev oluştur" onClick={() => { setEditor(newTask(draft)); setDeleteId(null); }} disabled={loaded.locked}><Icon name="plus" size={17}/>Yeni görev</button></div>
     <div className="tasks-card surface">
       <div className="task-filters" role="group" aria-label="Görev filtresi">{filters.map(([key, label]) => <button type="button" key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>{label}</button>)}</div>
+      {fullPage && <label className="task-project-filter">Proje <select value={projectFilter} onChange={e => setProjectFilter(e.target.value)}><option value="">Tüm projeler</option><option value="__none">Projesiz görevler</option>{loadProjectSnapshot().entries.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}
       {error && <p className="tool-feedback error" role="alert">{error}</p>}
       {editor && <EditorDialog title={tasks.some(task => task.id === editor.id) ? "Görevi düzenle" : "Yeni görev"} description="Görev bilgilerini ve hatırlatmayı buradan düzenle." onClose={() => setEditor(null)} error={error}><form className="task-editor" onSubmit={saveEditor} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); setEditor(null); } }} aria-label="Görev düzenleyici">
         <label className="archive-field">Görev<input autoFocus value={editor.text} onChange={(event) => setEditor({ ...editor, text: event.target.value })} maxLength={160} required /></label>

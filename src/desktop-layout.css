@@ -1,6 +1,9 @@
 .button-primary { background: var(--app-accent); color: var(--app-on-accent); border-color: var(--app-accent); }
 .button-primary:hover { background: #b5d8fa; }
 .sidebar .nav-item.active { background: var(--app-accent-soft); color: var(--app-accent); }
+.gemini-model-settings { margin-top: 1.2rem; border-top: 1px solid var(--app-border, #35495f); padding-top: 1rem; }
+.gemini-model-settings summary { cursor: pointer; padding: .4rem 0; font-weight: 600; }
+.gemini-model-settings .archive-form-grid { margin-block: 1rem; }
 .dashboard-header-actions { display:flex; align-items:center; gap:1rem; }
 .dashboard-clock { color:var(--app-secondary); font-variant-numeric:tabular-nums; }
 .dashboard-eyebrow { color:var(--app-accent); font-size:.7rem; letter-spacing:.15em; }

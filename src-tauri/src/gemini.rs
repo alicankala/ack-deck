@@ -202,6 +202,36 @@ fn endpoint(model: &str, generation: bool) -> String {
         model_url
     }
 }
+async fn generate_at(
+    url: &str,
+    key: &str,
+    payload: &Value,
+    budget: Duration,
+) -> Result<reqwest::Response, String> {
+    let client = client()?;
+    let started = std::time::Instant::now();
+    for attempt in 0..2 {
+        let remaining = budget.saturating_sub(started.elapsed());
+        let response = client
+            .post(url)
+            .timeout(remaining)
+            .header("x-goog-api-key", key)
+            .json(payload)
+            .send()
+            .await
+            .map_err(transport_error)?;
+        if attempt == 0
+            && matches!(response.status().as_u16(), 500 | 502 | 503)
+            && budget.saturating_sub(started.elapsed()) > Duration::from_secs(2)
+        {
+            drop(response);
+            tokio::time::sleep(Duration::from_millis(750)).await;
+            continue;
+        }
+        return Ok(response);
+    }
+    unreachable!()
+}
 
 fn api_error(status: StatusCode) -> String {
     match status.as_u16() {
@@ -239,18 +269,49 @@ pub fn delete_gemini_key() -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn test_gemini_connection(model: ModelChoice) -> Result<(), String> {
+pub async fn test_gemini_connection(
+    app: tauri::AppHandle,
+    model: ModelChoice,
+) -> Result<(), String> {
+    test_model(&crate::gemini_models::selected(&app, &model)?).await
+}
+
+fn thinking_settings(payload: &mut Value, model: &str, testing: bool) {
+    // Gemini 3 Flash supports low/medium/high. Avoid provider-default long reasoning on a desktop chat.
+    if model.starts_with("gemini-3.") && model.contains("flash") && !model.contains("lite") {
+        payload["generationConfig"]["thinkingConfig"] =
+            json!({"thinkingLevel": if testing { "low" } else { "medium" }});
+    }
+}
+
+#[tauri::command]
+pub async fn test_gemini_model(
+    window: tauri::WebviewWindow,
+    model_name: String,
+) -> Result<(), String> {
+    if window.label() != "main" || !crate::gemini_models::valid_model(&model_name) {
+        return Err("Geçerli bir Gemini model adı girin.".into());
+    }
+    test_model(&model_name).await
+}
+
+async fn test_model(model_name: &str) -> Result<(), String> {
     let key = require_key()?;
-    let response = client()?
-        .post(endpoint(model.model_name(), true))
-        .timeout(Duration::from_secs(if matches!(model, ModelChoice::Powerful) { 180 } else { 45 }))
-        .header("x-goog-api-key", key)
-        .json(&json!({"contents":[{"role":"user","parts":[{"text":"Reply OK."}]}],"generationConfig":{"maxOutputTokens":2048}}))
-        .send()
-        .await
-        .map_err(transport_error)?;
+    let mut payload = json!({"contents":[{"role":"user","parts":[{"text":"Reply OK."}]}],"generationConfig":{"maxOutputTokens":2048}});
+    thinking_settings(&mut payload, model_name, true);
+    let response = generate_at(
+        &endpoint(model_name, true),
+        &key,
+        &payload,
+        Duration::from_secs(45),
+    )
+    .await?;
     if response.status().is_success() {
-        Ok(())
+        let result: GeminiResponse = response
+            .json()
+            .await
+            .map_err(|_| "Gemini yanıtı okunamadı.")?;
+        decode_reply(result, false, &key).map(|_| ())
     } else {
         Err(response_error(response).await)
     }
@@ -306,20 +367,19 @@ pub async fn gemini_chat(
         payload["tools"] = json!([{"functionDeclarations":crate::gemini_tools::declarations()}]);
         payload["systemInstruction"]["parts"].as_array_mut().unwrap().push(json!({"text":"Kullanıcı uygulama işlemi istiyorsa en fazla bir dar kapsamlı functionCall ile TASLAK hazırla. Hiçbir araç burada çalıştırılmaz. Bütün değişiklikler ve Windows işlemleri kullanıcı onayı gerektirir. Uygulanmış gibi konuşma. Navigation uygulama içidir. ID'si belli olmayan mevcut kaydı değiştirmek için kullanıcıdan tam adını iste."}));
     }
-    let response = client()?
-        .post(endpoint(model.model_name(), true))
-        .timeout(Duration::from_secs(
-            if matches!(model, ModelChoice::Powerful) {
-                180
-            } else {
-                45
-            },
-        ))
-        .header("x-goog-api-key", &key)
-        .json(&payload)
-        .send()
-        .await
-        .map_err(transport_error)?;
+    let model_name = crate::gemini_models::selected(&app, &model)?;
+    thinking_settings(&mut payload, &model_name, false);
+    let response = generate_at(
+        &endpoint(&model_name, true),
+        &key,
+        &payload,
+        Duration::from_secs(if matches!(model, ModelChoice::Powerful) {
+            60
+        } else {
+            45
+        }),
+    )
+    .await?;
 
     if !response.status().is_success() {
         return Err(response_error(response).await);
@@ -376,6 +436,110 @@ fn decode_reply(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn response_test_rejects_empty_or_thought_only_success_and_thinking_is_model_scoped() {
+        for value in [
+            json!({"candidates":[]}),
+            json!({"candidates":[{"content":{"parts":[{"text":"internal","thought":true}]}}]}),
+        ] {
+            assert!(
+                decode_reply(serde_json::from_value(value).unwrap(), false, "fixture-key").is_err()
+            );
+        }
+        let mut payload = json!({"generationConfig":{"maxOutputTokens":2048}});
+        thinking_settings(&mut payload, "gemini-3.8-flash", true);
+        assert_eq!(
+            payload["generationConfig"]["thinkingConfig"]["thinkingLevel"],
+            "low"
+        );
+        thinking_settings(&mut payload, "gemini-3.8-flash", false);
+        assert_eq!(
+            payload["generationConfig"]["thinkingConfig"]["thinkingLevel"],
+            "medium"
+        );
+        let mut lite = json!({"generationConfig":{}});
+        thinking_settings(&mut lite, "gemini-3.5-flash-lite", false);
+        assert!(lite["generationConfig"]["thinkingConfig"].is_null());
+    }
+    #[test]
+    fn temporary_server_errors_retry_once_but_quota_and_permission_errors_do_not() {
+        use std::io::{Read, Write};
+        for statuses in [vec![503, 200], vec![429], vec![403]] {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let url = format!("http://{}", listener.local_addr().unwrap());
+            let expected = statuses.len();
+            let last = *statuses.last().unwrap();
+            let server = std::thread::spawn(move || {
+                for status in statuses {
+                    let (mut stream, _) = listener.accept().unwrap();
+                    stream
+                        .set_read_timeout(Some(Duration::from_secs(5)))
+                        .unwrap();
+                    let mut buffer = [0u8; 4096];
+                    let _ = stream.read(&mut buffer).unwrap();
+                    write!(stream,"HTTP/1.1 {status} Response\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{{}}").unwrap();
+                }
+                expected
+            });
+            let response = tokio::runtime::Runtime::new()
+                .unwrap()
+                .block_on(generate_at(
+                    &url,
+                    "fixture-key",
+                    &json!({}),
+                    Duration::from_secs(5),
+                ))
+                .unwrap();
+            assert_eq!(response.status().as_u16(), last);
+            assert_eq!(server.join().unwrap(), expected);
+        }
+    }
+    #[test]
+    #[ignore = "Explicit live API test using the existing native credential; no personal context or tool execution"]
+    fn live_powerful_model_returns_with_current_thinking_and_tool_declarations() {
+        tokio::runtime::Runtime::new().unwrap().block_on(async {
+            let key = require_key().expect("Native credential unavailable");
+            let messages = vec![ChatMessage {
+                role: ChatRole::User,
+                text: "Prepare a draft task named Example task. Do not execute anything.".into(),
+            }];
+            let mut payload = chat_payload(&messages, &[], &key).unwrap();
+            payload["tools"] =
+                json!([{"functionDeclarations":crate::gemini_tools::declarations()}]);
+            thinking_settings(&mut payload, crate::gemini_models::POWERFUL_MODEL, false);
+            let response = generate_at(
+                &endpoint(crate::gemini_models::POWERFUL_MODEL, true),
+                &key,
+                &payload,
+                Duration::from_secs(60),
+            )
+            .await
+            .expect("Live generation failed");
+            if !response.status().is_success() {
+                let status = response.status();
+                let body: Value = response.json().await.unwrap_or_default();
+                let message = body["error"]["message"]
+                    .as_str()
+                    .unwrap_or("")
+                    .to_lowercase();
+                panic!(
+                    "Provider HTTP {}: thinking={}, tools={}, schema={}, quota={}",
+                    status.as_u16(),
+                    message.contains("thinking"),
+                    message.contains("tool") || message.contains("function"),
+                    message.contains("schema"),
+                    message.contains("quota")
+                );
+            }
+            let reply = decode_reply(
+                response.json().await.expect("Response decoding failed"),
+                true,
+                &key,
+            )
+            .expect("Provider returned no usable reply");
+            assert!(!reply.text.is_empty() || reply.action.is_some());
+        });
+    }
     #[test]
     fn draft_responses_are_allowlisted_and_credential_free_without_executing_actions() {
         let secret = "fake-private-credential";

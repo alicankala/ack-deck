@@ -1,4 +1,6 @@
+import { TrashSettings } from "./TrashSettings";
 import { ActionMenu } from "./ActionMenu";
+import { GeminiModelSettings } from "./GeminiModelSettings";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { getSavedAiModel, saveAiModel } from "../aiModelPreference";
 import { savePreferences, type Preferences, type StartPage } from "../preferences";
@@ -141,10 +143,11 @@ export function Settings({ preferences, onPreferencesChange, desktop, onDesktopC
         </div>
       </form>
       {feedback && <div className={"feedback " + feedback.kind} role="status">{feedback.text}</div>}
+      <GeminiModelSettings hasKey={hasKey === true} />
     </section>
 </section>
       <section role="tabpanel" id="settings-panel-phone" aria-labelledby="settings-tab-phone" hidden={selectedSection !== "phone"} className="settings-section-panel"><PhoneSettings /></section>
-      <section role="tabpanel" id="settings-panel-data" aria-labelledby="settings-tab-data" hidden={selectedSection !== "data"} className="settings-section-panel"><BackupSettings desktop={desktop} />        <section className="settings-card surface local-settings"><h2>İnternet kullanan özellikler</h2><dl className="system-check-list"><div><dt>ACK AI</dt><dd>Yalnızca mesaj gönderdiğinde Gemini ile iletişim kurar.</dd></div><div><dt>Dosya Analizi</dt><dd>Yalnızca seçip gönderdiğin dosya Gemini'ye iletilir.</dd></div><div><dt>Genel IP</dt><dd>IP sayfasını açtığında veya yenilediğinde public IP hizmetine istek gönderir.</dd></div><div><dt>Hız Testi</dt><dd>Yalnızca başlattığında Cloudflare altyapısını kullanır.</dd></div></dl><p>Kayıtlar, sohbet araması, çalışma alanları ve kısayollar yereldir. İzleme veya kullanım istatistikleri toplanmaz. Telefon eşitlemesi yalnızca açık onayınızla etkinleştirilir.</p></section></section>
+      <section role="tabpanel" id="settings-panel-data" aria-labelledby="settings-tab-data" hidden={selectedSection !== "data"} className="settings-section-panel"><BackupSettings desktop={desktop} /><TrashSettings/>        <section className="settings-card surface local-settings"><h2>İnternet kullanan özellikler</h2><dl className="system-check-list"><div><dt>ACK AI</dt><dd>Yalnızca mesaj gönderdiğinde Gemini ile iletişim kurar.</dd></div><div><dt>Dosya Analizi</dt><dd>Yalnızca seçip gönderdiğin dosya Gemini'ye iletilir.</dd></div><div><dt>Genel IP</dt><dd>IP sayfasını açtığında veya yenilediğinde public IP hizmetine istek gönderir.</dd></div><div><dt>Hız Testi</dt><dd>Yalnızca başlattığında Cloudflare altyapısını kullanır.</dd></div></dl><p>Kayıtlar, sohbet araması, çalışma alanları ve kısayollar yereldir. İzleme veya kullanım istatistikleri toplanmaz. Telefon eşitlemesi yalnızca açık onayınızla etkinleştirilir.</p></section></section>
       <section role="tabpanel" id="settings-panel-updates" aria-labelledby="settings-tab-updates" hidden={selectedSection !== "updates"} className="settings-section-panel"><UpdateSettings version={desktop?.version} /><AboutSettings version={desktop?.version} /></section>
     </div></div>
   </div>;

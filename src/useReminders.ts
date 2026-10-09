@@ -1,3 +1,5 @@
+import { loadStudyPrograms } from "./studyProgramStore";
+import { loadStudyReminders, pendingStudyReminders } from "./studyReminderStore";
 import { nextOccurrence } from "../shared/recurrence";
 import { subscriptionReminder } from "../shared/subscriptions";
 import { loadSubscriptions } from "./subscriptionStore";
@@ -15,13 +17,17 @@ export function pendingReminders(tasks: Task[]) {
 }
 export function useReminders(onError: (message: string) => void) {
   useEffect(() => {
+    let studyDelivered: string[] = [];
     let active = true, running = false, dirty = false, paused = false; const cleanups: (() => void)[] = [];
     async function sync() {
       dirty = true; if (running || paused) return; running = true;
       try { while (dirty && active && !paused) {
         dirty = false; const loaded = loadTasks();
-        const delivered = await invoke<string[]>("sync_task_reminders", { reminders: loaded.locked ? [] : [...pendingReminders(loaded.entries),...loadSubscriptions().entries.flatMap(s=>{const next=subscriptionReminder(s);return next?[{id:"subscription:"+s.id,text:s.name+" ödeme hatırlatması",dueAt:next.at}]:[]})] });
+        const delivered = await invoke<string[]>("sync_task_reminders", { reminders: loaded.locked ? [] : [...pendingStudyReminders(loadStudyPrograms().entries, loadStudyReminders().entries, studyDelivered), ...pendingReminders(loaded.entries),...loadSubscriptions().entries.flatMap(s=>{const next=subscriptionReminder(s);return next?[{id:"subscription:"+s.id,text:s.name+" ödeme hatırlatması",dueAt:next.at}]:[]})] });
         if (!active) return;
+        const nextStudyDelivered = delivered.filter(k => k.startsWith("study:"));
+        if (nextStudyDelivered.some(k => !studyDelivered.includes(k))) dirty = true;
+        studyDelivered = nextStudyDelivered;
         if (paused) { dirty = true; continue; }
         if (loaded.locked) { onError("Görevler okunamadığı için hatırlatmalar yüklenemedi."); continue; }
         const latest = loadTasks();

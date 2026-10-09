@@ -1,3 +1,4 @@
+import { captureDeleted } from "./trashStore";
 import { recordChanges } from "./activityStore";
 import { validLinks, validChecklist, type ChecklistItem, type RecordLinks } from "../shared/productivity";
 import { validRecurrence, zonedAt, scheduleDate, type Recurrence } from "../shared/recurrence";
@@ -39,7 +40,7 @@ export function loadTasks(): TaskLoad {
 }
 export function saveTasks(entries: Task[], loaded: TaskLoad): boolean {
   if (loaded.locked || !entries.every(isTask) || new Set(entries.map((task) => task.id)).size !== entries.length) return false;
-  try { window.localStorage.setItem(KEY, JSON.stringify([...entries, ...loaded.preserved])); recordChanges("tasks", loaded.entries, entries); if (typeof Event !== "undefined") window.dispatchEvent?.(new Event("ack-data-changed")); return true; } catch { return false; }
+  try { if (!captureDeleted("tasks", loaded.entries, entries)) return false; window.localStorage.setItem(KEY, JSON.stringify([...entries, ...loaded.preserved])); recordChanges("tasks", loaded.entries, entries); if (typeof Event !== "undefined") window.dispatchEvent?.(new Event("ack-data-changed")); return true; } catch { return false; }
 }
 export function localDateKey(date = new Date()): string { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
 export function taskDueAt(task: Task): number | null {

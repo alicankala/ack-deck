@@ -819,3 +819,10 @@ User explicitly requested desktop/mobile UX cleanup and recurring study programs
 Release approval (2026-10-09): user explicitly authorized commit/push/deploy/setup/GitHub publication after reviewing the summary. Release 1.3.0 is authorized. Additive migration 0005 was applied to production; matching Worker/mobile deployed as fed45212-907f-4b96-a8ff-bf01526c43e0. No existing resource, credential or pairing was replaced.
 
 ACKDeck 1.3.0 Windows release build succeeded with NSIS/MSI and existing updater signatures. Embedded frontend asset and EXE version verified; mobile production smoke checks passed. Release assets include latest.json for the existing in-app updater. Physical upgrade/iPhone checks remain manual; updater signing is separate from Authenticode.
+
+## Reliability follow-up (2026-10-09, unreleased)
+User authorized fixing the identified Gemini, notification navigation and portable backup issues while preserving the visual design. See RELIABILITY_UPDATE.md. Optional native Gemini model profiles are backup data but API keys are excluded; older backups do not reset profiles. Portable ZIP restore only creates files in unique app-owned restored-backups.v1 folders; attachment IDs use pb_<32 hex token>_<index> and cannot address arbitrary folders. Do not delete imported files when local-data rollback is blocked. Existing JSON backups and app/installer identity remain intact. Current changes are not a new installer or production release; October 9 publication approval covered the completed 1.3.0 release.
+
+
+## Content/recovery release 1.4.0 (2026-10-09)
+The current user explicitly authorized adding the listed content/recovery/Windows reminder features and direct commit/push/setup/GitHub publication, overriding the earlier freeze/approval boundary for this scope. See CONTENT_RECOVERY_1_4.md. Preserve trash-before-delete guards, existing keys, legacy shortcut exclusions, the local-only trash and reminder preference semantics, and the existing native delivery ledger. Shared StudyProgram/sync schema 4 is unchanged.

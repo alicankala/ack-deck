@@ -13,7 +13,7 @@ pub struct Media {
     pub size: usize,
     pub base64: String,
 }
-fn cache_id(id: &str) -> bool {
+pub(crate) fn valid_cache_id(id: &str) -> bool {
     !id.is_empty()
         && id.len() <= 128
         && id
@@ -72,8 +72,26 @@ fn valid_file(name: &str, mime: &str, bytes: &[u8]) -> bool {
     }
 }
 fn cache_path(app: &tauri::AppHandle, id: &str) -> Result<std::path::PathBuf, String> {
-    if !cache_id(id) {
+    if !valid_cache_id(id) {
         return Err("Dosya kimliği geçersiz.".into());
+    }
+    if let Some(value) = id.strip_prefix("pb_") {
+        let (token, index) = value.split_once('_').ok_or("Dosya kimliği geçersiz.")?;
+        if token.len() != 32
+            || !token.bytes().all(|b| b.is_ascii_hexdigit())
+            || index.is_empty()
+            || !index.bytes().all(|b| b.is_ascii_digit())
+        {
+            return Err("Dosya kimliği geçersiz.".into());
+        }
+        return Ok(app
+            .path()
+            .app_data_dir()
+            .map_err(|_| "Dosya alanı açılamadı.")?
+            .join("restored-backups.v1")
+            .join(token)
+            .join("media")
+            .join(format!("{id}.json")));
     }
     Ok(app
         .path()
@@ -82,7 +100,25 @@ fn cache_path(app: &tauri::AppHandle, id: &str) -> Result<std::path::PathBuf, St
         .join("phone-attachments.v1")
         .join(format!("{id}.json")))
 }
-fn read_cached(app: &tauri::AppHandle, id: &str) -> Result<Media, String> {
+pub(crate) fn valid_media(media: &Media) -> bool {
+    let Ok(decoded) = STANDARD.decode(&media.base64) else {
+        return false;
+    };
+    valid_cache_id(&media.id)
+        && media.size == decoded.len()
+        && valid_file(&media.name, &media.mime, &decoded)
+}
+pub(crate) fn safe_media(media: &Media) -> bool {
+    if !valid_media(media) {
+        return false;
+    }
+    let Ok(decoded) = STANDARD.decode(&media.base64) else {
+        return false;
+    };
+    let text = String::from_utf8_lossy(&decoded);
+    !text.contains("AIza") && !crate::privacy::has_credentials(&text)
+}
+pub(crate) fn read_cached(app: &tauri::AppHandle, id: &str) -> Result<Media, String> {
     let mut bytes = Vec::new();
     let file = std::fs::File::open(cache_path(app, id)?)
         .map_err(|_| "Dosya bu bilgisayarda bulunamadı. Gelenler'den yeniden ekleyebilirsiniz.")?;
@@ -208,9 +244,9 @@ mod tests {
     #[test]
     fn media_blocks_paths_spoofing_and_oversize() {
         for id in ["..", ".", "../note", "C:\\file", "a/b", ""] {
-            assert!(!cache_id(id));
+            assert!(!valid_cache_id(id));
         }
-        assert!(cache_id("sent_123-456"));
+        assert!(valid_cache_id("sent_123-456"));
         assert!(valid_file("ses.ogg", "audio/ogg", b"OggSvoice"));
         assert!(valid_file(
             "resim.png",

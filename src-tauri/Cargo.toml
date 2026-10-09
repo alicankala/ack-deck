@@ -1,6 +1,6 @@
 [package]
 name = "ack-deck"
-version = "1.3.0"
+version = "1.4.0"
 description = "ACKDeck personal desktop dashboard"
 authors = ["Alican"]
 edition = "2021"
@@ -38,6 +38,10 @@ tauri-plugin-single-instance = "2"
 tokio = { version = "1", features = ["time", "sync"] }
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-updater = "2"
+zip = { version = "4.6", default-features = false, features = ["deflate"] }
+
+[target.'cfg(windows)'.dependencies]
+tauri-winrt-notification = "0.8.1"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
