@@ -2,7 +2,7 @@
 
 İlk kararlı sürüm: **1.0.0**. Uygulama kimliği `com.alican.ackdeck` korunur; güncelleme mevcut yerel kayıtları sıfırlamaz.
 
-**Güncel sürüm: 1.2.1.** Notlar ve ACK AI geçmiş listelerinde taşma düzeltildi; not önizlemeleri ve sohbet satırları düzenlendi. Final product intelligence, Windows setup ve mobil yayın ayrıntıları: [PRODUCT_INTELLIGENCE_1_2.md](PRODUCT_INTELLIGENCE_1_2.md).
+**Güncel sürüm: 1.3.0.** Masaüstü ve mobil arayüzler sadeleştirildi; haftalık planda görev ve hatırlatma tek kartta gösteriliyor. Tekrarlanan ders programları, çevrimdışı kayıt, telefon eşitlemesi ve yedekleme eklendi. Ayrıntılar: [PLANNER_UX.md](PLANNER_UX.md).
 
 Görsel marka işareti **ACK**, uygulama adı **ACKDeck**.
 

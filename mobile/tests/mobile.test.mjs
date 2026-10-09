@@ -10,6 +10,13 @@ function runtime(database=new IDBFactory()){
 }
 const task={text:'SD kart al',completed:false,dueDate:null,dueTime:null,priority:'normal',reminder:false,dueAt:null,timezone:'UTC'};
 const mutation=(kind,id,data,version=0)=>({mutationId:crypto.randomUUID(),kind,id,baseVersion:version,data,deleted:false});
+test('study programs survive offline creation, queued edits, restart and a schema-3 upgrade without creating tasks',async()=>{
+ const env=runtime(),store=env.load('mobile/src/store'),program={id:'program',name:'Derslerim',startDate:'2026-10-05',endDate:null,timezone:'Europe/Istanbul',active:true,updatedAt:1,sessions:[{id:'block',subject:'Matematik',topic:'Türev',weekdays:[1,3],time:'19:00',minutes:50}]};
+ let state={...store.emptyState(),token:'paired',syncSchema:3,cursor:90};state=store.enqueue(state,mutation('studyPrograms',program.id,program));state=store.enqueue(state,mutation('studyPrograms',program.id,{...program,name:'Güncel program'},1));await store.saveState(state);
+ const saved=await store.readState();assert.equal(saved.queue.length,2);assert.equal(saved.token,'paired');assert.equal(saved.records.some(r=>r.kind==='tasks'),false);
+ const calls=[],records=[];const synced=await store.synchronize(saved,async(_state,path,options)=>{calls.push(path);if(path==='mutations'){const m=JSON.parse(options.body),record={kind:m.kind,id:m.id,version:m.baseVersion+1,data:m.data,deleted:m.deleted,updatedAt:1};records.splice(0,records.length,record);return{record};}return{records,cursor:2,more:false};});
+ assert.equal(synced.syncSchema,4);assert.ok(calls.includes('sync?cursor=0'));assert.equal(synced.queue.length,0);assert.equal(synced.records[0].data.name,'Güncel program');assert.equal(synced.records[0].data.sessions.length,1);assert.equal(synced.token,'paired');
+});
 test('schema upgrade preserves offline linked tasks, checklists, project next step and note attachment references',async()=>{
   const env=runtime(),store=env.load('mobile/src/store');
   let state={...store.emptyState(),token:'existing-pairing',cursor:900,syncSchema:2};
@@ -21,7 +28,7 @@ test('schema upgrade preserves offline linked tasks, checklists, project next st
   const reopened=await runtime(env.database).load('mobile/src/store').readState();assert.equal(reopened.token,'existing-pairing');assert.equal(reopened.queue.length,3);
   const calls=[],records=[];
   const synced=await store.synchronize(reopened,async(_state,path,options)=>{calls.push(path);if(path==='mutations'){const m=JSON.parse(options.body),record={kind:m.kind,id:m.id,data:m.data,version:m.baseVersion+1,deleted:m.deleted,updatedAt:1};records.push(record);return{record};}return{records,cursor:3,more:false};});
-  assert.ok(calls.includes('sync?cursor=0'));assert.equal(synced.syncSchema,3);assert.equal(synced.queue.length,0);assert.equal(synced.records.find(r=>r.id==='p').data.nextStep,'Telefon testi');assert.equal(synced.records.find(r=>r.id==='t').data.checklist[0].id,'step');assert.equal(synced.records.find(r=>r.id==='n').data.attachments[0].id,'i');
+  assert.ok(calls.includes('sync?cursor=0'));assert.equal(synced.syncSchema,4);assert.equal(synced.queue.length,0);assert.equal(synced.records.find(r=>r.id==='p').data.nextStep,'Telefon testi');assert.equal(synced.records.find(r=>r.id==='t').data.checklist[0].id,'step');assert.equal(synced.records.find(r=>r.id==='n').data.attachments[0].id,'i');
   const deleted=store.enqueue(synced,{...mutation('projects','p',null,1),deleted:true});await store.saveState(deleted);assert.equal((await store.readState()).records.find(r=>r.id==='p').deleted,true);assert.equal((await store.readState()).records.find(r=>r.id==='t').data.projectId,'p');
 });
 test('custom phone task order survives offline capture and restart without changing record data',async()=>{

@@ -812,3 +812,10 @@ Cloudflare production was not redeployed or reconfigured, and no credential/VAPI
 
 ## Final product intelligence 1.2.0 (2026-10-07)
 User explicitly authorized publishing. Additive project metadata, checklist and note attachment references are now permitted in schema 3 Phone sync; native paths/activity/templates/secrets remain local. Existing resources and pairing are preserved. See PRODUCT_INTELLIGENCE_1_2.md for validation and open Powerful-model generation timeout. Feature freeze: only confirmed bugs, visual/UX, performance and security fixes; do not propose or add new features.
+
+## Planner UX work (2026-10-09)
+User explicitly requested desktop/mobile UX cleanup and recurring study programs, overriding the earlier feature freeze for this scope. See PLANNER_UX.md for implemented behavior and validation. The latest user instruction requires a summary of the completed work and their approval before setup generation or publication. Do not inherit the October 7 publishing authorization for this release. Study programs are separate records in sync schema 4 and do not generate notifications or task records. Production migration 0005 remains unapplied until release approval.
+
+Release approval (2026-10-09): user explicitly authorized commit/push/deploy/setup/GitHub publication after reviewing the summary. Release 1.3.0 is authorized. Additive migration 0005 was applied to production; matching Worker/mobile deployed as fed45212-907f-4b96-a8ff-bf01526c43e0. No existing resource, credential or pairing was replaced.
+
+ACKDeck 1.3.0 Windows release build succeeded with NSIS/MSI and existing updater signatures. Embedded frontend asset and EXE version verified; mobile production smoke checks passed. Release assets include latest.json for the existing in-app updater. Physical upgrade/iPhone checks remain manual; updater signing is separate from Authenticode.

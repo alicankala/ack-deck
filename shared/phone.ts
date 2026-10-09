@@ -1,14 +1,15 @@
+import { validStudyProgram, type StudyProgram } from "./studyPrograms";
 import { validLinks, validChecklist, validAttachments, type AttachmentReference, type ChecklistItem, type RecordLinks } from "./productivity";
 import { validRecurrence, type Recurrence } from "./recurrence";
 import { validSubscription, type Subscription } from "./subscriptions";
 export const MAX_ATTACHMENT = 10 * 1024 * 1024;
 export const RETENTION_SECONDS = 30 * 24 * 60 * 60;
-export type Kind = "tasks" | "notes" | "subscriptions" | "projects";
+export type Kind = "tasks" | "notes" | "subscriptions" | "projects" | "studyPrograms";
 export type PhoneTask = RecordLinks & { checklist?:ChecklistItem[]; reminderLeadMinutes?:number; text: string; completed: boolean; dueDate: string | null; dueTime: string | null; priority: "normal" | "important"; reminder: boolean; dueAt: number | null; timezone: string; recurrence?: Recurrence | null; occurrenceAt?: number | null; lastCompletedAt?: number | null; snoozedUntil?: number | null };
 export type PhoneNote = RecordLinks & { attachments?:AttachmentReference[]; title: string; content: string; updatedAt: number };
 export type PhoneProject = {name:string;description:string;nextStep:string;workspaceId:string|null;inboxIds:string[]};
 export function validProject(v:unknown):v is PhoneProject{return object(v)&&exact(v,["name","description","nextStep","workspaceId","inboxIds"])&&text(v.name,160,true)&&text(v.description,2000)&&text(v.nextStep,500)&&(v.workspaceId===null||id(v.workspaceId))&&Array.isArray(v.inboxIds)&&v.inboxIds.length<=200&&v.inboxIds.every(id)&&new Set(v.inboxIds).size===v.inboxIds.length&&![v.name,v.description,v.nextStep].some(s=>/[A-Za-z]:[\\/]|\\\\/.test(String(s)));}
-export type RecordData = PhoneTask | PhoneNote | Subscription | PhoneProject;
+export type RecordData = PhoneTask | PhoneNote | Subscription | PhoneProject | StudyProgram;
 export type CloudRecord = { kind: Kind; id: string; version: number; data: RecordData | null; deleted: boolean; updatedAt: number };
 export type Mutation = { mutationId: string; kind: Kind; id: string; baseVersion: number; data: RecordData | null; deleted: boolean };
 export const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
@@ -33,9 +34,9 @@ export function validTask(value: unknown): value is PhoneTask {
 }
 export function validNote(value: unknown): value is PhoneNote { return object(value) && validLinks(value) && (value.attachments===undefined||validAttachments(value.attachments)) && exact(Object.fromEntries(Object.entries(value).filter(([key])=>!["projectId","workspaceId","sourceInboxId","attachments"].includes(key))), ["title", "content", "updatedAt"]) && text(value.title, 200, true) && text(value.content, 20000) && timestamp(value.updatedAt); }
 export function validMutation(value: unknown): value is Mutation {
-  return object(value) && exact(value, ["mutationId", "kind", "id", "baseVersion", "data", "deleted"]) && id(value.mutationId) && id(value.id) && ["tasks", "notes", "subscriptions", "projects"].includes(String(value.kind)) && timestamp(value.baseVersion) && typeof value.deleted === "boolean" && (value.deleted ? value.data === null : value.kind === "projects" ? validProject(value.data) : value.kind === "tasks" ? validTask(value.data) : value.kind === "subscriptions" ? validSubscription(value.data) : validNote(value.data));
+  return object(value) && exact(value, ["mutationId", "kind", "id", "baseVersion", "data", "deleted"]) && id(value.mutationId) && id(value.id) && ["tasks", "notes", "subscriptions", "projects", "studyPrograms"].includes(String(value.kind)) && timestamp(value.baseVersion) && typeof value.deleted === "boolean" && (value.deleted ? value.data === null : value.kind === "studyPrograms" ? validStudyProgram(value.data) : value.kind === "projects" ? validProject(value.data) : value.kind === "tasks" ? validTask(value.data) : value.kind === "subscriptions" ? validSubscription(value.data) : validNote(value.data));
 }
-export function validCloudRecord(value:unknown):value is CloudRecord {return object(value)&&exact(value,["kind","id","version","data","deleted","updatedAt"])&&["tasks","notes","subscriptions","projects"].includes(String(value.kind))&&id(value.id)&&timestamp(value.version)&&value.version>0&&timestamp(value.updatedAt)&&typeof value.deleted==="boolean"&&(value.deleted?value.data===null:value.kind==="projects"?validProject(value.data):value.kind==="tasks"?validTask(value.data):value.kind==="subscriptions"?validSubscription(value.data):validNote(value.data));}
+export function validCloudRecord(value:unknown):value is CloudRecord {return object(value)&&exact(value,["kind","id","version","data","deleted","updatedAt"])&&["tasks","notes","subscriptions","projects","studyPrograms"].includes(String(value.kind))&&id(value.id)&&timestamp(value.version)&&value.version>0&&timestamp(value.updatedAt)&&typeof value.deleted==="boolean"&&(value.deleted?value.data===null:value.kind==="studyPrograms"?validStudyProgram(value.data):value.kind==="projects"?validProject(value.data):value.kind==="tasks"?validTask(value.data):value.kind==="subscriptions"?validSubscription(value.data):validNote(value.data));}
 export function validUrl(value: unknown): value is string { if (!text(value, 4096, true)) return false; try { const url = new URL(value); return ["https:", "http:"].includes(url.protocol) && !url.username && !url.password; } catch { return false; } }
 export const attachmentMimes = new Set(["image/png", "image/jpeg", "image/webp", "image/heic", "application/pdf", "audio/mp4", "audio/mpeg", "audio/ogg", "audio/webm", "audio/wav", "text/plain"]);
 export function safeAttachment(name: string, mime: string, bytes: Uint8Array): boolean {

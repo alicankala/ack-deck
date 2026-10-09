@@ -6,6 +6,7 @@ import { recordView, type Env, type Actor, type RecordRow } from "./types";
 export async function mutate(env: Env, actor: Actor, input: unknown, schema = "3") {
   if (!validMutation(input)) throw new ApiError(400, "Kayıt bilgileri geçersiz.");
   if(input.kind==="subscriptions"&&!input.deleted&&(input.data as Subscription).id!==input.id)throw new ApiError(400,"Abonelik kimliği geçersiz.");
+  if(input.kind==="studyPrograms"&&!input.deleted&&(input.data as {id:string}).id!==input.id)throw new ApiError(400,"Program kimliği geçersiz.");
   const mutation: Mutation = {...input}, requestHash = await hash(JSON.stringify(input));
   const prior = await env.DB.prepare("SELECT actor,request_hash,response FROM mutations WHERE id=?").bind(mutation.mutationId).first<{actor:string;request_hash:string;response:string}>();
   if (prior) { if (prior.actor !== actor.id || prior.request_hash !== requestHash) throw new ApiError(409, "İstek kimliği daha önce kullanılmış."); return JSON.parse(prior.response); }
@@ -13,9 +14,9 @@ export async function mutate(env: Env, actor: Actor, input: unknown, schema = "3
     const current=await env.DB.prepare("SELECT * FROM records WHERE kind='tasks' AND id=?").bind(mutation.id).first<RecordRow>();
     if(current?.data&&JSON.parse(current.data).recurrence)return {conflict:true,record:recordView(current)};
   }
-  if(schema!=="3"&&!mutation.deleted&&["tasks","notes"].includes(mutation.kind)){const current=await env.DB.prepare("SELECT * FROM records WHERE kind=? AND id=?").bind(mutation.kind,mutation.id).first<RecordRow>();if(current?.data){const stored=JSON.parse(current.data),metadata=Object.fromEntries(Object.entries(stored).filter(([key])=>["projectId","workspaceId","sourceInboxId","checklist","reminderLeadMinutes","attachments"].includes(key)));mutation.data={...mutation.data!,...metadata};}}
+  if(!["3","4"].includes(schema)&&!mutation.deleted&&["tasks","notes"].includes(mutation.kind)){const current=await env.DB.prepare("SELECT * FROM records WHERE kind=? AND id=?").bind(mutation.kind,mutation.id).first<RecordRow>();if(current?.data){const stored=JSON.parse(current.data),metadata=Object.fromEntries(Object.entries(stored).filter(([key])=>["projectId","workspaceId","sourceInboxId","checklist","reminderLeadMinutes","attachments"].includes(key)));mutation.data={...mutation.data!,...metadata};}}
   const now = Date.now(), version = mutation.baseVersion + 1, data = mutation.data ? JSON.stringify(mutation.data) : null;
-  const table=mutation.kind==="subscriptions"?"subscriptions":mutation.kind==="projects"?"projects":"records";
+  const table=mutation.kind==="studyPrograms"?"study_programs":mutation.kind==="subscriptions"?"subscriptions":mutation.kind==="projects"?"projects":"records";
   const write = mutation.baseVersion === 0
     ? env.DB.prepare(`INSERT INTO ${table}(kind,id,version,data,deleted,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(kind,id) DO NOTHING`).bind(mutation.kind,mutation.id,version,data,Number(mutation.deleted),now)
     : env.DB.prepare(`UPDATE ${table} SET version=?,data=?,deleted=?,updated_at=? WHERE kind=? AND id=? AND version=?`).bind(version,data,Number(mutation.deleted),now,mutation.kind,mutation.id,mutation.baseVersion);

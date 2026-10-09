@@ -1,4 +1,4 @@
-import test, {before,after} from 'node:test';
+import test, {before,beforeEach,after} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
@@ -15,6 +15,20 @@ async function module(path){const result=await build({entryPoints:[fileURLToPath
 async function call(path,body,token=ownerSecret,method=body===undefined?'GET':'POST',headers={}){const response=await mf.dispatchFetch('https://ack.example/api/'+path,{method,headers:{...(token?{Authorization:'Bearer '+token}:{}),'X-ACKDeck-Schema':'3',...(body!==undefined?{'Content-Type':'application/json'}:{}),...headers},...(body!==undefined?{body:JSON.stringify(body)}:{})});let data;try{data=await response.json();}catch{}return{response,data};}
 const task=(text='SD kart al',due=Date.now()+600000)=>({text,completed:false,dueDate:'2026-10-05',dueTime:'14:00',priority:'normal',reminder:true,dueAt:due,timezone:'Europe/Istanbul'});
 const mutation=(kind,id,data,baseVersion=0,deleted=false,mutationId=crypto.randomUUID())=>({mutationId,kind,id,baseVersion,data,deleted});
+test('study program versions, retry and tombstones retain a separate schedule and hide it from schema 1–3 clients',async()=>{
+ const data={id:'program-1',name:'Çalışma planı',startDate:'2026-10-05',endDate:null,timezone:'Europe/Istanbul',active:true,updatedAt:1,sessions:[{id:'session-1',subject:'Matematik',topic:'Türev',weekdays:[1,3,5],time:'19:00',minutes:50}]};
+ const headers={'X-ACKDeck-Schema':'4'},create=mutation('studyPrograms',data.id,data);
+ assert.equal((await call('mutations',create,phone,'POST',headers)).response.status,200);
+ assert.equal((await call('mutations',create,phone,'POST',headers)).data.record.version,1);
+ assert.deepEqual((await call('sync?cursor=0',undefined,phone,'GET',headers)).data.records.find(r=>r.id===data.id).data,data);
+ for(const schema of ['1','2','3'])assert.equal((await call('sync?cursor=0',undefined,phone,'GET',{'X-ACKDeck-Schema':schema})).data.records.some(r=>r.kind==='studyPrograms'),false);
+ assert.equal((await call('mutations',mutation('studyPrograms','mismatch',data),phone,'POST',headers)).response.status,400);
+ assert.equal((await call('mutations',mutation('studyPrograms','bad-program',{...data,id:'bad-program',sessions:[{...data.sessions[0],weekdays:[8]}]}),phone,'POST',headers)).response.status,400);
+ assert.equal((await call('mutations',mutation('studyPrograms',data.id,{...data,name:'Stale'}),phone,'POST',headers)).data.conflict,true);
+ assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM reminders WHERE task_id=?').bind(data.id).first()).n,0);
+ assert.equal((await call('mutations',mutation('studyPrograms',data.id,null,1,true),phone,'POST',headers)).data.record.deleted,true);
+ assert.equal((await call('mutations',mutation('studyPrograms',data.id,data,1),phone,'POST',headers)).data.record.deleted,true);
+});
 test('project metadata is additive, idempotent, path-free, versioned and invisible to old clients',async()=>{
   const project={name:'ACKDeck',description:'Ürün',nextStep:'Telefon testi',workspaceId:'workspace-1',inboxIds:['incoming-1']};
   const create=mutation('projects','product-project',project);
@@ -56,12 +70,15 @@ before(async()=>{
   await db.prepare("INSERT INTO reminder_deliveries(generation,device_id,state,attempts,retry_at) VALUES('migration-fixture','fixture','sent',1,0)").run();
   await db.exec(readFileSync(new URL('migrations/0003_subscriptions_recurrence.sql',root),'utf8').replace(/^--.*$/gm,''));
   await db.exec(readFileSync(new URL('migrations/0004_project_metadata.sql',root),'utf8').replace(/^--.*$/gm,''));
+  await db.exec(readFileSync(new URL('migrations/0005_study_programs.sql',root),'utf8').replace(/^--.*$/gm,''));
   assert.equal((await db.prepare("SELECT data FROM records WHERE id='migration-preserved'").first()).data,JSON.stringify({title:'Migration fixture',content:'Preserve',updatedAt:1}));
   assert.equal((await db.prepare("SELECT state FROM reminder_deliveries WHERE generation='migration-fixture'").first()).state,'sent');
   env={...bindings,DB:db,ATTACHMENTS:kv};worker=await module('src/index.ts');reminders=await module('src/reminders.ts');security=await module('src/security.ts');shared=await module('../shared/phone.ts');
   owner=await call('pair',{});const paired=await call('pair/exchange',{code:owner.data.code,name:'Test iPhone'},null);phone=paired.data.token;deviceId=(await call('me',undefined,phone)).data.id;
 });
 after(async()=>{await mf?.dispose();});
+// Each isolated scenario has a fresh request budget; production throttling is unchanged.
+beforeEach(async()=>{await db.exec('DELETE FROM rate_limits');});
 test('recurring series and subscriptions round-trip, offline retries and tombstones; same Cron continues with PC off',async()=>{
   const rec=await module('../shared/recurrence.ts'),subscriptions=await module('../shared/subscriptions.ts');
   const pair=await call('pair',{}),token=(await call('pair/exchange',{code:pair.data.code,name:'Recurrence test'},null)).data.token;
@@ -180,8 +197,8 @@ test('real desktop and mobile sync engines round-trip tasks, notes, completion, 
   const window={localStorage:{getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)},dispatchEvent:()=>{}};
   function load(path){if(modules[path])return modules[path];const exports={};modules[path]=exports;const source=readFileSync(new URL('../'+path+'.ts',root),'utf8');runInNewContext(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,window,require:name=>name==='@tauri-apps/api/core'?{invoke:async()=>{throw Error('Unexpected native call');}}:load(posix.normalize(posix.join(posix.dirname(path),name))),structuredClone,crypto,URL,TextEncoder,TextDecoder,Intl,Event,Date});return exports;}
   const desktop=load('src/phoneSync'),mobile=await module('../mobile/src/store.ts');
-  const desktopRequest=async(operation,body)=>{const path=operation==='mutate'?'mutations':operation==='sync'?'sync?cursor='+body.cursor:operation;return(await call(path,['sync'].includes(operation)?undefined:body??{})).data;};
-  const phoneRequest=async(state,path,options={})=>(await call(path,options.body?JSON.parse(options.body):undefined,state.token)).data;
+  const desktopRequest=async(operation,body)=>{const path=operation==='mutate'?'mutations':operation==='sync'?'sync?cursor='+body.cursor:operation;const response=await call(path,['sync'].includes(operation)?undefined:body??{},ownerSecret,operation==='sync'?'GET':'POST',{'X-ACKDeck-Schema':'4'});assert.equal(response.response.status,200,JSON.stringify({operation,data:response.data}));return response.data;};
+  const phoneRequest=async(state,path,options={})=>(await call(path,options.body?JSON.parse(options.body):undefined,state.token,options.body?'POST':'GET',{'X-ACKDeck-Schema':'4'})).data;
   const persist=async()=>{};
   await desktop.synchronizePhone(desktopRequest);
   let state=await mobile.synchronize({...mobile.emptyState(),token},phoneRequest,persist);
@@ -217,5 +234,12 @@ test('real desktop and mobile sync engines round-trip tasks, notes, completion, 
   state=mobile.enqueue(state,mutation('projects',projectRow.id,{...projectRow.data,nextStep:'Telefon kontrolü'},projectRow.version));state=mobile.enqueue(state,mutation('tasks',checklistRow.id,{...checklistRow.data,checklist:[{...checklistRow.data.checklist[0],completed:true}]},checklistRow.version));
   await assert.rejects(mobile.synchronize(state,async()=>{throw Error('Offline');},persist));state=await mobile.synchronize(state,phoneRequest,persist);await desktop.synchronizePhone(desktopRequest);
   const localProject=load('src/projectStore').loadProjects()[0];assert.equal(localProject.nextStep,'Telefon kontrolü');assert.equal(localProject.folderPath,'C:/private/ackdeck');assert.deepEqual(Array.from(localProject.shortcutIds),['private-reference']);assert.equal(load('src/taskStore').loadTasks().entries.find(t=>t.id==='chain-task').checklist[0].completed,true);
+  const study={id:'chain-study',name:'Haftalık dersler',startDate:'2026-10-05',endDate:null,timezone:'Europe/Istanbul',active:true,updatedAt:1,sessions:[{id:'chain-session',subject:'Matematik',topic:'Türev',weekdays:[1,3,5],time:'19:00',minutes:50}]};
+  assert.equal(load('src/studyProgramStore').saveStudyPrograms([study]),true);await desktop.synchronizePhone(desktopRequest);state=await mobile.synchronize(state,phoneRequest,persist);
+  const studyRow=state.records.find(r=>r.id===study.id);assert.equal(studyRow.data.sessions[0].subject,'Matematik');
+  state=mobile.enqueue(state,mutation('studyPrograms',study.id,{...studyRow.data,sessions:[{...studyRow.data.sessions[0],subject:'Fizik'}]},studyRow.version));
+  await assert.rejects(mobile.synchronize(state,async()=>{throw Error('Offline');},persist));state=await mobile.synchronize(state,phoneRequest,persist);await desktop.synchronizePhone(desktopRequest);assert.equal(load('src/studyProgramStore').loadStudyPrograms().entries[0].sessions[0].subject,'Fizik');
+  const editedStudy=state.records.find(r=>r.id===study.id);state=mobile.enqueue(state,mutation('studyPrograms',study.id,null,editedStudy.version,true));state=await mobile.synchronize(state,phoneRequest,persist);await desktop.synchronizePhone(desktopRequest);assert.equal(load('src/studyProgramStore').loadStudyPrograms().entries.length,0);
+  assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM reminders WHERE task_id=?').bind(study.id).first()).n,0);
   const currentProject=state.records.find(r=>r.id==='chain-project');state=mobile.enqueue(state,mutation('projects',currentProject.id,null,currentProject.version,true));state=await mobile.synchronize(state,phoneRequest,persist);await desktop.synchronizePhone(desktopRequest);assert.equal(load('src/projectStore').loadProjects().length,0);assert.equal(load('src/notesStore').loadNotes().notes.find(n=>n.id==='chain-note').projectId,'chain-project');
 });
