@@ -1,4 +1,4 @@
-:root { --app-bg: #101317; --app-surface: #1c232a; --app-control: #26323d; --app-field: #151c23; --app-border: #3a4651; --app-border-strong: #607080; --app-text: #f3f7fb; --app-secondary: #b8c5d0; --app-muted: #91a4b6; --app-accent: #9bc8f5; --app-accent-soft: #283b4e; --app-accent-border: #506983; --app-on-accent: #101820; --app-hover: #304150; }
+:root { --app-bg: #090c10; --app-surface: #131922; --app-control: #1d2737; --app-field: #0d121a; --app-border: rgba(255, 255, 255, 0.08); --app-border-strong: rgba(255, 255, 255, 0.16); --app-text: #f8fafc; --app-secondary: #cbd5e1; --app-muted: #8293a5; --app-accent: #38bdf8; --app-accent-soft: rgba(56, 189, 248, 0.12); --app-accent-border: rgba(56, 189, 248, 0.28); --app-on-accent: #041421; --app-hover: #263345; }
 :root {
   --ui-unit: calc(1rem / 15);
   --ui-scale: 1;

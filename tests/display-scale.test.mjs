@@ -65,7 +65,7 @@ test('observer switches monitors without storage writes or a restart and handles
   const cleanup = env.load('monitorObserver').observeMonitor({ read: async () => { throw new Error('unavailable'); }, subscribe: () => [] }, value => failures.push(value));
   await new Promise(resolve => setTimeout(resolve, 0)); assert.deepEqual(failures, [null]); cleanup();
 });
-test('logical CSS viewport and scale matrix retains bounded content, shrinking columns and compact palette', () => {
+test('logical CSS retains bounded content, shrinking columns and compact palette', () => {
   // Structural CSS validation only: this does not claim WebView pixel/overflow inspection.
   const css = readFileSync(new URL('../src/App.css', import.meta.url), 'utf8'), ast = postcss.parse(css);
   const declarations = selector => { const result = {}; ast.walkRules(selector, rule => rule.walkDecls(d => { result[d.prop] = d.value; })); return result; };
@@ -79,17 +79,6 @@ test('logical CSS viewport and scale matrix retains bounded content, shrinking c
   assert.match(declarations('.hub-path')['text-overflow'], /ellipsis/);
   assert.equal(declarations('.main-content')['min-width'], '0');
   assert.doesNotMatch(css, /(?:transform:\s*scale\(|\bzoom\s*:)/);
-  for (const [width, height] of [[1280, 800], [1920, 1080], [2560, 1440], [700, 540]]) {
-    for (const scale of [100, 110, 115, 125]) {
-      const unit = scale / 100;
-      const sidebar = (width <= 780 ? 66 : width <= 1100 ? 196 : 228) * unit;
-      const padding = width <= 700 ? 15 * unit : width <= 780 ? 24 * unit : width <= 1100 ? 30 * unit : Math.min(72 * unit, Math.max(24 * unit, width * .042));
-      const remaining = Math.min(1800, width - sidebar - 2 * padding);
-      assert.ok(remaining > 300, `${width}x${height} at ${scale}% leaves useful content space`);
-      assert.ok(Math.min(680, width - 32) < width, 'palette stays within logical width');
-      assert.equal(15 * unit, 15 * scale / 100);
-    }
-  }
   const main = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
   assert.match(main, /if \(paletteWindow\) root.render\(<React.StrictMode><PaletteWindow/);
   assert.match(main, /<DisplayScaleProvider><App/);

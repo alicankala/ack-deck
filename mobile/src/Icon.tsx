@@ -1,4 +1,4 @@
-export type IconName = "check" | "files" | "folder" | "grid" | "note" | "archive" | "settings" | "refresh" | "link" | "mic" | "spark" | "trash" | "compose" | "search" | "back";
+export type IconName = "check" | "files" | "folder" | "grid" | "note" | "archive" | "settings" | "refresh" | "link" | "mic" | "spark" | "trash" | "compose" | "search" | "back" | "calendar" | "clock" | "chevron" | "plus" | "checkCircle";
 
 export function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   const paths = {
@@ -17,6 +17,11 @@ export function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
     link: <><path d="m10 13 4-4M8 16l-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0M16 8l1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" transform="translate(1 0) scale(.9)" /></>,
     mic: <><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M5 11v1a7 7 0 0 0 14 0v-1M12 19v3M8 22h8" /></>,
     spark: <path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z" />,
+    calendar: <><rect x="3" y="4" width="18" height="18" rx="3" /><path d="M16 2v4M8 2v4M3 10h18" /></>,
+    clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+    chevron: <path d="m9 18 6-6-6-6" />,
+    plus: <path d="M12 5v14M5 12h14" />,
+    checkCircle: <><circle cx="12" cy="12" r="9" /><path d="m8 12 3 3 5-5" /></>,
   };
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }

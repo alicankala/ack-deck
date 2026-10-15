@@ -72,12 +72,4 @@ test('sidebar uses consolidated destinations, settings uses six panels and compa
   assert.match(css, /\.toast, \.undo-toasts \{ bottom: var\(--footer-clearance\)/);
   assert.match(css, /\.record-menu-panel[^}]*position: fixed/s);
   assert.match(css, /@container \(max-width: 58rem\)/);
-  for (const [width, height] of [[1280,720],[1366,768],[1440,900],[1920,1080],[2560,1440],[2560,1600]]) for (const scale of [90,100,105,110,115,125]) {
-    const rem = 15 * scale / 100, content = Math.min(1800, width - 228 * scale / 100 - 3.2 * rem);
-    assert.ok(content > 650, `${width}x${height}/${scale}`);
-    const stacked = content <= 58 * rem;
-    const noteEditor = stacked ? content - 2.4 * rem : content - 20 * rem - 2.4 * rem;
-    assert.ok(noteEditor >= 20 * rem);
-    assert.ok(height - 12 * rem > 0);
-  }
 });
