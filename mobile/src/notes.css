@@ -36,7 +36,7 @@ body:has(.notes-page) { background: var(--app-bg); }
 .notebook-empty p { max-width: 260px; margin: auto; color: var(--app-muted); font-size: 14px; line-height: 1.75; }
 .notebook-empty button { margin-top: 24px; color: var(--note-accent); background: transparent; border: 1px solid var(--app-accent-border); border-radius: 12px; font-size: 14px; }
 .phone-notebook button:focus-visible { outline-color: var(--app-accent); }
-@media (min-width: 400px) { .notebook-list { grid-template-columns: repeat(2,minmax(0,1fr)); } .notebook-row { padding: 17px; } .notebook-row > strong { font-size: 17px; } .notebook-preview { font-size: 13px; -webkit-line-clamp: 4; } }
+@media (min-width: 560px) { .notebook-list { grid-template-columns: repeat(2,minmax(0,1fr)); } .notebook-row { padding: 17px; } .notebook-row > strong { font-size: 17px; } .notebook-preview { font-size: 13px; -webkit-line-clamp: 4; } }
 @media (max-width: 360px) { .mobile-app.notes-page { padding-inline: 16px; } .notebook-heading h1 { font-size: 32px; } .notebook-heading .new-note-button { padding-inline: 12px; } }
 
 .editor.note-editor { padding: 0; overflow: hidden; background: var(--app-bg); color: var(--app-text); color-scheme: dark; }
