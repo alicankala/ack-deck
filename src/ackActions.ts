@@ -153,8 +153,17 @@ export function proposalFromTool(call: { name: string; args: unknown }, userText
   if (call.name === "create_study_program" || call.name === "update_study_program") {
     if (input.sessions !== undefined) input.sessions = normalizeStudySessions(input.sessions);
     if (call.name === "create_study_program") {
-      if (!input.startDate || typeof input.startDate !== "string") input.startDate = localDateKey(now);
-      if (input.endDate === undefined) input.endDate = parseEndDateHint(userText, now);
+      if (!input.startDate || typeof input.startDate !== "string" || !validTaskDate(input.startDate)) input.startDate = localDateKey(now);
+      const hintEnd = parseEndDateHint(userText, now);
+      if (input.endDate === undefined || (typeof input.endDate === "string" && (!validTaskDate(input.endDate) || input.endDate < String(input.startDate)))) {
+        input.endDate = hintEnd && hintEnd >= String(input.startDate) ? hintEnd : null;
+      }
+    } else if (input.endDate !== undefined && input.endDate !== null) {
+      const hintEnd = parseEndDateHint(userText, now);
+      const minDate = typeof input.startDate === "string" && validTaskDate(input.startDate) ? input.startDate : localDateKey(now);
+      if (typeof input.endDate !== "string" || !validTaskDate(input.endDate) || input.endDate < minDate) {
+        input.endDate = hintEnd && hintEnd >= minDate ? hintEnd : null;
+      }
     }
   }
   return prepareAckProposal(input);
@@ -172,7 +181,7 @@ export function parseTemporal(text: string, now = new Date()): TaskPatch {
   if (/hatirlat/.test(normalized)) result.reminder = !/hatirlat.*(?:kapat|kaldir|iptal)/.test(normalized);
   return result;
 }
-export const isActionRequest = (text: string) => /\b(?:ekle|olustur|duzenle|degistir|tamamla|sil|ac|git|baslat|hazirla)\b|hatirlat|internetimi test et|haftalik plana|ders programi/.test(normalizeSearch(text));
+export const isActionRequest = (text: string) => /\b(?:ekle|olustur|duzenle|degistir|tamamla|sil|ac|git|baslat|hazirla|cikar|cikart|planla)\b|hatirlat|internetimi test et|haftalik plana|ders programi|calisma plani|calisma programi/.test(normalizeSearch(text));
 export function proposeAckAction(text: string, now = new Date()): AckProposal | null {
   const normalized = normalizeSearch(text);
   const capture=parseSmartCapture(text,loadProjectSnapshot().entries,now);

@@ -7,6 +7,7 @@ export function boundedConversation(messages: AiMessage[], budget = 18000): { ro
   const result: { role: "user" | "model"; text: string }[] = [{ role: last.role, text: last.text }]; let size = bytes(last.text);
   for (let index = messages.length - 2; index >= 0 && result.length < 20; index--) {
     const message = messages[index]; let text = message.text;
+    if (result[0].role === message.role) continue;
     while (bytes(text) > 4000) text = text.slice(0, Math.floor(text.length * .8));
     if (size + bytes(text) > budget) break;
     result.unshift({ role: message.role, text }); size += bytes(text);

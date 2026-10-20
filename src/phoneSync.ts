@@ -1,4 +1,4 @@
-import { loadPrayerConfig } from "./prayerStore";
+import { loadPrayerConfig } from "../shared/prayerTimes";
 import { loadStudyPrograms, saveStudyPrograms } from "./studyProgramStore";
 import { type StudyProgram } from "../shared/studyPrograms";
 import { scrubSync } from "../shared/privacy";

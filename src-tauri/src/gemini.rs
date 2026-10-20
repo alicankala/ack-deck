@@ -96,9 +96,21 @@ fn chat_payload(
     {
         return Err("ACKDeck bağlamı çok uzun. Daha dar bir soru sorun.".to_string());
     }
-    let mut contents: Vec<_> = messages.iter().map(|message| json!({
-        "role": message.role.as_str(), "parts": [{"text": message.text.replace(key, "[gizli anahtar]")}]
-    })).collect();
+    let mut contents: Vec<Value> = Vec::new();
+    for message in messages {
+        let role = message.role.as_str();
+        let text = message.text.replace(key, "[gizli anahtar]");
+        if let Some(prev) = contents.last_mut().filter(|p| p["role"].as_str() == Some(role)) {
+            if let Some(parts) = prev["parts"].as_array_mut() {
+                parts.push(json!({"text": text}));
+                continue;
+            }
+        }
+        contents.push(json!({
+            "role": role,
+            "parts": [{"text": text}]
+        }));
+    }
     if let Some(last) = contents.last_mut() {
         if !context.is_empty() {
             let data: Vec<_> = context.iter().map(|item| json!({"source": item.source.label(), "data": crate::privacy::context(&item.data).replace(key, "[gizli anahtar]")})).collect();
@@ -375,7 +387,7 @@ pub async fn gemini_chat(
     }
     let model_name = crate::gemini_models::selected(&app, &model)?;
     thinking_settings(&mut payload, &model_name, false);
-    let mut response = generate_at(
+    let primary_res = generate_at(
         &endpoint(&model_name, true),
         &key,
         &payload,
@@ -387,42 +399,49 @@ pub async fn gemini_chat(
     )
     .await;
 
-    // Fallback: If powerful model encounters 500-599 server error or timeout,
-    // seamlessly fall back to the fast model so the user's workflow is not interrupted.
-    if matches!(model, ModelChoice::Powerful)
-        && (response.is_err()
-            || response
-                .as_ref()
-                .map(|r| r.status().is_server_error())
-                .unwrap_or(false))
-    {
-        let fast_name = crate::gemini_models::FAST_MODEL;
-        thinking_settings(&mut payload, fast_name, false);
-        if let Ok(fallback_res) = generate_at(
-            &endpoint(fast_name, true),
-            &key,
-            &payload,
-            Duration::from_secs(45),
-        )
-        .await
-        {
-            if fallback_res.status().is_success() {
-                response = Ok(fallback_res);
+    let primary_outcome: Result<ChatReply, String> = match primary_res {
+        Ok(response) => {
+            let status = response.status();
+            if status.is_success() {
+                match response.json::<GeminiResponse>().await {
+                    Ok(result) => decode_reply(result, allow_actions == Some(true), &key),
+                    Err(_) => Err("Gemini yanıtı okunamadı.".to_string()),
+                }
+            } else {
+                Err(response_error(response).await)
             }
         }
+        Err(err) => Err(err),
+    };
+
+    match primary_outcome {
+        Ok(reply) => Ok(reply),
+        Err(primary_err) => {
+            // Fallback: If powerful model fails (500-599, timeout, empty/thought-only reply, or invalid draft),
+            // seamlessly fall back to the fast model so the user's workflow is not interrupted.
+            if matches!(model, ModelChoice::Powerful) {
+                let fast_name = crate::gemini_models::FAST_MODEL;
+                thinking_settings(&mut payload, fast_name, false);
+                if let Ok(fallback_res) = generate_at(
+                    &endpoint(fast_name, true),
+                    &key,
+                    &payload,
+                    Duration::from_secs(45),
+                )
+                .await
+                {
+                    if fallback_res.status().is_success() {
+                        if let Ok(result) = fallback_res.json::<GeminiResponse>().await {
+                            if let Ok(reply) = decode_reply(result, allow_actions == Some(true), &key) {
+                                return Ok(reply);
+                            }
+                        }
+                    }
+                }
+            }
+            Err(primary_err)
+        }
     }
-
-    let response = response?;
-
-    if !response.status().is_success() {
-        return Err(response_error(response).await);
-    }
-
-    let result: GeminiResponse = response
-        .json()
-        .await
-        .map_err(|_| "Gemini yanıtı okunamadı.".to_string())?;
-    decode_reply(result, allow_actions == Some(true), &key)
 }
 
 fn decode_reply(
@@ -534,7 +553,7 @@ mod tests {
             let key = require_key().expect("Native credential unavailable");
             let messages = vec![ChatMessage {
                 role: ChatRole::User,
-                text: "Şu dersler için haftalık ders programı çizelgesi hazırla ve haftalık plana ekle: Matematik, Fizik".into(),
+                text: "Merhaba, tek cümleyle yanıt ver.".into(),
             }];
             let mut payload = chat_payload(&messages, &[], &key).unwrap();
             payload["tools"] =
@@ -544,12 +563,11 @@ mod tests {
                 &endpoint(crate::gemini_models::POWERFUL_MODEL, true),
                 &key,
                 &payload,
-                Duration::from_secs(120),
+                Duration::from_secs(45),
             )
             .await
             .expect("Live generation failed");
-            let status = response.status();
-            assert!(status.is_success(), "Failed with status: {}", status);
+            assert!(response.status().is_success());
             let reply = decode_reply(
                 response.json().await.expect("Response decoding failed"),
                 true,

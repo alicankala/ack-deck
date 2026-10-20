@@ -1,6 +1,6 @@
 import { ActionMenu } from "../../src/components/ActionMenu";
 import { MobileInboxProcessing } from "./InboxProcessing";
-import { MobileSmartCapture, MobileTodaySummary, MobileProjects, MobileWeek } from "./ProductViews";
+import { MobileSmartCapture, MobileProjects, MobileWeek } from "./ProductViews";
 import { MobilePrayerCard } from "./MobilePrayerCard";
 import { ChecklistEditor } from "../../shared/ChecklistEditor";
 import { productMetadata, type ChecklistItem } from "../../shared/productivity";
@@ -14,7 +14,7 @@ import { SubscriptionForm, newSubscription } from "../../shared/SubscriptionForm
 import { money, cycleLabel, paymentLabel, monthlyTotals, type Subscription } from "../../shared/subscriptions";
 import { completeOccurrence, nextOccurrence, recurrenceLabel, scheduleDate, type Recurrence } from "../../shared/recurrence";
 import { studyBlocks, type StudyProgram } from "../../shared/studyPrograms";
-import { loadPrayerConfig, savePrayerConfig, geocodeCityWeb, type PrayerTimesConfig } from "../../shared/prayerTimes";
+import { savePrayerConfig, type PrayerTimesConfig } from "../../shared/prayerTimes";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { MAX_ATTACHMENT, type CloudRecord, type PhoneTask, type PhoneNote, type Mutation } from "../../shared/phone";
@@ -60,14 +60,8 @@ function App() {
   const [notificationTask, setNotificationTask] = useState(() => new URLSearchParams(location.hash.slice(1)).get("task"));
 
   // Sub-tabs
-  const [taskFilter, setTaskFilter] = useState<"all" | "today" | "important" | "projects">("today");
+  const [taskFilter, setTaskFilter] = useState<"today" | "all" | "important">("today");
   const [planTab, setPlanTab] = useState<"calendar" | "subscriptions">("calendar");
-
-  // City modal & settings
-  const [cityModal, setCityModal] = useState(false);
-  const [cityDraft, setCityDraft] = useState(() => loadPrayerConfig().city);
-  const [cityBusy, setCityBusy] = useState(false);
-  const [cityFeedback, setCityFeedback] = useState("");
 
   const formRequestId = useRef(crypto.randomUUID());
   const sending = useRef(false);
@@ -169,7 +163,6 @@ function App() {
       setWorkspaces(spaces.workspaces);
       if (status.prayerConfig && typeof status.prayerConfig === "object" && status.prayerConfig.city) {
         savePrayerConfig(status.prayerConfig);
-        setCityDraft(status.prayerConfig.city);
       }
       setNotice(next.conflicts.length ? "Eşitleme çakışması var; iki sürüm de korundu." : "Eşitlendi.");
     } catch (e) {
@@ -518,34 +511,6 @@ function App() {
     }
   }
 
-  async function handleSaveCity(targetCity: string) {
-    if (!targetCity.trim() || cityBusy) return;
-    setCityBusy(true);
-    setCityFeedback("");
-    try {
-      const geo = await geocodeCityWeb(targetCity.trim());
-      if (!geo) throw new Error(`"${targetCity}" şehri bulunamadı. Yazımı kontrol edin.`);
-      const current = loadPrayerConfig();
-      const updated: PrayerTimesConfig = {
-        ...current,
-        city: geo.city,
-        latitude: geo.lat,
-        longitude: geo.lng,
-      };
-      savePrayerConfig(updated);
-      setCityDraft(geo.city);
-      if (state.token) {
-        await api(state, "prayer-config", json({ prayerConfig: updated })).catch(() => {});
-      }
-      setNotice(`Namaz vakitleri ${geo.city} şehrine güncellendi.`);
-      setCityModal(false);
-    } catch (e) {
-      setCityFeedback(e instanceof Error ? e.message : "Şehir güncellenemedi.");
-    } finally {
-      setCityBusy(false);
-    }
-  }
-
   const tasks = state.records.filter(row => row.kind === "tasks" && !row.deleted && row.data);
   const today = dateKey();
   const displayedDate = (task: PhoneTask) => scheduleDate(task) ?? "";
@@ -567,7 +532,6 @@ function App() {
   const todayStudyBlocks = studyBlocks(studyPrograms, new Date()).filter(b => b.date === today);
 
   const notesCount = state.records.filter(r => r.kind === "notes" && !r.deleted).length;
-  const projects = state.records.filter(r => r.kind === "projects" && !r.deleted);
 
   async function reorderTask(id: string, direction: number) {
     const ordered = moveBy(unfinished, id, direction).map(row => row.id);
@@ -636,19 +600,19 @@ function App() {
 
         {error && <p role="alert" className="error">{error}</p>}
 
-        {/* 1. TODAY TAB (Günün Akışı & Ana Sayfa) */}
-        {page === "today" && (
+        {/* 1. TODAY TAB (Günün Akışı & Görevler) */}
+        {(page === "today" || page === "tasks") && (
           <>
             {/* Hero Prayer Card */}
-            <MobilePrayerCard onOpenCitySettings={() => setCityModal(true)} />
+            <MobilePrayerCard />
 
             {/* Quick Metrics Bar */}
             <div className="mobile-metrics-bar">
-              <button type="button" className="metric-chip" onClick={() => { changePage("tasks"); setTaskFilter("today"); }}>
+              <button type="button" className="metric-chip" onClick={() => setTaskFilter("today")}>
                 <strong>{todayTasks.length}</strong>
                 <span>Bugün</span>
               </button>
-              <button type="button" className="metric-chip" onClick={() => { changePage("tasks"); setTaskFilter("important"); }}>
+              <button type="button" className="metric-chip" onClick={() => setTaskFilter("important")}>
                 <strong>{importantTasks.length}</strong>
                 <span>Önemli</span>
               </button>
@@ -709,71 +673,79 @@ function App() {
               </section>
             )}
 
-            {/* Today's Tasks Section */}
+            {/* Tasks Section with Quick Filter */}
             <section className="today-tasks-section">
-              <div className="section-title-row">
-                <h3>Günün Görevleri</h3>
-                {todayTasks.length > 0 && <span className="section-count">{todayTasks.length}</span>}
+              <div className="page-header-row" style={{ marginTop: "1rem" }}>
+                <div className="mobile-segmented-bar">
+                  <button className={`segment-btn ${taskFilter === "today" ? "is-active" : ""}`} onClick={() => setTaskFilter("today")}>Bugün ({todayTasks.length})</button>
+                  <button className={`segment-btn ${taskFilter === "all" ? "is-active" : ""}`} onClick={() => setTaskFilter("all")}>Tüm Görevler ({unfinished.length})</button>
+                  <button className={`segment-btn ${taskFilter === "important" ? "is-active" : ""}`} onClick={() => setTaskFilter("important")}>Önemli ({importantTasks.length})</button>
+                </div>
+                <button className="primary-action-round" type="button" onClick={() => openForm("task")} title="Görev Ekle">+</button>
               </div>
 
-              {!todayTasks.length && !unfinished.length && (
-                <div className="mobile-empty-card">
-                  <div className="empty-badge"><Icon name="checkCircle" size={32} /></div>
-                  <strong>Harika, bekleyen görev yok!</strong>
-                  <p>Bugün için planlanan tüm işler tamamlandı.</p>
-                </div>
-              )}
-
-              {todayTasks.map((row, index) => {
-                const task = row.data as PhoneTask;
-                return (
-                  <article className={`mobile-task-card ${task.priority === "important" ? "is-important" : ""}`} key={row.id}>
-                    <button className="mobile-task-open" type="button" onClick={() => openForm("task", row)}>
-                      <div className="task-header-line">
-                        <span className={`task-check-dot ${task.priority === "important" ? "is-important" : ""}`} />
-                        <h3>{task.text}</h3>
-                      </div>
-                      <div className="mobile-task-meta">
-                        {task.priority === "important" && <span className="task-chip chip-important">Önemli</span>}
-                        {!!task.checklist?.length && (
-                          <span className="task-chip chip-checklist">
-                            {task.checklist.filter(c => c.completed).length}/{task.checklist.length} adım
-                          </span>
-                        )}
-                        <span className="task-chip chip-date">
-                          {task.recurrence ? recurrenceLabel(task.recurrence) : displayedDate(task) ? new Date(displayedDate(task) + "T12:00:00").toLocaleDateString("tr", { day: "numeric", month: "short" }) : "Tarihsiz"}
-                          {task.dueTime && " · " + task.dueTime}
-                        </span>
-                      </div>
-                    </button>
-                    <div className="mobile-task-footer">
-                      <button className="mobile-task-complete-btn" disabled={busy} onClick={() => void complete(row)}>
-                        Tamamla
-                      </button>
-                      <ActionMenu label={task.text + " işlemleri"}>
-                        <button disabled={busy || index === 0} onClick={() => void reorderTask(row.id, -1)}>Yukarı taşı</button>
-                        <button disabled={busy || index === todayTasks.length - 1} onClick={() => void reorderTask(row.id, 1)}>Aşağı taşı</button>
-                        <button disabled={busy} onClick={() => void snooze(row, 15)}>15 dakika ertele</button>
-                        <button disabled={busy} onClick={() => void snooze(row, 60)}>1 saat ertele</button>
-                        <button disabled={busy} onClick={() => void snooze(row, 1440)}>Yarın hatırlat</button>
-                        <button
-                          disabled={busy}
-                          className="danger-action"
-                          onClick={() => {
-                            if (confirm("Bu görev silinsin mi?")) {
-                              void saveMutation({ mutationId: crypto.randomUUID(), kind: "tasks", id: row.id, baseVersion: row.version, data: null, deleted: true })
-                                .then(() => setUndo({ row, expires: Date.now() + 10000 }))
-                                .catch(e => setError(e.message));
-                            }
-                          }}
-                        >
-                          Görevi sil
-                        </button>
-                      </ActionMenu>
+              {(() => {
+                const list = taskFilter === "today" ? todayTasks : taskFilter === "important" ? importantTasks : unfinished;
+                if (!list.length) {
+                  return (
+                    <div className="mobile-empty-card">
+                      <div className="empty-badge"><Icon name="checkCircle" size={32} /></div>
+                      <strong>{taskFilter === "today" ? "Harika, bugün bekleyen görev yok!" : "Kayıt bulunamadı"}</strong>
+                      <p>{taskFilter === "today" && unfinished.length > 0 ? "Diğer görevleri görmek için 'Tüm Görevler' filtresine geçebilirsin." : "Bu görünümde bekleyen görev yok."}</p>
                     </div>
-                  </article>
-                );
-              })}
+                  );
+                }
+                return list.map((row, index) => {
+                  const task = row.data as PhoneTask;
+                  return (
+                    <article className={`mobile-task-card ${task.priority === "important" ? "is-important" : ""}`} key={row.id}>
+                      <button className="mobile-task-open" type="button" onClick={() => openForm("task", row)}>
+                        <div className="task-header-line">
+                          <span className={`task-check-dot ${task.priority === "important" ? "is-important" : ""}`} />
+                          <h3>{task.text}</h3>
+                        </div>
+                        <div className="mobile-task-meta">
+                          {task.priority === "important" && <span className="task-chip chip-important">Önemli</span>}
+                          {!!task.checklist?.length && (
+                            <span className="task-chip chip-checklist">
+                              {task.checklist.filter(c => c.completed).length}/{task.checklist.length} adım
+                            </span>
+                          )}
+                          <span className="task-chip chip-date">
+                            {task.recurrence ? recurrenceLabel(task.recurrence) : displayedDate(task) ? new Date(displayedDate(task) + "T12:00:00").toLocaleDateString("tr", { day: "numeric", month: "short" }) : "Tarihsiz"}
+                            {task.dueTime && " · " + task.dueTime}
+                          </span>
+                        </div>
+                      </button>
+                      <div className="mobile-task-footer">
+                        <button className="mobile-task-complete-btn" disabled={busy} onClick={() => void complete(row)}>
+                          Tamamla
+                        </button>
+                        <ActionMenu label={task.text + " işlemleri"}>
+                          <button disabled={busy || index === 0} onClick={() => void reorderTask(row.id, -1)}>Yukarı taşı</button>
+                          <button disabled={busy || index === list.length - 1} onClick={() => void reorderTask(row.id, 1)}>Aşağı taşı</button>
+                          <button disabled={busy} onClick={() => void snooze(row, 15)}>15 dakika ertele</button>
+                          <button disabled={busy} onClick={() => void snooze(row, 60)}>1 saat ertele</button>
+                          <button disabled={busy} onClick={() => void snooze(row, 1440)}>Yarın hatırlat</button>
+                          <button
+                            disabled={busy}
+                            className="danger-action"
+                            onClick={() => {
+                              if (confirm("Bu görev silinsin mi?")) {
+                                void saveMutation({ mutationId: crypto.randomUUID(), kind: "tasks", id: row.id, baseVersion: row.version, data: null, deleted: true })
+                                  .then(() => setUndo({ row, expires: Date.now() + 10000 }))
+                                  .catch(e => setError(e.message));
+                              }
+                            }}
+                          >
+                            Görevi sil
+                          </button>
+                        </ActionMenu>
+                      </div>
+                    </article>
+                  );
+                });
+              })()}
             </section>
 
             {/* Completed Tasks Accordion */}
@@ -791,91 +763,7 @@ function App() {
           </>
         )}
 
-        {/* 2. TASKS TAB (Tüm Görevler & Projeler) */}
-        {page === "tasks" && (
-          <>
-            <div className="page-header-row">
-              <div className="mobile-segmented-bar">
-                <button className={`segment-btn ${taskFilter === "today" ? "is-active" : ""}`} onClick={() => setTaskFilter("today")}>Bugün ({todayTasks.length})</button>
-                <button className={`segment-btn ${taskFilter === "all" ? "is-active" : ""}`} onClick={() => setTaskFilter("all")}>Tümü ({unfinished.length})</button>
-                <button className={`segment-btn ${taskFilter === "important" ? "is-active" : ""}`} onClick={() => setTaskFilter("important")}>Önemli ({importantTasks.length})</button>
-                <button className={`segment-btn ${taskFilter === "projects" ? "is-active" : ""}`} onClick={() => setTaskFilter("projects")}>Projeler ({projects.length})</button>
-              </div>
-              <button className="primary-action-round" type="button" onClick={() => openForm("task")} title="Görev Ekle">+</button>
-            </div>
-
-            {taskFilter === "projects" ? (
-              <MobileProjects records={state.records} onSave={saveMutation} onOpen={row => openForm(row.kind === "tasks" ? "task" : "note", row)} />
-            ) : (
-              <div className="tasks-full-list">
-                {(() => {
-                  const list = taskFilter === "today" ? todayTasks : taskFilter === "important" ? importantTasks : unfinished;
-                  if (!list.length) {
-                    return (
-                      <div className="mobile-empty-card">
-                        <div className="empty-badge"><Icon name="checkCircle" size={32} /></div>
-                        <strong>Kayıt bulunamadı</strong>
-                        <p>Bu filtrede bekleyen görev yok.</p>
-                      </div>
-                    );
-                  }
-                  return list.map((row, index) => {
-                    const task = row.data as PhoneTask;
-                    return (
-                      <article className={`mobile-task-card ${task.priority === "important" ? "is-important" : ""}`} key={row.id}>
-                        <button className="mobile-task-open" type="button" onClick={() => openForm("task", row)}>
-                          <div className="task-header-line">
-                            <span className={`task-check-dot ${task.priority === "important" ? "is-important" : ""}`} />
-                            <h3>{task.text}</h3>
-                          </div>
-                          <div className="mobile-task-meta">
-                            {task.priority === "important" && <span className="task-chip chip-important">Önemli</span>}
-                            {!!task.checklist?.length && (
-                              <span className="task-chip chip-checklist">
-                                {task.checklist.filter(c => c.completed).length}/{task.checklist.length} adım
-                              </span>
-                            )}
-                            <span className="task-chip chip-date">
-                              {task.recurrence ? recurrenceLabel(task.recurrence) : displayedDate(task) ? new Date(displayedDate(task) + "T12:00:00").toLocaleDateString("tr", { day: "numeric", month: "short" }) : "Tarihsiz"}
-                              {task.dueTime && " · " + task.dueTime}
-                            </span>
-                          </div>
-                        </button>
-                        <div className="mobile-task-footer">
-                          <button className="mobile-task-complete-btn" disabled={busy} onClick={() => void complete(row)}>
-                            Tamamla
-                          </button>
-                          <ActionMenu label={task.text + " işlemleri"}>
-                            <button disabled={busy || index === 0} onClick={() => void reorderTask(row.id, -1)}>Yukarı taşı</button>
-                            <button disabled={busy || index === list.length - 1} onClick={() => void reorderTask(row.id, 1)}>Aşağı taşı</button>
-                            <button disabled={busy} onClick={() => void snooze(row, 15)}>15 dakika ertele</button>
-                            <button disabled={busy} onClick={() => void snooze(row, 60)}>1 saat ertele</button>
-                            <button disabled={busy} onClick={() => void snooze(row, 1440)}>Yarın hatırlat</button>
-                            <button
-                              disabled={busy}
-                              className="danger-action"
-                              onClick={() => {
-                                if (confirm("Bu görev silinsin mi?")) {
-                                  void saveMutation({ mutationId: crypto.randomUUID(), kind: "tasks", id: row.id, baseVersion: row.version, data: null, deleted: true })
-                                    .then(() => setUndo({ row, expires: Date.now() + 10000 }))
-                                    .catch(e => setError(e.message));
-                                }
-                              }}
-                            >
-                              Görevi sil
-                            </button>
-                          </ActionMenu>
-                        </div>
-                      </article>
-                    );
-                  });
-                })()}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* 3. NOTES TAB */}
+        {/* 2. NOTES TAB */}
         {page==="notes" && (
           <NotesList
             syncLabel={busy ? "Eşitleniyor…" : state.queue.length ? "Eşitleme bekliyor" : "Güncel"}
@@ -885,7 +773,7 @@ function App() {
           />
         )}
 
-        {/* 4. PLAN TAB (Haftalık Ders Planı & Abonelikler) */}
+        {/* 3. PLAN TAB (Haftalık Ders Planı & Abonelikler) */}
         {page === "plan" && (
           <>
             <div className="mobile-segmented-bar plan-toggle-bar">
@@ -961,7 +849,7 @@ function App() {
           </>
         )}
 
-        {/* 5. MORE TAB (PC'ye Gönder, Namaz Şehir Ayarları, PC Alanları, Cihaz) */}
+        {/* 4. MORE TAB (PC'ye Gönder, Projeler, PC Alanları, Cihaz) */}
         {page === "more" && (
           <div className="more-sections-container">
             {/* Quick Send to PC Card */}
@@ -982,48 +870,36 @@ function App() {
                 }}
                 onAudioCancel={() => setAudio(null)}
               />
+              {inboxLoaded && inbox.length > 0 && (
+                <details className="mobile-completed-accordion" style={{ marginTop: "0.75rem" }}>
+                  <summary>Gönderilenler ({inbox.length})</summary>
+                  <div className="sent-history-list" style={{ marginTop: "0.5rem" }}>
+                    {inbox.slice(0, 8).map(item => (
+                      <article key={item.id} className="mobile-sent-card">
+                        <div className="mobile-sent-header">
+                          <h3>{item.title}</h3>
+                          <span className={`sent-status-chip ${item.handled ? "is-handled" : "is-pending"}`}>
+                            {item.handled ? "İşlendi" : "Bekliyor"}
+                          </span>
+                        </div>
+                        <MobileInboxProcessing
+                          item={item}
+                          records={state.records}
+                          onSave={saveMutation}
+                          onHandled={() => api(state, "inbox/handle", json({ id: item.id })).then(() => setInbox(current => current.map(row => row.id === item.id ? { ...row, handled: Date.now() } : row)))}
+                        />
+                      </article>
+                    ))}
+                  </div>
+                </details>
+              )}
             </section>
 
-            {/* Prayer & City Settings Card */}
+            {/* Projects Card */}
             <section className="more-section-card">
-              <h2>🕌 Namaz ve Şehir Ayarları</h2>
-              <p className="section-subtext">Şehir seçimi masaüstü ve telefon arasında otomatik eşitlenir.</p>
-              <div className="city-quick-selector">
-                <span className="current-city-label">Aktif Şehir: <strong>{loadPrayerConfig().city}</strong></span>
-                <div className="city-quick-pills">
-                  {["Karabük", "Ankara", "İstanbul", "İzmir"].map(cityName => (
-                    <button
-                      key={cityName}
-                      type="button"
-                      className={`city-pill-btn ${loadPrayerConfig().city.toLowerCase() === cityName.toLowerCase() ? "is-active" : ""}`}
-                      disabled={cityBusy}
-                      onClick={() => void handleSaveCity(cityName)}
-                    >
-                      {cityName}
-                    </button>
-                  ))}
-                </div>
-                <form
-                  className="city-custom-form"
-                  onSubmit={e => {
-                    e.preventDefault();
-                    void handleSaveCity(cityDraft);
-                  }}
-                >
-                  <input
-                    type="text"
-                    value={cityDraft}
-                    onChange={e => setCityDraft(e.target.value)}
-                    placeholder="Şehir adı yaz (örn: Karabük)"
-                    disabled={cityBusy}
-                    maxLength={80}
-                  />
-                  <button type="submit" disabled={cityBusy || !cityDraft.trim()}>
-                    {cityBusy ? "Aranıyor…" : "Kaydet"}
-                  </button>
-                </form>
-                {cityFeedback && <p className="feedback-hint">{cityFeedback}</p>}
-              </div>
+              <h2>Projeler</h2>
+              <p className="section-subtext">Bilgisayardaki projelerin ve sıradaki adımları.</p>
+              <MobileProjects records={state.records} onSave={saveMutation} onOpen={row => openForm(row.kind === "tasks" ? "task" : "note", row)} />
             </section>
 
             {/* PC Workspaces Card */}
@@ -1135,51 +1011,6 @@ function App() {
           </article>
         ))}
       </div>
-
-      {/* City Change Modal */}
-      {cityModal && (
-        <section className="editor" role="dialog" aria-modal="true" aria-label="Namaz Şehri Seç" onClick={e => { if (e.target === e.currentTarget) setCityModal(false); }}>
-          <div>
-            <div className="editor-heading">
-              <h2>Namaz Vakitleri İçin Şehir</h2>
-              <button type="button" aria-label="Kapat" onClick={() => setCityModal(false)}>×</button>
-            </div>
-            <p className="city-modal-hint">Şehir değiştiğinde Diyanet esaslı namaz ve kerahat vakitleri otomatik hesaplanır ve masaüstüyle eşitlenir.</p>
-            <div className="city-quick-pills" style={{ marginBottom: "1rem" }}>
-              {["Karabük", "Ankara", "İstanbul", "İzmir"].map(cityName => (
-                <button
-                  key={cityName}
-                  type="button"
-                  className={`city-pill-btn ${cityDraft.toLowerCase() === cityName.toLowerCase() ? "is-active" : ""}`}
-                  disabled={cityBusy}
-                  onClick={() => void handleSaveCity(cityName)}
-                >
-                  {cityName}
-                </button>
-              ))}
-            </div>
-            <form onSubmit={e => { e.preventDefault(); void handleSaveCity(cityDraft); }}>
-              <label>
-                Şehir adı
-                <input
-                  autoFocus
-                  type="text"
-                  value={cityDraft}
-                  onChange={e => setCityDraft(e.target.value)}
-                  placeholder="Örn: Karabük"
-                  maxLength={80}
-                  disabled={cityBusy}
-                />
-              </label>
-              {cityFeedback && <p className="error" role="alert">{cityFeedback}</p>}
-              <div className="actions">
-                <button disabled={cityBusy || !cityDraft.trim()}>{cityBusy ? "Aranıyor…" : "Kaydet"}</button>
-                <button type="button" disabled={cityBusy} onClick={() => setCityModal(false)}>Kapat</button>
-              </div>
-            </form>
-          </div>
-        </section>
-      )}
 
       {/* Subscription Editor */}
       {subscriptionDraft && (

@@ -137,7 +137,7 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
       if (!hasKey) { setError("Gemini API anahtarını Ayarlar bölümünden ekleyin."); return; }
       const { context, warnings } = await collectAckContext(text);
       if (requestId !== generation.current) return;
-      const actionRequest = isActionRequest(text)||/görev.*çıkar|arşiv.*taslak|toparla|ders.*program|çizelge|haftalık.*plan/iu.test(text);
+      const actionRequest = isActionRequest(text)||/görev.*çıkar|arşiv.*taslak|toparla|ders.*program|çalışma.*plan|çalışma.*program|çizelge|haftalık.*plan/iu.test(text);
       const intelligence=!attachment?buildIntelligenceContext(text):null;
       const reply = await sendGeminiMessage(next, model, context, actionRequest, attachment ? [attachment.id] : []);
       if (requestId === generation.current) {

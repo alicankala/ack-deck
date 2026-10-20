@@ -21,6 +21,7 @@ fn main() {
             "public_ip_info",
             "footer_rates",
             "footer_weather",
+            "geocode_city",
             "read_file_entry",
             "check_file_entries",
             "access_file_entry",

@@ -4,6 +4,7 @@ import {
   type PrayerDayInfo,
   DEFAULT_PRAYER_CONFIG,
   calculatePrayerTimes,
+  lookupTurkeyCity,
 } from "../shared/prayerTimes";
 
 const STORAGE_KEY = "ack-deck.prayer-config.v1";
@@ -38,6 +39,7 @@ export function savePrayerConfig(config: PrayerTimesConfig): boolean {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
     window.dispatchEvent(new Event("ack-prayer-config-changed"));
+    void invoke("phone_request", { operation: "heartbeat", body: { prayerConfig: config } }).catch(() => {});
     return true;
   } catch {
     return false;
@@ -47,6 +49,8 @@ export function savePrayerConfig(config: PrayerTimesConfig): boolean {
 export async function geocodeCity(cityName: string): Promise<{ city: string; lat: number; lng: number } | null> {
   const query = cityName.trim();
   if (!query) return null;
+  const builtin = lookupTurkeyCity(query);
+  if (builtin) return builtin;
   // Try native Tauri backend first (bypasses browser CSP restrictions)
   try {
     const res = await invoke<{ city: string; latitude: number; longitude: number }>("geocode_city", { city: query });

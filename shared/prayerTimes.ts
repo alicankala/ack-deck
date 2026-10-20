@@ -214,9 +214,121 @@ export function savePrayerConfig(config: PrayerTimesConfig): boolean {
   }
 }
 
+export const TURKEY_CITIES: Record<string, { city: string; lat: number; lng: number }> = {
+  adana: { city: "Adana", lat: 37.0, lng: 35.3213 },
+  adiyaman: { city: "Adıyaman", lat: 37.7648, lng: 38.2786 },
+  afyonkarahisar: { city: "Afyonkarahisar", lat: 38.7507, lng: 30.5567 },
+  afyon: { city: "Afyonkarahisar", lat: 38.7507, lng: 30.5567 },
+  agri: { city: "Ağrı", lat: 39.7191, lng: 43.0503 },
+  aksaray: { city: "Aksaray", lat: 38.3687, lng: 34.037 },
+  amasya: { city: "Amasya", lat: 40.6499, lng: 35.8353 },
+  ankara: { city: "Ankara", lat: 39.91987, lng: 32.85427 },
+  antalya: { city: "Antalya", lat: 36.8969, lng: 30.7133 },
+  ardahan: { city: "Ardahan", lat: 41.1105, lng: 42.7022 },
+  artvin: { city: "Artvin", lat: 41.1828, lng: 41.8183 },
+  aydin: { city: "Aydın", lat: 37.856, lng: 27.8416 },
+  balikesir: { city: "Balıkesir", lat: 39.6484, lng: 27.8826 },
+  bartin: { city: "Bartın", lat: 41.6344, lng: 32.3375 },
+  batman: { city: "Batman", lat: 37.8812, lng: 41.1351 },
+  bayburt: { city: "Bayburt", lat: 40.2552, lng: 40.2249 },
+  bilecik: { city: "Bilecik", lat: 40.1451, lng: 29.9799 },
+  bingol: { city: "Bingöl", lat: 38.8853, lng: 40.4983 },
+  bitlis: { city: "Bitlis", lat: 38.4006, lng: 42.1095 },
+  bolu: { city: "Bolu", lat: 40.7392, lng: 31.6089 },
+  burdur: { city: "Burdur", lat: 37.7203, lng: 30.2908 },
+  bursa: { city: "Bursa", lat: 40.1885, lng: 29.061 },
+  canakkale: { city: "Çanakkale", lat: 40.1553, lng: 26.4142 },
+  cankiri: { city: "Çankırı", lat: 40.6013, lng: 33.6134 },
+  corum: { city: "Çorum", lat: 40.5506, lng: 34.9556 },
+  denizli: { city: "Denizli", lat: 37.7765, lng: 29.0864 },
+  diyarbakir: { city: "Diyarbakır", lat: 37.9144, lng: 40.2306 },
+  duzce: { city: "Düzce", lat: 40.8438, lng: 31.1565 },
+  edirne: { city: "Edirne", lat: 41.6771, lng: 26.5557 },
+  elazig: { city: "Elazığ", lat: 38.681, lng: 39.2264 },
+  erzincan: { city: "Erzincan", lat: 39.75, lng: 39.5 },
+  erzurum: { city: "Erzurum", lat: 39.9, lng: 41.27 },
+  eskisehir: { city: "Eskişehir", lat: 39.7767, lng: 30.5206 },
+  gaziantep: { city: "Gaziantep", lat: 37.0662, lng: 37.3833 },
+  antep: { city: "Gaziantep", lat: 37.0662, lng: 37.3833 },
+  giresun: { city: "Giresun", lat: 40.9128, lng: 38.3895 },
+  gumushane: { city: "Gümüşhane", lat: 40.4603, lng: 39.4814 },
+  hakkari: { city: "Hakkâri", lat: 37.5833, lng: 43.7333 },
+  hatay: { city: "Hatay", lat: 36.2021, lng: 36.1606 },
+  antakya: { city: "Hatay", lat: 36.2021, lng: 36.1606 },
+  igdir: { city: "Iğdır", lat: 39.9167, lng: 44.0333 },
+  isparta: { city: "Isparta", lat: 37.7648, lng: 30.5566 },
+  istanbul: { city: "İstanbul", lat: 41.0082, lng: 28.9784 },
+  izmir: { city: "İzmir", lat: 38.4237, lng: 27.1428 },
+  kahramanmaras: { city: "Kahramanmaraş", lat: 37.5858, lng: 36.9371 },
+  maras: { city: "Kahramanmaraş", lat: 37.5858, lng: 36.9371 },
+  karabuk: { city: "Karabük", lat: 41.20488, lng: 32.62768 },
+  safranbolu: { city: "Safranbolu", lat: 41.2508, lng: 32.6942 },
+  karaman: { city: "Karaman", lat: 37.1759, lng: 33.2287 },
+  kars: { city: "Kars", lat: 40.6013, lng: 43.0975 },
+  kastamonu: { city: "Kastamonu", lat: 41.3887, lng: 33.7827 },
+  kayseri: { city: "Kayseri", lat: 38.7312, lng: 35.4787 },
+  kilis: { city: "Kilis", lat: 36.7184, lng: 37.1212 },
+  kirikkale: { city: "Kırıkkale", lat: 39.8468, lng: 33.5153 },
+  kirklareli: { city: "Kırklareli", lat: 41.7333, lng: 27.2167 },
+  kirsehir: { city: "Kırşehir", lat: 39.1425, lng: 34.1709 },
+  kocaeli: { city: "Kocaeli", lat: 40.8533, lng: 29.8815 },
+  izmit: { city: "Kocaeli", lat: 40.8533, lng: 29.8815 },
+  konya: { city: "Konya", lat: 37.8667, lng: 32.4833 },
+  kutahya: { city: "Kütahya", lat: 39.4167, lng: 29.9833 },
+  malatya: { city: "Malatya", lat: 38.3552, lng: 38.3095 },
+  manisa: { city: "Manisa", lat: 38.6191, lng: 27.4289 },
+  mardin: { city: "Mardin", lat: 37.3212, lng: 40.7245 },
+  mersin: { city: "Mersin", lat: 36.8, lng: 34.6333 },
+  icel: { city: "Mersin", lat: 36.8, lng: 34.6333 },
+  mugla: { city: "Muğla", lat: 37.2153, lng: 28.3636 },
+  mus: { city: "Muş", lat: 38.9462, lng: 41.7539 },
+  nevsehir: { city: "Nevşehir", lat: 38.6244, lng: 34.7144 },
+  nigde: { city: "Niğde", lat: 37.9667, lng: 34.6833 },
+  ordu: { city: "Ordu", lat: 40.9839, lng: 37.8764 },
+  osmaniye: { city: "Osmaniye", lat: 37.0742, lng: 36.2478 },
+  rize: { city: "Rize", lat: 41.0201, lng: 40.5234 },
+  sakarya: { city: "Sakarya", lat: 40.7569, lng: 30.3783 },
+  adapazari: { city: "Sakarya", lat: 40.7569, lng: 30.3783 },
+  samsun: { city: "Samsun", lat: 41.2867, lng: 36.33 },
+  sanliurfa: { city: "Şanlıurfa", lat: 37.1591, lng: 38.7969 },
+  urfa: { city: "Şanlıurfa", lat: 37.1591, lng: 38.7969 },
+  siirt: { city: "Siirt", lat: 37.9333, lng: 41.95 },
+  sinop: { city: "Sinop", lat: 42.0231, lng: 35.1531 },
+  sirnak: { city: "Şırnak", lat: 37.5164, lng: 42.4611 },
+  sivas: { city: "Sivas", lat: 39.7477, lng: 37.0179 },
+  tekirdag: { city: "Tekirdağ", lat: 40.9833, lng: 27.5167 },
+  tokat: { city: "Tokat", lat: 40.3167, lng: 36.55 },
+  trabzon: { city: "Trabzon", lat: 41.0015, lng: 39.7178 },
+  tunceli: { city: "Tunceli", lat: 39.1079, lng: 39.5401 },
+  usak: { city: "Uşak", lat: 38.6823, lng: 29.4082 },
+  van: { city: "Van", lat: 38.4891, lng: 43.4089 },
+  yalova: { city: "Yalova", lat: 40.65, lng: 29.2667 },
+  yozgat: { city: "Yozgat", lat: 39.8181, lng: 34.8147 },
+  zonguldak: { city: "Zonguldak", lat: 41.4564, lng: 31.7987 },
+};
+
+export function lookupTurkeyCity(cityName: string): { city: string; lat: number; lng: number } | null {
+  const key = cityName
+    .trim()
+    .toLocaleLowerCase("tr-TR")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ı/g, "i")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c")
+    .replace(/â/g, "a")
+    .replace(/î/g, "i")
+    .replace(/û/g, "u")
+    .replace(/[^a-z]/g, "");
+  return TURKEY_CITIES[key] ?? null;
+}
+
 export async function geocodeCityWeb(cityName: string): Promise<{ city: string; lat: number; lng: number } | null> {
   const query = cityName.trim();
   if (!query) return null;
+  const builtin = lookupTurkeyCity(query);
+  if (builtin) return builtin;
   try {
     const res = await fetch(
       `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=tr`

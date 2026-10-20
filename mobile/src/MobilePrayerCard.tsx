@@ -7,7 +7,7 @@ import {
   type PrayerTimesConfig,
 } from "../../shared/prayerTimes";
 
-export function MobilePrayerCard({ onOpenCitySettings }: { onOpenCitySettings?: () => void }) {
+export function MobilePrayerCard() {
   const [config, setConfig] = useState<PrayerTimesConfig>(loadPrayerConfig);
   const [info, setInfo] = useState<PrayerDayInfo | null>(null);
 
@@ -39,14 +39,7 @@ export function MobilePrayerCard({ onOpenCitySettings }: { onOpenCitySettings?: 
           <span className="mobile-prayer-icon" aria-hidden="true">🕌</span>
           <div>
             <strong>Namaz Vakitleri</strong>
-            <button
-              type="button"
-              className="mobile-prayer-city-btn"
-              onClick={onOpenCitySettings}
-              title="Şehri değiştir"
-            >
-              {info.city} <span aria-hidden="true">✎</span>
-            </button>
+            <small>{info.city}</small>
           </div>
         </div>
         {kerahat.inKerahat ? (
