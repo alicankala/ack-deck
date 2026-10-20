@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { setupModules } from './helpers.mjs';
+import * as adhanModule from 'adhan';
 
 const plain = v => JSON.parse(JSON.stringify(v));
 const sampleProgram = {
@@ -124,3 +125,41 @@ test('tasks, notes, backups, and privacy boundaries keep local data safe and cre
   assert.equal(tasks.loadTasks().entries.length, 1);
   assert.equal(env.load('studyProgramStore').loadStudyPrograms().entries.length, 1);
 });
+
+test('prayer times calculate daily schedule, kerahat status, and pending notifications', async () => {
+  const env = setupModules([], { adhan: adhanModule });
+  const prayer = env.load('../shared/prayerTimes');
+  const prayerStore = env.load('prayerStore');
+
+  // Ankara coordinates: 39.91987, 32.85427
+  const date = new Date('2026-10-20T12:00:00+03:00');
+  const info = prayer.calculatePrayerTimes(39.91987, 32.85427, date, 'Ankara');
+
+  assert.equal(info.city, 'Ankara');
+  assert.equal(info.items.length, 6);
+  assert.deepEqual(Array.from(info.items.map(i => i.name)), ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha']);
+  assert.ok(info.items.every(i => /^\d{2}:\d{2}$/.test(i.time)));
+
+  // Test kerahat status detection around Dhuhr (ishtiwa)
+  const dhuhrTime = info.items.find(i => i.name === 'dhuhr').timestamp;
+  const ishtiwaTime = new Date(dhuhrTime - 15 * 60 * 1000); // 15 mins before dhuhr
+  const kerahatInfo = prayer.calculatePrayerTimes(39.91987, 32.85427, ishtiwaTime, 'Ankara');
+  assert.equal(kerahatInfo.kerahat.inKerahat, true);
+  assert.equal(kerahatInfo.kerahat.kind, 'ishtiwa');
+
+  // Test pending reminders generator
+  const config = {
+    city: 'Ankara',
+    latitude: 39.91987,
+    longitude: 32.85427,
+    notifyAtTime: true,
+    notifyBeforeMinutes: 15,
+  };
+  const morning = new Date('2026-10-20T04:00:00+03:00');
+  const reminders = prayerStore.pendingPrayerReminders(config, morning);
+  assert.ok(reminders.length >= 6);
+  assert.ok(reminders.some(r => r.id.startsWith('prayer:fajr:')));
+  assert.ok(reminders.some(r => r.id.startsWith('prayer-lead:15:fajr:')));
+  assert.ok(reminders.every(r => r.dueAt > morning.getTime()));
+});
+

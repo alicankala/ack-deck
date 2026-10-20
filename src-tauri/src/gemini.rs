@@ -158,9 +158,9 @@ fn require_key() -> Result<String, String> {
     stored_key()?.ok_or_else(|| MISSING_KEY.to_string())
 }
 
-fn client() -> Result<Client, String> {
+fn client(timeout_secs: u64) -> Result<Client, String> {
     Client::builder()
-        .timeout(Duration::from_secs(45))
+        .timeout(Duration::from_secs(timeout_secs))
         .build()
         .map_err(|_| NETWORK_ERROR.to_string())
 }
@@ -210,7 +210,7 @@ async fn generate_at(
     payload: &Value,
     budget: Duration,
 ) -> Result<reqwest::Response, String> {
-    let client = client()?;
+    let client = client(budget.as_secs().max(45))?;
     let started = std::time::Instant::now();
     for attempt in 0..2 {
         let remaining = budget.saturating_sub(started.elapsed());
@@ -376,7 +376,7 @@ pub async fn gemini_chat(
         &key,
         &payload,
         Duration::from_secs(if matches!(model, ModelChoice::Powerful) {
-            60
+            120
         } else {
             45
         }),

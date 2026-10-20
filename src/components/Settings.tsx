@@ -12,6 +12,7 @@ import {
   testGeminiConnection,
 } from "../geminiClient";
 import { WeatherSettings } from "./WeatherSettings";
+import { PrayerSettings } from "./PrayerSettings";
 import { Icon, type IconName } from "./Icon";
 import { DisplayScaleSettings } from "./DisplayScaleSettings";
 import { PhoneSettings } from "./PhoneSettings";
@@ -124,7 +125,7 @@ export function Settings({ preferences, onPreferencesChange, desktop, onDesktopC
     <DesktopSettings status={desktop} onChange={onDesktopChange} />
     <PaletteShortcutSettings />
 </section>
-      <section role="tabpanel" id="settings-panel-appearance" aria-labelledby="settings-tab-appearance" hidden={selectedSection !== "appearance"} className="settings-section-panel"><DisplayScaleSettings /><WeatherSettings /></section>
+      <section role="tabpanel" id="settings-panel-appearance" aria-labelledby="settings-tab-appearance" hidden={selectedSection !== "appearance"} className="settings-section-panel"><DisplayScaleSettings /><WeatherSettings /><PrayerSettings /></section>
       <section role="tabpanel" id="settings-panel-ai" aria-labelledby="settings-tab-ai" hidden={selectedSection !== "ai"} className="settings-section-panel">    <section className="settings-card surface" aria-labelledby="ai-settings-heading">
       <div className="settings-card-heading">
         <span className="feature-icon"><Icon name="spark" size={23} /></span>

@@ -400,6 +400,104 @@ body:has(.editor) nav { visibility: hidden; }
 .mobile-next-step small { font-size: 11px; font-weight: 600; color: var(--app-accent); }
 .mobile-next-step strong { font-size: 13px; font-weight: 600; color: var(--app-text); line-height: 1.4; }
 
+/* Mobile Prayer Card */
+.mobile-prayer-card {
+  background: linear-gradient(135deg, #131c26 0%, #0d141e 100%);
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  border-radius: 18px;
+  padding: 14px 16px;
+  margin: 0 0 16px;
+  box-shadow: 0 6px 20px -4px rgba(0, 0, 0, 0.4);
+}
+.mobile-prayer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.mobile-prayer-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mobile-prayer-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+.mobile-prayer-title strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+.mobile-prayer-title small {
+  display: block;
+  font-size: 11px;
+  color: var(--app-muted);
+}
+.mobile-prayer-chip {
+  font-size: 11px;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 10px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+.mobile-prayer-chip strong {
+  color: #ffffff;
+}
+.mobile-kerahat-chip.warning {
+  font-size: 11px;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 10px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+.mobile-prayer-row {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+}
+.mobile-prayer-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  padding: 6px 2px;
+  text-align: center;
+}
+.mobile-prayer-item small {
+  font-size: 10px;
+  color: var(--app-muted);
+}
+.mobile-prayer-item strong {
+  font-size: 11px;
+  font-weight: 650;
+  color: #f8fafc;
+  font-variant-numeric: tabular-nums;
+}
+.mobile-prayer-item.is-next {
+  border-color: var(--app-accent);
+  background: rgba(56, 189, 248, 0.12);
+}
+.mobile-prayer-item.is-next small {
+  color: var(--app-accent);
+}
+.mobile-prayer-item.is-current {
+  border-color: #34d399;
+  background: rgba(52, 211, 153, 0.1);
+}
+.mobile-prayer-item.is-current small {
+  color: #34d399;
+}
+
 /* Quick Capture and + Ekle Bar */
 .mobile-capture-tools {
   display: flex;

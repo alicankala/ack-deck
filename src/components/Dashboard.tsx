@@ -1,5 +1,6 @@
 import { dailySummary } from "../productIntelligence";
 import { Subscriptions } from "./Subscriptions";
+import { PrayerWidget } from "./PrayerWidget";
 import { completeOccurrence } from "../../shared/recurrence";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Header } from "./Header";
@@ -64,6 +65,6 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, onOpenSear
       {!shownProjects.length && <p className="dashboard-empty">Henüz proje yok. Projeler sayfasından bir proje ekleyebilirsin.</p>}
     </section>
 
-    </div></div><aside className="dashboard-right-rail" aria-label="Hızlı işlemler ve durum"><section className="dashboard-quick" aria-labelledby="dashboard-quick-heading"><div className="dashboard-section-top"><h2 id="dashboard-quick-heading">Hızlı İşlemler</h2><button type="button" className="dashboard-more" onClick={() => onNavigate({ page: "tools" })}>Daha fazla araç <Icon name="arrowRight" size={14} /></button></div><div className="dashboard-shortcuts">{shortcuts.map(item => <button type="button" key={item.label} onClick={() => onNavigate(item.target)}><Icon name={item.icon} size={16} />{item.label}</button>)}</div></section><Subscriptions compact onOpen={()=>onNavigate({page:"subscriptions"})} />
+    </div></div><aside className="dashboard-right-rail" aria-label="Hızlı işlemler ve durum"><section className="dashboard-quick" aria-labelledby="dashboard-quick-heading"><div className="dashboard-section-top"><h2 id="dashboard-quick-heading">Hızlı İşlemler</h2><button type="button" className="dashboard-more" onClick={() => onNavigate({ page: "tools" })}>Daha fazla araç <Icon name="arrowRight" size={14} /></button></div><div className="dashboard-shortcuts">{shortcuts.map(item => <button type="button" key={item.label} onClick={() => onNavigate(item.target)}><Icon name={item.icon} size={16} />{item.label}</button>)}</div></section><PrayerWidget onOpenSettings={() => onNavigate({ page: "settings" })} /><Subscriptions compact onOpen={()=>onNavigate({page:"subscriptions"})} />
 <PcStatus refreshMs={refreshMs} compact /></aside></div></div>;
 }

@@ -17,7 +17,7 @@
     "typescript": "~6.0.3",
     "wrangler": "4.148.0"
   },
-  "version": "1.4.2",
+  "version": "1.4.3",
   "overrides": {
     "sharp": "0.35.5"
   }
