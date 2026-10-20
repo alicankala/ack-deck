@@ -173,3 +173,66 @@ export function formatRemainingTime(ms: number): string {
   }
   return `${minutes} dk`;
 }
+
+export const PRAYER_STORAGE_KEY = "ack-deck.prayer-config.v1";
+
+export function loadPrayerConfig(): PrayerTimesConfig {
+  try {
+    const raw = typeof window !== "undefined" ? window.localStorage.getItem(PRAYER_STORAGE_KEY) : null;
+    if (!raw) return { ...DEFAULT_PRAYER_CONFIG };
+    const parsed = JSON.parse(raw);
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      typeof parsed.city === "string" &&
+      typeof parsed.latitude === "number" &&
+      typeof parsed.longitude === "number"
+    ) {
+      return {
+        city: parsed.city.trim() || DEFAULT_PRAYER_CONFIG.city,
+        latitude: parsed.latitude,
+        longitude: parsed.longitude,
+        notifyAtTime: parsed.notifyAtTime ?? DEFAULT_PRAYER_CONFIG.notifyAtTime,
+        notifyBeforeMinutes: typeof parsed.notifyBeforeMinutes === "number" ? parsed.notifyBeforeMinutes : DEFAULT_PRAYER_CONFIG.notifyBeforeMinutes,
+      };
+    }
+    return { ...DEFAULT_PRAYER_CONFIG };
+  } catch {
+    return { ...DEFAULT_PRAYER_CONFIG };
+  }
+}
+
+export function savePrayerConfig(config: PrayerTimesConfig): boolean {
+  try {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(PRAYER_STORAGE_KEY, JSON.stringify(config));
+      window.dispatchEvent(new Event("ack-prayer-config-changed"));
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function geocodeCityWeb(cityName: string): Promise<{ city: string; lat: number; lng: number } | null> {
+  const query = cityName.trim();
+  if (!query) return null;
+  try {
+    const res = await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=tr`
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const result = data.results?.[0];
+    if (result && typeof result.latitude === "number" && typeof result.longitude === "number") {
+      return {
+        city: result.name || query,
+        lat: result.latitude,
+        lng: result.longitude,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}

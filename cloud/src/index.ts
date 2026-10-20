@@ -47,9 +47,13 @@ async function handle(request: Request, env: Env): Promise<Response> {
   const actor = await authenticate(request,env);
   await rate(env,`api:${actor.id}`,120);
   if (path === "/api/status" && request.method === "GET") {
-    const pc = await env.DB.prepare("SELECT last_seen FROM desktop_state WHERE id=1").first<{last_seen:number}>();
+    const pc = await env.DB.prepare("SELECT last_seen, prayer_config FROM desktop_state WHERE id=1").first<{last_seen:number;prayer_config?:string|null}>();
     const notification = actor.owner ? null : await env.DB.prepare("SELECT active FROM push_subscriptions WHERE device_id=?").bind(actor.id).first<{active:number}>();
-    return reply({ online:now-(pc?.last_seen ?? 0)<150000, notifications:!!notification?.active, vapidPublicKey:env.VAPID_PUBLIC_KEY ?? "", now });
+    let prayerConfig = null;
+    if (pc?.prayer_config) {
+      try { prayerConfig = JSON.parse(pc.prayer_config); } catch {}
+    }
+    return reply({ online:now-(pc?.last_seen ?? 0)<150000, notifications:!!notification?.active, vapidPublicKey:env.VAPID_PUBLIC_KEY ?? "", prayerConfig, now });
   }
   if (path === "/api/pair" && request.method === "POST") {
     owner(actor); const code = randomToken();
@@ -104,7 +108,23 @@ async function handle(request: Request, env: Env): Promise<Response> {
   }
   if (path === "/api/mutations" && request.method === "POST") {const result=await mutate(env,actor,await jsonBody(request),request.headers.get("X-ACKDeck-Schema")??"1");if(!["3","4"].includes(request.headers.get("X-ACKDeck-Schema")??"")&&result.record?.data&&["tasks","notes"].includes(result.record.kind)){const {projectId:_p,workspaceId:_w,sourceInboxId:_s,checklist:_c,reminderLeadMinutes:_r,attachments:_a,...data}=result.record.data as Record<string,unknown>;return reply({...result,record:{...result.record,data}});}return reply(result);}
   if (path === "/api/heartbeat" && request.method === "POST") {
-    owner(actor); await env.DB.prepare("UPDATE desktop_state SET last_seen=? WHERE id=1").bind(now).run(); return reply({ok:true});
+    owner(actor);
+    const body = await jsonBody(request).catch(() => null);
+    const prayerConfig = body && typeof body === "object" && body.prayerConfig && typeof body.prayerConfig === "object" ? JSON.stringify(body.prayerConfig) : null;
+    if (prayerConfig) {
+      await env.DB.prepare("UPDATE desktop_state SET last_seen=?, prayer_config=? WHERE id=1").bind(now, prayerConfig).run();
+    } else {
+      await env.DB.prepare("UPDATE desktop_state SET last_seen=? WHERE id=1").bind(now).run();
+    }
+    return reply({ok:true});
+  }
+  if (path === "/api/prayer-config" && request.method === "POST") {
+    const body = await jsonBody(request);
+    if (!object(body) || !exact(body, ["prayerConfig"]) || !object(body.prayerConfig) || typeof body.prayerConfig.city !== "string" || typeof body.prayerConfig.latitude !== "number" || typeof body.prayerConfig.longitude !== "number") {
+      throw new ApiError(400, "Namaz ayarları geçersiz.");
+    }
+    await env.DB.prepare("UPDATE desktop_state SET prayer_config=? WHERE id=1").bind(JSON.stringify(body.prayerConfig)).run();
+    return reply({ ok: true });
   }
   if (path === "/api/workspaces" && request.method === "GET") return reply({ workspaces:(await env.DB.prepare("SELECT id,name,icon,description FROM workspace_mirrors ORDER BY name LIMIT 100").all()).results });
   if (path === "/api/workspaces" && request.method === "POST") {

@@ -71,6 +71,7 @@ before(async()=>{
   await db.exec(readFileSync(new URL('migrations/0003_subscriptions_recurrence.sql',root),'utf8').replace(/^--.*$/gm,''));
   await db.exec(readFileSync(new URL('migrations/0004_project_metadata.sql',root),'utf8').replace(/^--.*$/gm,''));
   await db.exec(readFileSync(new URL('migrations/0005_study_programs.sql',root),'utf8').replace(/^--.*$/gm,''));
+  await db.exec(readFileSync(new URL('migrations/0006_prayer_config.sql',root),'utf8').replace(/^--.*$/gm,''));
   assert.equal((await db.prepare("SELECT data FROM records WHERE id='migration-preserved'").first()).data,JSON.stringify({title:'Migration fixture',content:'Preserve',updatedAt:1}));
   assert.equal((await db.prepare("SELECT state FROM reminder_deliveries WHERE generation='migration-fixture'").first()).state,'sent');
   env={...bindings,DB:db,ATTACHMENTS:kv};worker=await module('src/index.ts');reminders=await module('src/reminders.ts');security=await module('src/security.ts');shared=await module('../shared/phone.ts');
@@ -78,7 +79,7 @@ before(async()=>{
 });
 after(async()=>{await mf?.dispose();});
 // Each isolated scenario has a fresh request budget; production throttling is unchanged.
-beforeEach(async()=>{await db.exec('DELETE FROM rate_limits');});
+beforeEach(async()=>{await db.exec('DELETE FROM rate_limits');await db.prepare('UPDATE desktop_state SET last_seen=0').run();});
 test('recurring series and subscriptions round-trip, offline retries and tombstones; same Cron continues with PC off',async()=>{
   const rec=await module('../shared/recurrence.ts'),subscriptions=await module('../shared/subscriptions.ts');
   const pair=await call('pair',{}),token=(await call('pair/exchange',{code:pair.data.code,name:'Recurrence test'},null)).data.token;
@@ -120,6 +121,8 @@ test('strict owner/device auth, same-origin policy and credential-free status',a
   assert.equal((await call('pair',{},phone)).response.status,403);
   assert.equal((await call('status',undefined,phone,'GET',{Origin:'https://attacker.example'})).response.status,403);
   const result=await call('status',undefined,phone);assert.equal(result.response.status,200);assert.ok(!JSON.stringify(result.data).includes(ownerSecret));assert.equal(result.response.headers.get('X-Content-Type-Options'),'nosniff');assert.equal(result.response.headers.get('Access-Control-Allow-Origin'),null);
+  await call('heartbeat',{prayerConfig:{city:'Karabük',latitude:41.20488,longitude:32.62768,notifyAtTime:true,notifyBeforeMinutes:15}});
+  const updatedStatus=await call('status',undefined,phone);assert.equal(updatedStatus.data.prayerConfig.city,'Karabük');
 });
 test('pairing is single-use, expired codes fail, tokens are hashed and revocation disables access/push',async()=>{
   assert.equal((await call('pair/exchange',{code:owner.data.code,name:'Again'},null)).response.status,400);

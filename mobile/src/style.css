@@ -436,6 +436,24 @@ body:has(.editor) nav { visibility: hidden; }
   font-size: 11px;
   color: var(--app-muted);
 }
+.mobile-prayer-city-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  min-height: auto;
+  font-size: 11px;
+  color: var(--app-accent);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: rgba(56, 189, 248, 0.4);
+}
+.mobile-prayer-city-btn:hover {
+  color: #7dd3fc;
+}
 .mobile-prayer-chip {
   font-size: 11px;
   color: #38bdf8;
@@ -1431,3 +1449,310 @@ body:has(.editor) nav { visibility: hidden; }
   nav button { font-size: 10px; }
   .daily-focus { flex-wrap: wrap; }
 }
+
+/* --- Native App Layout Styles --- */
+
+.mobile-metrics-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.metric-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  padding: 8px 6px;
+  min-height: 52px;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+.metric-chip:active {
+  transform: scale(0.96);
+  border-color: var(--app-accent-border);
+}
+.metric-chip strong {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--app-text);
+  line-height: 1.1;
+}
+.metric-chip span {
+  font-size: 11px;
+  color: var(--app-muted);
+  margin-top: 2px;
+}
+
+.section-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 18px 0 10px;
+}
+.section-title-row h3 {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--app-text);
+}
+.section-count {
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--app-surface-elevated);
+  color: var(--app-accent);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.text-action {
+  background: none;
+  border: none;
+  color: var(--app-accent);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0;
+  min-height: auto;
+  cursor: pointer;
+}
+
+/* Today Study Sessions */
+.mobile-study-today {
+  margin-bottom: 16px;
+}
+.study-sessions-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.study-session-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-left: 3px solid var(--app-accent);
+  border-radius: 14px;
+  padding: 10px 14px;
+}
+.session-time-badge {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--app-accent);
+  background: var(--app-accent-soft);
+  padding: 4px 8px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+.session-info {
+  flex: 1;
+  min-width: 0;
+}
+.session-info strong {
+  display: block;
+  font-size: 14px;
+  color: var(--app-text);
+}
+.session-info small {
+  display: block;
+  font-size: 11px;
+  color: var(--app-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.session-duration {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--app-muted);
+  white-space: nowrap;
+}
+
+/* Task Header Line & Dot */
+.task-header-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.task-check-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--app-accent);
+  flex-shrink: 0;
+}
+.task-check-dot.is-important {
+  background: var(--app-danger);
+  box-shadow: 0 0 6px rgba(248, 113, 113, 0.4);
+}
+
+/* Segmented Control Bar */
+.page-header-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.mobile-segmented-bar {
+  flex: 1;
+  display: flex;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  padding: 3px;
+  gap: 4px;
+}
+.plan-toggle-bar {
+  margin-bottom: 16px;
+}
+.segment-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  color: var(--app-muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 4px;
+  min-height: auto;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  white-space: nowrap;
+  text-align: center;
+}
+.segment-btn.is-active {
+  background: var(--app-control);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.primary-action-round {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  border-radius: 14px;
+  background: var(--app-accent);
+  color: var(--app-on-accent);
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  flex-shrink: 0;
+}
+
+/* More / Settings Sections */
+.more-sections-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.more-section-card {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 18px;
+  padding: 16px;
+}
+.more-section-card h2 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+.section-subtext {
+  font-size: 12px;
+  color: var(--app-muted);
+  margin-bottom: 12px;
+}
+.city-quick-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.current-city-label {
+  font-size: 13px;
+  color: var(--app-secondary);
+}
+.current-city-label strong {
+  color: var(--app-accent);
+}
+.city-quick-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.city-pill-btn {
+  background: var(--app-control);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  min-height: auto;
+  color: var(--app-text);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.city-pill-btn.is-active {
+  background: var(--app-accent);
+  color: var(--app-on-accent);
+  border-color: var(--app-accent);
+}
+.city-custom-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.city-custom-form input {
+  flex: 1;
+  min-height: 42px;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+.city-custom-form button {
+  min-height: 42px;
+  padding: 8px 16px;
+  background: var(--app-accent);
+  color: var(--app-on-accent);
+  font-weight: 700;
+  border: none;
+}
+.city-modal-hint {
+  font-size: 12px;
+  color: var(--app-muted);
+  margin-bottom: 12px;
+}
+.feedback-hint {
+  font-size: 12px;
+  color: var(--app-accent);
+  margin-top: 4px;
+}
+
+.device-rename-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.device-rename-form button {
+  align-self: flex-start;
+}
+.notification-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--app-border);
+  border-bottom: 1px solid var(--app-border);
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+.notification-status-row button {
+  min-height: 32px;
+  padding: 4px 12px;
+  font-size: 12px;
+}
+

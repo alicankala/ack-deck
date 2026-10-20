@@ -1,20 +1,33 @@
 import { useEffect, useState } from "react";
-import { calculatePrayerTimes, formatRemainingTime, type PrayerDayInfo } from "../../shared/prayerTimes";
+import {
+  calculatePrayerTimes,
+  formatRemainingTime,
+  loadPrayerConfig,
+  type PrayerDayInfo,
+  type PrayerTimesConfig,
+} from "../../shared/prayerTimes";
 
-export function MobilePrayerCard() {
+export function MobilePrayerCard({ onOpenCitySettings }: { onOpenCitySettings?: () => void }) {
+  const [config, setConfig] = useState<PrayerTimesConfig>(loadPrayerConfig);
   const [info, setInfo] = useState<PrayerDayInfo | null>(null);
 
   useEffect(() => {
-    // Default to Ankara/Istanbul or local coordinates if available
+    function handleConfigChange() {
+      setConfig(loadPrayerConfig());
+    }
+    window.addEventListener("ack-prayer-config-changed", handleConfigChange);
+    return () => window.removeEventListener("ack-prayer-config-changed", handleConfigChange);
+  }, []);
+
+  useEffect(() => {
     function update() {
-      // Ankara as clean baseline (lat: 39.91987, lng: 32.85427)
-      const data = calculatePrayerTimes(39.91987, 32.85427, new Date(), "Ankara");
+      const data = calculatePrayerTimes(config.latitude, config.longitude, new Date(), config.city);
       setInfo(data);
     }
     update();
-    const timer = setInterval(update, 30000);
+    const timer = setInterval(update, 20000);
     return () => clearInterval(timer);
-  }, []);
+  }, [config]);
 
   if (!info) return null;
   const kerahat = info.kerahat;
@@ -26,7 +39,14 @@ export function MobilePrayerCard() {
           <span className="mobile-prayer-icon" aria-hidden="true">🕌</span>
           <div>
             <strong>Namaz Vakitleri</strong>
-            <small>{info.city}</small>
+            <button
+              type="button"
+              className="mobile-prayer-city-btn"
+              onClick={onOpenCitySettings}
+              title="Şehri değiştir"
+            >
+              {info.city} <span aria-hidden="true">✎</span>
+            </button>
           </div>
         </div>
         {kerahat.inKerahat ? (
