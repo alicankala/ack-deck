@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import {
   type PrayerTimesConfig,
   type PrayerDayInfo,
@@ -46,6 +47,20 @@ export function savePrayerConfig(config: PrayerTimesConfig): boolean {
 export async function geocodeCity(cityName: string): Promise<{ city: string; lat: number; lng: number } | null> {
   const query = cityName.trim();
   if (!query) return null;
+  // Try native Tauri backend first (bypasses browser CSP restrictions)
+  try {
+    const res = await invoke<{ city: string; latitude: number; longitude: number }>("geocode_city", { city: query });
+    if (res && typeof res.latitude === "number" && typeof res.longitude === "number") {
+      return {
+        city: res.city || query,
+        lat: res.latitude,
+        lng: res.longitude,
+      };
+    }
+  } catch {
+    // Fallback for Web/Browser environment if not in Tauri
+  }
+
   try {
     const res = await fetch(
       `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=tr`

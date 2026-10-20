@@ -12,6 +12,7 @@ mod palette;
 mod pc_status;
 mod phone;
 mod phone_media;
+mod prayer_geo;
 mod projects;
 mod privacy;
 mod portable_backup;
@@ -66,6 +67,7 @@ pub fn run() {
             ip_info::public_ip_info,
             footer_info::footer_rates,
             footer_info::footer_weather,
+            prayer_geo::geocode_city,
             files::read_file_entry,
             files::check_file_entries,
             files::access_file_entry,
