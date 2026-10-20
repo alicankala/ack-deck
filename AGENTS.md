@@ -223,6 +223,24 @@ Frontend model labels may be user-friendly, but actual Gemini model IDs must rem
 
 Do not scatter Gemini model IDs throughout the frontend or Rust code.
 
+#### Powerful Model ("Güçlü Model") & Study Program Tool Rules — DO NOT BREAK
+
+Future agents modifying `src-tauri/src/gemini.rs`, `src-tauri/src/gemini_tools.rs`, `src/components/AckAi.tsx`, `src/ackActions.ts`, or `src/ackIntegration.ts` MUST preserve all of the following safeguards so that the Powerful model and study program creation never fail with timeouts or `"Gemini şu anda yanıt vermiyor. Daha sonra tekrar deneyin."` errors:
+
+1. **Do NOT wrap `sendGeminiMessage` in `withAiTimeout` in `AckAi.tsx`**:
+   - Frontend `withAiTimeout` has a 30-second limit meant only for local confirmation execution (`executeAckAction`).
+   - Rust `gemini_chat` already manages network timeouts (`120s` for `ModelChoice::Powerful`, `45s` for `ModelChoice::Fast`). Wrapping `sendGeminiMessage` in `withAiTimeout` prematurely kills Powerful model reasoning/tool calls on the frontend.
+2. **Preserve Automatic Fast-Model Fallback in `src-tauri/src/gemini.rs`**:
+   - When `model` is `ModelChoice::Powerful` (`gemini-3.8-flash`), `gemini_chat` attempts the primary model first (`generate_at` with up to 3 retries on HTTP `500 | 502 | 503 | 504` and a `120s` budget).
+   - If the primary Powerful request still fails for **any** reason (HTTP 5xx `"Gemini şu anda yanıt vermiyor"`, timeout, empty/thought-only candidate, or invalid tool call), `gemini_chat` **must** automatically fall back to `crate::gemini_models::FAST_MODEL` (`gemini-3.5-flash-lite`) with refreshed `thinking_settings(&mut payload, fast_name, false)` and a `45s` budget before returning an error. Never remove this fallback block.
+3. **Keep `thinking_settings` Clean for Non-Thinking Models**:
+   - In `src-tauri/src/gemini.rs`, `thinking_settings` only sets `generationConfig.thinkingConfig` for `gemini-3.*` flash models (excluding `lite`), and explicitly **removes** `thinkingConfig` when switching to `FAST_MODEL` (`gemini-3.5-flash-lite`) during fallback so the API never rejects the fallback payload with `400 INVALID_ARGUMENT`.
+4. **Keep `maxOutputTokens: 8192` and Role Merging in `chat_payload`**:
+   - Thinking models consume output tokens for internal `thought: true` parts before emitting text and `functionCall`. Keep `maxOutputTokens: 8192` in `chat_payload` so structured tool calls (such as multi-day `create_study_program` schedules) are never truncated mid-JSON.
+   - Consecutive messages with the same role (`user`/`model`) must be merged into a single `contents` entry in `chat_payload` so the Gemini API never rejects the conversation history.
+5. **Preserve Study Program Tool Declarations (`create_study_program`, `update_study_program`, `delete_study_program`)**:
+   - `src-tauri/src/gemini_tools.rs`, `src/ackActions.ts`, and `src/ackIntegration.ts` (`AckSource::Studyprograms`) allow ACK AI to propose study program changes directly for the Weekly Plan (`Haftalık Plan`) with an `Onayla` confirmation card, alongside local markdown table parsing (`parseAiStudyProgramSchedule`) as a fallback. Do not remove these tools or shrink `valid_sessions` limits (`1..=60` sessions, `10..=240` minutes, `weekdays` `1..=7`, payload cap `100000` bytes).
+
 ### Gemini API key
 
 `Settings.tsx` lets the user enter the Gemini API key.
