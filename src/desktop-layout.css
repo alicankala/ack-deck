@@ -14,9 +14,10 @@
 .dashboard-header-actions { display:flex; align-items:center; gap:1rem; }
 .dashboard-clock { color:var(--app-secondary); font-variant-numeric:tabular-nums; }
 .dashboard-eyebrow { color:var(--app-accent); font-size:.7rem; letter-spacing:.15em; font-weight: 700; }
-.work-dashboard .dashboard-workbench { display:grid; grid-template-columns:minmax(0,1fr) 18rem; gap:1.5rem; align-items:start; }
-.dashboard-primary-column,.dashboard-right-rail { display:grid; gap:1.5rem; min-width:0; }
-.dashboard-right-rail { position:sticky; top:1rem; }
+.work-dashboard .dashboard-workbench { display:grid; grid-template-columns:minmax(0,1fr) 21.5rem; gap:1.35rem; align-items:start; }
+.dashboard-primary-column,.dashboard-right-rail { display:grid; gap:1rem; min-width:0; }
+.dashboard-primary-column { gap:1.35rem; }
+.dashboard-right-rail { align-self:start; }
 .dashboard-overview { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.8rem; }
 .dashboard-overview button { display:flex; align-items:center; gap:.8rem; padding:1.1rem; text-align:left; background:var(--app-surface); border:1px solid var(--app-border); border-radius:1rem; color:var(--app-text); min-width:0; box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.35); transition: all 0.15s ease; }
 .dashboard-overview button:hover { border-color:var(--app-accent-border); transform: translateY(-2px); box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.45); }
@@ -25,13 +26,14 @@
 .dashboard-overview strong { font-size:1.5rem; font-weight:650; letter-spacing: -0.02em; }
 .dashboard-overview small { color:var(--app-secondary); font-size: 0.85rem; }
 .dashboard-overview button>svg { color:var(--app-muted); }
-.dashboard-right-rail .dashboard-quick { padding:1.2rem; background:var(--app-surface); border:1px solid var(--app-border); border-radius:1rem; }
-.dashboard-right-rail .dashboard-section-top { display:grid; gap:.5rem; }
-.dashboard-right-rail .dashboard-shortcuts { display:grid; gap:.5rem; margin-top:1rem; }
-.dashboard-right-rail .dashboard-shortcuts button { width:100%; justify-content:flex-start; padding:.85rem; border-radius:.7rem; background:var(--app-control); }
-.dashboard-right-rail .dashboard-pc>summary { display:flex; flex-wrap:wrap; gap:.65rem; padding:1rem; }
+.dashboard-right-rail .dashboard-quick { padding:1rem 1.1rem; background:var(--app-surface); border:1px solid var(--app-border); border-radius:1rem; }
+.dashboard-right-rail .dashboard-section-top { display:flex; justify-content:space-between; align-items:center; gap:.5rem; margin-bottom:0; }
+.dashboard-right-rail .dashboard-shortcuts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.45rem; margin-top:.75rem; }
+.dashboard-right-rail .dashboard-shortcuts button { width:100%; justify-content:flex-start; padding:.6rem .75rem; min-height:2.35rem; border-radius:.65rem; background:var(--app-control); font-size:.78rem; }
+.dashboard-right-rail .dashboard-pc { background:var(--app-surface); border:1px solid var(--app-border); border-radius:1rem; }
+.dashboard-right-rail .dashboard-pc>summary { display:flex; align-items:center; flex-wrap:wrap; gap:.45rem .65rem; padding:.8rem 1rem; min-height:2.9rem; font-size:.78rem; }
 .dashboard-right-rail .dashboard-pc>summary>span { min-width:0; overflow-wrap:anywhere; }
-.dashboard-right-rail .dashboard-pc>summary>span:nth-child(3) { width:100%; }
+.dashboard-right-rail .dashboard-pc>summary>span:nth-child(3) { width:auto; }
 .work-dashboard .dashboard-start-grid { grid-template-columns:minmax(0,1fr); }
 .tasks-page .task-capture-row { display:flex; align-items:center; gap:.7rem; padding:.7rem; margin-bottom:1.1rem; border:1px solid var(--app-border); background:var(--app-surface); border-radius:1rem; }
 .task-capture-row .task-form { flex:1; min-width:0; margin:0; border:0; padding:.4rem .7rem; background:transparent; }
@@ -319,3 +321,282 @@
 .review-counts :is(button,span) { display:flex; align-items:center; justify-content:center; min-height:3.5rem; background:#1a293a; border:1px solid #3a506a; border-radius:.75rem; font-size:.85rem; padding:.8rem; text-align:center; color:#b8cde3; }
 @container(max-width:48rem) { .project-hub-columns,.review-counts { grid-template-columns:repeat(2,minmax(0,1fr)); } .next-step-form { flex-wrap:wrap; } .next-step-form label { flex-basis:100%; } }
 @container(max-width:32rem) { .project-hub-columns { grid-template-columns:minmax(0,1fr); } }
+
+/* Theme Toggle Cards in Settings */
+.theme-toggle-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.theme-choice-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.95rem 1.1rem !important;
+  border-radius: 0.85rem;
+  background: var(--app-field);
+  border: 1px solid var(--app-border);
+  color: var(--app-text);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.theme-choice-card:hover {
+  border-color: var(--app-accent-border);
+}
+
+.theme-choice-card.is-selected {
+  background: var(--app-accent-soft);
+  border-color: var(--app-accent);
+  box-shadow: 0 0 0 1px var(--app-accent);
+}
+
+.theme-choice-card strong {
+  display: block;
+  font-size: 0.95rem;
+  color: var(--app-text);
+}
+
+.theme-choice-card small {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--app-muted);
+  margin-top: 0.15rem;
+}
+
+.theme-preview-swatch {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.65rem;
+  flex-shrink: 0;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+}
+
+.swatch-dark {
+  background: linear-gradient(135deg, #090c10 0%, #131922 55%, #38bdf8 100%);
+}
+
+.swatch-light {
+  background: linear-gradient(135deg, #dfe5ec 0%, #eef2f6 55%, #0284c7 100%);
+}
+
+/* Soft Warm-Slate Light Theme (Not stark white!) */
+:root[data-theme="light"] {
+  --app-bg: #e2e7ee;
+  --app-surface: #eef2f6;
+  --app-control: #e3e9f0;
+  --app-field: #dde4ec;
+  --app-border: rgba(15, 23, 42, 0.12);
+  --app-border-strong: rgba(15, 23, 42, 0.22);
+  --app-text: #182230;
+  --app-secondary: #334155;
+  --app-muted: #5b6b7f;
+  --app-accent: #0284c7;
+  --app-accent-soft: rgba(2, 132, 199, 0.12);
+  --app-accent-border: rgba(2, 132, 199, 0.32);
+  --app-on-accent: #ffffff;
+  --app-hover: #d5dee8;
+  color-scheme: light;
+  color: var(--app-text);
+  background: var(--app-bg);
+}
+
+:root[data-theme="light"] .app-shell {
+  background: var(--app-bg);
+  color: var(--app-text);
+}
+
+:root[data-theme="light"] .sidebar,
+:root[data-theme="light"] .app-footer {
+  background: #d8e0e9;
+  border-color: var(--app-border);
+}
+
+:root[data-theme="light"] .brand-copy strong,
+:root[data-theme="light"] h1,
+:root[data-theme="light"] h2,
+:root[data-theme="light"] h3,
+:root[data-theme="light"] .dashboard-section-top h2,
+:root[data-theme="light"] .section-heading h2,
+:root[data-theme="light"] .metric-value,
+:root[data-theme="light"] .footer-ticker strong,
+:root[data-theme="light"] .dashboard-task-open,
+:root[data-theme="light"] .task-text,
+:root[data-theme="light"] .note-list-item,
+:root[data-theme="light"] .notes-editor .notes-title,
+:root[data-theme="light"] .notes-editor .notes-content {
+  color: var(--app-text);
+}
+
+:root[data-theme="light"] .brand-copy span,
+:root[data-theme="light"] .sidebar-section-label,
+:root[data-theme="light"] .footer-ticker,
+:root[data-theme="light"] .dashboard-header p,
+:root[data-theme="light"] .work-dashboard .dashboard-header time,
+:root[data-theme="light"] .dashboard-empty,
+:root[data-theme="light"] .dashboard-project p,
+:root[data-theme="light"] .dashboard-recent small,
+:root[data-theme="light"] .dashboard-task-open small,
+:root[data-theme="light"] .main-content :is(.feature-heading, .section-heading) p,
+:root[data-theme="light"] .tasks-description,
+:root[data-theme="light"] .task-meta,
+:root[data-theme="light"] .task-footer,
+:root[data-theme="light"] .settings-card-heading p,
+:root[data-theme="light"] .display-settings p,
+:root[data-theme="light"] .api-key-form p {
+  color: var(--app-secondary);
+}
+
+:root[data-theme="light"] .sidebar .nav-item {
+  color: #334155;
+}
+
+:root[data-theme="light"] .sidebar .nav-item:hover {
+  background: rgba(15, 23, 42, 0.06);
+  color: #0f172a;
+}
+
+:root[data-theme="light"] .sidebar .nav-item.active {
+  background: var(--app-accent-soft);
+  border-color: var(--app-accent-border);
+  color: var(--app-accent);
+}
+
+:root[data-theme="light"] .surface,
+:root[data-theme="light"] .dashboard-overview button {
+  background: var(--app-surface);
+  border-color: var(--app-border);
+  box-shadow: 0 3px 12px -3px rgba(15, 23, 42, 0.08);
+}
+
+:root[data-theme="light"] .dashboard-ai {
+  background: #e6eef7;
+  border-color: rgba(2, 132, 199, 0.28);
+}
+
+:root[data-theme="light"] .dashboard-ai-icon {
+  background: rgba(2, 132, 199, 0.12);
+  border-color: rgba(2, 132, 199, 0.28);
+  color: var(--app-accent);
+}
+
+:root[data-theme="light"] .dashboard-ai-title p,
+:root[data-theme="light"] .dashboard-ai-send small {
+  color: var(--app-secondary);
+}
+
+:root[data-theme="light"] .dashboard-ai textarea,
+:root[data-theme="light"] .main-content :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select),
+:root[data-theme="light"] .tasks-page .task-form,
+:root[data-theme="light"] .task-template-picker select {
+  background-color: #f5f7fa;
+  border-color: var(--app-border-strong);
+  color: var(--app-text);
+}
+
+:root[data-theme="light"] .dashboard-ai textarea::placeholder,
+:root[data-theme="light"] .task-form input::placeholder {
+  color: var(--app-muted);
+}
+
+:root[data-theme="light"] .dashboard-suggestions button,
+:root[data-theme="light"] .dashboard-project-actions button,
+:root[data-theme="light"] .dashboard-shortcuts button,
+:root[data-theme="light"] .main-content .button-secondary,
+:root[data-theme="light"] .tasks-page .task-filters button,
+:root[data-theme="light"] .file-actions button,
+:root[data-theme="light"] .archive-card-actions button {
+  background: var(--app-control);
+  border-color: var(--app-border-strong);
+  color: var(--app-text);
+}
+
+:root[data-theme="light"] .dashboard-suggestions button:hover,
+:root[data-theme="light"] .dashboard-project-actions button:hover:not(:disabled),
+:root[data-theme="light"] .dashboard-shortcuts button:hover,
+:root[data-theme="light"] .main-content .button-secondary:hover:not(:disabled) {
+  background: var(--app-hover);
+  border-color: var(--app-accent-border);
+}
+
+:root[data-theme="light"] .dashboard-text-button,
+:root[data-theme="light"] .dashboard-more,
+:root[data-theme="light"] .project-open,
+:root[data-theme="light"] .project-actions button {
+  color: var(--app-accent);
+}
+
+:root[data-theme="light"] .tasks-page .task-item,
+:root[data-theme="light"] .dashboard-pc,
+:root[data-theme="light"] .notes-editor,
+:root[data-theme="light"] .project-hub,
+:root[data-theme="light"] .project-hub-columns > section,
+:root[data-theme="light"] .checklist-editor {
+  background: #f3f6f9;
+  border-color: var(--app-border);
+  color: var(--app-text);
+}
+
+:root[data-theme="light"] .dashboard-pc-title,
+:root[data-theme="light"] .dashboard-pc summary small {
+  color: var(--app-secondary);
+}
+
+:root[data-theme="light"] .notes-sidebar,
+:root[data-theme="light"] .conversation-history {
+  background: #e5ebf2;
+  border-color: var(--app-border);
+}
+
+:root[data-theme="light"] .settings-navigation button {
+  color: var(--app-secondary);
+}
+
+:root[data-theme="light"] .settings-navigation button small {
+  color: var(--app-muted);
+}
+
+:root[data-theme="light"] .settings-navigation button[aria-selected="true"] {
+  background: var(--app-accent-soft);
+  border-color: var(--app-accent-border);
+  color: var(--app-accent);
+}
+
+:root[data-theme="light"] .editor-dialog,
+:root[data-theme="light"] .command-dialog,
+:root[data-theme="light"] .record-menu-panel {
+  background: #eef2f6;
+  color: var(--app-text);
+  border-color: var(--app-border-strong);
+}
+
+:root[data-theme="light"] .editor-dialog-body input:not([type="checkbox"]),
+:root[data-theme="light"] .editor-dialog-body select,
+:root[data-theme="light"] .editor-dialog-body textarea,
+:root[data-theme="light"] .command-dialog > input {
+  background: #f8fafc;
+  color: var(--app-text);
+  border-color: var(--app-border-strong);
+}
+
+:root[data-theme="light"] .editor-dialog-body label,
+:root[data-theme="light"] .record-menu-panel button,
+:root[data-theme="light"] .command-result {
+  color: var(--app-text);
+}
+
+:root[data-theme="light"] .editor-dialog-body form > :is(.settings-actions, .project-editor-actions, .archive-editor-actions, .hub-actions):last-child {
+  background: #eef2f6;
+  border-top-color: var(--app-border);
+}
+
+:root[data-theme="light"] .record-menu-trigger,
+:root[data-theme="light"] .editor-close {
+  background: var(--app-control);
+  border-color: var(--app-border-strong);
+  color: var(--app-text);
+}
+

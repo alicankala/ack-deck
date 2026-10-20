@@ -48,7 +48,6 @@ function App() {
   const [content, setContent] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
-  const [important, setImportant] = useState(false);
   const [reminder, setReminder] = useState(false);
   const [recurrence, setRecurrence] = useState<Recurrence | null>(null);
   const [subscriptionDraft, setSubscriptionDraft] = useState<Subscription | null>(null);
@@ -60,7 +59,7 @@ function App() {
   const [notificationTask, setNotificationTask] = useState(() => new URLSearchParams(location.hash.slice(1)).get("task"));
 
   // Sub-tabs
-  const [taskFilter, setTaskFilter] = useState<"today" | "all" | "important">("today");
+  const [taskFilter, setTaskFilter] = useState<"today" | "all">("today");
   const [planTab, setPlanTab] = useState<"calendar" | "subscriptions">("calendar");
 
   const formRequestId = useRef(crypto.randomUUID());
@@ -250,7 +249,6 @@ function App() {
     setContent(row?.kind === "notes" ? (row.data as PhoneNote).content : "");
     setDate(task?.dueDate ?? "");
     setTime(task?.dueTime ?? "");
-    setImportant(task?.priority === "important");
     setReminder(task?.reminder ?? false);
     setRecurrence(task?.recurrence ?? null);
   }
@@ -341,7 +339,7 @@ function App() {
             occurrenceAt: first?.at ?? previous?.occurrenceAt ?? dueAt,
             lastCompletedAt: previous?.lastCompletedAt ?? null,
             snoozedUntil: changed ? null : previous?.snoozedUntil ?? null,
-            priority: important ? "important" : "normal",
+            priority: "normal",
             reminder,
             dueAt,
             timezone: rule?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -523,7 +521,6 @@ function App() {
     const d = displayedDate(t);
     return !!d && (d === today || (!t.recurrence && d < today));
   });
-  const importantTasks = unfinished.filter(row => (row.data as PhoneTask).priority === "important");
 
   // Study programs today
   const studyPrograms = state.records
@@ -612,9 +609,9 @@ function App() {
                 <strong>{todayTasks.length}</strong>
                 <span>Bugün</span>
               </button>
-              <button type="button" className="metric-chip" onClick={() => setTaskFilter("important")}>
-                <strong>{importantTasks.length}</strong>
-                <span>Önemli</span>
+              <button type="button" className="metric-chip" onClick={() => setTaskFilter("all")}>
+                <strong>{unfinished.length}</strong>
+                <span>Aktif Görev</span>
               </button>
               <button type="button" className="metric-chip" onClick={() => { changePage("plan"); setPlanTab("calendar"); }}>
                 <strong>{todayStudyBlocks.length}</strong>
@@ -679,13 +676,12 @@ function App() {
                 <div className="mobile-segmented-bar">
                   <button className={`segment-btn ${taskFilter === "today" ? "is-active" : ""}`} onClick={() => setTaskFilter("today")}>Bugün ({todayTasks.length})</button>
                   <button className={`segment-btn ${taskFilter === "all" ? "is-active" : ""}`} onClick={() => setTaskFilter("all")}>Tüm Görevler ({unfinished.length})</button>
-                  <button className={`segment-btn ${taskFilter === "important" ? "is-active" : ""}`} onClick={() => setTaskFilter("important")}>Önemli ({importantTasks.length})</button>
                 </div>
                 <button className="primary-action-round" type="button" onClick={() => openForm("task")} title="Görev Ekle">+</button>
               </div>
 
               {(() => {
-                const list = taskFilter === "today" ? todayTasks : taskFilter === "important" ? importantTasks : unfinished;
+                const list = taskFilter === "today" ? todayTasks : unfinished;
                 if (!list.length) {
                   return (
                     <div className="mobile-empty-card">
@@ -698,14 +694,13 @@ function App() {
                 return list.map((row, index) => {
                   const task = row.data as PhoneTask;
                   return (
-                    <article className={`mobile-task-card ${task.priority === "important" ? "is-important" : ""}`} key={row.id}>
+                    <article className="mobile-task-card" key={row.id}>
                       <button className="mobile-task-open" type="button" onClick={() => openForm("task", row)}>
                         <div className="task-header-line">
-                          <span className={`task-check-dot ${task.priority === "important" ? "is-important" : ""}`} />
+                          <span className="task-check-dot" />
                           <h3>{task.text}</h3>
                         </div>
                         <div className="mobile-task-meta">
-                          {task.priority === "important" && <span className="task-chip chip-important">Önemli</span>}
                           {!!task.checklist?.length && (
                             <span className="task-chip chip-checklist">
                               {task.checklist.filter(c => c.completed).length}/{task.checklist.length} adım

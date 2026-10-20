@@ -47,7 +47,7 @@ function validData(data: unknown): boolean {
     array(data.files, (item) => isFileEntry(item) && fields(item, ["id", "name", "path", "fileName", "kind", "extension", "sizeBytes", "modifiedAt"])) &&
     array(data.archive, (item) => isArchiveEntry(item) && fields(item, ["id", "title", "category", "description", "date", "tags", "file", "createdAt", "updatedAt", "attachments", "sourceInboxId"]) && object(item) && (item.file === null || fields(item.file, ["path", "fileName"]))) &&
     (data.speedTest === null || (isSpeedResult(data.speedTest) && fields(data.speedTest, ["downloadMbps", "uploadMbps", "latencyMs", "jitterMs", "testedAt"]))) &&
-    fields(data.preferences, ["startPage", "pcRefreshMs"]) && object(data.preferences) && ["home", "ai", "projects", "tools", "archive"].includes(data.preferences.startPage as string) && [2500, 5000, 10000].includes(data.preferences.pcRefreshMs as number) &&
+    fields(data.preferences, ["startPage", "pcRefreshMs", "theme"]) && object(data.preferences) && ["home", "ai", "projects", "tools", "archive"].includes(data.preferences.startPage as string) && [2500, 5000, 10000].includes(data.preferences.pcRefreshMs as number) && (data.preferences.theme === undefined || ["dark", "light"].includes(data.preferences.theme as string)) &&
     ["fast", "powerful"].includes(data.aiModel as string) && validDesktop(data.desktop);
 }
 export function parseBackup(text: string): Backup {

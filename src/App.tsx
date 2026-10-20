@@ -42,6 +42,9 @@ import "./desktop-layout.css";
 
 function App() {
   const [preferences, setPreferences] = useState(loadPreferences);
+  useEffect(() => {
+    document.documentElement.dataset.theme = preferences.theme ?? "dark";
+  }, [preferences.theme]);
   const { route, navigate } = useNavigationHistory({ page: preferences.startPage }, () => restoring || aiBusy || searchOpen || history.mutating || !desktop.visible);
   const page = route.target.page;
   const setPage = (page: Page) => navigate({ page });

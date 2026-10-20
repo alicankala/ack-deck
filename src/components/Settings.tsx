@@ -25,7 +25,7 @@ import type { DesktopStatus } from "../desktopClient";
 
 const sections: { id: string; label: string; description: string; icon: IconName }[] = [
   { id: "general", label: "Genel", description: "Başlangıç ve kısayollar", icon: "settings" },
-  { id: "appearance", label: "Görünüm", description: "Ölçek ve hava durumu", icon: "grid" },
+  { id: "appearance", label: "Görünüm", description: "Tema, ölçek ve vakitler", icon: "grid" },
   { id: "ai", label: "ACK AI", description: "Model ve bağlantı", icon: "spark" },
   { id: "phone", label: "Telefon", description: "Eşitleme ve cihazlar", icon: "files" },
   { id: "data", label: "Veriler", description: "Yedekleme ve gizlilik", icon: "archive" },
@@ -125,7 +125,41 @@ export function Settings({ preferences, onPreferencesChange, desktop, onDesktopC
     <DesktopSettings status={desktop} onChange={onDesktopChange} />
     <PaletteShortcutSettings />
 </section>
-      <section role="tabpanel" id="settings-panel-appearance" aria-labelledby="settings-tab-appearance" hidden={selectedSection !== "appearance"} className="settings-section-panel"><DisplayScaleSettings /><WeatherSettings /><PrayerSettings /></section>
+      <section role="tabpanel" id="settings-panel-appearance" aria-labelledby="settings-tab-appearance" hidden={selectedSection !== "appearance"} className="settings-section-panel">
+        <section className="surface settings-card local-settings" aria-labelledby="theme-settings-title">
+          <h2 id="theme-settings-title">Uygulama Teması</h2>
+          <p>Göz yormayan koyu çalışma alanı veya yumuşak taş tonlu açık tema arasında geçiş yapabilirsin.</p>
+          <div className="theme-toggle-options" role="radiogroup" aria-label="Tema seçimi">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={(preferences.theme ?? "dark") === "dark"}
+              className={`theme-choice-card ${(preferences.theme ?? "dark") === "dark" ? "is-selected" : ""}`}
+              onClick={() => changePreference({ ...preferences, theme: "dark" })}
+            >
+              <span className="theme-preview-swatch swatch-dark" aria-hidden="true" />
+              <div>
+                <strong>Koyu Tema</strong>
+                <small>Gece mavisi ve derin koyu yüzeyler</small>
+              </div>
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={preferences.theme === "light"}
+              className={`theme-choice-card ${preferences.theme === "light" ? "is-selected" : ""}`}
+              onClick={() => changePreference({ ...preferences, theme: "light" })}
+            >
+              <span className="theme-preview-swatch swatch-light" aria-hidden="true" />
+              <div>
+                <strong>Açık Tema</strong>
+                <small>Göz almayan yumuşak gri-taş tonları</small>
+              </div>
+            </button>
+          </div>
+        </section>
+        <DisplayScaleSettings /><WeatherSettings /><PrayerSettings />
+      </section>
       <section role="tabpanel" id="settings-panel-ai" aria-labelledby="settings-tab-ai" hidden={selectedSection !== "ai"} className="settings-section-panel">    <section className="settings-card surface" aria-labelledby="ai-settings-heading">
       <div className="settings-card-heading">
         <span className="feature-icon"><Icon name="spark" size={23} /></span>

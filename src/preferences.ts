@@ -1,6 +1,7 @@
 export type StartPage = "home" | "ai" | "projects" | "tools" | "archive";
-export type Preferences = { startPage: StartPage; pcRefreshMs: 2500 | 5000 | 10000 };
-export const DEFAULT_PREFERENCES: Preferences = { startPage: "home", pcRefreshMs: 2500 };
+export type ThemeMode = "dark" | "light";
+export type Preferences = { startPage: StartPage; pcRefreshMs: 2500 | 5000 | 10000; theme?: ThemeMode };
+export const DEFAULT_PREFERENCES: Preferences = { startPage: "home", pcRefreshMs: 2500, theme: "dark" };
 const KEY = "ack-deck.preferences.v1";
 export function loadPreferences(): Preferences {
   try {
@@ -8,6 +9,7 @@ export function loadPreferences(): Preferences {
     return {
       startPage: ["home", "ai", "projects", "tools", "archive"].includes(value?.startPage) ? value.startPage : "home",
       pcRefreshMs: [2500, 5000, 10000].includes(value?.pcRefreshMs) ? value.pcRefreshMs : 2500,
+      theme: value?.theme === "light" ? "light" : "dark",
     };
   } catch { return { ...DEFAULT_PREFERENCES }; }
 }
