@@ -16,8 +16,11 @@ import type { NavigationTarget } from "./navigation";
 import type { Page } from "./components/Sidebar";
 import { loadWorkspaces, loadShortcuts } from "./workHubStore";
 import { launchWorkspace, launchShortcut } from "./hubLaunch";
+import { loadStudyPrograms, saveStudyPrograms } from "./studyProgramStore";
+import { validStudyProgram, normalizeStudySessions, formatStudySchedule, parseEndDateHint, type StudyProgram, type StudySession } from "../shared/studyPrograms";
 type TaskPatch = Partial<Pick<Task, "text" | "dueDate" | "dueTime" | "priority" | "reminder" | "checklist" | "projectId" | "workspaceId" | "sourceInboxId" | "reminderLeadMinutes" | "recurrence" | "occurrenceAt" | "timezone">>;
 type ArchivePatch = { title?: string; category?: ArchiveCategory; description?: string; date?: string | null; tags?: string[] };
+type StudyProgramPatch = { name?: string; startDate?: string; endDate?: string | null; active?: boolean; sessions?: StudySession[] };
 export type AckAction =
   | {type:"batch";actions:AckAction[]}
   | {type:"create_tasks";texts:string[];projectId?:string|null}
@@ -25,6 +28,9 @@ export type AckAction =
   | { type: "complete_task" | "delete_task"; taskId: string }
   | { type: "create_note"; title: string; content: string; projectId?:string|null; workspaceId?:string|null } | { type: "update_note"; noteId: string; title?: string; content?: string; projectId?:string|null; workspaceId?:string|null } | { type: "delete_note"; noteId: string }
   | ({ type: "create_archive"; title: string; category: ArchiveCategory; description: string } & ArchivePatch) | ({ type: "update_archive"; archiveId: string } & ArchivePatch) | { type: "delete_archive"; archiveId: string }
+  | { type: "create_study_program"; name: string; startDate?: string; endDate?: string | null; sessions: StudySession[] }
+  | ({ type: "update_study_program"; programId: string } & StudyProgramPatch)
+  | { type: "delete_study_program"; programId: string }
   | {type:"update_project";projectId:string;nextStep?:string;workspaceId?:string|null;inboxIds?:string[];}
   | { type: "open_project"; projectId: string; mode: "folder" | "vscode" } | { type: "open_workspace"; workspaceId: string } | { type: "open_shortcut"; shortcutId: string } | { type: "navigate"; page: Page } | { type: "start_speed_test" };
 export type AckProposal = { action: AckAction; question: string; expected?: string };
@@ -34,6 +40,7 @@ const shapes: Record<AckAction["type"], string[]> = {
   create_task: ["text", "dueDate", "dueTime", "priority", "reminder", "checklist", "projectId", "workspaceId", "sourceInboxId", "reminderLeadMinutes", "recurrence", "occurrenceAt", "timezone"], update_task: ["taskId", "text", "dueDate", "dueTime", "priority", "reminder", "checklist", "projectId", "workspaceId", "reminderLeadMinutes", "recurrence", "occurrenceAt", "timezone"], complete_task: ["taskId"], delete_task: ["taskId"],
   create_note: ["title", "content", "projectId", "workspaceId"], update_note: ["noteId", "title", "content", "projectId", "workspaceId"], delete_note: ["noteId"],
   create_archive: ["title", "category", "description", "date", "tags"], update_archive: ["archiveId", "title", "category", "description", "date", "tags"], delete_archive: ["archiveId"],
+  create_study_program: ["name", "startDate", "endDate", "sessions"], update_study_program: ["programId", "name", "startDate", "endDate", "active", "sessions"], delete_study_program: ["programId"],
   update_project: ["projectId", "nextStep", "workspaceId", "inboxIds"], open_project: ["projectId", "mode"], navigate: ["page"], start_speed_test: [],
   open_workspace: ["workspaceId"], open_shortcut: ["shortcutId"],
 };
@@ -41,10 +48,10 @@ const invalid = () => { throw new Error("AI işlem bilgileri geçersiz. Hiçbir 
 export function validateAckAction(value: unknown): AckAction {
   if (!value || typeof value !== "object" || Array.isArray(value)) return invalid();
   const item = value as Record<string, unknown>, type = item.type as AckAction["type"];
-  if(type==="batch"){if(Object.keys(item).some(k=>!["type","actions"].includes(k))||!Array.isArray(item.actions)||item.actions.length<1||item.actions.length>8||item.actions.some(a=>!a||typeof a!=="object"||!["create_task","create_tasks","update_task","complete_task","create_note","update_note","update_project","create_archive"].includes(String(a.type))))return invalid();return {type:"batch",actions:item.actions.map(validateAckAction)};}
+  if(type==="batch"){if(Object.keys(item).some(k=>!["type","actions"].includes(k))||!Array.isArray(item.actions)||item.actions.length<1||item.actions.length>8||item.actions.some(a=>!a||typeof a!=="object"||!["create_task","create_tasks","update_task","complete_task","create_note","update_note","update_project","create_archive","create_study_program","update_study_program"].includes(String(a.type))))return invalid();return {type:"batch",actions:item.actions.map(validateAckAction)};}
   if (!Object.prototype.hasOwnProperty.call(shapes, type) || Object.keys(item).some((key) => key !== "type" && !shapes[type].includes(key))) return invalid();
   const string = (key: string, max: number, required = false, nonempty = false) => { const value = item[key]; if (value === undefined && !required) return; if (typeof value !== "string" || value.length > max || (nonempty && !value.trim()) || redactSecrets(value) !== value) invalid(); };
-  for (const key of ["taskId", "noteId", "archiveId", "shortcutId"]) if (shapes[type].includes(key)) string(key, 512, true, true);
+  for (const key of ["taskId", "noteId", "archiveId", "shortcutId", "programId"]) if (shapes[type].includes(key)) string(key, 512, true, true);
   if (!validLinks(item)) invalid();
   if(type==="create_tasks"&&(!Array.isArray(item.texts)||item.texts.length<1||item.texts.length>8||!item.texts.every(v=>typeof v==="string"&&v.trim()&&v.length<=160&&redactSecrets(v)===v)))invalid();
   if ((type === "create_task" || type === "create_tasks" || type === "update_task" || type === "create_note" || type === "update_note") && item.projectId && !loadProjectSnapshot().entries.some(p=>p.id===item.projectId)) throw new Error("Proje bulunamadı.");
@@ -69,6 +76,17 @@ export function validateAckAction(value: unknown): AckAction {
     if (item.date !== undefined && item.date !== null && !validTaskDate(item.date)) invalid();
     if (item.tags !== undefined && (!Array.isArray(item.tags) || item.tags.length > 50 || !item.tags.every((tag) => typeof tag === "string" && tag.length <= 100 && redactSecrets(tag) === tag))) invalid();
   }
+  if (type.includes("study_program") && type !== "delete_study_program") {
+    string("name", 160, type === "create_study_program", true);
+    if (item.startDate !== undefined && !validTaskDate(item.startDate)) invalid();
+    if (item.endDate !== undefined && item.endDate !== null && !validTaskDate(item.endDate)) invalid();
+    if (item.active !== undefined && typeof item.active !== "boolean") invalid();
+    if (type === "create_study_program" || item.sessions !== undefined) {
+      const startDate = typeof item.startDate === "string" ? item.startDate : localDateKey();
+      const endDate = item.endDate === undefined ? null : (item.endDate as string | null);
+      if (!validStudyProgram({ id: "validation", name: typeof item.name === "string" ? item.name : "Program", startDate, endDate, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, active: true, sessions: item.sessions, updatedAt: 1 })) invalid();
+    }
+  }
   if (type.startsWith("update_") && Object.keys(item).length <= 2) invalid();
   if (type === "open_project" && item.mode !== "folder" && item.mode !== "vscode") invalid();
   if (type === "navigate" && !pages.includes(item.page as Page)) invalid();
@@ -79,6 +97,7 @@ function currentRecord(action: AckAction): unknown {
   if(action.type==="batch")return action.actions.map(currentRecord);
   if (action.type === "open_workspace") { const loaded = loadWorkspaces(), item = loaded.entries.find(v => v.id === action.workspaceId); if (loaded.locked || !item) throw new Error("Çalışma alanı bulunamadı."); const projects = loadProjectSnapshot(); if (projects.locked && item.items.some(v => v.type === "project")) throw new Error("Proje bilgilerine şu anda erişemedim."); return { ...item, resolvedProjects: item.items.filter(v => v.type === "project").map(v => projects.entries.find(project => project.id === v.projectId) ?? { missing: v.projectId }) }; }
   if ("shortcutId" in action) { const loaded = loadShortcuts(), item = loaded.entries.find(v => v.id === action.shortcutId); if (loaded.locked || !item) throw new Error("Kısayol bulunamadı."); return item; }
+  if ("programId" in action) { const loaded = loadStudyPrograms(); if (loaded.locked) throw new Error("Ders programlarına şu anda erişemedim."); const item = loaded.entries.find(p => p.id === action.programId); if (!item) throw new Error("Ders programı bulunamadı."); return item; }
   if ("taskId" in action) { const loaded = loadTasks(); if (loaded.locked) throw new Error("Görev bilgilerine şu anda erişemedim."); const item = loaded.entries.find((task) => task.id === action.taskId); if (!item) throw new Error("Görev artık bulunamıyor."); const { remindedFor: _, ...stable } = item; return stable; }
   if ("noteId" in action) { const loaded = loadNotes(); if (loaded.error) throw new Error("Not bilgilerine şu anda erişemedim."); const item = loaded.notes.find((note) => note.id === action.noteId); if (!item) throw new Error("Not artık bulunamıyor."); return item; }
   if ("archiveId" in action) { const loaded = loadArchive(); if (loaded.locked) throw new Error("Arşiv bilgilerine şu anda erişemedim."); const item = loaded.entries.find((entry) => entry.id === action.archiveId); if (!item) throw new Error("Arşiv kaydı artık bulunamıyor."); return item; }
@@ -102,6 +121,22 @@ export function prepareAckProposal(input: unknown): AckProposal {
     const candidate = { ...(current ?? {}), ...patch(action, shapes.create_archive) };
     question = (action.type === "delete_archive" ? "Arşiv kaydı silinsin mi? İlişkili gerçek dosya silinmez." : action.type === "create_archive" ? "Yeni arşiv kaydı oluşturulsun mu?" : "Arşiv kaydı güncellensin mi?") + "\n" + candidate.title + "\nKategori: " + candidate.category + "\n" + (candidate.description ?? "") + "\nTarih: " + (candidate.date ?? "Yok") + "\nEtiketler: " + ((candidate.tags as string[] | undefined)?.join(", ") ?? "Yok");
   }
+  else if (action.type === "create_study_program" || action.type === "update_study_program") {
+    const base = current as StudyProgram | undefined;
+    const candidate: StudyProgram = {
+      id: base?.id ?? "preview",
+      name: action.name ?? base?.name ?? "Ders Programı",
+      startDate: action.startDate ?? base?.startDate ?? localDateKey(),
+      endDate: action.endDate !== undefined ? action.endDate : (base?.endDate ?? null),
+      timezone: base?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+      active: "active" in action && action.active !== undefined ? action.active : (base?.active ?? true),
+      sessions: action.sessions ?? base?.sessions ?? [],
+      updatedAt: 1,
+    };
+    if (!validStudyProgram(candidate)) invalid();
+    question = (action.type === "create_study_program" ? "Bu ders programı Haftalık Plan'a eklensin mi?\n" : "Ders programı güncellensin mi?\n") + formatStudySchedule(candidate);
+  }
+  else if (action.type === "delete_study_program") question = String(current?.name) + " ders programı silinsin mi?";
   else if (action.type === "update_project") question = String(current?.name)+" projesi güncellensin mi?\nSıradaki adım: "+(action.nextStep??current?.nextStep??"Yok")+"\nÇalışma alanı: "+(action.workspaceId??current?.workspaceId??"Yok");
   else if (action.type === "open_project") question = String(current?.name) + " projesini " + (action.mode === "vscode" ? "VS Code'da" : "Explorer'da") + " açayım mı?";
   else if (action.type === "open_workspace") question = String(current?.name) + " çalışma alanı açılsın mı?\nAçılacaklar:\n" + (loadWorkspaces().entries.find(v => v.id === action.workspaceId)?.items.map(v => "• " + v.name).join("\n") || "Henüz öğe eklenmedi.");
@@ -112,9 +147,16 @@ export function prepareAckProposal(input: unknown): AckProposal {
 }
 export function proposalFromTool(call: { name: string; args: unknown }, userText: string, now = new Date()): AckProposal {
   if (!call || typeof call.name !== "string" || !call.args || typeof call.args !== "object" || Array.isArray(call.args) || "type" in call.args) invalid();
-  const input = { ...(call.args as Record<string, unknown>), type: call.name };
+  const input: Record<string, unknown> = { ...(call.args as Record<string, unknown>), type: call.name };
   if(call.name==="plan_actions"){const args=call.args as {actions?:{name:string;args:unknown}[]};if(!Array.isArray(args.actions)||args.actions.length<1||args.actions.length>8)invalid();return prepareAckProposal({type:"batch",actions:args.actions!.map(c=>{if(c.name==="plan_actions")return invalid();const {name,args:nested,...flat}=c as {name:string;args?:unknown;[key:string]:unknown};return proposalFromTool({name,args:nested??flat},userText,now).action;})});}
   if (call.name === "create_task" || call.name === "update_task") Object.assign(input, parseTemporal(userText, now));
+  if (call.name === "create_study_program" || call.name === "update_study_program") {
+    if (input.sessions !== undefined) input.sessions = normalizeStudySessions(input.sessions);
+    if (call.name === "create_study_program") {
+      if (!input.startDate || typeof input.startDate !== "string") input.startDate = localDateKey(now);
+      if (input.endDate === undefined) input.endDate = parseEndDateHint(userText, now);
+    }
+  }
   return prepareAckProposal(input);
 }
 export function parseTemporal(text: string, now = new Date()): TaskPatch {
@@ -130,13 +172,13 @@ export function parseTemporal(text: string, now = new Date()): TaskPatch {
   if (/hatirlat/.test(normalized)) result.reminder = !/hatirlat.*(?:kapat|kaldir|iptal)/.test(normalized);
   return result;
 }
-export const isActionRequest = (text: string) => /\b(?:ekle|olustur|duzenle|degistir|tamamla|sil|ac|git|baslat)\b|hatirlat|internetimi test et/.test(normalizeSearch(text));
+export const isActionRequest = (text: string) => /\b(?:ekle|olustur|duzenle|degistir|tamamla|sil|ac|git|baslat|hazirla)\b|hatirlat|internetimi test et|haftalik plana|ders programi/.test(normalizeSearch(text));
 export function proposeAckAction(text: string, now = new Date()): AckProposal | null {
   const normalized = normalizeSearch(text);
   const capture=parseSmartCapture(text,loadProjectSnapshot().entries,now);
   if(capture){const {kind,...fields}=capture;return prepareAckProposal(kind==="note"?{type:"create_note",...fields}:{type:"create_task",...fields});}
   const nextStep=text.match(/^(.+?)\s+projesinin\s+sıradaki\s+adımını\s*(?:değiştir|yap)\s*:\s*(.+)$/iu);if(nextStep){const matches=loadProjectSnapshot().entries.filter(p=>normalizeSearch(p.name)===normalizeSearch(nextStep[1]));if(matches.length===1)return prepareAckProposal({type:"update_project",projectId:matches[0].id,nextStep:nextStep[2]});}
-  const nav: [RegExp, Page][] = [[/\bqr\b.*(?:ac|git)/, "qr"], [/notlara git/, "notes"], [/ayarlari ac|ayarlara git/, "settings"], [/arsivi ac|arsive git/, "archive"], [/gorevlere git/, "tasks"], [/ana sayfa.*(?:ac|git)/, "home"]];
+  const nav: [RegExp, Page][] = [[/\bqr\b.*(?:ac|git)/, "qr"], [/notlara git/, "notes"], [/ayarlari ac|ayarlara git/, "settings"], [/arsivi ac|arsive git/, "archive"], [/gorevlere git/, "tasks"], [/haftalik plan.*(?:ac|git)|takvim.*(?:ac|git)/, "calendar"], [/ana sayfa.*(?:ac|git)/, "home"]];
   for (const [pattern, page] of nav) if (pattern.test(normalized)) return prepareAckProposal({ type: "navigate", page });
   if (/internetimi test et|hiz testini baslat|hiz testi baslat/.test(normalized)) return prepareAckProposal({ type: "start_speed_test" });
   if (/\bac\b|acar misin/.test(normalized)) {
@@ -191,6 +233,21 @@ export async function executeAckAction(input: AckAction, confirmed: boolean, nat
   if (action.type === "open_project") { await openRegisteredProject(action.projectId, action.mode, native); return "Kayıtlı proje " + (action.mode === "vscode" ? "VS Code'da" : "Explorer'da") + " açıldı."; }
   if (action.type === "open_workspace") { const snapshot = expected ?? JSON.stringify(current); const result = await launchWorkspace(action.workspaceId, native, () => { if (JSON.stringify(currentRecord(action)) !== snapshot) throw new Error("Onaylanan hedef değişti. Yeniden onay gerekli."); }); return result.errors.length ? `${result.opened} öğe açıldı. ${result.errors.join(" ")}` : result.opened ? "Çalışma alanı açıldı." : "Çalışma alanında açılacak öğe yok. Hiçbir öğe açılmadı."; }
   if (action.type === "open_shortcut") { await launchShortcut(action.shortcutId, native); return "Kayıtlı kısayol açıldı."; }
+  if (action.type.includes("study_program")) {
+    const loaded = loadStudyPrograms(); if (loaded.locked) throw new Error("Ders programlarına şu anda erişemedim.");
+    let entries = loaded.entries;
+    if (action.type === "create_study_program") {
+      const program: StudyProgram = { id: crypto.randomUUID(), name: action.name, startDate: action.startDate ?? localDateKey(), endDate: action.endDate ?? null, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, active: true, sessions: action.sessions, updatedAt: Date.now() };
+      entries = [program, ...entries];
+    } else if (action.type === "update_study_program") {
+      entries = entries.map(p => p.id === action.programId ? { ...p, ...patch(action, ["name", "startDate", "endDate", "active", "sessions"]), updatedAt: Date.now() } : p);
+    } else if (action.type === "delete_study_program") {
+      entries = entries.filter(p => p.id !== action.programId);
+    }
+    if (!saveStudyPrograms(entries, loaded)) throw new Error("Ders programı kaydedilemedi.");
+    if (action.type !== "delete_study_program") navigate?.({ page: "calendar" });
+    return action.type === "create_study_program" ? "Ders programı Haftalık Plan'a eklendi." : action.type === "update_study_program" ? "Ders programı güncellendi." : "Ders programı silindi.";
+  }
   if (action.type.includes("task")) {
     const loaded = loadTasks(); if (loaded.locked) throw new Error("Görev bilgilerine şu anda erişemedim.");
     let entries = loaded.entries;

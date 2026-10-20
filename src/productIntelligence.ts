@@ -4,6 +4,8 @@ import { loadNotes, type Note } from "./notesStore";
 import { loadSubscriptions } from "./subscriptionStore";
 import { loadWorkspaces } from "./workHubStore";
 import { loadActivity, type Activity } from "./activityStore";
+import { loadStudyPrograms } from "./studyProgramStore";
+import { studyBlocks, type StudyProgram } from "../shared/studyPrograms";
 import { todaySummary, weeklyPlan, weekDates } from "../shared/weeklyPlan";
 import type { Subscription } from "../shared/subscriptions";
 import { redactSecrets } from "./privacy";
@@ -35,11 +37,12 @@ export type IntelligenceData = {
     tasks: Task[];
     notes: Note[];
     subscriptions: Subscription[];
+    studyPrograms?: StudyProgram[];
     activity: Activity[];
     inbox: InboxReference[] | null;
     warnings: string[];
 };
-export function intelligenceData(): IntelligenceData { const projects = loadProjectSnapshot(), tasks = loadTasks(), notes = loadNotes(), subscriptions = loadSubscriptions(), activity = loadActivity(); return { projects: projects.entries, tasks: tasks.entries, notes: notes.notes, subscriptions: subscriptions.entries, activity: activity.entries, inbox: loadInboxIndex(), warnings: [...(projects.locked ? ["Projeler okunamadı"] : []), ...(tasks.locked ? ["Görevler okunamadı"] : []), ...(notes.error ? ["Notlar okunamadı"] : []), ...(subscriptions.locked ? ["Abonelikler okunamadı"] : []), ...(activity.locked ? ["Aktivite geçmişi okunamadı"] : [])] }; }
+export function intelligenceData(): IntelligenceData { const projects = loadProjectSnapshot(), tasks = loadTasks(), notes = loadNotes(), subscriptions = loadSubscriptions(), study = loadStudyPrograms(), activity = loadActivity(); return { projects: projects.entries, tasks: tasks.entries, notes: notes.notes, subscriptions: subscriptions.entries, studyPrograms: study.entries, activity: activity.entries, inbox: loadInboxIndex(), warnings: [...(projects.locked ? ["Projeler okunamadı"] : []), ...(tasks.locked ? ["Görevler okunamadı"] : []), ...(notes.error ? ["Notlar okunamadı"] : []), ...(subscriptions.locked ? ["Abonelikler okunamadı"] : []), ...(study.locked ? ["Ders programları okunamadı"] : []), ...(activity.locked ? ["Aktivite geçmişi okunamadı"] : [])] }; }
 export function projectHub(projectId: string, data = intelligenceData()) {
     const project = data.projects.find(p => p.id === projectId);
     if (!project)
@@ -99,8 +102,10 @@ export function buildIntelligenceContext(query: string, data = intelligenceData(
         if (/yarin/.test(q))
             anchor.setDate(anchor.getDate() + 1);
         const plan = weeklyPlan(data.tasks.map(t => ({ ...t, dueAt: taskDueAt(t) })), data.subscriptions, anchor);
-        context = { today: dailySummary(data, now), days: weekDates(anchor), plan: plan.slice(0, 40), openUndated: data.tasks.filter(t => !t.completed && !t.dueDate).slice(0, 8).map(t => ({ id: t.id, text: t.text })), durationUnknown: "Görevlerin süre tahmini kayıtlı değil; iki saate sığacağı kesin söylenemez." };
-        records.push(...plan.slice(0, 8).map(p => ({ source: p.source, id: p.id, label: p.label })));
+        const programs = data.studyPrograms ?? loadStudyPrograms().entries;
+        const blocks = studyBlocks(programs, anchor);
+        context = { today: dailySummary(data, now), days: weekDates(anchor), plan: plan.slice(0, 40), studyBlocks: blocks.slice(0, 30), studyPrograms: programs.filter(p => p.active).map(p => ({ id: p.id, name: p.name, startDate: p.startDate, endDate: p.endDate })), openUndated: data.tasks.filter(t => !t.completed && !t.dueDate).slice(0, 8).map(t => ({ id: t.id, text: t.text })), durationUnknown: "Görevlerin süre tahmini kayıtlı değil; iki saate sığacağı kesin söylenemez." };
+        records.push(...plan.slice(0, 8).map(p => ({ source: p.source, id: p.id, label: p.label })), ...programs.filter(p => p.active).slice(0, 4).map(p => ({ source: "calendar", id: p.id, label: p.name })));
     }
     return { text: boundedContext({ localTime: now.toLocaleString("sv-SE"), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, warnings: data.warnings, data: context }), records: [...new Map(records.map(r => [r.source + ":" + r.id, { ...r, label: safe(r.label).slice(0, 200) }])).values()].slice(0, 20) };
 }

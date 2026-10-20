@@ -19,20 +19,21 @@ import { getSavedAiModel } from "./aiModelPreference";
 import { loadWorkspaces, loadShortcuts } from "./workHubStore";
 import { resolveRecents } from "./recentStore";
 import { loadUsage, rankMatch } from "./usageStore";
+import { loadStudyPrograms } from "./studyProgramStore";
 
-export type AckSource = "tasks" | "projects" | "notes" | "archive" | "files" | "speed" | "pc" | "ip" | "settings" | "workspaces" | "shortcuts" | "recent" | "pinned" | "inbox" | "subscriptions" | "activity";
+export type AckSource = "tasks" | "projects" | "notes" | "archive" | "files" | "speed" | "pc" | "ip" | "settings" | "workspaces" | "shortcuts" | "recent" | "pinned" | "inbox" | "subscriptions" | "activity" | "studyprograms";
 export type AckContext = { source: AckSource; data: string };
 export function contextReferences(context: AckContext[]): { source: string; id: string; label: string }[] {
   const result: { source: string; id: string; label: string }[] = [];
   for (const item of context) {
-    if (!["tasks", "projects", "notes", "archive", "files", "shortcuts", "workspaces", "recent", "pinned", "inbox", "subscriptions"].includes(item.source)) continue;
+    if (!["tasks", "projects", "notes", "archive", "files", "shortcuts", "workspaces", "recent", "pinned", "inbox", "subscriptions", "studyprograms"].includes(item.source)) continue;
     try {
       const value: unknown = JSON.parse(item.data);
       if (!Array.isArray(value)) continue;
       for (const row of value) {
         const source = ["recent", "pinned"].includes(item.source) ? row.source : item.source;
-        const page = source === "shortcuts" ? "files" : source;
-        if (!["tasks", "projects", "notes", "archive", "files", "workspaces", "inbox", "subscriptions"].includes(page) || typeof row.id !== "string" || !/^[a-zA-Z0-9_.-]{1,128}$/.test(row.id)) continue;
+        const page = source === "shortcuts" ? "files" : source === "studyprograms" ? "calendar" : source;
+        if (!["tasks", "projects", "notes", "archive", "files", "workspaces", "inbox", "subscriptions", "calendar"].includes(page) || typeof row.id !== "string" || !/^[a-zA-Z0-9_.-]{1,128}$/.test(row.id)) continue;
         const label = row.title ?? row.text ?? row.name;
         if (typeof label !== "string" || result.some(r => r.source === page && r.id === row.id)) continue;
         result.push({ source: page, id: row.id, label: redactSecrets(label).slice(0,200) });
@@ -42,12 +43,13 @@ export function contextReferences(context: AckContext[]): { source: string; id: 
   }
   return result;
 }
-export const SOURCE_LABELS: Record<AckSource, string> = { tasks: "Görevler", projects: "Projeler", notes: "Notlar", archive: "Arşiv", files: "Dosya bilgileri", speed: "Son hız testi", pc: "PC Durumu", ip: "IP bilgileri", settings: "Yerel tercihler", workspaces: "Çalışma Alanları", shortcuts: "Kısayollar", recent: "Son Kullanılanlar", pinned: "Sabitlenenler", inbox:"Gelenler",subscriptions:"Abonelikler",activity:"Çalışma geçmişi ve plan" };
+export const SOURCE_LABELS: Record<AckSource, string> = { tasks: "Görevler", projects: "Projeler", notes: "Notlar", archive: "Arşiv", files: "Dosya bilgileri", speed: "Son hız testi", pc: "PC Durumu", ip: "IP bilgileri", settings: "Yerel tercihler", workspaces: "Çalışma Alanları", shortcuts: "Kısayollar", recent: "Son Kullanılanlar", pinned: "Sabitlenenler", inbox:"Gelenler",subscriptions:"Abonelikler",activity:"Çalışma geçmişi ve plan",studyprograms:"Ders Programları" };
 export const normalizeAckText = (text: string) => text.toLocaleLowerCase("tr-TR").normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/ı/g, "i");
 
 export function planAckSources(text: string): AckSource[] {
   const value = normalizeAckText(text);
   const sources: AckSource[] = [];
+  if (/ders program|calisma program|calisma plan|haftalik plan|cizelge|\bders(?:ler|im|i)?\b|\bvize\b|\bfinal\b/.test(value)) sources.push("studyprograms");
   if (/\bgorev|yapilacak|\bbugun (?:ne yapmam gerekiyor|ne var)/.test(value)) sources.push("tasks");
   if (/\bproje/.test(value)) sources.push("projects");
   if (/\bnot(?:lar|um|un|u|a|ta|larda|$)|notlarim/.test(value)) sources.push("notes");
@@ -81,6 +83,7 @@ function requireReadable<T>(loaded: { locked?: boolean; error?: string | null; e
 }
 
 export const ackReadTools = {
+  get_study_programs: (query = "") => { const loaded = loadStudyPrograms(); requireReadable(loaded); const matches = loaded.entries.filter(p => normalizeAckText(query).includes(normalizeAckText(p.name)) || p.sessions.some(s => normalizeAckText(query).includes(normalizeAckText(s.subject)))); return (matches.length ? matches : loaded.entries).slice(0, 8).map(p => ({ id: p.id, name: p.name, startDate: p.startDate, endDate: p.endDate, active: p.active, sessions: p.sessions })); },
   get_subscriptions: (query:string) => {const loaded=loadSubscriptions();requireReadable(loaded);const matches=loaded.entries.filter(s=>normalizeAckText(query).includes(normalizeAckText(s.name)));return (matches.length?matches:loaded.entries).slice(0,8).map(s=>({id:s.id,name:s.name,nextPayment:paymentOccurrence(s,Date.now()-1)?.date??s.nextPayment,status:s.status,amount:s.amount,currency:s.currency,cycle:s.cycle,reminderDays:s.reminderDays}));},
   get_inbox: () => {const entries=loadInboxIndex();if(entries===null)throw new Error("Inbox metadata not loaded");return entries.slice(0,12);},
   get_activity: () => {const loaded=loadActivity();requireReadable(loaded);return loaded.entries.slice(0,20);},
@@ -128,6 +131,7 @@ export async function collectAckContext(text: string, tools: ReadTools = ackRead
     try {
       let data: unknown;
       switch (source) {
+        case "studyprograms": data = await tools.get_study_programs(text); break;
         case "subscriptions": data=await tools.get_subscriptions(text);break;
         case "inbox": data=await tools.get_inbox();break;
         case "activity": data=await tools.get_activity();break;

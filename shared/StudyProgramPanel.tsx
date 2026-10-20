@@ -2,8 +2,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import { newStudyProgram, newStudySession, validStudyProgram, studyBlocks, studyConflicts, type StudyProgram, type StudySession } from "./studyPrograms";
 import "./planner.css";
 const weekdays = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
-export function StudyPrograms({ programs, onSave, onDelete, disabled = false, selectedId, onSelectionHandled }: {
-  programs: StudyProgram[]; onSave: (program: StudyProgram) => Promise<void>; onDelete: (id: string) => Promise<void>; disabled?: boolean; selectedId?: string | null; onSelectionHandled?: () => void;
+export function StudyPrograms({ programs, onSave, onDelete, onAskAi, disabled = false, selectedId, onSelectionHandled }: {
+  programs: StudyProgram[]; onSave: (program: StudyProgram) => Promise<void>; onDelete: (id: string) => Promise<void>; onAskAi?: () => void; disabled?: boolean; selectedId?: string | null; onSelectionHandled?: () => void;
 }) {
   const [draft, setDraft] = useState<StudyProgram | null>(null), [error, setError] = useState(""), [busy, setBusy] = useState(false), running = useRef(false);
   useEffect(() => { if (selectedId) { const program = programs.find(p => p.id === selectedId); if (program) { setDraft(structuredClone(program)); setError(""); } onSelectionHandled?.(); } }, [selectedId, programs, onSelectionHandled]);
@@ -12,10 +12,43 @@ export function StudyPrograms({ programs, onSave, onDelete, disabled = false, se
     try { await run(); if (close) setDraft(null); } catch (e) { setError(e instanceof Error ? e.message : "Program kaydedilemedi; taslağın korunuyor."); } finally { running.current = false; setBusy(false); }
   }
   const active = programs.filter(p => p.active), blocks = studyBlocks(active), minutes = blocks.reduce((n, b) => n + b.minutes, 0);
-  return <section className="study-programs" aria-labelledby="study-programs-heading"><header className="study-section-heading"><div><h2 id="study-programs-heading">Ders programları</h2><p>Bir kez düzenle; çalışma blokların her hafta yerini bulsun.</p></div><button type="button" className="planner-primary" disabled={disabled || busy || programs.length >= 100} onClick={() => { setError(""); setDraft(newStudyProgram()); }}>+ Program oluştur</button></header>
-    {programs.length > 0 && <p className="study-summary">{active.length} aktif program · Bu hafta {blocks.length} blok, {Math.floor(minutes / 60)} sa {minutes % 60 ? `${minutes % 60} dk` : ""}</p>}
-    {!programs.length && <div className="study-empty"><span aria-hidden="true">▦</span><div><strong>Çalışmanı görev listesine sıkıştırma.</strong><p>Derslerini, günlerini ve çalışma sürelerini tek programda planla.</p></div></div>}
-    <div className="study-program-list">{programs.map(p => <article className={`study-program-card ${p.active ? "" : "paused"}`} key={p.id}><button type="button" className="study-program-open" disabled={disabled || busy} onClick={() => { setDraft(structuredClone(p)); setError(""); }}><span className="study-program-status">{p.active ? "Aktif" : "Duraklatıldı"}</span><h3>{p.name}</h3><p>{[...new Set(p.sessions.map(s => s.subject))].join(" · ")}</p><small>{p.sessions.length} ders bloğu · {p.endDate ? `${new Date(p.endDate + "T12:00:00").toLocaleDateString("tr-TR")} tarihine kadar` : "Her hafta"}</small></button><button type="button" className="planner-secondary study-pause" disabled={disabled || busy} onClick={() => void action(() => onSave({ ...p, active: !p.active, updatedAt: Date.now() }))}>{p.active ? "Duraklat" : "Devam et"}</button></article>)}</div>
+  return <section className="study-programs" aria-labelledby="study-programs-heading">
+    <header className="study-section-heading">
+      <div><h2 id="study-programs-heading">Ders programları ve haftalık çizelge</h2><p>Derslerini gün ve saatleriyle çizelge olarak düzenle; her hafta takvimine otomatik yerleşsin.</p></div>
+      <div className="study-section-actions">
+        {onAskAi && <button type="button" className="planner-secondary" disabled={disabled || busy} onClick={onAskAi}>✦ AI ile çizelge oluştur</button>}
+        <button type="button" className="planner-primary" disabled={disabled || busy || programs.length >= 100} onClick={() => { setError(""); setDraft(newStudyProgram()); }}>+ Program oluştur</button>
+      </div>
+    </header>
+    {programs.length > 0 && <p className="study-summary">{active.length} aktif program · Bu hafta {blocks.length} ders bloğu ({Math.floor(minutes / 60)} sa {minutes % 60 ? `${minutes % 60} dk` : ""})</p>}
+    {!programs.length && <div className="study-empty"><span aria-hidden="true">▦</span><div><strong>Çalışmanı görev listesine sıkıştırma.</strong><p>Derslerini, günlerini ve çalışma sürelerini tek çizelgede planla veya ACK AI'ya hazırlat.</p></div></div>}
+    <div className="study-program-list">{programs.map(p => <article className={`study-program-card ${p.active ? "" : "paused"}`} key={p.id}>
+      <div className="study-program-header">
+        <button type="button" className="study-program-open" disabled={disabled || busy} onClick={() => { setDraft(structuredClone(p)); setError(""); }}>
+          <div className="study-program-title-row">
+            <span className="study-program-status">{p.active ? "Aktif" : "Duraklatıldı"}</span>
+            <h3>{p.name}</h3>
+            <small>{p.sessions.length} ders bloğu · {p.endDate ? `${new Date(p.endDate + "T12:00:00").toLocaleDateString("tr-TR")} tarihine kadar` : "Her hafta"}</small>
+          </div>
+          <p>{[...new Set(p.sessions.map(s => s.subject))].join(" · ")}</p>
+        </button>
+        <div className="study-program-card-actions">
+          <button type="button" className="planner-secondary" disabled={disabled || busy} onClick={() => { setDraft(structuredClone(p)); setError(""); }}>Düzenle</button>
+          <button type="button" className="planner-secondary study-pause" disabled={disabled || busy} onClick={() => void action(() => onSave({ ...p, active: !p.active, updatedAt: Date.now() }))}>{p.active ? "Duraklat" : "Devam et"}</button>
+        </div>
+      </div>
+      <div className="study-timetable" aria-label={`${p.name} haftalık ders çizelgesi`}>{weekdays.map((dayName, idx) => {
+        const daySessions = p.sessions.filter(s => s.weekdays.includes(idx + 1)).sort((a, b) => a.time.localeCompare(b.time));
+        return <div className={`study-timetable-day ${daySessions.length ? "has-sessions" : ""}`} key={dayName}>
+          <span className="study-timetable-day-label">{dayName}</span>
+          {daySessions.length ? daySessions.map(s => <div className="study-timetable-slot" key={s.id}>
+            <small>{s.time} · {s.minutes} dk</small>
+            <strong>{s.subject}</strong>
+            {s.topic && <span>{s.topic}</span>}
+          </div>) : <small className="study-timetable-free">—</small>}
+        </div>;
+      })}</div>
+    </article>)}</div>
     {error && !draft && <p role="alert" className="planner-error">{error}</p>}
     {draft && <StudyProgramDialog key={draft.id} initial={draft} programs={programs} busy={busy || disabled} error={error} onClose={() => setDraft(null)} onSave={p => void action(() => onSave(p), true)} onDelete={programs.some(p => p.id === draft.id) ? () => void action(() => onDelete(draft.id), true) : undefined} />}
   </section>;

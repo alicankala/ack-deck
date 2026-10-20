@@ -36,9 +36,9 @@ type Props = {
 
 const starters = [
   { icon: "check", title: "Günümü planla", text: "Bugünkü görevlerim neler?", hint: "Görevlerine birlikte bakalım" },
-  { icon: "note", title: "Notlarımı bul", text: "Notlarımı listele.", hint: "Kayıtlarından devam et" },
+  { icon: "spark", title: "Ders programı oluştur", text: "Şu dersler için haftalık ders programı çizelgesi hazırla ve haftalık plana ekle: ", hint: "Haftalık çalışma planı kur" },
   { icon: "plus", title: "Bir görev oluştur", text: "Yeni görev: ", hint: "Yapacaklarını sıraya koy" },
-  { icon: "spark", title: "Bir fikri geliştir", text: "Şu fikri birlikte geliştirelim: ", hint: "Birlikte düşün, netleştir" },
+  { icon: "note", title: "Notlarımı bul", text: "Notlarımı listele.", hint: "Kayıtlarından devam et" },
 ] as const;
 
 export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, initialPrompt, onPromptConsumed, onNewChat, onBusyChange, blocked = false, prefill, onPrefillConsumed }: Props) {
@@ -137,7 +137,7 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
       if (!hasKey) { setError("Gemini API anahtarını Ayarlar bölümünden ekleyin."); return; }
       const { context, warnings } = await collectAckContext(text);
       if (requestId !== generation.current) return;
-      const actionRequest = isActionRequest(text)||/görev.*çıkar|arşiv.*taslak|toparla/iu.test(text);
+      const actionRequest = isActionRequest(text)||/görev.*çıkar|arşiv.*taslak|toparla|ders.*program|çizelge|haftalık.*plan/iu.test(text);
       const intelligence=!attachment?buildIntelligenceContext(text):null;
       const reply = await sendGeminiMessage(next, model, context, actionRequest, attachment ? [attachment.id] : []);
       if (requestId === generation.current) {
@@ -145,7 +145,13 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
         const proposal = reply.action ? proposalFromTool(reply.action, text) : null;
         if (proposal?.action.type === "navigate") { await executeAckAction(proposal.action, false, undefined, onNavigate); return; }
         if (proposal) setPending(createConfirmation(proposal));
-        onMessagesChange((current) => [...current, { role: "model", text: proposal ? proposal.question : actionRequest ? "Uygulanabilir bir işlem taslağı hazırlanamadı. Hiçbir işlem yapılmadı. Tam kayıt adını ve istediğin değişikliği belirt." : redactSecrets(reply.text), references:intelligence?.records ?? contextReferences(context), sources: [...new Set(context.map((item) => item.source))] }]);
+        const cleanReply = redactSecrets(reply.text.trim());
+        const bubbleText = proposal
+          ? (cleanReply ? `${cleanReply}\n\n${proposal.question}` : proposal.question)
+          : (actionRequest && (!cleanReply || /(?:\b(?:ekle|oluştur|düzenle|güncelle|sil|tamamla)\w*\b.*(?:\bmi\b|onay)|işlem\s+taslağı\s+hazır)/iu.test(cleanReply))
+              ? "Uygulanabilir bir işlem taslağı hazırlanamadı. Hiçbir işlem yapılmadı. Tam kayıt adını ve istediğin değişikliği belirt."
+              : cleanReply);
+        onMessagesChange((current) => [...current, { role: "model", text: bubbleText, references:intelligence?.records ?? contextReferences(context), sources: [...new Set(context.map((item) => item.source))] }]);
         if (warnings.length) setError(warnings.join(" "));
       }
     } catch (reason) {
