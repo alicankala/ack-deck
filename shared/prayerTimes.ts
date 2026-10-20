@@ -164,6 +164,116 @@ export function calculatePrayerTimes(
   };
 }
 
+export type TrackedPrayerName = "fajr" | "dhuhr" | "asr" | "maghrib" | "isha";
+export type PrayerStatus = "prayed" | "missed";
+export type DailyNoteItem = { id: string; text: string; done: boolean };
+
+export type PrayerLogDay = {
+  id: string; // YYYY-MM-DD
+  date: string; // YYYY-MM-DD
+  prayers: Partial<Record<TrackedPrayerName, PrayerStatus>>;
+  notes: DailyNoteItem[];
+  updatedAt: number;
+};
+
+export const TRACKED_PRAYERS: { name: TrackedPrayerName; label: string }[] = [
+  { name: "fajr", label: "Sabah" },
+  { name: "dhuhr", label: "Öğle" },
+  { name: "asr", label: "İkindi" },
+  { name: "maghrib", label: "Akşam" },
+  { name: "isha", label: "Yatsı" },
+];
+
+export function validPrayerLog(value: unknown): value is PrayerLogDay {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const v = value as Record<string, unknown>;
+  const keys = Object.keys(v);
+  if (keys.length !== 5 || !["id", "date", "prayers", "notes", "updatedAt"].every(k => k in v)) return false;
+  if (typeof v.id !== "string" || typeof v.date !== "string" || v.id !== v.date) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v.date)) return false;
+  const parsed = new Date(v.date + "T12:00:00Z");
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== v.date) return false;
+  if (typeof v.updatedAt !== "number" || !Number.isSafeInteger(v.updatedAt) || v.updatedAt < 0) return false;
+  if (!v.prayers || typeof v.prayers !== "object" || Array.isArray(v.prayers)) return false;
+  const p = v.prayers as Record<string, unknown>;
+  const validPrayerKeys = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
+  if (!Object.entries(p).every(([k, status]) => validPrayerKeys.includes(k) && (status === "prayed" || status === "missed"))) return false;
+  if (!Array.isArray(v.notes) || v.notes.length > 30) return false;
+  if (new Set(v.notes.map((n: any) => n?.id)).size !== v.notes.length) return false;
+  return v.notes.every((n: unknown) => {
+    if (!n || typeof n !== "object" || Array.isArray(n)) return false;
+    const item = n as Record<string, unknown>;
+    return (
+      Object.keys(item).length === 3 &&
+      typeof item.id === "string" &&
+      /^[a-zA-Z0-9_.-]{1,128}$/.test(item.id) &&
+      typeof item.text === "string" &&
+      item.text.trim().length > 0 &&
+      item.text.length <= 240 &&
+      !/AIza[\w-]{30,}/.test(item.text) &&
+      typeof item.done === "boolean"
+    );
+  });
+}
+
+export function createEmptyPrayerLog(dateStr: string): PrayerLogDay {
+  return {
+    id: dateStr,
+    date: dateStr,
+    prayers: {},
+    notes: [],
+    updatedAt: Date.now(),
+  };
+}
+
+export function calculatePrayerStats(logs: PrayerLogDay[], todayDate: string) {
+  const map = new Map(logs.map(l => [l.date, l]));
+  let totalPrayed = 0;
+  let totalMissed = 0;
+  let fullDays = 0;
+
+  for (const log of logs) {
+    let dayPrayed = 0;
+    for (const tp of TRACKED_PRAYERS) {
+      const s = log.prayers[tp.name];
+      if (s === "prayed") {
+        totalPrayed++;
+        dayPrayed++;
+      } else if (s === "missed") {
+        totalMissed++;
+      }
+    }
+    if (dayPrayed === 5) fullDays++;
+  }
+
+  // Last 7 days summary
+  const last7Days: { date: string; label: string; prayedCount: number; missedCount: number }[] = [];
+  const base = new Date(todayDate + "T12:00:00");
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(base);
+    d.setDate(d.getDate() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const log = map.get(key);
+    let prayedCount = 0;
+    let missedCount = 0;
+    if (log) {
+      for (const tp of TRACKED_PRAYERS) {
+        if (log.prayers[tp.name] === "prayed") prayedCount++;
+        else if (log.prayers[tp.name] === "missed") missedCount++;
+      }
+    }
+    const label = i === 0 ? "Bugün" : d.toLocaleDateString("tr-TR", { weekday: "short" });
+    last7Days.push({ date: key, label, prayedCount, missedCount });
+  }
+
+  return {
+    totalPrayed,
+    totalMissed,
+    fullDays,
+    last7Days,
+  };
+}
+
 export function formatRemainingTime(ms: number): string {
   const totalMinutes = Math.floor(ms / (60 * 1000));
   const hours = Math.floor(totalMinutes / 60);

@@ -92,14 +92,14 @@ async function handle(request: Request, env: Env): Promise<Response> {
     const cursor = Number(url.searchParams.get("cursor") ?? "0"); if (!Number.isSafeInteger(cursor) || cursor<0) throw new ApiError(400,"Eşitleme bilgisi geçersiz.");
     const changes = await env.DB.prepare("SELECT seq,kind,record_id FROM changes WHERE seq>? ORDER BY seq LIMIT 40").bind(cursor).all<{seq:number;kind:string;record_id:string}>();
     const unique = new Map(changes.results.map(change => [`${change.kind}:${change.record_id}`,change]));
-    const records = await Promise.all([...unique.values()].map(change => env.DB.prepare(`SELECT * FROM ${change.kind==="studyPrograms"?"study_programs":change.kind==="subscriptions"?"subscriptions":change.kind==="projects"?"projects":"records"} WHERE kind=? AND id=?`).bind(change.kind,change.record_id).first<RecordRow>()));
+    const records = await Promise.all([...unique.values()].map(change => env.DB.prepare(`SELECT * FROM ${change.kind==="prayerLogs"?"prayer_logs":change.kind==="studyPrograms"?"study_programs":change.kind==="subscriptions"?"subscriptions":change.kind==="projects"?"projects":"records"} WHERE kind=? AND id=?`).bind(change.kind,change.record_id).first<RecordRow>()));
     const views=records.filter((row):row is RecordRow => !!row).map(recordView);
     // Installed 1.0 clients have an exact task/note schema. Keep their original
     // records usable until the user opens the 1.1 desktop/PWA; never flatten a
     // recurring series into a one-shot task or return an unknown record kind.
     const schema=request.headers.get("X-ACKDeck-Schema");
-    const stripped=views.filter(row=>row.kind!=="projects"&&row.kind!=="studyPrograms").map(row=>{if(row.deleted||row.kind==="subscriptions")return row;const {projectId:_project,workspaceId:_space,sourceInboxId:_source,checklist:_checklist,reminderLeadMinutes:_lead,attachments:_attachments,...data}=row.data;return {...row,data};});
-    const compatible=schema==="4"?views:schema==="3"?views.filter(row=>row.kind!=="studyPrograms"):schema==="2"?stripped:stripped.filter(row=>row.kind!=="subscriptions"&&(row.deleted||row.kind!=="tasks"||!row.data?.recurrence)).map(row=>{
+    const stripped=views.filter(row=>row.kind!=="projects"&&row.kind!=="studyPrograms"&&row.kind!=="prayerLogs").map(row=>{if(row.deleted||row.kind==="subscriptions")return row;const {projectId:_project,workspaceId:_space,sourceInboxId:_source,checklist:_checklist,reminderLeadMinutes:_lead,attachments:_attachments,...data}=row.data;return {...row,data};});
+    const compatible=schema==="4"?views:schema==="3"?views.filter(row=>row.kind!=="studyPrograms"&&row.kind!=="prayerLogs"):schema==="2"?stripped:stripped.filter(row=>row.kind!=="subscriptions"&&(row.deleted||row.kind!=="tasks"||!row.data?.recurrence)).map(row=>{
       if(row.kind!=="tasks"||row.deleted)return row;
       const {recurrence:_rule,occurrenceAt:_occurrence,lastCompletedAt:_completed,snoozedUntil:_snooze,...data}=row.data;
       return {...row,data};

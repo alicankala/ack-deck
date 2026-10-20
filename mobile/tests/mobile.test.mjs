@@ -6,7 +6,7 @@ import {posix} from 'node:path';
 import ts from 'typescript';
 import {IDBFactory} from 'fake-indexeddb';
 function runtime(database=new IDBFactory()){
-  const modules={};function load(path){if(modules[path])return modules[path];const exports={};modules[path]=exports;const source=readFileSync(new URL('../../'+path+'.ts',import.meta.url),'utf8');runInNewContext(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,indexedDB:database,require:name=>load(posix.normalize(posix.join(posix.dirname(path),name))),structuredClone,crypto,URL,TextEncoder,TextDecoder,AbortSignal,Headers,Date});return exports;}return{load,database};
+  const modules={};function load(path){if(modules[path])return modules[path];const exports={};modules[path]=exports;const source=readFileSync(new URL('../../'+path+'.ts',import.meta.url),'utf8');runInNewContext(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,indexedDB:database,require:name=>name==='adhan'?{Coordinates:class{},CalculationMethod:{Turkey:()=>({})},PrayerTimes:class{}}:load(posix.normalize(posix.join(posix.dirname(path),name))),structuredClone,crypto,URL,TextEncoder,TextDecoder,AbortSignal,Headers,Date});return exports;}return{load,database};
 }
 const task={text:'SD kart al',completed:false,dueDate:null,dueTime:null,priority:'normal',reminder:false,dueAt:null,timezone:'UTC'};
 const mutation=(kind,id,data,version=0)=>({mutationId:crypto.randomUUID(),kind,id,baseVersion:version,data,deleted:false});

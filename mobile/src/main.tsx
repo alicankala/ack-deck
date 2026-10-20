@@ -604,7 +604,7 @@ function App() {
         {(page === "today" || page === "tasks") && (
           <>
             {/* Hero Prayer Card */}
-            <MobilePrayerCard />
+            <MobilePrayerCard records={state.records} onSave={saveMutation} />
 
             {/* Quick Metrics Bar */}
             <div className="mobile-metrics-bar">

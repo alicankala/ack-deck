@@ -408,13 +408,22 @@ body:has(.editor) nav { visibility: hidden; }
   padding: 14px 16px;
   margin: 0 0 16px;
   box-shadow: 0 6px 20px -4px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 .mobile-prayer-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+}
+.mobile-prayer-head-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .mobile-prayer-title {
   display: flex;
@@ -436,23 +445,15 @@ body:has(.editor) nav { visibility: hidden; }
   font-size: 11px;
   color: var(--app-muted);
 }
-.mobile-prayer-city-btn {
-  background: none;
-  border: none;
-  padding: 0;
-  min-height: auto;
+.mobile-prayer-stats-btn {
+  min-height: 28px;
+  padding: 3px 8px;
+  border-radius: 999px;
   font-size: 11px;
-  color: var(--app-accent);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-weight: 600;
-  text-decoration: underline;
-  text-decoration-color: rgba(56, 189, 248, 0.4);
-}
-.mobile-prayer-city-btn:hover {
-  color: #7dd3fc;
+  font-weight: 650;
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  color: #6ee7b7;
 }
 .mobile-prayer-chip {
   font-size: 11px;
@@ -514,6 +515,242 @@ body:has(.editor) nav { visibility: hidden; }
 }
 .mobile-prayer-item.is-current small {
   color: #34d399;
+}
+
+/* Mobile Prayer Tracker & Daily Notes */
+.mobile-prayer-tracker {
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mobile-prayer-date-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  padding: 2px 6px;
+}
+.mobile-date-arrow {
+  min-height: 32px;
+  width: 32px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--app-secondary);
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: 8px;
+}
+.mobile-date-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.mobile-date-today-btn {
+  min-height: 24px;
+  padding: 2px 8px;
+  font-size: 10px;
+  border-radius: 6px;
+  background: var(--app-accent-soft);
+  border: 1px solid var(--app-accent-border);
+  color: var(--app-accent);
+}
+.mobile-prayer-check-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+}
+.mobile-check-pill {
+  min-height: 54px;
+  padding: 6px 2px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--app-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--app-secondary);
+}
+.pill-mark {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+.pill-name {
+  font-size: 11px;
+  font-weight: 600;
+}
+.pill-status {
+  font-size: 9px;
+  color: var(--app-muted);
+}
+.mobile-check-pill.is-prayed {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(52, 211, 153, 0.45);
+  color: #6ee7b7;
+}
+.mobile-check-pill.is-prayed .pill-status {
+  color: #6ee7b7;
+}
+.mobile-check-pill.is-missed {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(248, 113, 113, 0.45);
+  color: #fca5a5;
+}
+.mobile-check-pill.is-missed .pill-status {
+  color: #fca5a5;
+}
+
+.mobile-prayer-stats-panel {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mobile-stats-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  text-align: center;
+  gap: 6px;
+}
+.mobile-stats-summary strong {
+  display: block;
+  font-size: 15px;
+  color: #ffffff;
+}
+.mobile-stats-summary small {
+  font-size: 10px;
+  color: var(--app-muted);
+}
+.mobile-stats-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.mobile-week-chip {
+  min-height: 40px;
+  padding: 4px 2px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--app-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+.mobile-week-chip small {
+  font-size: 9px;
+  color: var(--app-muted);
+}
+.mobile-week-chip strong {
+  font-size: 10px;
+  color: var(--app-text);
+}
+.mobile-week-chip.is-full {
+  border-color: rgba(52, 211, 153, 0.45);
+  color: #6ee7b7;
+}
+.mobile-week-chip.is-selected {
+  border-color: var(--app-accent);
+  background: var(--app-accent-soft);
+}
+
+.mobile-prayer-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mobile-prayer-notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mobile-prayer-note-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  padding: 4px 8px;
+}
+.mobile-prayer-note-toggle {
+  min-height: 30px;
+  padding: 2px 0;
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  text-align: left;
+  font-size: 12px;
+  color: var(--app-text);
+}
+.mobile-note-box {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  border: 1px solid var(--app-accent-border);
+  display: inline-grid;
+  place-items: center;
+  font-size: 10px;
+  color: var(--app-accent);
+  flex-shrink: 0;
+}
+.mobile-prayer-note-row.is-done .mobile-note-box {
+  background: rgba(52, 211, 153, 0.2);
+  border-color: #34d399;
+  color: #34d399;
+}
+.mobile-prayer-note-row.is-done .mobile-prayer-note-toggle span:last-child {
+  text-decoration: line-through;
+  color: var(--app-muted);
+}
+.mobile-prayer-note-remove {
+  min-height: 28px;
+  width: 28px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--app-muted);
+  font-size: 15px;
+}
+.mobile-prayer-note-form {
+  display: flex;
+  gap: 6px;
+}
+.mobile-prayer-note-form input {
+  flex: 1;
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 13px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--app-border);
+}
+.mobile-prayer-note-form button {
+  min-height: 36px;
+  width: 38px;
+  padding: 0;
+  border-radius: 10px;
+  background: var(--app-accent-soft);
+  border: 1px solid var(--app-accent-border);
+  color: var(--app-accent);
+  font-weight: 700;
+  font-size: 16px;
 }
 
 /* Quick Capture and + Ekle Bar */

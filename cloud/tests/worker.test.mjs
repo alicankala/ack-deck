@@ -72,6 +72,7 @@ before(async()=>{
   await db.exec(readFileSync(new URL('migrations/0004_project_metadata.sql',root),'utf8').replace(/^--.*$/gm,''));
   await db.exec(readFileSync(new URL('migrations/0005_study_programs.sql',root),'utf8').replace(/^--.*$/gm,''));
   await db.exec(readFileSync(new URL('migrations/0006_prayer_config.sql',root),'utf8').replace(/^--.*$/gm,''));
+  await db.exec(readFileSync(new URL('migrations/0007_prayer_logs.sql',root),'utf8').replace(/^--.*$/gm,''));
   assert.equal((await db.prepare("SELECT data FROM records WHERE id='migration-preserved'").first()).data,JSON.stringify({title:'Migration fixture',content:'Preserve',updatedAt:1}));
   assert.equal((await db.prepare("SELECT state FROM reminder_deliveries WHERE generation='migration-fixture'").first()).state,'sent');
   env={...bindings,DB:db,ATTACHMENTS:kv};worker=await module('src/index.ts');reminders=await module('src/reminders.ts');security=await module('src/security.ts');shared=await module('../shared/phone.ts');
@@ -244,5 +245,11 @@ test('real desktop and mobile sync engines round-trip tasks, notes, completion, 
   await assert.rejects(mobile.synchronize(state,async()=>{throw Error('Offline');},persist));state=await mobile.synchronize(state,phoneRequest,persist);await desktop.synchronizePhone(desktopRequest);assert.equal(load('src/studyProgramStore').loadStudyPrograms().entries[0].sessions[0].subject,'Fizik');
   const editedStudy=state.records.find(r=>r.id===study.id);state=mobile.enqueue(state,mutation('studyPrograms',study.id,null,editedStudy.version,true));state=await mobile.synchronize(state,phoneRequest,persist);await desktop.synchronizePhone(desktopRequest);assert.equal(load('src/studyProgramStore').loadStudyPrograms().entries.length,0);
   assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM reminders WHERE task_id=?').bind(study.id).first()).n,0);
+  const prayerLog={id:'2026-10-21',date:'2026-10-21',prayers:{fajr:'prayed',dhuhr:'prayed',asr:'missed'},notes:[{id:'p-note-1',text:'Şükür namazı kıl',done:false}],updatedAt:1};
+  assert.equal(load('src/prayerStore').savePrayerLogs([prayerLog]),true);await desktop.synchronizePhone(desktopRequest);state=await mobile.synchronize(state,phoneRequest,persist);
+  const prayerRow=state.records.find(r=>r.kind==='prayerLogs'&&r.id===prayerLog.id);assert.equal(prayerRow.data.prayers.fajr,'prayed');assert.equal(prayerRow.data.notes[0].text,'Şükür namazı kıl');
+  state=mobile.enqueue(state,mutation('prayerLogs',prayerLog.id,{...prayerRow.data,prayers:{...prayerRow.data.prayers,maghrib:'prayed'},notes:[{...prayerRow.data.notes[0],done:true}]},prayerRow.version));
+  state=await mobile.synchronize(state,phoneRequest,persist);await desktop.synchronizePhone(desktopRequest);
+  assert.equal(load('src/prayerStore').loadPrayerLogs().entries[0].prayers.maghrib,'prayed');assert.equal(load('src/prayerStore').loadPrayerLogs().entries[0].notes[0].done,true);
   const currentProject=state.records.find(r=>r.id==='chain-project');state=mobile.enqueue(state,mutation('projects',currentProject.id,null,currentProject.version,true));state=await mobile.synchronize(state,phoneRequest,persist);await desktop.synchronizePhone(desktopRequest);assert.equal(load('src/projectStore').loadProjects().length,0);assert.equal(load('src/notesStore').loadNotes().notes.find(n=>n.id==='chain-note').projectId,'chain-project');
 });
