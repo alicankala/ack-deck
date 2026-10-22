@@ -19,6 +19,7 @@ import { collectAckContext, contextReferences, executeAckAction, proposeAckActio
 import { isActionRequest, proposalFromTool, prepareAckProposal } from "../ackActions";
 import type { NavigationTarget } from "../navigation";
 import { takeDashboardPrompt, type AiPromptHandoff } from "../aiPromptHandoff";
+import { getAiQuotaUsage, recordAiUsage, type QuotaInfo } from "../aiQuotaStore";
 
 type Props = {
   prefill?: { id: string; text: string; attachment?: AiAttachment };
@@ -51,6 +52,12 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
   const [attachment, setAttachment] = useState<AiAttachment | null>(null);
   const [attachmentPreview, setAttachmentPreview] = useState("");
   const [attaching, setAttaching] = useState(false);
+  const [quota, setQuota] = useState<QuotaInfo>(getAiQuotaUsage);
+  useEffect(() => {
+    const updateQuota = () => setQuota(getAiQuotaUsage());
+    window.addEventListener("ack-ai-quota-changed", updateQuota);
+    return () => window.removeEventListener("ack-ai-quota-changed", updateQuota);
+  }, []);
   const attachmentRef = useRef<AiAttachment | null>(null);
   attachmentRef.current = attachment;
   useEffect(() => { if (prefill) {
@@ -140,6 +147,7 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
       const actionRequest = isActionRequest(text)||/görev.*çıkar|arşiv.*taslak|toparla|ders.*program|çalışma.*plan|çalışma.*program|çizelge|haftalık.*plan/iu.test(text);
       const intelligence=!attachment?buildIntelligenceContext(text):null;
       const reply = await sendGeminiMessage(next, model, context, actionRequest, attachment ? [attachment.id] : []);
+      recordAiUsage(model);
       if (requestId === generation.current) {
         removeAttachment();
         const proposal = reply.action ? proposalFromTool(reply.action, text) : null;
@@ -155,7 +163,18 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
         if (warnings.length) setError(warnings.join(" "));
       }
     } catch (reason) {
-      if (requestId === generation.current) setError(reason instanceof Error && reason.message === "Mesaj çok uzun. Daha kısa bir mesaj yazın." ? reason.message : reason instanceof Error ? "AI işlem taslağı hazırlanamadı. Geçerli kayıt, tarih ve saat bilgisi verin. Hiçbir değişiklik yapılmadı." : aiErrorMessage(reason));
+      if (requestId === generation.current) {
+        const rawMsg = reason instanceof Error ? reason.message : aiErrorMessage(reason);
+        if (/429|quota|resource_exhausted|rate\s*limit/i.test(rawMsg)) {
+          setError(`⚠️ Google Gemini kullanım limitine ulaşıldı (${model === "fast" ? "Hızlı model: ~1.500/gün, 15/dk" : "Güçlü model: ~50/gün, 2/dk"}). Lütfen birkaç dakika bekleyin veya diğer modeli deneyin.`);
+        } else if (rawMsg === "Mesaj çok uzun. Daha kısa bir mesaj yazın.") {
+          setError(rawMsg);
+        } else if (reason instanceof Error) {
+          setError("AI işlem taslağı hazırlanamadı. Geçerli kayıt, tarih ve saat bilgisi verin. Hiçbir değişiklik yapılmadı.");
+        } else {
+          setError(aiErrorMessage(reason));
+        }
+      }
     } finally {
       if (requestId === generation.current) { setSending(false); sendBusy.current = false; }
     }
@@ -198,9 +217,19 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
   return <div className="ai-page">
     <header className="feature-heading ai-heading">
       <div className="ai-page-title"><span className="ai-page-mark"><Icon name="spark" size={24}/></span><div><h1>ACK AI</h1><p>Düşün, planla, harekete geç.</p></div></div>
-      {!onNewChat && <button className="button button-secondary" type="button" onClick={newChat} disabled={blocked || attaching || actionBusy.current || (messages.length === 0 && !draft && !error)}>
-        <Icon name="plus" size={17} /> Yeni sohbet
-      </button>}
+      <div className="ai-heading-tools" style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+        <div className="ai-quota-meter" title="Google Gemini tahmini ücretsiz günlük kullanım hakkı (Her gün yenilenir)">
+          <span className={`ai-quota-pill ${quota.fastRemaining <= 100 ? "is-low" : ""}`}>
+            ⚡ Hızlı: <strong>{quota.fastRemaining}</strong>/{quota.fastLimit}
+          </span>
+          <span className={`ai-quota-pill ${quota.powerfulRemaining <= 5 ? "is-low" : ""}`}>
+            🧠 Güçlü: <strong>{quota.powerfulRemaining}</strong>/{quota.powerfulLimit}
+          </span>
+        </div>
+        {!onNewChat && <button className="button button-secondary" type="button" onClick={newChat} disabled={blocked || attaching || actionBusy.current || (messages.length === 0 && !draft && !error)}>
+          <Icon name="plus" size={17} /> Yeni sohbet
+        </button>}
+      </div>
     </header>
     <section className="ai-panel surface" aria-label="ACK AI sohbeti">
       <div className="ai-messages" aria-live="polite">
@@ -218,6 +247,12 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
         {sending && <div className="ai-message model"><span className="ai-avatar"><Icon name="spark" size={18} /></span><div className="ai-message-body"><span className="ai-message-label">ACK AI</span><div className="ai-bubble ai-loading" role="status">{pending ? "İşlem uygulanıyor" : "Yanıt hazırlanıyor"}<span className="loading-dots">...</span></div></div></div>}
         <div ref={bottomRef} />
       </div>
+      {(model === "fast" ? quota.fastRemaining <= 0 : quota.powerfulRemaining <= 0) && (
+        <div className="ai-quota-alert-banner" role="alert" style={{ margin: "0.5rem 1rem", padding: "0.6rem 0.9rem", borderRadius: "8px", background: "rgba(234, 179, 8, 0.15)", border: "1px solid rgba(234, 179, 8, 0.35)", color: "var(--app-text)", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <Icon name="info" size={17} />
+          <span>Seçili <strong>{model === "fast" ? "Hızlı" : "Güçlü"}</strong> modelin tahmini günlük ücretsiz kullanım kotası tükendi. Diğer modele geçebilirsiniz.</span>
+        </div>
+      )}
       {error && <div className="ai-error" role="alert"><Icon name="info" size={17} />{error}</div>}
       <form className="ai-composer" onSubmit={send}>
         <div className="ai-attachment-row"><button className="button button-secondary" type="button" disabled={blocked || sending || attaching || !!pending} onClick={() => void addAttachment()}>{attaching ? "Dosya hazırlanıyor..." : "Dosya Ekle"}</button><details className="advanced-fields"><summary>Desteklenen dosyalar</summary><small>PNG, JPEG, WebP, PDF veya UTF-8 TXT · En fazla 8 MB · TXT: 128 KB</small></details>{attachment && <div role="status">{attachmentPreview && <img className="ai-attachment-preview" src={attachmentPreview} alt="Gönderilecek görüntünün önizlemesi" />}<strong>{attachment.name}</strong> · {attachment.mime} · {Math.ceil(attachment.size / 1024)} KB<p>Bu dosya Gemini'ye gönderilecek. Gönder düğmesine basılmadan iletilmez.</p><button type="button" disabled={sending} onClick={removeAttachment}>Dosyayı kaldır</button></div>}</div>

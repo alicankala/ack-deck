@@ -27,7 +27,7 @@ export function Projects({ projects, onChange, fullPage = false, initialId, onNa
   const [dragged,setDragged]=useState<string|null>(null),[dragOver,setDragOver]=useState<string|null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [toolTab, setToolTab] = useState<"ip" | "qr" | "speed">("ip");
+  const [toolTab, setToolTab] = useState<"speed" | "ip" | "qr">("speed");
 
   function startEdit(project?: Project) {
     setMessage("");
@@ -100,54 +100,75 @@ export function Projects({ projects, onChange, fullPage = false, initialId, onNa
       <div className="project-folder-row"><input id="project-folder" value={editor.folderPath} placeholder="Klasör seçilmedi" readOnly /><button className="button button-secondary" type="button" onClick={chooseFolder} disabled={busy}>Klasör Seç</button>{editor.folderPath && <button className="button button-secondary" type="button" onClick={() => setEditor({ ...editor, folderPath: "" })}>Kaldır</button>}</div>
       <div className="project-editor-actions"><button className="button button-primary" type="submit" disabled={!editor.name.trim() || busy}>Kaydet</button><button className="button button-secondary" type="button" onClick={() => setEditor(null)}>Vazgeç</button></div>
     </form></EditorDialog>}
-    {projects.length>1&&<p className="project-reorder-hint">Kartları sürükleyerek sırala. İşlemler menüsünden de taşıyabilirsin.</p>}<div className="project-grid">
-      {projects.map((project, index) => <article draggable={!busy} onDragStart={event=>{setDragged(project.id);event.dataTransfer.setData("text/plain",project.id);event.dataTransfer.effectAllowed="move";}} onDragOver={event=>{if(dragged){event.preventDefault();setDragOver(project.id);}}} onDrop={event=>{event.preventDefault();if(dragged)onChange(moveTo(projects,dragged,project.id));setDragged(null);setDragOver(null);}} onDragEnd={()=>{setDragged(null);setDragOver(null);}} id={"project-" + project.id} className={"project-card surface " + (initialId === project.id ? "record-highlight " : "")+(dragged===project.id?"dragging ":"")+(dragOver===project.id?"drag-over":"")} key={project.id}>
-        <div className="project-top"><span className="project-avatar">{project.name.trim().charAt(0).toLocaleUpperCase("tr-TR") || "P"}</span><span className="project-number">{String(index + 1).padStart(2, "0")} / {String(projects.length).padStart(2, "0")}</span></div>
-        <div className="project-info"><h3><button className="project-hub-open" onClick={()=>setHubId(hubId===project.id?"":project.id)}>{project.name}</button></h3>{project.nextStep&&<p className="project-next-step">→ {project.nextStep}</p>}<p>{project.description || "Açıklama yok"}</p><span className="project-path" title={project.folderPath}>{project.folderPath || "Klasör bağlanmadı"}</span></div>
-        <div className="project-actions"><button type="button" aria-label={project.name + " klasörünü aç"} onClick={() => launch(project, "open_project_folder")} disabled={!project.folderPath || busy}>Klasörü Aç</button><button type="button" aria-label={project.name + " projesini VS Code'da aç"} onClick={() => launch(project, "open_project_in_vscode")} disabled={!project.folderPath || busy}>VS Code'da Aç</button><ActionMenu label={project.name+" işlemleri"}><button type="button" disabled={index===0||busy} onClick={()=>onChange(moveBy(projects,project.id,-1))}>Öne taşı</button><button type="button" disabled={index===projects.length-1||busy} onClick={()=>onChange(moveBy(projects,project.id,1))}>Arkaya taşı</button><button type="button" aria-label={project.name + " projesini düzenle"} onClick={() => startEdit(project)}>Düzenle</button><button className="project-delete" type="button" aria-label={project.name + " projesini sil"} onClick={() => setDeleteId(project.id)}>Sil</button></ActionMenu></div>
-        {deleteId === project.id && <div className="project-confirm"><span>Bu proje silinsin mi?</span><button type="button" aria-label={project.name + " projesini silmeyi onayla"} onClick={() => remove(project.id)}>Evet, sil</button><button type="button" onClick={() => setDeleteId(null)}>Vazgeç</button></div>}
-      </article>)}
-      <button className="project-add" type="button" onClick={() => startEdit()}><span className="add-icon"><Icon name="plus" size={22} /></span><strong>+ Proje</strong><span>Yeni bir proje ekle</span></button>
-    </div>
-    {fullPage && hubId && projects.find(p=>p.id===hubId) && <ProjectHub key={hubId} project={projects.find(p=>p.id===hubId)!} onChange={patch=>onChange(projects.map(p=>p.id===hubId?{...p,...patch}:p))} onNavigate={onNavigate} onAskAi={onAskAi}/> }
-    {fullPage && (
-      <section className="project-embedded-tools" aria-label="Geliştirici ve Sistem Araçları" style={{ marginTop: "2.5rem", borderTop: "1px solid var(--app-border)", paddingTop: "1.75rem" }}>
-        <div className="section-heading" style={{ marginBottom: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
-          <div>
-            <span className="eyebrow">YARDIMCI ARAÇLAR</span>
-            <h2 style={{ fontSize: "1.35rem", margin: "4px 0 0" }}>Geliştirici & Ağ Araçları</h2>
+    {fullPage ? (
+      <div className="projects-split-layout">
+        <div className="projects-split-left">
+          {projects.length > 1 && <p className="project-reorder-hint">Kartları sürükleyerek sırala. İşlemler menüsünden de taşıyabilirsin.</p>}
+          <div className="project-grid">
+            {projects.map((project, index) => <article draggable={!busy} onDragStart={event=>{setDragged(project.id);event.dataTransfer.setData("text/plain",project.id);event.dataTransfer.effectAllowed="move";}} onDragOver={event=>{if(dragged){event.preventDefault();setDragOver(project.id);}}} onDrop={event=>{event.preventDefault();if(dragged)onChange(moveTo(projects,dragged,project.id));setDragged(null);setDragOver(null);}} onDragEnd={()=>{setDragged(null);setDragOver(null);}} id={"project-" + project.id} className={"project-card surface " + (initialId === project.id ? "record-highlight " : "")+(dragged===project.id?"dragging ":"")+(dragOver===project.id?"drag-over":"")} key={project.id}>
+              <div className="project-top"><span className="project-avatar">{project.name.trim().charAt(0).toLocaleUpperCase("tr-TR") || "P"}</span><span className="project-number">{String(index + 1).padStart(2, "0")} / {String(projects.length).padStart(2, "0")}</span></div>
+              <div className="project-info"><h3><button className="project-hub-open" onClick={()=>setHubId(hubId===project.id?"":project.id)}>{project.name}</button></h3>{project.nextStep&&<p className="project-next-step">→ {project.nextStep}</p>}<p>{project.description || "Açıklama yok"}</p><span className="project-path" title={project.folderPath}>{project.folderPath || "Klasör bağlanmadı"}</span></div>
+              <div className="project-actions"><button type="button" aria-label={project.name + " klasörünü aç"} onClick={() => launch(project, "open_project_folder")} disabled={!project.folderPath || busy}>Klasörü Aç</button><button type="button" aria-label={project.name + " projesini VS Code'da aç"} onClick={() => launch(project, "open_project_in_vscode")} disabled={!project.folderPath || busy}>VS Code'da Aç</button><ActionMenu label={project.name+" işlemleri"}><button type="button" disabled={index===0||busy} onClick={()=>onChange(moveBy(projects,project.id,-1))}>Öne taşı</button><button type="button" disabled={index===projects.length-1||busy} onClick={()=>onChange(moveBy(projects,project.id,1))}>Arkaya taşı</button><button type="button" aria-label={project.name + " projesini düzenle"} onClick={() => startEdit(project)}>Düzenle</button><button className="project-delete" type="button" aria-label={project.name + " projesini sil"} onClick={() => setDeleteId(project.id)}>Sil</button></ActionMenu></div>
+              {deleteId === project.id && <div className="project-confirm"><span>Bu proje silinsin mi?</span><button type="button" aria-label={project.name + " projesini silmeyi onayla"} onClick={() => remove(project.id)}>Evet, sil</button><button type="button" onClick={() => setDeleteId(null)}>Vazgeç</button></div>}
+            </article>)}
+            <button className="project-add" type="button" onClick={() => startEdit()}><span className="add-icon"><Icon name="plus" size={22} /></span><strong>+ Proje</strong><span>Yeni bir proje ekle</span></button>
           </div>
-          <div className="project-tools-tab-buttons" style={{ display: "flex", gap: "0.5rem" }}>
-            <button
-              type="button"
-              className={`button ${toolTab === "ip" ? "button-primary" : "button-secondary"}`}
-              onClick={() => setToolTab("ip")}
-            >
-              🌐 IP Bilgisi
-            </button>
-            <button
-              type="button"
-              className={`button ${toolTab === "qr" ? "button-primary" : "button-secondary"}`}
-              onClick={() => setToolTab("qr")}
-            >
-              📱 QR Kod
-            </button>
-            <button
-              type="button"
-              className={`button ${toolTab === "speed" ? "button-primary" : "button-secondary"}`}
-              onClick={() => setToolTab("speed")}
-            >
-              ⚡ Hız Testi
-            </button>
-          </div>
+          {hubId && projects.find(p=>p.id===hubId) && <ProjectHub key={hubId} project={projects.find(p=>p.id===hubId)!} onChange={patch=>onChange(projects.map(p=>p.id===hubId?{...p,...patch}:p))} onNavigate={onNavigate} onAskAi={onAskAi}/> }
         </div>
 
-        <div className="project-tool-content" style={{ marginTop: "1rem" }}>
-          {toolTab === "ip" && <IpTool />}
-          {toolTab === "qr" && <QrTool />}
-          {toolTab === "speed" && <SpeedTest />}
+        <div className="projects-split-right">
+          <section className="project-embedded-tools surface" aria-label="Geliştirici ve Sistem Araçları">
+            <div className="section-heading" style={{ marginBottom: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.6rem" }}>
+              <div>
+                <span className="eyebrow">YARDIMCI ARAÇLAR</span>
+                <h2 style={{ fontSize: "1.2rem", margin: "2px 0 0" }}>Geliştirici & Ağ Araçları</h2>
+              </div>
+              <div className="project-tools-tab-buttons" style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className={`button ${toolTab === "speed" ? "button-primary" : "button-secondary"}`}
+                  onClick={() => setToolTab("speed")}
+                >
+                  ⚡ Hız Testi
+                </button>
+                <button
+                  type="button"
+                  className={`button ${toolTab === "ip" ? "button-primary" : "button-secondary"}`}
+                  onClick={() => setToolTab("ip")}
+                >
+                  🌐 IP Bilgisi
+                </button>
+                <button
+                  type="button"
+                  className={`button ${toolTab === "qr" ? "button-primary" : "button-secondary"}`}
+                  onClick={() => setToolTab("qr")}
+                >
+                  📱 QR Kod
+                </button>
+              </div>
+            </div>
+
+            <div className="project-tool-content" style={{ marginTop: "0.75rem" }}>
+              {toolTab === "speed" && <SpeedTest />}
+              {toolTab === "ip" && <IpTool />}
+              {toolTab === "qr" && <QrTool />}
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
+    ) : (
+      <>
+        {projects.length>1&&<p className="project-reorder-hint">Kartları sürükleyerek sırala. İşlemler menüsünden de taşıyabilirsin.</p>}
+        <div className="project-grid">
+          {projects.map((project, index) => <article draggable={!busy} onDragStart={event=>{setDragged(project.id);event.dataTransfer.setData("text/plain",project.id);event.dataTransfer.effectAllowed="move";}} onDragOver={event=>{if(dragged){event.preventDefault();setDragOver(project.id);}}} onDrop={event=>{event.preventDefault();if(dragged)onChange(moveTo(projects,dragged,project.id));setDragged(null);setDragOver(null);}} onDragEnd={()=>{setDragged(null);setDragOver(null);}} id={"project-" + project.id} className={"project-card surface " + (initialId === project.id ? "record-highlight " : "")+(dragged===project.id?"dragging ":"")+(dragOver===project.id?"drag-over":"")} key={project.id}>
+            <div className="project-top"><span className="project-avatar">{project.name.trim().charAt(0).toLocaleUpperCase("tr-TR") || "P"}</span><span className="project-number">{String(index + 1).padStart(2, "0")} / {String(projects.length).padStart(2, "0")}</span></div>
+            <div className="project-info"><h3><button className="project-hub-open" onClick={()=>setHubId(hubId===project.id?"":project.id)}>{project.name}</button></h3>{project.nextStep&&<p className="project-next-step">→ {project.nextStep}</p>}<p>{project.description || "Açıklama yok"}</p><span className="project-path" title={project.folderPath}>{project.folderPath || "Klasör bağlanmadı"}</span></div>
+            <div className="project-actions"><button type="button" aria-label={project.name + " klasörünü aç"} onClick={() => launch(project, "open_project_folder")} disabled={!project.folderPath || busy}>Klasörü Aç</button><button type="button" aria-label={project.name + " projesini VS Code'da aç"} onClick={() => launch(project, "open_project_in_vscode")} disabled={!project.folderPath || busy}>VS Code'da Aç</button><ActionMenu label={project.name+" işlemleri"}><button type="button" disabled={index===0||busy} onClick={()=>onChange(moveBy(projects,project.id,-1))}>Öne taşı</button><button type="button" disabled={index===projects.length-1||busy} onClick={()=>onChange(moveBy(projects,project.id,1))}>Arkaya taşı</button><button type="button" aria-label={project.name + " projesini düzenle"} onClick={() => startEdit(project)}>Düzenle</button><button className="project-delete" type="button" aria-label={project.name + " projesini sil"} onClick={() => setDeleteId(project.id)}>Sil</button></ActionMenu></div>
+            {deleteId === project.id && <div className="project-confirm"><span>Bu proje silinsin mi?</span><button type="button" aria-label={project.name + " projesini silmeyi onayla"} onClick={() => remove(project.id)}>Evet, sil</button><button type="button" onClick={() => setDeleteId(null)}>Vazgeç</button></div>}
+          </article>)}
+          <button className="project-add" type="button" onClick={() => startEdit()}><span className="add-icon"><Icon name="plus" size={22} /></span><strong>+ Proje</strong><span>Yeni bir proje ekle</span></button>
+        </div>
+      </>
     )}
   </section>;
 }

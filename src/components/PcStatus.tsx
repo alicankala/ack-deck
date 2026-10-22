@@ -69,6 +69,28 @@ export function PcStatus({ refreshMs = 2500, compact = false }: { refreshMs?: nu
     </div>
     <div className="network-row"><div className="network-icon"><Icon name="wifi" size={18} /></div><div><strong>Ağ bağlantısı</strong><span>Windows bağlantı durumu</span></div><span className={"network-pill " + (snapshot && !snapshot.networkConnected ? "offline" : !snapshot ? "unknown" : "")}><span /> {!snapshot ? "Alınamadı" : snapshot.networkConnected ? "Bağlı" : "Bağlantı Yok"}</span></div>
   </div>;
-  if (compact) return <details className="dashboard-pc" aria-label="PC Durumu"><summary><span className="dashboard-pc-title"><Icon name="cpu" size={15} /> PC Durumu</span><span>CPU {snapshot?.cpuPercent == null ? "--" : "%" + Math.round(snapshot.cpuPercent)}</span><span>RAM {ramPercent === null ? "--" : "%" + Math.round(ramPercent)}</span><span>Disk {diskPercent === null ? "--" : "%" + Math.round(diskPercent)}</span><span className={snapshot?.networkConnected ? "connected" : ""}><span className="dashboard-network-dot" />{!snapshot ? failed ? "Alınamadı" : "Yükleniyor" : snapshot.networkConnected ? "İnternet bağlı" : "Bağlantı yok"}</span><small>Ayrıntılar</small></summary>{card}</details>;
+  if (compact) return (
+    <details className="dashboard-pc" aria-label="PC Durumu">
+      <summary className="dashboard-pc-summary">
+        <div className="dashboard-pc-header-line">
+          <span className="dashboard-pc-title">
+            <Icon name="cpu" size={15} />
+            <strong>PC Durumu</strong>
+          </span>
+          <span className={`pc-net-pill ${snapshot?.networkConnected ? "connected" : "disconnected"}`}>
+            <span className="dashboard-network-dot" />
+            {!snapshot ? (failed ? "Alınamadı" : "Yükleniyor") : snapshot.networkConnected ? "İnternet bağlı" : "Bağlantı yok"}
+          </span>
+        </div>
+        <div className="dashboard-pc-metrics-line">
+          <span className="pc-metric-tag">CPU {snapshot?.cpuPercent == null ? "--" : "%" + Math.round(snapshot.cpuPercent)}</span>
+          <span className="pc-metric-tag">RAM {ramPercent === null ? "--" : "%" + Math.round(ramPercent)}</span>
+          <span className="pc-metric-tag">Disk {diskPercent === null ? "--" : "%" + Math.round(diskPercent)}</span>
+          <small className="pc-metric-details">Ayrıntılar ›</small>
+        </div>
+      </summary>
+      {card}
+    </details>
+  );
   return <section className="section pc-section" aria-labelledby="pc-heading"><div className="section-heading"><div><span className="eyebrow">SİSTEM ÖZETİ</span><h2 id="pc-heading">PC Durumu</h2></div><span className="section-meta"><span className="live-dot" /> {failed ? "Alınamadı" : snapshot ? "Güncel" : "Yükleniyor"}</span></div>{card}</section>;
 }

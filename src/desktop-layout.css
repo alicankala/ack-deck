@@ -37,9 +37,14 @@
 .dashboard-right-rail .dashboard-shortcuts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.45rem; margin-top:.75rem; }
 .dashboard-right-rail .dashboard-shortcuts button { width:100%; justify-content:flex-start; padding:.6rem .75rem; min-height:2.35rem; border-radius:.65rem; background:var(--app-control); font-size:.78rem; }
 .dashboard-right-rail .dashboard-pc { background:var(--app-surface); border:1px solid var(--app-border); border-radius:1rem; }
-.dashboard-right-rail .dashboard-pc>summary { display:flex; align-items:center; flex-wrap:wrap; gap:.45rem .65rem; padding:.8rem 1rem; min-height:2.9rem; font-size:.78rem; }
-.dashboard-right-rail .dashboard-pc>summary>span { min-width:0; overflow-wrap:anywhere; }
-.dashboard-right-rail .dashboard-pc>summary>span:nth-child(3) { width:auto; }
+.dashboard-right-rail .dashboard-pc>summary { display:flex; flex-direction:column; gap:.55rem; padding:.8rem 1rem; cursor:pointer; }
+.dashboard-pc-header-line { display:flex; align-items:center; justify-content:space-between; width:100%; }
+.dashboard-pc-metrics-line { display:flex; align-items:center; gap:.5rem; width:100%; flex-wrap:wrap; }
+.pc-net-pill { display:inline-flex; align-items:center; gap:.35rem; font-size:.72rem; font-weight:600; padding:.15rem .55rem; border-radius:9999px; background:rgba(16,185,129,.14); color:#34d399; border:1px solid rgba(16,185,129,.28); }
+.pc-net-pill.disconnected { background:rgba(239,68,68,.14); color:#f87171; border-color:rgba(239,68,68,.28); }
+.pc-metric-tag { display:inline-flex; align-items:center; font-weight:600; font-size:.72rem; color:var(--app-text); background:var(--app-control); padding:.15rem .45rem; border-radius:.35rem; border:1px solid var(--app-border); }
+.pc-metric-details { margin-left:auto; color:var(--app-muted); font-size:.73rem; transition:color .15s ease; }
+.dashboard-pc summary:hover .pc-metric-details { color:var(--app-accent); }
 .work-dashboard .dashboard-start-grid { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:1.25rem; align-items:stretch; }
 @media (max-width: 900px) { .work-dashboard .dashboard-start-grid { grid-template-columns: minmax(0, 1fr); } }
 .tasks-page .task-capture-row { display:flex; align-items:center; gap:.7rem; padding:.7rem; margin-bottom:1.1rem; border:1px solid var(--app-border); background:var(--app-surface); border-radius:1rem; }
@@ -390,22 +395,82 @@
   background: linear-gradient(135deg, #dfe5ec 0%, #eef2f6 55%, #0284c7 100%);
 }
 
+.ai-quota-meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  color: var(--app-muted);
+}
+.ai-quota-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.ai-quota-pill strong {
+  color: var(--app-text);
+  font-weight: 700;
+}
+.ai-quota-pill.is-low strong {
+  color: #eab308;
+}
+
+.projects-split-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(350px, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (max-width: 1080px) {
+  .projects-split-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.projects-split-right .project-embedded-tools {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 1rem;
+  padding: 1.25rem 1.4rem;
+}
+
+.dashboard-ai {
+  border-radius: 1.15rem;
+  padding: 1.35rem 1.6rem;
+}
+.dashboard-ai-title {
+  margin-bottom: 0.9rem;
+}
+.dashboard-ai textarea {
+  min-height: 86px;
+  max-height: 220px;
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  font-size: 0.95rem;
+}
+.dashboard-ai-send {
+  margin-top: 0.85rem;
+}
+
 /* Soft Warm-Slate Light Theme (Not stark white!) */
 :root[data-theme="light"] {
-  --app-bg: #e2e7ee;
-  --app-surface: #eef2f6;
-  --app-control: #e3e9f0;
-  --app-field: #dde4ec;
-  --app-border: rgba(15, 23, 42, 0.12);
-  --app-border-strong: rgba(15, 23, 42, 0.22);
-  --app-text: #182230;
-  --app-secondary: #334155;
-  --app-muted: #5b6b7f;
+  --app-bg: #edf1f6;
+  --app-surface: #ffffff;
+  --app-control: #e8eef6;
+  --app-field: #ffffff;
+  --app-border: #d2dbe7;
+  --app-border-strong: #b8c6d8;
+  --app-text: #192333;
+  --app-secondary: #475569;
+  --app-muted: #64748b;
   --app-accent: #0284c7;
   --app-accent-soft: rgba(2, 132, 199, 0.12);
   --app-accent-border: rgba(2, 132, 199, 0.32);
   --app-on-accent: #ffffff;
-  --app-hover: #d5dee8;
+  --app-hover: #e2e8f0;
   color-scheme: light;
   color: var(--app-text);
   background: var(--app-bg);
@@ -610,6 +675,116 @@
   background: var(--app-control);
   border-color: var(--app-border-strong);
   color: var(--app-text);
+}
+
+/* Complete Light Mode Overrides for Projects, Tools, Settings, AI, Inbox, Prayer */
+:root[data-theme="light"] .project-card {
+  background: #ffffff !important;
+  border-color: var(--app-border) !important;
+  color: var(--app-text) !important;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+}
+:root[data-theme="light"] .project-avatar {
+  background: #e0edfb !important;
+  color: #0284c7 !important;
+}
+:root[data-theme="light"] .project-number {
+  color: var(--app-muted) !important;
+}
+:root[data-theme="light"] .project-info h3 button {
+  color: var(--app-text) !important;
+}
+:root[data-theme="light"] .project-info p {
+  color: var(--app-secondary) !important;
+}
+:root[data-theme="light"] .project-path {
+  color: var(--app-muted) !important;
+}
+:root[data-theme="light"] .project-actions button {
+  background: #f1f5f9 !important;
+  border: 1px solid var(--app-border) !important;
+  color: var(--app-text) !important;
+}
+:root[data-theme="light"] .project-actions button:hover:not(:disabled) {
+  background: #e2e8f0 !important;
+  color: var(--app-accent) !important;
+}
+:root[data-theme="light"] .project-add {
+  background: #ffffff !important;
+  border: 2px dashed #cbd5e1 !important;
+  color: var(--app-secondary) !important;
+}
+:root[data-theme="light"] .project-embedded-tools {
+  background: #ffffff !important;
+  border-color: var(--app-border) !important;
+}
+:root[data-theme="light"] .ip-card,
+:root[data-theme="light"] .qr-input-card,
+:root[data-theme="light"] .qr-output-card,
+:root[data-theme="light"] .speed-control,
+:root[data-theme="light"] .speed-metric {
+  background: #ffffff !important;
+  border-color: var(--app-border) !important;
+  color: var(--app-text) !important;
+}
+:root[data-theme="light"] .settings-card {
+  background: #ffffff !important;
+  border-color: var(--app-border) !important;
+  color: var(--app-text) !important;
+}
+:root[data-theme="light"] .phone-inbox,
+:root[data-theme="light"] .inbox-feed-card,
+:root[data-theme="light"] .inbox-feed-item {
+  background: #ffffff !important;
+  border-color: var(--app-border) !important;
+  color: var(--app-text) !important;
+}
+:root[data-theme="light"] .prayer-widget,
+:root[data-theme="light"] .prayer-time-item,
+:root[data-theme="light"] .prayer-compact-box {
+  background: #ffffff !important;
+  border-color: var(--app-border) !important;
+  color: var(--app-text) !important;
+}
+:root[data-theme="light"] .ai-panel {
+  background: #ffffff !important;
+  border-color: var(--app-border) !important;
+}
+:root[data-theme="light"] .ai-composer {
+  background: #f8fafc !important;
+  border-color: var(--app-border) !important;
+}
+:root[data-theme="light"] .ai-composer textarea {
+  background: #ffffff !important;
+  border-color: var(--app-border-strong) !important;
+  color: var(--app-text) !important;
+}
+:root[data-theme="light"] .ai-bubble {
+  background: #f1f5f9 !important;
+  color: var(--app-text) !important;
+}
+:root[data-theme="light"] .ai-message.user .ai-bubble {
+  background: #e0f2fe !important;
+  color: #0369a1 !important;
+}
+:root[data-theme="light"] .ai-quota-meter {
+  background: #ffffff;
+  border-color: var(--app-border);
+}
+:root[data-theme="light"] .pc-metric-tag {
+  background: #f1f5f9;
+  border-color: var(--app-border);
+  color: var(--app-text);
+}
+:root[data-theme="light"] .today-schedule-unified-card {
+  background: #ffffff !important;
+  border-color: var(--app-border) !important;
+  color: var(--app-text) !important;
+}
+:root[data-theme="light"] .calendar-day-cell {
+  background: #ffffff !important;
+  border-color: var(--app-border) !important;
+  color: var(--app-text) !important;
 }
 
 /* Today widget polish & Weekly preview */

@@ -16,7 +16,7 @@ import type { Project } from "../projectStore";
 import type { NavigationTarget } from "../navigation";
 
 type Props = { projects: Project[]; refreshMs: number; onNavigate: (target: NavigationTarget) => void; onAskAi: (text: string) => void };
-function AiStart({ onAskAi, onNavigate, lastProject }: Pick<Props, "onAskAi" | "onNavigate"> & { lastProject?: Project }) {
+function AiStart({ onAskAi }: Pick<Props, "onAskAi">) {
   const [draft, setDraft] = useState("");
   const submitting = useRef(false);
   function ask(text: string) { if (!text.trim() || submitting.current) return; submitting.current = true; onAskAi(text.trim()); }
@@ -24,7 +24,6 @@ function AiStart({ onAskAi, onNavigate, lastProject }: Pick<Props, "onAskAi" | "
   return <section className="dashboard-ai surface" aria-labelledby="dashboard-ai-heading">
     <div className="dashboard-ai-title"><span className="dashboard-ai-icon"><Icon name="spark" size={23} /></span><div><h2 id="dashboard-ai-heading">ACK AI</h2><p>Bir sonraki adımını birlikte planlayalım.</p></div></div>
     <form onSubmit={submit}><label className="sr-only" htmlFor="dashboard-ai-prompt">ACK AI mesajı</label><textarea id="dashboard-ai-prompt" value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} rows={3} maxLength={8000} placeholder="Bana ne yapmak istediğini yaz..." /><div className="dashboard-ai-send"><small>Enter ile gönder · İşlemler için onayın istenir.</small><button className="button button-primary" type="submit" disabled={!draft.trim()}>Gönder <Icon name="arrowRight" size={16} /></button></div></form>
-    <div className="dashboard-suggestions" aria-label="ACK AI hızlı başlangıçları"><button type="button" onClick={() => ask("Günümü planla. Bugün ne var?")}>Bugün ne var?</button><button type="button" onClick={() => ask("Bilgisayar şu an nasıl?")}>PC nasıl?</button>{lastProject && <button type="button" onClick={() => ask(lastProject.name + " projesini aç.")}>Son projeyi aç</button>}<button type="button" onClick={() => onNavigate({ page: "tasks", intent: "new-task" })}>+ Yeni görev</button></div>
   </section>;
 }
 const shortcuts: { label: string; icon: IconName; target: NavigationTarget }[] = [
@@ -53,8 +52,6 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi }: Props) {
     };
   }, []);
   const daily = todayTasks(data.tasks.entries, now), shownProjects = dashboardProjects(projects);
-  const recentProject = data.recents.find(item => item.source === "projects");
-  const lastProject = projects.find(project => project.id === recentProject?.id && project.folderPath);
   async function launch(id: string, mode: "folder" | "vscode") {
     if (busy.current) return; busy.current = true; setOpening(true); setFeedback("");
     try { await openRegisteredProject(id, mode); } catch { setFeedback("Proje açılamadı. Klasörü veya VS Code kurulumunu kontrol edin."); } finally { busy.current = false; setOpening(false); }
@@ -204,7 +201,7 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi }: Props) {
               )}
             </section>
 
-            <AiStart onAskAi={onAskAi} onNavigate={onNavigate} lastProject={lastProject} />
+            <AiStart onAskAi={onAskAi} />
           </div>
 
           {feedback && <p className="tool-feedback error" role="alert">{feedback}</p>}

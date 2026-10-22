@@ -2789,15 +2789,181 @@ body:has(.editor) nav { visibility: hidden; }
   width: 100%;
 }
 :root[data-theme="light"] {
-  --app-bg: #f8fafc;
+  --app-bg: #edf1f6;
   --app-surface: #ffffff;
-  --app-control: #f1f5f9;
-  --app-border: #e2e8f0;
-  --app-border-strong: #cbd5e1;
-  --app-text: #0f172a;
+  --app-surface-elevated: #f5f8fc;
+  --app-control: #e4ebf4;
+  --app-field: #ffffff;
+  --app-border: #d2dbe7;
+  --app-border-strong: #b8c6d8;
+  --app-text: #192333;
+  --app-secondary: #475569;
   --app-muted: #64748b;
   --app-accent: #0284c7;
   --app-accent-soft: rgba(2, 132, 199, 0.12);
+  --app-accent-border: rgba(2, 132, 199, 0.32);
+  --app-on-accent: #ffffff;
+  --app-hover: #e2e8f0;
+  --app-nav: rgba(255, 255, 255, 0.95);
+  color-scheme: light;
+}
+
+:root[data-theme="light"] body {
+  background: var(--app-bg);
+  color: var(--app-text);
+}
+
+:root[data-theme="light"] .mobile-header {
+  background: rgba(237, 241, 246, 0.95);
+  border-bottom-color: var(--app-border);
+}
+
+:root[data-theme="light"] .mobile-brand strong {
+  color: var(--app-text);
+}
+:root[data-theme="light"] .mobile-brand span {
+  color: var(--app-secondary);
+}
+
+:root[data-theme="light"] .mobile-connection-pill {
+  background: #e2e8f0;
+  border-color: var(--app-border);
+  color: var(--app-secondary);
+}
+:root[data-theme="light"] .mobile-connection-pill.online {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #059669;
+}
+
+:root[data-theme="light"] .mobile-nav {
+  background: rgba(255, 255, 255, 0.96);
+  border-top-color: var(--app-border);
+  box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.05);
+}
+
+:root[data-theme="light"] .mobile-nav button {
+  color: var(--app-secondary);
+}
+
+:root[data-theme="light"] .mobile-nav button.active {
+  color: var(--app-accent);
+}
+
+:root[data-theme="light"] .mobile-metrics-bar,
+:root[data-theme="light"] .unified-schedule-box,
+:root[data-theme="light"] .mobile-card,
+:root[data-theme="light"] .action-choice-card,
+:root[data-theme="light"] .action-sheet-box,
+:root[data-theme="light"] .mobile-task-card,
+:root[data-theme="light"] .mobile-note-card,
+:root[data-theme="light"] .subscription-card {
+  background: #ffffff;
+  border-color: var(--app-border);
+  color: var(--app-text);
+  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.06);
+}
+
+:root[data-theme="light"] .daily-focus {
+  background: linear-gradient(135deg, #f0f7ff 0%, #e6f0fa 100%);
+  border-color: rgba(2, 132, 199, 0.28);
+  box-shadow: 0 4px 16px -2px rgba(2, 132, 199, 0.1);
+}
+:root[data-theme="light"] .daily-focus strong {
+  color: #0f172a;
+}
+:root[data-theme="light"] .daily-focus > div > span {
+  color: var(--app-secondary);
+}
+
+:root[data-theme="light"] .mobile-prayer-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-color: var(--app-border);
+  box-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.06);
+  color: var(--app-text);
+}
+:root[data-theme="light"] .mobile-prayer-title strong {
+  color: var(--app-text);
+}
+:root[data-theme="light"] .mobile-prayer-title small {
+  color: var(--app-secondary);
+}
+:root[data-theme="light"] .prayer-cell {
+  background: #ffffff;
+  border-color: var(--app-border);
+  color: var(--app-text);
+}
+:root[data-theme="light"] .prayer-cell .p-time {
+  color: var(--app-accent);
+}
+:root[data-theme="light"] .prayer-cell.is-next {
+  background: #e0f2fe;
+  border-color: #38bdf8;
+}
+
+:root[data-theme="light"] .subscription-totals {
+  background: linear-gradient(135deg, #f0f7ff 0%, #e8f1fa 100%);
+  border-color: var(--app-border);
+  box-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.06);
+}
+:root[data-theme="light"] .subscription-totals strong {
+  color: #0f172a;
+}
+:root[data-theme="light"] .subscription-totals .sub-total-item span {
+  color: var(--app-secondary);
+}
+
+:root[data-theme="light"] .mobile-week-cell {
+  background: #f1f5f9;
+  border-color: var(--app-border);
+  color: var(--app-secondary);
+}
+:root[data-theme="light"] .mobile-week-cell.is-today {
+  border-color: var(--app-accent);
+  color: var(--app-text);
+}
+:root[data-theme="light"] .mobile-week-cell.is-selected {
+  background: var(--app-accent) !important;
+  color: #ffffff !important;
+  border-color: var(--app-accent) !important;
+}
+:root[data-theme="light"] .mobile-week-cell.is-selected .mobile-week-cell-day,
+:root[data-theme="light"] .mobile-week-cell.is-selected .mobile-week-cell-num {
+  color: #ffffff !important;
+}
+
+:root[data-theme="light"] .mobile-timeline-item {
+  background: #ffffff;
+  border-color: var(--app-border);
+  color: var(--app-text);
+}
+:root[data-theme="light"] .mobile-timeline-item.is-study {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+:root[data-theme="light"] input:not([type="checkbox"]):not([type="radio"]),
+:root[data-theme="light"] textarea,
+:root[data-theme="light"] select {
+  background: #ffffff !important;
+  border-color: var(--app-border-strong) !important;
+  color: var(--app-text) !important;
+}
+
+:root[data-theme="light"] .action-choice-card strong {
+  color: var(--app-text);
+}
+:root[data-theme="light"] .action-choice-card p {
+  color: var(--app-secondary);
+}
+
+:root[data-theme="light"] .mobile-empty-card {
+  background: #ffffff;
+  border-color: var(--app-border);
+  color: var(--app-secondary);
+}
+:root[data-theme="light"] .mobile-empty-card strong {
+  color: var(--app-text);
 }
 
 
