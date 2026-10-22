@@ -23,6 +23,7 @@ import "./style.css";
 import "./notes.css";
 import { createAttachmentSender } from "./sendFlow";
 import { SendCard } from "./SendCard";
+import { MobileSettings } from "./MobileSettings";
 import { MobileNav } from "./MobileNav";
 import { Icon } from "./Icon";
 
@@ -619,6 +620,46 @@ function App() {
     ? todayTasks
     : unfinished.filter(r => scheduleDate(r.data as PhoneTask) === selectedMobileDate);
 
+  type MobileTimelineItem =
+    | {
+        kind: "study";
+        id: string;
+        time: string;
+        endTime: string;
+        label: string;
+        topic?: string;
+      }
+    | {
+        kind: "task";
+        id: string;
+        time: string | null;
+        task: PhoneTask;
+        row: CloudRecord;
+        index: number;
+      };
+
+  const mobileTimelineItems: MobileTimelineItem[] = [
+    ...displayedMobileStudyBlocks.map(b => ({
+      kind: "study" as const,
+      id: b.id,
+      time: b.time,
+      endTime: b.endTime,
+      label: b.label,
+      topic: b.topic,
+    })),
+    ...displayedMobileTasks.map((row, index) => {
+      const task = row.data as PhoneTask;
+      return {
+        kind: "task" as const,
+        id: row.id,
+        time: task.dueTime ?? null,
+        task,
+        row,
+        index,
+      };
+    }),
+  ].sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
+
   const selectedMobileDateLabel = (() => {
     try {
       const [y, m, d] = selectedMobileDate.split("-").map(Number);
@@ -782,7 +823,7 @@ function App() {
 
               {/* Day's Chronological Feed */}
               <div className="mobile-timeline-list">
-                {displayedMobileStudyBlocks.length === 0 && displayedMobileTasks.length === 0 ? (
+                {mobileTimelineItems.length === 0 ? (
                   <div className="mobile-empty-card">
                     <div className="empty-badge"><Icon name="checkCircle" size={32} /></div>
                     <strong>{isSelectedMobileToday ? "Harika, bugün bekleyen ders veya görev yok!" : `${selectedMobileDateLabel} için ders veya görev yok.`}</strong>
@@ -796,70 +837,70 @@ function App() {
                     </button>
                   </div>
                 ) : (
-                  <>
-                    {/* Lessons */}
-                    {displayedMobileStudyBlocks.map(block => (
-                      <article className="mobile-timeline-card session-card" key={block.id}>
-                        <div className="timeline-card-header">
-                          <span className="session-time-pill">{block.time} – {block.endTime}</span>
-                          <span className="timeline-badge study-badge">Ders</span>
-                        </div>
-                        <div className="timeline-card-body">
-                          <strong>{block.label}</strong>
-                          {block.topic && <small>{block.topic}</small>}
-                        </div>
-                      </article>
-                    ))}
-                    {/* Tasks */}
-                    {displayedMobileTasks.map((row, index) => {
-                      const task = row.data as PhoneTask;
+                  mobileTimelineItems.map(item => {
+                    if (item.kind === "study") {
                       return (
-                        <article className={`mobile-timeline-card task-card ${task.completed ? "completed" : ""}`} key={row.id}>
-                          <div className="timeline-task-row">
-                            <button
-                              type="button"
-                              className="mobile-task-toggle"
-                              disabled={busy}
-                              onClick={() => void complete(row)}
-                              aria-label="Tamamlandı olarak işaretle"
-                            >
-                              {task.completed && <Icon name="check" size={12} />}
-                            </button>
-                            <button
-                              type="button"
-                              className="timeline-task-content"
-                              onClick={() => openForm("task", row)}
-                            >
-                              <span className="task-title-text">{task.text}</span>
-                              <div className="task-sub-meta">
-                                {task.dueTime && <span className="task-time-pill">⏰ {task.dueTime}</span>}
-                                {task.recurrence && <span className="task-recurrence-pill">🔁 {recurrenceLabel(task.recurrence)}</span>}
-                              </div>
-                            </button>
-                            <ActionMenu label={task.text + " işlemleri"}>
-                              <button disabled={busy || index === 0} onClick={() => void reorderTask(row.id, -1)}>Yukarı taşı</button>
-                              <button disabled={busy || index === displayedMobileTasks.length - 1} onClick={() => void reorderTask(row.id, 1)}>Aşağı taşı</button>
-                              <button disabled={busy} onClick={() => void snooze(row, 15)}>15 dk ertele</button>
-                              <button disabled={busy} onClick={() => void snooze(row, 60)}>1 saat ertele</button>
-                              <button
-                                disabled={busy}
-                                className="danger-action"
-                                onClick={() => {
-                                  if (confirm("Bu görev silinsin mi?")) {
-                                    void saveMutation({ mutationId: crypto.randomUUID(), kind: "tasks", id: row.id, baseVersion: row.version, data: null, deleted: true })
-                                      .then(() => setUndo({ row, expires: Date.now() + 10000 }))
-                                      .catch(e => setError(e.message));
-                                  }
-                                }}
-                              >
-                                Görevi sil
-                              </button>
-                            </ActionMenu>
+                        <article className="mobile-timeline-card session-card" key={item.id}>
+                          <div className="timeline-card-header">
+                            <span className="session-time-pill">⏰ {item.time} – {item.endTime}</span>
+                            <span className="timeline-badge study-badge">Ders</span>
+                          </div>
+                          <div className="timeline-card-body">
+                            <strong>{item.label}</strong>
+                            {item.topic && <small>{item.topic}</small>}
                           </div>
                         </article>
                       );
-                    })}
-                  </>
+                    }
+
+                    const { task, row, index } = item;
+                    return (
+                      <article className={`mobile-timeline-card task-card ${task.completed ? "completed" : ""}`} key={row.id}>
+                        <div className="timeline-task-row">
+                          <button
+                            type="button"
+                            className="mobile-task-toggle"
+                            disabled={busy}
+                            onClick={() => void complete(row)}
+                            aria-label="Tamamlandı olarak işaretle"
+                          >
+                            {task.completed && <Icon name="check" size={12} />}
+                          </button>
+                          <button
+                            type="button"
+                            className="timeline-task-content"
+                            onClick={() => openForm("task", row)}
+                          >
+                            <span className="task-title-text">{task.text}</span>
+                            <div className="task-sub-meta">
+                              <span className="timeline-badge task-badge">Görev</span>
+                              {task.dueTime && <span className="task-time-pill">⏰ {task.dueTime}</span>}
+                              {task.recurrence && <span className="task-recurrence-pill">🔁 {recurrenceLabel(task.recurrence)}</span>}
+                            </div>
+                          </button>
+                          <ActionMenu label={task.text + " işlemleri"}>
+                            <button disabled={busy || index === 0} onClick={() => void reorderTask(row.id, -1)}>Yukarı taşı</button>
+                            <button disabled={busy || index === displayedMobileTasks.length - 1} onClick={() => void reorderTask(row.id, 1)}>Aşağı taşı</button>
+                            <button disabled={busy} onClick={() => void snooze(row, 15)}>15 dk ertele</button>
+                            <button disabled={busy} onClick={() => void snooze(row, 60)}>1 saat ertele</button>
+                            <button
+                              disabled={busy}
+                              className="danger-action"
+                              onClick={() => {
+                                if (confirm("Bu görev silinsin mi?")) {
+                                  void saveMutation({ mutationId: crypto.randomUUID(), kind: "tasks", id: row.id, baseVersion: row.version, data: null, deleted: true })
+                                    .then(() => setUndo({ row, expires: Date.now() + 10000 }))
+                                    .catch(e => setError(e.message));
+                                }
+                              }}
+                            >
+                              Görevi sil
+                            </button>
+                          </ActionMenu>
+                        </div>
+                      </article>
+                    );
+                  })
                 )}
               </div>
 
@@ -1114,94 +1155,22 @@ function App() {
 
         {/* 5. AYARLAR SEKMESİ (Gönder sekmesindeki butondan açılır) */}
         {page === "settings" && (
-          <div className="more-sections-container">
-            <div className="settings-header-bar">
-              <button
-                type="button"
-                className="back-to-send-btn"
-                onClick={() => changePage("send")}
-              >
-                <Icon name="back" size={18} />
-                <span>Gönder'e Dön</span>
-              </button>
-              <h2>Ayarlar</h2>
-            </div>
-
-            {/* Device & Notifications Card */}
-            <section className="more-section-card">
-              <h2>Cihaz ve Bildirimler</h2>
-              <form
-                className="device-rename-form"
-                onSubmit={e => {
-                  e.preventDefault();
-                  void api(state, "me", json({ name }))
-                    .then(() => commit({ ...state, name }))
-                    .then(() => setNotice("Cihaz adı kaydedildi."))
-                    .catch(e => setError(e.message));
-                }}
-              >
-                <label>Cihaz adı<input value={name} maxLength={80} onChange={e => setName(e.target.value)} /></label>
-                <button disabled={busy} className="primary-action">Kaydet</button>
-              </form>
-
-              <div className="notification-status-row">
-                <span>Push Bildirimleri: <strong className={`settings-status-pill ${push ? "active" : ""}`}>{push ? "Açık" : "Kapalı"}</strong></span>
-                {!push && (
-                  <button
-                    type="button"
-                    onClick={() => void enablePush(state).then(() => { setPush(true); setNotice("Bildirimler açıldı."); }).catch(e => setError(e.message))}
-                  >
-                    Aç
-                  </button>
-                )}
-              </div>
-
-              <button
-                className="disconnect-button"
-                disabled={busy}
-                onClick={() => {
-                  if (confirm("Bu telefonun erişimi kaldırılsın mı?")) {
-                    void api<{ id: string }>(state, "me")
-                      .then(me => api(state, "revoke", json({ deviceId: me.id })))
-                      .then(async () => {
-                        const registration = await navigator.serviceWorker?.ready;
-                        await (await registration?.pushManager?.getSubscription())?.unsubscribe();
-                        await commit(emptyState());
-                      })
-                      .catch(e => setError(e.message));
-                  }
-                }}
-              >
-                Cihaz Bağlantısını Kes
-              </button>
-            </section>
-
-            {/* PC Workspaces Card */}
-            <section className="more-section-card">
-              <h2>Masaüstü Çalışma Alanları</h2>
-              <p className="mobile-work-hint">Telefondan bilgisayardaki çalışma alanlarını başlat.</p>
-              <div className="mobile-work-grid">
-                {workspaces.map(workspace => (
-                  <article key={workspace.id} className="mobile-workspace-card">
-                    <div className="workspace-card-header">
-                      <h3><span className="workspace-icon">{workspace.icon}</span> {workspace.name}</h3>
-                    </div>
-                    <p>{workspace.description}</p>
-                    <button
-                      disabled={busy}
-                      className="primary-action"
-                      onClick={() => void api<{ offline: boolean }>(state, "commands", json({ workspaceId: workspace.id, requestId: crypto.randomUUID() }))
-                        .then(result => setNotice(result.offline ? "Bilgisayar çevrimdışı. İstek 10 dakika bekleyecek." : "İstek bilgisayara gönderildi."))
-                        .catch(e => setError(e.message))}
-                    >
-                      Bilgisayarda Başlat
-                    </button>
-                  </article>
-                ))}
-                {!workspaces.length && <p className="mobile-empty">Eşitlenmiş çalışma alanı bulunamadı.</p>}
-              </div>
-            </section>
-          </div>
+          <MobileSettings
+            state={state}
+            commit={commit}
+            busy={busy}
+            name={name}
+            setName={setName}
+            push={push}
+            setPush={setPush}
+            online={online}
+            tasksCount={tasks.length}
+            notesCount={notesCount}
+            onNotice={setNotice}
+            onError={setError}
+            onBack={() => changePage("send")}
+            onSync={() => refresh()}
+          />
         )}
 
         {/* Conflicts */}
