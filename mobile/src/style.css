@@ -2419,14 +2419,15 @@ body:has(.editor) nav { visibility: hidden; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 6px 2px;
-  border-radius: 10px;
+  padding: 10px 4px;
+  border-radius: 12px;
   background: var(--app-control);
   border: 1px solid var(--app-border);
   color: var(--app-text);
   cursor: pointer;
   transition: all 0.15s ease;
-  min-height: 52px;
+  min-height: 56px;
+  gap: 2px;
 }
 .mobile-week-cell:hover, .mobile-week-cell:active {
   background: var(--app-surface-hover, rgba(255, 255, 255, 0.08));
@@ -2440,47 +2441,20 @@ body:has(.editor) nav { visibility: hidden; }
   box-shadow: 0 0 0 1.5px var(--app-accent);
 }
 .mobile-week-cell-day {
-  font-size: 10px;
+  font-size: 11.5px;
   font-weight: 600;
   color: var(--app-muted);
+  letter-spacing: 0.02em;
 }
 .mobile-week-cell.is-today .mobile-week-cell-day,
 .mobile-week-cell.is-selected .mobile-week-cell-day {
   color: var(--app-accent);
 }
 .mobile-week-cell-num {
-  font-size: 14px;
-  font-weight: 700;
-  margin: 2px 0;
-  color: var(--app-text);
-}
-.mobile-week-cell-indicator {
-  font-size: 10px;
-  min-height: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.mobile-week-dot {
-  display: inline-grid;
-  place-items: center;
-  background: var(--app-accent);
-  color: #000;
-  font-size: 9px;
+  font-size: 18px;
   font-weight: 800;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  line-height: 1;
-}
-.mobile-task-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #f59e0b;
-}
-.mobile-week-dash {
-  color: rgba(255, 255, 255, 0.15);
+  margin: 1px 0;
+  color: var(--app-text);
 }
 
 .timeline-title-group {

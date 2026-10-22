@@ -9,14 +9,16 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Project } from "../projectStore";
 import { Icon } from "./Icon";
 import { recordRecent } from "../recentStore";
-import { Workspaces } from "./Workspaces";
+import { IpTool } from "./IpTool";
+import { QrTool } from "./QrTool";
+import { SpeedTest } from "./SpeedTest";
 
 type Editor = { id: string | null; name: string; description: string; folderPath: string };
 type Props = { projects: Project[]; onChange: (projects: Project[]) => boolean; fullPage?: boolean; initialId?: string; workspaceId?: string; onNavigate?: (target: NavigationTarget)=>void; onAskAi?: (text:string)=>void };
 const emptyEditor: Editor = { id: null, name: "", description: "", folderPath: "" };
 const safeErrors = new Set(["Klasör bulunamadı.", "Klasör açılamadı.", "VS Code bulunamadı veya açılamadı."]);
 
-export function Projects({ projects, onChange, fullPage = false, initialId, workspaceId, onNavigate, onAskAi }: Props) {
+export function Projects({ projects, onChange, fullPage = false, initialId, onNavigate, onAskAi }: Props) {
   useEffect(() => { if (initialId) document.getElementById("project-" + initialId)?.scrollIntoView({ block: "center" }); }, [initialId]);
   const [hubId,setHubId]=useState(initialId??"");
   useEffect(()=>{if(hubId)document.getElementById("project-work-summary")?.scrollIntoView({block:"start",behavior:"smooth"});},[hubId]);
@@ -25,6 +27,7 @@ export function Projects({ projects, onChange, fullPage = false, initialId, work
   const [dragged,setDragged]=useState<string|null>(null),[dragOver,setDragOver]=useState<string|null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [toolTab, setToolTab] = useState<"ip" | "qr" | "speed">("ip");
 
   function startEdit(project?: Project) {
     setMessage("");
@@ -107,6 +110,44 @@ export function Projects({ projects, onChange, fullPage = false, initialId, work
       <button className="project-add" type="button" onClick={() => startEdit()}><span className="add-icon"><Icon name="plus" size={22} /></span><strong>+ Proje</strong><span>Yeni bir proje ekle</span></button>
     </div>
     {fullPage && hubId && projects.find(p=>p.id===hubId) && <ProjectHub key={hubId} project={projects.find(p=>p.id===hubId)!} onChange={patch=>onChange(projects.map(p=>p.id===hubId?{...p,...patch}:p))} onNavigate={onNavigate} onAskAi={onAskAi}/> }
-    {fullPage && <Workspaces embedded initialId={workspaceId} />}
+    {fullPage && (
+      <section className="project-embedded-tools" aria-label="Geliştirici ve Sistem Araçları" style={{ marginTop: "2.5rem", borderTop: "1px solid var(--app-border)", paddingTop: "1.75rem" }}>
+        <div className="section-heading" style={{ marginBottom: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+          <div>
+            <span className="eyebrow">YARDIMCI ARAÇLAR</span>
+            <h2 style={{ fontSize: "1.35rem", margin: "4px 0 0" }}>Geliştirici & Ağ Araçları</h2>
+          </div>
+          <div className="project-tools-tab-buttons" style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              type="button"
+              className={`button ${toolTab === "ip" ? "button-primary" : "button-secondary"}`}
+              onClick={() => setToolTab("ip")}
+            >
+              🌐 IP Bilgisi
+            </button>
+            <button
+              type="button"
+              className={`button ${toolTab === "qr" ? "button-primary" : "button-secondary"}`}
+              onClick={() => setToolTab("qr")}
+            >
+              📱 QR Kod
+            </button>
+            <button
+              type="button"
+              className={`button ${toolTab === "speed" ? "button-primary" : "button-secondary"}`}
+              onClick={() => setToolTab("speed")}
+            >
+              ⚡ Hız Testi
+            </button>
+          </div>
+        </div>
+
+        <div className="project-tool-content" style={{ marginTop: "1rem" }}>
+          {toolTab === "ip" && <IpTool />}
+          {toolTab === "qr" && <QrTool />}
+          {toolTab === "speed" && <SpeedTest />}
+        </div>
+      </section>
+    )}
   </section>;
 }

@@ -54,7 +54,19 @@ export function PcStatus({ refreshMs = 2500, compact = false }: { refreshMs?: nu
   ];
 
   const card = <div className="pc-card surface">
-    <div className="metric-grid">{metrics.map((metric) => <div className="metric" key={metric.label}><div className="metric-icon"><Icon name={metric.icon} size={19} /></div><div className="metric-label">{metric.label}</div><div className="metric-value">{metric.value}</div><div className="metric-track" role="meter" aria-label={metric.label + " kullanımı"} aria-valuemin={0} aria-valuemax={100} aria-valuenow={metric.percentage === null ? undefined : Math.round(metric.percentage)} aria-valuetext={metric.percentage === null ? "Alınamadı" : undefined}><div style={{ width: (metric.percentage ?? 0) + "%" }} /></div><div className="metric-detail">{metric.detail}</div></div>)}</div>
+    <div className="metric-grid">
+      {metrics.map((metric) => (
+        <div className="metric" key={metric.label}>
+          <div className="metric-icon"><Icon name={metric.icon} size={19} /></div>
+          <div className="metric-label">{metric.label}</div>
+          <div className="metric-value-box"><div className="metric-value">{metric.value}</div></div>
+          <div className="metric-track" role="meter" aria-label={metric.label + " kullanımı"} aria-valuemin={0} aria-valuemax={100} aria-valuenow={metric.percentage === null ? undefined : Math.round(metric.percentage)} aria-valuetext={metric.percentage === null ? "Alınamadı" : undefined}>
+            <div style={{ width: (metric.percentage ?? 0) + "%" }} />
+          </div>
+          <div className="metric-detail">{metric.detail}</div>
+        </div>
+      ))}
+    </div>
     <div className="network-row"><div className="network-icon"><Icon name="wifi" size={18} /></div><div><strong>Ağ bağlantısı</strong><span>Windows bağlantı durumu</span></div><span className={"network-pill " + (snapshot && !snapshot.networkConnected ? "offline" : !snapshot ? "unknown" : "")}><span /> {!snapshot ? "Alınamadı" : snapshot.networkConnected ? "Bağlı" : "Bağlantı Yok"}</span></div>
   </div>;
   if (compact) return <details className="dashboard-pc" aria-label="PC Durumu"><summary><span className="dashboard-pc-title"><Icon name="cpu" size={15} /> PC Durumu</span><span>CPU {snapshot?.cpuPercent == null ? "--" : "%" + Math.round(snapshot.cpuPercent)}</span><span>RAM {ramPercent === null ? "--" : "%" + Math.round(ramPercent)}</span><span>Disk {diskPercent === null ? "--" : "%" + Math.round(diskPercent)}</span><span className={snapshot?.networkConnected ? "connected" : ""}><span className="dashboard-network-dot" />{!snapshot ? failed ? "Alınamadı" : "Yükleniyor" : snapshot.networkConnected ? "İnternet bağlı" : "Bağlantı yok"}</span><small>Ayrıntılar</small></summary>{card}</details>;

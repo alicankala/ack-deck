@@ -14,9 +14,8 @@ import { studyBlocks, WEEKDAY_SHORT } from "../../shared/studyPrograms";
 import { weekDates } from "../../shared/weeklyPlan";
 import type { Project } from "../projectStore";
 import type { NavigationTarget } from "../navigation";
-import { launchWorkspace, launchShortcut } from "../hubLaunch";
 
-type Props = { projects: Project[]; refreshMs: number; onNavigate: (target: NavigationTarget) => void; onAskAi: (text: string) => void; onOpenSearch: () => void };
+type Props = { projects: Project[]; refreshMs: number; onNavigate: (target: NavigationTarget) => void; onAskAi: (text: string) => void };
 function AiStart({ onAskAi, onNavigate, lastProject }: Pick<Props, "onAskAi" | "onNavigate"> & { lastProject?: Project }) {
   const [draft, setDraft] = useState("");
   const submitting = useRef(false);
@@ -32,9 +31,9 @@ const shortcuts: { label: string; icon: IconName; target: NavigationTarget }[] =
   { label: "Yeni görev", icon: "check", target: { page: "tasks", intent: "new-task" } },
   { label: "Yeni not", icon: "note", target: { page: "notes", intent: "new-note" } },
   { label: "Haftalık Plan", icon: "grid", target: { page: "calendar" } },
-  { label: "Arşiv", icon: "archive", target: { page: "archive" } },
+  { label: "Projeler", icon: "folder", target: { page: "projects" } },
 ];
-export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, onOpenSearch }: Props) {
+export function Dashboard({ projects, refreshMs, onNavigate, onAskAi }: Props) {
   const [data, setData] = useState(loadDashboardData), [now, setNow] = useState(() => new Date());
   const [studyData, setStudyData] = useState(loadStudyPrograms);
   const [feedback, setFeedback] = useState("");
@@ -61,11 +60,6 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, onOpenSear
     try { await openRegisteredProject(id, mode); } catch { setFeedback("Proje açılamadı. Klasörü veya VS Code kurulumunu kontrol edin."); } finally { busy.current = false; setOpening(false); }
   }
   function complete(id: string) { const current = loadTasks(); if (!saveTasks(current.entries.map(task => task.id === id ? completeOccurrence(task) : task), current)) setFeedback("Görev kaydedilemedi. Mevcut veriler korunuyor."); }
-  async function launchHub(id: string, source: "workspaces" | "shortcuts") {
-    if (busy.current) return; busy.current = true; setOpening(true); setFeedback("");
-    try { if (source === "workspaces") { const result = await launchWorkspace(id); if (result.errors.length) setFeedback(result.errors.join(" ")); else if (!result.opened) setFeedback("Çalışma alanına önce bir öğe ekleyin."); } else await launchShortcut(id); }
-    catch { setFeedback("Kayıtlı öğe açılamadı. Konumu veya uygulamayı kontrol edin."); } finally { busy.current = false; setOpening(false); }
-  }
   const summary = dailySummary();
   const allBlocks = studyBlocks(studyData.entries, now);
   const todayDateStr = localDateKey(now);
@@ -130,7 +124,7 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, onOpenSear
 
   return (
     <div className="dashboard work-dashboard">
-      <Header onOpenSearch={onOpenSearch} />
+      <Header />
       <div className="dashboard-workbench">
         <div className="dashboard-primary-column">
           <div className="dashboard-overview" aria-label="Çalışma alanı özeti">
@@ -305,29 +299,6 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, onOpenSear
             </div>
           </section>
 
-          {(data.workspaces.length > 0 || data.pinnedShortcuts.length > 0) && (
-            <section aria-labelledby="dashboard-hub-heading">
-              <div className="dashboard-section-top">
-                <h2 id="dashboard-hub-heading">Hızlı Erişim</h2>
-                <button type="button" className="dashboard-more" onClick={() => onNavigate({ page: "workspaces" })}>
-                  Tüm çalışma alanları <Icon name="arrowRight" size={14} />
-                </button>
-              </div>
-              <div className="dashboard-shortcuts">
-                {data.workspaces.map(v => (
-                  <button type="button" key={v.id} disabled={opening} title={v.description || v.name} onClick={() => void launchHub(v.id, "workspaces")}>
-                    <Icon name="folder" size={16} />{v.icon} {v.name}<small>Çalışmaya Başla</small>
-                  </button>
-                ))}
-                {data.pinnedShortcuts.map(v => (
-                  <button type="button" key={v.id} disabled={opening} title={v.description || v.name} onClick={() => void launchHub(v.id, "shortcuts")}>
-                    <Icon name="files" size={16} />{v.name}
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
-
           <div className="dashboard-projects-open">
             <section aria-labelledby="dashboard-projects-heading">
               <div className="dashboard-section-top">
@@ -365,9 +336,6 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, onOpenSear
           <section className="dashboard-quick" aria-labelledby="dashboard-quick-heading">
             <div className="dashboard-section-top">
               <h2 id="dashboard-quick-heading">Hızlı İşlemler</h2>
-              <button type="button" className="dashboard-more" onClick={() => onNavigate({ page: "tools" })}>
-                Daha fazla araç <Icon name="arrowRight" size={14} />
-              </button>
             </div>
             <div className="dashboard-shortcuts">
               {shortcuts.map(item => (

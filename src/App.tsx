@@ -11,7 +11,6 @@ import { PhoneInbox } from "./components/PhoneInbox";
 import { PhoneCommands } from "./components/PhoneCommands";
 import { useReminders } from "./useReminders";
 import { usePaletteBridge } from "./usePaletteBridge";
-import { GlobalSearch } from "./components/GlobalSearch";
 import { useNavigationHistory } from "./useNavigationHistory";
 import { Dashboard } from "./components/Dashboard";
 import type { AiPromptHandoff } from "./aiPromptHandoff";
@@ -24,15 +23,7 @@ import { Projects } from "./components/Projects";
 import { Sidebar, type Page } from "./components/Sidebar";
 const Settings = lazy(() => import("./components/Settings").then(module => ({ default: module.Settings })));
 import { Tasks } from "./components/Tasks";
-import { Tools } from "./components/Tools";
 const Notes = lazy(() => import("./components/Notes").then(module => ({ default: module.Notes })));
-const QrTool = lazy(() => import("./components/QrTool").then(module => ({ default: module.QrTool })));
-const IpTool = lazy(() => import("./components/IpTool").then(module => ({ default: module.IpTool })));
-import { Shortcuts } from "./components/Shortcuts";
-
-import { PcStatus } from "./components/PcStatus";
-const SpeedTest = lazy(() => import("./components/SpeedTest").then(module => ({ default: module.SpeedTest })));
-const Archive = lazy(() => import("./components/Archive").then(module => ({ default: module.Archive })));
 import { loadPreferences } from "./preferences";
 import { invoke } from "@tauri-apps/api/core";
 import { collectAckContext } from "./ackIntegration";
@@ -53,20 +44,26 @@ function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = preferences.theme ?? "dark";
   }, [preferences.theme]);
-  const { route, navigate } = useNavigationHistory({ page: preferences.startPage }, () => restoring || aiBusy || searchOpen || history.mutating || !desktop.visible);
+  const { route, navigate } = useNavigationHistory({ page: preferences.startPage }, () => restoring || aiBusy || history.mutating || !desktop.visible);
   const page = route.target.page;
   const setPage = (page: Page) => navigate({ page });
   usePaletteBridge(navigate);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [restoreBlocked, setRestoreBlocked] = useState(false);
   useEffect(() => { const blocked = () => { setRestoreBlocked(true); setRestoring(true); }; window.addEventListener("ack-restore-blocked", blocked); return () => window.removeEventListener("ack-restore-blocked", blocked); }, []);
-  useEffect(() => { const active = (event: Event) => { setRestoring((event as CustomEvent).detail === true); setSearchOpen(false); }; window.addEventListener("ack-restore-active", active); return () => window.removeEventListener("ack-restore-active", active); }, []);
+  useEffect(() => { const active = (event: Event) => { setRestoring((event as CustomEvent).detail === true); }; window.addEventListener("ack-restore-active", active); return () => window.removeEventListener("ack-restore-active", active); }, []);
   const navigateNative = useCallback((target: string) => {
     const next = nativeNavigation(target); if (next) navigate(next);
   }, [navigate]);
   const desktop = useDesktop(navigateNative);
   const history = useConversations();
+
+  useEffect(() => {
+    if (route.target.page === "ai" && route.target.id) {
+      history.select(route.target.id);
+    }
+  }, [route.target.page, route.target.id, history.select]);
+
   const [aiBusy, setAiBusy] = useState(false);
   const [phoneAiDraft, setPhoneAiDraft] = useState<{id:string;text:string;attachment?:import("./aiAttachments").AiAttachment}>();
   const [aiPrompt, setAiPrompt] = useState<AiPromptHandoff>();
@@ -80,8 +77,6 @@ function App() {
   useReminders(setNotice);
   usePhoneCompanion(restoring, setNotice);
   useEffect(() => { const restored = (event: Event) => { const value = loadProjectSnapshot(); setProjectStorage(value); setProjects(value.entries); setPreferences(loadPreferences());  setAiPrompt(undefined); navigate({ page: "settings" }); void getDesktopStatus().then(desktop.setStatus).catch(() => {}); setNotice((event as CustomEvent).detail === "rollback" ? "Geri yükleme tamamlanamadı; önceki kayıtlar geri getirildi." : "Yedek başarıyla geri yüklendi."); }; window.addEventListener("ack-data-restored", restored); return () => window.removeEventListener("ack-data-restored", restored); }, [navigate, desktop.setStatus]);
-  useEffect(() => { const shortcut = (event: KeyboardEvent) => { if (!restoring && event.ctrlKey && event.key.toLowerCase() === "k") { event.preventDefault(); setSearchOpen(true); } }; window.addEventListener("keydown", shortcut); return () => window.removeEventListener("keydown", shortcut); }, [restoring]);
-  useEffect(() => { if (!desktop.visible) setSearchOpen(false); }, [desktop.visible]);
   function changeProjects(next: Project[]) {
     if (!saveProjects(next, loadProjectSnapshot())) { setNotice("Projeler kaydedilemedi. Mevcut veriler korunuyor."); return false; }
     setProjects(next); return true;
@@ -92,16 +87,23 @@ function App() {
     return () => window.clearTimeout(timeout);
   }, [notice]);
 
-  function showDesktopNotification(title: string, body: string) {
+  function showDesktopNotification(title: string, body: string, target?: string) {
     try {
       if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-        new Notification(title, { body });
+        const notif = new Notification(title, { body });
+        if (target) {
+          notif.onclick = () => {
+            window.focus();
+            navigateNative(target);
+          };
+        }
       }
     } catch {}
     try {
       const text = body ? `${title}: ${body}`.slice(0, 160) : title.slice(0, 160);
+      const reminderId = target ? target : "notice:" + crypto.randomUUID();
       void invoke("sync_task_reminders", {
-        reminders: [{ id: "notice:" + crypto.randomUUID(), text, dueAt: Date.now() }]
+        reminders: [{ id: reminderId, text, dueAt: Date.now() }]
       });
     } catch {}
   }
@@ -164,7 +166,7 @@ function App() {
       window.dispatchEvent(new Event("ack-data-changed"));
 
       const shortSummary = cleanReply.slice(0, 120).replace(/\s+/g, " ");
-      showDesktopNotification("ACK AI: Mobilden notun işlendi", `"${userPrompt.slice(0, 35)}": ${shortSummary}`);
+      showDesktopNotification("ACK AI: Mobilden notun işlendi", `"${userPrompt.slice(0, 35)}": ${shortSummary}`, `ai:${threadId}`);
       setNotice(`🤖 ACK AI: Mobilden attığın "${userPrompt.slice(0, 35)}" işlendi! Çıktı sohbette hazır.`);
     } catch (err) {
       setNotice(`ACK AI mobil notunu işleyemedi: ${err instanceof Error ? err.message : "Hata oluştu"}`);
@@ -199,7 +201,7 @@ function App() {
         };
         const label = kindLabels[item.kind] || "İçerik";
         const itemTitle = item.title || "Yeni öğe";
-        showDesktopNotification("Telefondan Yeni Öğe", `${label}: "${itemTitle}"`);
+        showDesktopNotification("Telefondan Yeni Öğe", `${label}: "${itemTitle}"`, `inbox:${item.id}`);
         setNotice(`📲 Telefondan yeni ${label.toLowerCase()} geldi: "${itemTitle}"`);
       }
     };
@@ -228,30 +230,37 @@ function App() {
     };
   }, []);
 
+  const projectsView = <Projects projects={projects} onChange={changeProjects} fullPage initialId={route.target.id} onNavigate={navigate} onAskAi={askAi} />;
+
   const pageViews: Record<Page, ReactNode> = {
-    home: <Dashboard projects={projects} refreshMs={preferences.pcRefreshMs} onNavigate={navigate} onAskAi={askAi} onOpenSearch={() => setSearchOpen(true)} />,
+    home: <Dashboard projects={projects} refreshMs={preferences.pcRefreshMs} onNavigate={navigate} onAskAi={askAi} />,
     ai: <div className="ai-history-layout"><ConversationHistory history={{ ...history, newChat: () => { setAiPrompt(undefined); history.newChat(); }, select: id => { setAiPrompt(undefined); history.select(id); } }} disabled={aiBusy} />{history.ready ? <AckAi prefill={phoneAiDraft} onPrefillConsumed={() => setPhoneAiDraft(undefined)} key={history.activeId || "unsaved"} blocked={history.mutating} onNewChat={() => { setAiPrompt(undefined); history.newChat(); }} onBusyChange={setAiBusy} messages={history.messages} initialPrompt={aiPrompt} onPromptConsumed={consumeAiPrompt} onMessagesChange={history.setMessages} onOpenSettings={() => setPage("settings")} onNavigate={navigate} /> : <p role="status">{history.error || "Sohbetler yükleniyor..."}</p>}</div>,
     settings: <Settings preferences={preferences} onPreferencesChange={setPreferences} desktop={desktop.status} onDesktopChange={desktop.setStatus} />,
     inbox: <PhoneInbox initialId={route.target.id} onAiDraft={(text,attachment) => { setAiPrompt(undefined); setPhoneAiDraft({id:crypto.randomUUID(),text,attachment}); navigate({page:"ai"}); }} />,
-    workspaces: <Projects projects={projects} onChange={changeProjects} fullPage workspaceId={route.target.id} onNavigate={navigate} onAskAi={askAi} />,
     subscriptions: <Subscriptions initialId={route.target.id} />,
     calendar: <WeeklyPlan onNavigate={navigate} onAskAi={askAi} />,
     tasks: <Tasks fullPage initialId={route.target.id} focusNew={route.target.intent === "new-task"} initialDate={route.target.date} />,
-    projects: <Projects projects={projects} onChange={changeProjects} fullPage initialId={route.target.id} onNavigate={navigate} onAskAi={askAi} />,
-    tools: <Tools fullPage onOpen={setPage} />,
+    projects: projectsView,
     notes: <Notes initialId={route.target.id} createNew={route.target.intent === "new-note"} />,
-    qr: <QrTool />,
-    ip: <IpTool />,
-    pc: <section><h1>PC Durumu</h1><PcStatus refreshMs={preferences.pcRefreshMs} /></section>,
-    files: <Shortcuts initialId={route.target.id} />,
-    speed: <SpeedTest authorizedStart={route.target.intent === "start-speed"} />,
-    archive: <Archive initialId={route.target.id} createNew={route.target.intent === "new-archive"} />,
+    workspaces: projectsView,
+    tools: projectsView,
+    qr: projectsView,
+    ip: projectsView,
+    files: projectsView,
+    speed: projectsView,
+    pc: <Dashboard projects={projects} refreshMs={preferences.pcRefreshMs} onNavigate={navigate} onAskAi={askAi} />,
+    archive: <Dashboard projects={projects} refreshMs={preferences.pcRefreshMs} onNavigate={navigate} onAskAi={askAi} />,
   };
 
+  const activeSidebarPage = (["qr", "ip", "speed", "tools", "workspaces", "files"].includes(page)
+    ? "projects"
+    : ["pc", "archive"].includes(page)
+    ? "home"
+    : page) as Page;
+
   return <><div className="app-shell" inert={restoring}>
-    <Sidebar activePage={page === "qr" || page === "ip" || page === "speed" || page === "pc" || page === "archive" || page === "files" ? "tools" : page === "workspaces" ? "projects" : page} onNavigate={setPage} />
+    <Sidebar activePage={activeSidebarPage} onNavigate={setPage} />
     <div className="main-column"><UpdateNotice blocked={restoring || aiBusy} hidden={page === "settings"} /><main className={"main-content " + (page === "home" ? "dashboard-main" : "")}>
-      {desktop.visible && page !== "home" && <button className="global-search-trigger button button-secondary" type="button" onClick={() => setSearchOpen(true)}>Genel Arama <kbd>Ctrl+K</kbd></button>}
       {(desktopInitialized.current || desktop.visible) && (
         <>
           <div style={{ display: page === "ai" ? "block" : "none", height: "100%" }}>
@@ -262,7 +271,7 @@ function App() {
           {page !== "ai" && (
             <div key={route.serial}>
               <Suspense fallback={<div className="page-skeleton" role="status" aria-label="Sayfa yükleniyor"><div/><div/><div/><span className="sr-only">Sayfa yükleniyor</span></div>}>
-                {pageViews[page]}
+                {pageViews[page] ?? pageViews.home}
               </Suspense>
             </div>
           )}
@@ -272,7 +281,6 @@ function App() {
     {desktop.visible && !restoring && <FooterTicker />}
     </div>
     <PhoneCommands paused={restoring} onNotice={setNotice} />
-    {searchOpen && desktop.visible && !restoring && <GlobalSearch onNavigate={navigate} onClose={() => setSearchOpen(false)} />}
     <UndoToast />
     {notice && <div className="toast" role="status"><Icon name="info" size={17} />{notice}</div>}
   </div>{restoring && <div className="restore-overlay" role={restoreBlocked ? "alert" : "status"}>{restoreBlocked ? "Geri yükleme kurtarılamadı. Kurtarma kaydı korunuyor. ACKDeck'i kapatıp yeniden açın; kurtarma tamamlanana kadar değişiklik yapamazsınız." : "Veriler güvenli biçimde geri yükleniyor. Lütfen bekleyin."}</div>}</>;

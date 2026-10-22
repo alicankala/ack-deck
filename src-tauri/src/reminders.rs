@@ -54,10 +54,16 @@ fn now_ms() -> u64 {
 fn reminder_target(id: &str) -> String {
     if id.starts_with("study:") {
         "study".into()
-    } else if id.starts_with("prayer:") || id.starts_with("prayer-lead:") {
+    } else if id.starts_with("prayer:") || id.starts_with("prayer-lead:") || id == "prayer" || id == "home" {
         "home".into()
     } else if let Some(id) = id.strip_prefix("subscription:") {
         format!("subscription:{id}")
+    } else if let Some(id) = id.strip_prefix("ai:") {
+        format!("ai:{id}")
+    } else if let Some(id) = id.strip_prefix("inbox:") {
+        format!("inbox:{id}")
+    } else if id.starts_with("notice:") {
+        "home".into()
     } else {
         format!("task:{id}")
     }

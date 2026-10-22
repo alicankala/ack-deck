@@ -1,4 +1,4 @@
-export type StartPage = "home" | "ai" | "projects" | "tools" | "archive";
+export type StartPage = "home" | "tasks" | "calendar" | "notes" | "projects" | "ai" | "subscriptions" | "inbox";
 export type ThemeMode = "dark" | "light";
 export type Preferences = { startPage: StartPage; pcRefreshMs: 2500 | 5000 | 10000; theme?: ThemeMode };
 export const DEFAULT_PREFERENCES: Preferences = { startPage: "home", pcRefreshMs: 2500, theme: "dark" };
@@ -7,7 +7,7 @@ export function loadPreferences(): Preferences {
   try {
     const value = JSON.parse(window.localStorage.getItem(KEY) ?? "null");
     return {
-      startPage: ["home", "ai", "projects", "tools", "archive"].includes(value?.startPage) ? value.startPage : "home",
+      startPage: ["home", "tasks", "calendar", "notes", "projects", "ai", "subscriptions", "inbox"].includes(value?.startPage) ? value.startPage : "home",
       pcRefreshMs: [2500, 5000, 10000].includes(value?.pcRefreshMs) ? value.pcRefreshMs : 2500,
       theme: value?.theme === "light" ? "light" : "dark",
     };

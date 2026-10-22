@@ -808,15 +808,6 @@ function App() {
                   >
                     <span className="mobile-week-cell-day">{day.shortLabel}</span>
                     <span className="mobile-week-cell-num">{day.dayNum}</span>
-                    <span className="mobile-week-cell-indicator">
-                      {day.studyCount > 0 ? (
-                        <span className="mobile-week-dot">{day.studyCount}</span>
-                      ) : day.taskCount > 0 ? (
-                        <span className="mobile-task-dot" />
-                      ) : (
-                        <span className="mobile-week-dash">—</span>
-                      )}
-                    </span>
                   </button>
                 ))}
               </div>

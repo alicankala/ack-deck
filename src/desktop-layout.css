@@ -12,8 +12,14 @@
 .gemini-model-settings summary { cursor: pointer; padding: .4rem 0; font-weight: 600; }
 .gemini-model-settings .archive-form-grid { margin-block: 1rem; }
 .dashboard-header-actions { display:flex; align-items:center; gap:1rem; }
+.dashboard-greeting-title { font-size:1.9rem; font-weight:800; letter-spacing:-0.035em; color:var(--app-text); margin:0; line-height:1.2; }
+.dashboard-live-badge { display:inline-flex; align-items:center; gap:0.65rem; padding:0.6rem 1.15rem; background:var(--app-surface); border:1px solid var(--app-border); border-radius:9999px; box-shadow:0 4px 16px -4px rgba(0,0,0,0.4); font-size:0.88rem; color:var(--app-text); font-weight:600; }
+.live-status-dot { width:8px; height:8px; border-radius:50%; background:#10b981; box-shadow:0 0 8px #10b981; animation:livePulse 2s infinite; }
+.live-clock-text { font-family:"Segoe UI Variable", "Segoe UI", sans-serif; font-variant-numeric:tabular-nums; font-weight:700; font-size:1rem; color:var(--app-text); }
+.live-badge-sep { color:var(--app-muted); font-size:0.75rem; }
+.live-date-text { color:var(--app-muted); font-weight:500; font-size:0.85rem; text-transform:capitalize; }
+@keyframes livePulse { 0% { transform:scale(0.95); opacity:0.7; } 50% { transform:scale(1.15); opacity:1; } 100% { transform:scale(0.95); opacity:0.7; } }
 .dashboard-clock { color:var(--app-secondary); font-variant-numeric:tabular-nums; }
-.dashboard-eyebrow { color:var(--app-accent); font-size:.7rem; letter-spacing:.15em; font-weight: 700; }
 .work-dashboard .dashboard-workbench { display:grid; grid-template-columns:minmax(0,1fr) 21.5rem; gap:1.35rem; align-items:start; }
 .dashboard-primary-column,.dashboard-right-rail { display:grid; gap:1rem; min-width:0; }
 .dashboard-primary-column { gap:1.35rem; }
@@ -414,6 +420,11 @@
 :root[data-theme="light"] .app-footer {
   background: #d8e0e9;
   border-color: var(--app-border);
+}
+:root[data-theme="light"] .dashboard-live-badge {
+  background: #ffffff;
+  border-color: var(--app-border);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 }
 
 :root[data-theme="light"] .brand-copy strong,
