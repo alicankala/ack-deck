@@ -1,12 +1,12 @@
 import { Icon, type IconName } from "./Icon";
 
-export type MobileTabId = "today" | "plan" | "notes" | "more";
+export type MobileTabId = "today" | "plan" | "notes" | "send";
 
 const tabs: { id: MobileTabId; label: string; icon: IconName }[] = [
   { id: "today", label: "Bugün", icon: "checkCircle" },
   { id: "plan", label: "Plan", icon: "calendar" },
   { id: "notes", label: "Notlar", icon: "note" },
-  { id: "more", label: "Diğer", icon: "grid" },
+  { id: "send", label: "Gönder", icon: "send" },
 ];
 
 export function MobileNav({
@@ -23,7 +23,7 @@ export function MobileNav({
           page === tab.id ||
           (tab.id === "today" && page === "tasks") ||
           (tab.id === "plan" && ["plan", "calendar", "subscriptions"].includes(page)) ||
-          (tab.id === "more" && ["more", "inbox", "work", "settings"].includes(page));
+          (tab.id === "send" && ["send", "inbox", "settings", "work"].includes(page));
         return (
           <button
             type="button"

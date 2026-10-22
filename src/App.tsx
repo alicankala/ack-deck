@@ -122,17 +122,14 @@ function App() {
       return;
     }
 
-    const noteContent = item.title || "Mobil Not";
-    const promptText = `Bana mobilden şöyle bir not/istek bırakmıştın:
-> "${noteContent}"
+    const noteContent = item.title || "Mobil İstek";
+    const userPrompt = noteContent.trim();
 
-Bu notu değerlendir. Eğer analiz edebileceğin, özet çıkarabileceğin, araştırabileceğin veya görevlere dönüştürebileceğin bir konuysa doğrudan işle ve sonucunu üret. Eğer doğrudan aksiyon alınamayacak kişisel bir hatırlatma veya bilgi notuysa samimi bir dille "Hacı sen buraya atmıştın, haberin olsun, unutma!" diyerek içeriği bana hatırlat.`;
-
-    setNotice(`📲 Mobilden gelen not ACK AI ile işleniyor: "${noteContent}"`);
+    setNotice(`📲 Mobilden gelen not ACK AI ile işleniyor: "${userPrompt.slice(0, 40)}"`);
 
     try {
-      const { context } = await collectAckContext(promptText);
-      const userMsg: AiMessage = { role: "user", text: redactSecrets(promptText) };
+      const { context } = await collectAckContext(userPrompt);
+      const userMsg: AiMessage = { role: "user", text: redactSecrets(userPrompt) };
       const reply = await sendGeminiMessage([userMsg], "fast", context, false, []);
       const cleanReply = redactSecrets(reply.text.trim());
       const modelMsg: AiMessage = {
@@ -145,7 +142,7 @@ Bu notu değerlendir. Eğer analiz edebileceğin, özet çıkarabileceğin, ara�
       const now = Date.now();
       const newThread: Conversation = {
         id: threadId,
-        title: "📲 " + noteContent.slice(0, 50),
+        title: "📲 " + userPrompt.slice(0, 50),
         createdAt: now,
         updatedAt: now,
         messages: [userMsg, modelMsg],
@@ -161,14 +158,14 @@ Bu notu değerlendir. Eğer analiz edebileceğin, özet çıkarabileceğin, ara�
       recordActivity({
         source: "inbox",
         recordId: item.id,
-        label: noteContent,
+        label: userPrompt,
         kind: "processed",
       });
       window.dispatchEvent(new Event("ack-data-changed"));
 
-      const shortSummary = cleanReply.slice(0, 100).replace(/\n/g, " ");
-      showDesktopNotification("ACK AI: Mobilden notun işlendi", `"${noteContent}": ${shortSummary}`);
-      setNotice(`🤖 ACK AI: Mobilden bıraktığın not işlendi! Çıktı sohbette seni bekliyor.`);
+      const shortSummary = cleanReply.slice(0, 120).replace(/\s+/g, " ");
+      showDesktopNotification("ACK AI: Mobilden notun işlendi", `"${userPrompt.slice(0, 35)}": ${shortSummary}`);
+      setNotice(`🤖 ACK AI: Mobilden attığın "${userPrompt.slice(0, 35)}" işlendi! Çıktı sohbette hazır.`);
     } catch (err) {
       setNotice(`ACK AI mobil notunu işleyemedi: ${err instanceof Error ? err.message : "Hata oluştu"}`);
     }
@@ -179,8 +176,8 @@ Bu notu değerlendir. Eğer analiz edebileceğin, özet çıkarabileceğin, ara�
       Notification.requestPermission().catch(() => {});
     }
 
-    const checkIncomingItems = () => {
-      const inboxList = loadInboxIndex();
+    const checkIncomingItems = (overrideList?: InboxReference[]) => {
+      const inboxList = overrideList || loadInboxIndex();
       if (!inboxList) return;
 
       // 1. Unhandled AI Prompts: Process in background and notify with output
@@ -207,11 +204,27 @@ Bu notu değerlendir. Eğer analiz edebileceğin, özet çıkarabileceğin, ara�
       }
     };
 
-    window.addEventListener("ack-data-changed", checkIncomingItems);
-    const timer = window.setTimeout(checkIncomingItems, 1500);
+    const refreshInboxNow = async () => {
+      try {
+        const res = await phoneRequest<{ items: InboxReference[] }>("inbox");
+        if (res?.items && Array.isArray(res.items)) {
+          saveInboxIndex(res.items);
+          checkIncomingItems(res.items);
+        }
+      } catch {}
+    };
+
+    void refreshInboxNow();
+    window.addEventListener("ack-data-changed", () => checkIncomingItems());
+    window.addEventListener("ack-inbox-updated", () => checkIncomingItems());
+    const initialTimer = window.setTimeout(refreshInboxNow, 2000);
+    const pollInterval = window.setInterval(refreshInboxNow, 25000);
+
     return () => {
-      window.removeEventListener("ack-data-changed", checkIncomingItems);
-      window.clearTimeout(timer);
+      window.removeEventListener("ack-data-changed", () => checkIncomingItems());
+      window.removeEventListener("ack-inbox-updated", () => checkIncomingItems());
+      window.clearTimeout(initialTimer);
+      window.clearInterval(pollInterval);
     };
   }, []);
 

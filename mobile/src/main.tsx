@@ -260,7 +260,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (page !== "more" && page !== "inbox" && recorder.current && recorder.current.state !== "inactive") {
+    if (page !== "send" && page !== "inbox" && recorder.current && recorder.current.state !== "inactive") {
       recorder.current.stop();
       stream.current?.getTracks().forEach(track => track.stop());
     }
@@ -528,7 +528,7 @@ function App() {
     recordingStarting.current = true;
     try {
       stream.current = await navigator.mediaDevices.getUserMedia({audio:true});
-      if (document.hidden || !["more", "inbox"].includes(pageRef.current)) {
+      if (document.hidden || !["send", "inbox"].includes(pageRef.current)) {
         stream.current.getTracks().forEach(track => track.stop());
         throw new Error("Kayıt iptal edildi.");
       }
@@ -720,46 +720,10 @@ function App() {
               </button>
             </div>
 
-            {/* Unified Schedule & Weekly Strip (Matching Desktop Concept) */}
-            <section className="mobile-timeline-section" aria-label="Günün akışı ve haftalık çizelge">
-              {/* Horizontal Week Mini Strip */}
-              <div className="mobile-week-strip-card">
-                <div className="mobile-week-strip-header">
-                  <span>Haftanın Günleri</span>
-                  <button
-                    type="button"
-                    className="text-action"
-                    onClick={() => { changePage("plan"); setPlanTab("calendar"); }}
-                  >
-                    Tüm Planı Aç ›
-                  </button>
-                </div>
-                <div className="mobile-week-strip-grid">
-                  {mobileWeekDays.map(day => (
-                    <button
-                      key={day.date}
-                      type="button"
-                      className={`mobile-week-cell ${day.date === selectedMobileDate ? "is-selected" : ""} ${day.date === today ? "is-today" : ""}`}
-                      onClick={() => setSelectedMobileDate(day.date)}
-                    >
-                      <span className="mobile-week-cell-day">{day.shortLabel}</span>
-                      <span className="mobile-week-cell-num">{day.dayNum}</span>
-                      <span className="mobile-week-cell-indicator">
-                        {day.studyCount > 0 ? (
-                          <span className="mobile-week-dot">{day.studyCount}</span>
-                        ) : day.taskCount > 0 ? (
-                          <span className="mobile-task-dot" />
-                        ) : (
-                          <span className="mobile-week-dash">—</span>
-                        )}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Day Timeline Header */}
-              <div className="timeline-header-row">
+            {/* Unified Schedule & Weekly Strip Card */}
+            <section className="mobile-timeline-section unified-schedule-box" aria-label="Günün akışı ve haftalık çizelge">
+              {/* Header inside the unified card */}
+              <div className="timeline-header-row" style={{ marginBottom: "0.75rem" }}>
                 <div className="timeline-title-group">
                   <h3>{isSelectedMobileToday ? "Bugünkü Oturumlar & Görevler" : `${selectedMobileDateLabel} Akışı`}</h3>
                   {!isSelectedMobileToday && (
@@ -772,14 +736,48 @@ function App() {
                     </button>
                   )}
                 </div>
-                <button
-                  className="primary-action-round"
-                  type="button"
-                  onClick={() => { openForm("task"); if (!isSelectedMobileToday) setDate(selectedMobileDate); }}
-                  title="Görev Ekle"
-                >
-                  +
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <button
+                    className="primary-action-round"
+                    type="button"
+                    onClick={() => { openForm("task"); if (!isSelectedMobileToday) setDate(selectedMobileDate); }}
+                    title="Görev Ekle"
+                  >
+                    +
+                  </button>
+                  <button
+                    type="button"
+                    className="text-action"
+                    onClick={() => { changePage("plan"); setPlanTab("calendar"); }}
+                    title="Tüm Haftalık Plan"
+                  >
+                    Tüm Plan ›
+                  </button>
+                </div>
+              </div>
+
+              {/* Horizontal Week Mini Strip directly inside the card */}
+              <div className="mobile-week-strip-grid" style={{ marginBottom: "1rem" }}>
+                {mobileWeekDays.map(day => (
+                  <button
+                    key={day.date}
+                    type="button"
+                    className={`mobile-week-cell ${day.date === selectedMobileDate ? "is-selected" : ""} ${day.date === today ? "is-today" : ""}`}
+                    onClick={() => setSelectedMobileDate(day.date)}
+                  >
+                    <span className="mobile-week-cell-day">{day.shortLabel}</span>
+                    <span className="mobile-week-cell-num">{day.dayNum}</span>
+                    <span className="mobile-week-cell-indicator">
+                      {day.studyCount > 0 ? (
+                        <span className="mobile-week-dot">{day.studyCount}</span>
+                      ) : day.taskCount > 0 ? (
+                        <span className="mobile-task-dot" />
+                      ) : (
+                        <span className="mobile-week-dash">—</span>
+                      )}
+                    </span>
+                  </button>
+                ))}
               </div>
 
               {/* Day's Chronological Feed */}
@@ -864,23 +862,25 @@ function App() {
                   </>
                 )}
               </div>
+
+              {/* Completed Tasks (Inside the unified card) */}
+              {tasks.filter(row => (row.data as PhoneTask).completed).length > 0 && (
+                <details className="mobile-completed-accordion" style={{ marginTop: "1rem" }}>
+                  <summary>Tamamlananlar ({tasks.filter(row => (row.data as PhoneTask).completed).length})</summary>
+                  <div className="mobile-completed-list">
+                    {tasks.filter(row => (row.data as PhoneTask).completed).map(row => (
+                      <article key={row.id} className="mobile-completed-item">
+                        <p>{(row.data as PhoneTask).text}</p>
+                        <button disabled={busy} onClick={() => void complete(row)}>Yeniden Aç</button>
+                      </article>
+                    ))}
+                  </div>
+                </details>
+              )}
             </section>
 
             {/* Namaz Vakitleri Kartı */}
             <MobilePrayerCard records={state.records} onSave={saveMutation} />
-
-            {/* Completed Tasks Accordion */}
-            <details className="mobile-completed-accordion">
-              <summary>Tamamlananlar ({tasks.filter(row => (row.data as PhoneTask).completed).length})</summary>
-              <div className="mobile-completed-list">
-                {tasks.filter(row => (row.data as PhoneTask).completed).map(row => (
-                  <article key={row.id} className="mobile-completed-item">
-                    <p>{(row.data as PhoneTask).text}</p>
-                    <button disabled={busy} onClick={() => void complete(row)}>Yeniden Aç</button>
-                  </article>
-                ))}
-              </div>
-            </details>
           </>
         )}
 
@@ -1050,12 +1050,26 @@ function App() {
           </>
         )}
 
-        {/* 4. MORE TAB (PC'ye Gönder, Projeler, PC Alanları, Cihaz) */}
-        {page === "more" && (
+        {/* 4. GÖNDER SEKMESİ (Masaüstüne Gönder) */}
+        {page === "send" && (
           <div className="more-sections-container">
-            {/* Quick Send to PC Card */}
+            <div className="send-tab-header">
+              <div>
+                <h2>Masaüstüne Gönder</h2>
+                <p className="mobile-work-hint">Not, bağlantı, ses veya dosyanı bilgisayarına anında ilet.</p>
+              </div>
+              <button
+                type="button"
+                className="settings-open-btn"
+                onClick={() => changePage("settings")}
+                title="Ayarlar"
+              >
+                <Icon name="settings" size={18} />
+                <span>Ayarlar</span>
+              </button>
+            </div>
+
             <section className="more-section-card">
-              <h2>Masaüstüne Gönder</h2>
               <SendCard
                 busy={busy || sending.current}
                 recording={recording}
@@ -1095,32 +1109,23 @@ function App() {
                 </details>
               )}
             </section>
+          </div>
+        )}
 
-            {/* PC Workspaces Card */}
-            <section className="more-section-card">
-              <h2>Masaüstü Çalışma Alanları</h2>
-              <p className="mobile-work-hint">Telefondan bilgisayardaki çalışma alanlarını başlat.</p>
-              <div className="mobile-work-grid">
-                {workspaces.map(workspace => (
-                  <article key={workspace.id} className="mobile-workspace-card">
-                    <div className="workspace-card-header">
-                      <h3><span className="workspace-icon">{workspace.icon}</span> {workspace.name}</h3>
-                    </div>
-                    <p>{workspace.description}</p>
-                    <button
-                      disabled={busy}
-                      className="primary-action"
-                      onClick={() => void api<{ offline: boolean }>(state, "commands", json({ workspaceId: workspace.id, requestId: crypto.randomUUID() }))
-                        .then(result => setNotice(result.offline ? "Bilgisayar çevrimdışı. İstek 10 dakika bekleyecek." : "İstek bilgisayara gönderildi."))
-                        .catch(e => setError(e.message))}
-                    >
-                      Bilgisayarda Başlat
-                    </button>
-                  </article>
-                ))}
-                {!workspaces.length && <p className="mobile-empty">Eşitlenmiş çalışma alanı bulunamadı.</p>}
-              </div>
-            </section>
+        {/* 5. AYARLAR SEKMESİ (Gönder sekmesindeki butondan açılır) */}
+        {page === "settings" && (
+          <div className="more-sections-container">
+            <div className="settings-header-bar">
+              <button
+                type="button"
+                className="back-to-send-btn"
+                onClick={() => changePage("send")}
+              >
+                <Icon name="back" size={18} />
+                <span>Gönder'e Dön</span>
+              </button>
+              <h2>Ayarlar</h2>
+            </div>
 
             {/* Device & Notifications Card */}
             <section className="more-section-card">
@@ -1169,6 +1174,32 @@ function App() {
               >
                 Cihaz Bağlantısını Kes
               </button>
+            </section>
+
+            {/* PC Workspaces Card */}
+            <section className="more-section-card">
+              <h2>Masaüstü Çalışma Alanları</h2>
+              <p className="mobile-work-hint">Telefondan bilgisayardaki çalışma alanlarını başlat.</p>
+              <div className="mobile-work-grid">
+                {workspaces.map(workspace => (
+                  <article key={workspace.id} className="mobile-workspace-card">
+                    <div className="workspace-card-header">
+                      <h3><span className="workspace-icon">{workspace.icon}</span> {workspace.name}</h3>
+                    </div>
+                    <p>{workspace.description}</p>
+                    <button
+                      disabled={busy}
+                      className="primary-action"
+                      onClick={() => void api<{ offline: boolean }>(state, "commands", json({ workspaceId: workspace.id, requestId: crypto.randomUUID() }))
+                        .then(result => setNotice(result.offline ? "Bilgisayar çevrimdışı. İstek 10 dakika bekleyecek." : "İstek bilgisayara gönderildi."))
+                        .catch(e => setError(e.message))}
+                    >
+                      Bilgisayarda Başlat
+                    </button>
+                  </article>
+                ))}
+                {!workspaces.length && <p className="mobile-empty">Eşitlenmiş çalışma alanı bulunamadı.</p>}
+              </div>
             </section>
           </div>
         )}
