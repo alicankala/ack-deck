@@ -23,7 +23,7 @@ export function MobileNav({
           page === tab.id ||
           (tab.id === "today" && page === "tasks") ||
           (tab.id === "plan" && ["plan", "calendar", "subscriptions"].includes(page)) ||
-          (tab.id === "more" && ["more", "inbox", "work", "settings", "projects"].includes(page));
+          (tab.id === "more" && ["more", "inbox", "work", "settings"].includes(page));
         return (
           <button
             type="button"

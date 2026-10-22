@@ -7,12 +7,11 @@ import { parseSmartCapture } from "../../shared/smartCapture";
 import { todaySummary, weeklyPlan } from "../../shared/weeklyPlan";
 import { zonedAt } from "../../shared/recurrence";
 import type { Subscription } from "../../shared/subscriptions";
-export function MobileSmartCapture({ records, onSave }: {
+export function MobileSmartCapture({ records: _records, onSave }: {
     records: CloudRecord[];
     onSave: (mutation: Mutation) => Promise<void>;
 }) {
     const [text, setText] = useState(""), [preview, setPreview] = useState(false), [error, setError] = useState(""), [busy, setBusy] = useState(false), running = useRef(false), requestId = useRef(crypto.randomUUID());
-    const projects = records.filter(r => r.kind === "projects" && !r.deleted).map(r => ({ id: r.id, name: (r.data as PhoneProject).name }));
     const [draft,setDraft] = useState<ReturnType<typeof parseSmartCapture>>(null);
     async function create() { if (!draft || running.current)
         return; running.current = true; setBusy(true); try {
@@ -36,7 +35,7 @@ export function MobileSmartCapture({ records, onSave }: {
         running.current = false;
         setBusy(false);
     } }
-    return <section className="mobile-smart-capture"><form onSubmit={e => { e.preventDefault(); const candidate=parseSmartCapture(text,projects);setDraft(candidate);setPreview(true);setError(candidate ? "" : "Tarihli görev veya ‘not al: …’ yaz. Belirsiz komutta normal Görev/Not eklemeyi kullan."); }}><label className="sr-only" htmlFor="smart-capture">Tek satır hızlı yakalama</label><input id="smart-capture" value={text} placeholder="Yarın 14:00 kargoyu ara…" maxLength={2000} disabled={busy} onChange={e => { setText(e.target.value); setPreview(false); requestId.current = crypto.randomUUID(); }}/><button aria-label="Hızlı ekleme taslağını önizle" disabled={!text.trim() || busy}>→</button></form>{preview && draft && <div className="capture-preview"><strong>{draft.kind === "task" ? draft.text : draft.title}</strong>{draft.kind === "task" && <p>{draft.dueDate ?? "Tarihsiz"} {draft.dueTime ?? ""}{draft.reminder && ` · ${draft.reminderLeadMinutes ?? 0} dakika önce hatırlat`}{draft.recurrence && " · Tekrar eder"}</p>}<button disabled={busy} onClick={() => void create()}>{busy ? "Kaydediliyor…" : "Oluştur"}</button><button disabled={busy} onClick={() => setPreview(false)}>Vazgeç</button></div>}{error && <p role="alert" className="error">{error}</p>}</section>;
+    return <section className="mobile-smart-capture"><form onSubmit={e => { e.preventDefault(); const candidate=parseSmartCapture(text,[]);setDraft(candidate);setPreview(true);setError(candidate ? "" : "Tarihli görev veya ‘not al: …’ yaz. Belirsiz komutta normal Görev/Not eklemeyi kullan."); }}><label className="sr-only" htmlFor="smart-capture">Tek satır hızlı yakalama</label><input id="smart-capture" value={text} placeholder="Yarın 14:00 kargoyu ara…" maxLength={2000} disabled={busy} onChange={e => { setText(e.target.value); setPreview(false); requestId.current = crypto.randomUUID(); }}/><button aria-label="Hızlı ekleme taslağını önizle" disabled={!text.trim() || busy}>→</button></form>{preview && draft && <div className="capture-preview"><strong>{draft.kind === "task" ? draft.text : draft.title}</strong>{draft.kind === "task" && <p>{draft.dueDate ?? "Tarihsiz"} {draft.dueTime ?? ""}{draft.reminder && ` · ${draft.reminderLeadMinutes ?? 0} dakika önce hatırlat`}{draft.recurrence && " · Tekrar eder"}</p>}<button disabled={busy} onClick={() => void create()}>{busy ? "Kaydediliyor…" : "Oluştur"}</button><button disabled={busy} onClick={() => setPreview(false)}>Vazgeç</button></div>}{error && <p role="alert" className="error">{error}</p>}</section>;
 }
 export function MobileTodaySummary({ records, inbox, onPage }: {
     records: CloudRecord[];

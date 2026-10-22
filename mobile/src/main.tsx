@@ -1,10 +1,9 @@
 import { ActionMenu } from "../../src/components/ActionMenu";
 import { MobileInboxProcessing } from "./InboxProcessing";
-import { MobileSmartCapture, MobileProjects, MobileWeek } from "./ProductViews";
+import { MobileSmartCapture, MobileWeek } from "./ProductViews";
 import { MobilePrayerCard } from "./MobilePrayerCard";
 import { ChecklistEditor } from "../../shared/ChecklistEditor";
 import { productMetadata, type ChecklistItem } from "../../shared/productivity";
-import type { PhoneProject } from "../../shared/phone";
 import { moveBy } from "../../src/reorder";
 import { NoteAttachments } from "./NoteAttachments";
 import { NoteEditor } from "./NoteEditor";
@@ -140,7 +139,11 @@ function App() {
 
   useEffect(() => {
     const dialog = editorRef.current ?? subscriptionEditorRef.current;
-    if (!dialog) return;
+    if (!dialog) {
+      document.body.style.overflow = "";
+      return;
+    }
+    document.body.style.overflow = "hidden";
     const previous = document.activeElement as HTMLElement | null;
     const controls = () => Array.from(dialog.querySelectorAll<HTMLElement>("button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),summary")).filter(el => el.getClientRects().length);
     if (!dialog.contains(document.activeElement)) controls()[0]?.focus();
@@ -151,13 +154,21 @@ function App() {
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     };
-    const resize = () => { dialog.style.height = (window.visualViewport?.height ?? window.innerHeight) + "px"; };
+    const resize = () => {
+      const vh = window.visualViewport?.height ?? window.innerHeight;
+      const vt = window.visualViewport?.offsetTop ?? 0;
+      dialog.style.height = `${vh}px`;
+      dialog.style.top = `${vt}px`;
+    };
     resize();
     window.visualViewport?.addEventListener("resize", resize);
+    window.visualViewport?.addEventListener("scroll", resize);
     window.addEventListener("keydown", key);
     return () => {
+      document.body.style.overflow = "";
       window.removeEventListener("keydown", key);
       window.visualViewport?.removeEventListener("resize", resize);
+      window.visualViewport?.removeEventListener("scroll", resize);
       previous?.focus();
     };
   }, [!!form, !!subscriptionDraft]);
@@ -1066,13 +1077,6 @@ function App() {
               )}
             </section>
 
-            {/* Projects Card */}
-            <section className="more-section-card">
-              <h2>Projeler</h2>
-              <p className="section-subtext">Bilgisayardaki projelerin ve sıradaki adımları.</p>
-              <MobileProjects records={state.records} onSave={saveMutation} onOpen={row => openForm(row.kind === "tasks" ? "task" : "note", row)} />
-            </section>
-
             {/* PC Workspaces Card */}
             <section className="more-section-card">
               <h2>Masaüstü Çalışma Alanları</h2>
@@ -1226,20 +1230,7 @@ function App() {
       {form === "note" && (
         <section ref={editorRef} className="editor note-editor" role="dialog" aria-modal="true" aria-labelledby="editor-title">
           <NoteEditor
-            linkControl={
-              <>
-                <NoteAttachments files={(editing?.data as PhoneNote | undefined)?.attachments ?? []} state={state} />
-                <label className="mobile-project-field">
-                  Proje
-                  <select value={projectId} onChange={e => setProjectId(e.target.value)}>
-                    <option value="">Projesiz</option>
-                    {state.records.filter(r => r.kind === "projects" && !r.deleted).map(p => (
-                      <option key={p.id} value={p.id}>{(p.data as PhoneProject).name}</option>
-                    ))}
-                  </select>
-                </label>
-              </>
-            }
+            linkControl={<NoteAttachments files={(editing?.data as PhoneNote | undefined)?.attachments ?? []} state={state} />}
             title={title}
             content={content}
             onTitle={setTitle}
@@ -1343,5 +1334,12 @@ function App() {
   );
 }
 
-if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js").catch(() => {});
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").then(reg => {
+    void reg.update();
+  }).catch(() => {});
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    window.location.reload();
+  });
+}
 createRoot(document.getElementById("root")!).render(<App />);
