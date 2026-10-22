@@ -2,8 +2,9 @@ import { useEffect, useId, useRef, useState } from "react";
 import { newStudyProgram, newStudySession, validStudyProgram, studyBlocks, studyConflicts, type StudyProgram, type StudySession } from "./studyPrograms";
 import "./planner.css";
 const weekdays = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
-export function StudyPrograms({ programs, onSave, onDelete, onAskAi, disabled = false, selectedId, onSelectionHandled }: {
+export function StudyPrograms({ programs, onSave, onDelete, onAskAi, disabled = false, selectedId, onSelectionHandled, getReminder, onReminderChange }: {
   programs: StudyProgram[]; onSave: (program: StudyProgram) => Promise<void>; onDelete: (id: string) => Promise<void>; onAskAi?: () => void; disabled?: boolean; selectedId?: string | null; onSelectionHandled?: () => void;
+  getReminder?: (id: string) => number | null; onReminderChange?: (id: string, lead: number | null) => void;
 }) {
   const [draft, setDraft] = useState<StudyProgram | null>(null), [error, setError] = useState(""), [busy, setBusy] = useState(false), running = useRef(false);
   useEffect(() => { if (selectedId) { const program = programs.find(p => p.id === selectedId); if (program) { setDraft(structuredClone(program)); setError(""); } onSelectionHandled?.(); } }, [selectedId, programs, onSelectionHandled]);
@@ -33,6 +34,23 @@ export function StudyPrograms({ programs, onSave, onDelete, onAskAi, disabled = 
           <p>{[...new Set(p.sessions.map(s => s.subject))].join(" · ")}</p>
         </button>
         <div className="study-program-card-actions">
+          {onReminderChange && (
+            <label className="study-inline-reminder" title="Ders hatırlatması">
+              <span className="study-reminder-icon" aria-hidden="true">🔔</span>
+              <select
+                disabled={disabled || busy}
+                value={getReminder ? (getReminder(p.id) ?? "off") : "off"}
+                onChange={e => onReminderChange(p.id, e.target.value === "off" ? null : Number(e.target.value))}
+                aria-label={`${p.name} ders hatırlatması`}
+              >
+                <option value="off">Bildirim yok</option>
+                <option value="0">Ders vaktinde</option>
+                <option value="15">15 dk önce</option>
+                <option value="30">30 dk önce</option>
+                <option value="60">1 saat önce</option>
+              </select>
+            </label>
+          )}
           <button type="button" className="planner-secondary" disabled={disabled || busy} onClick={() => { setDraft(structuredClone(p)); setError(""); }}>Düzenle</button>
           <button type="button" className="planner-secondary study-pause" disabled={disabled || busy} onClick={() => void action(() => onSave({ ...p, active: !p.active, updatedAt: Date.now() }))}>{p.active ? "Duraklat" : "Devam et"}</button>
         </div>

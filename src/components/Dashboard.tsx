@@ -150,10 +150,6 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, onOpenSear
                   <p>Bekleyen tarihli görev yok.</p>
                 </div>
               )}
-
-              <button type="button" className="dashboard-more" onClick={() => onNavigate({ page: "calendar" })}>
-                Haftalık plan <Icon name="arrowRight" size={14} />
-              </button>
             </section>
 
             <AiStart onAskAi={onAskAi} onNavigate={onNavigate} lastProject={lastProject} />
@@ -161,13 +157,13 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, onOpenSear
 
           {feedback && <p className="tool-feedback error" role="alert">{feedback}</p>}
 
-          {/* Haftalık Plan & Ders Çizelgesi */}
+          {/* Günün Akışı & Haftalık Çizelge */}
           <section className="dashboard-weekly-preview surface" aria-labelledby="dashboard-weekly-heading">
             <div className="dashboard-section-top">
               <div className="weekly-preview-title">
                 <span className="overview-icon-small"><Icon name="grid" size={18} /></span>
                 <div>
-                  <h2 id="dashboard-weekly-heading">Haftalık Plan & Dersler</h2>
+                  <h2 id="dashboard-weekly-heading">Günün Akışı & Haftalık Çizelge</h2>
                   <small>{todayStudyBlocks.length > 0 ? `Bugün ${todayStudyBlocks.length} ders oturumu planlı` : "Bugün için kayıtlı ders yok"}</small>
                 </div>
               </div>
@@ -176,41 +172,64 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, onOpenSear
               </button>
             </div>
 
-            {todayStudyBlocks.length > 0 ? (
-              <div className="dashboard-today-blocks">
-                {todayStudyBlocks.map(block => (
-                  <div key={block.id} className="today-study-chip">
-                    <span className="study-time-badge">{block.time} – {block.endTime}</span>
-                    <div className="study-info">
-                      <strong>{block.label}</strong>
-                      {block.topic ? <small>{block.topic}</small> : null}
-                    </div>
-                    <span className="study-prog-name">{block.programName}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="dashboard-no-blocks">
-                <p>Bugün için planlanmış ders saati bulunmuyor.</p>
-                <button type="button" className="dashboard-text-button" onClick={() => onNavigate({ page: "calendar" })}>
-                  Programı görüntüle veya ders ekle ›
-                </button>
-              </div>
-            )}
+            <div className="dashboard-schedule-layout">
+              <div className="schedule-today-column">
+                <div className="schedule-column-title">
+                  <span className="column-dot" />
+                  <strong>Bugünkü Oturumlar & Saatli İşler</strong>
+                </div>
 
-            <div className="week-mini-strip">
-              {weekDays.map(day => (
-                <button
-                  key={day.date}
-                  type="button"
-                  className={`week-mini-day ${day.date === todayDateStr ? "is-today" : ""}`}
-                  onClick={() => onNavigate({ page: "calendar" })}
-                >
-                  <span className="mini-day-label">{day.shortLabel}</span>
-                  <span className="mini-day-num">{day.dayNum}</span>
-                  <span className="mini-day-count">{day.count > 0 ? `${day.count} ders` : "—"}</span>
-                </button>
-              ))}
+                {todayStudyBlocks.length > 0 || daily.some(d => d.task.dueTime) ? (
+                  <div className="schedule-timeline-list">
+                    {todayStudyBlocks.map(block => (
+                      <div key={block.id} className="schedule-timeline-item session-study">
+                        <span className="timeline-clock">{block.time} – {block.endTime}</span>
+                        <div className="timeline-content">
+                          <strong>{block.label}</strong>
+                          {block.topic ? <small>{block.topic}</small> : null}
+                        </div>
+                        <span className="timeline-tag">Ders</span>
+                      </div>
+                    ))}
+                    {daily.filter(d => d.task.dueTime).map(({ task }) => (
+                      <div key={task.id} className="schedule-timeline-item session-task">
+                        <span className="timeline-clock">{task.dueTime}</span>
+                        <div className="timeline-content">
+                          <strong>{task.text}</strong>
+                        </div>
+                        <span className="timeline-tag task-tag">Görev</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="schedule-today-empty">
+                    <p>Bugün için saatli ders veya görev bulunmuyor.</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="schedule-week-column">
+                <div className="schedule-column-title">
+                  <strong>Haftanın Günleri</strong>
+                </div>
+                <div className="week-mini-strip-compact">
+                  {weekDays.map(day => (
+                    <button
+                      key={day.date}
+                      type="button"
+                      className={`week-mini-cell ${day.date === todayDateStr ? "is-today" : ""}`}
+                      onClick={() => onNavigate({ page: "calendar" })}
+                      title={`${day.shortLabel} ${day.dayNum}: ${day.count > 0 ? `${day.count} ders oturumu` : "Ders yok"}`}
+                    >
+                      <span className="mini-cell-day">{day.shortLabel}</span>
+                      <span className="mini-cell-num">{day.dayNum}</span>
+                      <span className="mini-cell-indicator">
+                        {day.count > 0 ? <span className="mini-count-dot">{day.count}</span> : <span className="mini-empty-dash">—</span>}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </section>
 

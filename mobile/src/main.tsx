@@ -834,40 +834,14 @@ function App() {
                   records={state.records}
                   onOpen={row => row.kind === "subscriptions" ? setSubscriptionDraft(row.data as Subscription) : openForm("task", row)}
                   onNew={day => { openForm("task"); setDate(day); }}
+                  getReminder={id => studyReminders.find(r => r.id === id)?.leadMinutes ?? null}
+                  onReminderChange={(id, lead) => updateStudyReminder(id, lead)}
                   onAskAi={() => {
                     openForm("ai_prompt");
                     setTitle("Haftalık ders programı çizelgesi");
                     setContent("Şu dersler için haftalık ders programı çizelgesi hazırla ve haftalık plana ekle: ");
                   }}
                 />
-                {studyPrograms.length > 0 && (
-                  <section className="mobile-study-reminders-panel surface" aria-label="Ders hatırlatıcıları">
-                    <div className="section-title-row">
-                      <h3>Ders Hatırlatıcıları</h3>
-                    </div>
-                    <p className="section-subtext">Haftalık ders başlangıçları için hatırlatma tercihi.</p>
-                    <div className="mobile-study-rem-list">
-                      {studyPrograms.map(prog => {
-                        const currentLead = studyReminders.find(r => r.id === prog.id)?.leadMinutes ?? "off";
-                        return (
-                          <div key={prog.id} className="mobile-study-rem-row">
-                            <span className="study-rem-name">{prog.name}</span>
-                            <select
-                              value={currentLead}
-                              onChange={e => updateStudyReminder(prog.id, e.target.value === "off" ? null : Number(e.target.value))}
-                            >
-                              <option value="off">Kapalı</option>
-                              <option value="0">Ders başlangıcında</option>
-                              <option value="15">15 dakika önce</option>
-                              <option value="30">30 dakika önce</option>
-                              <option value="60">1 saat önce</option>
-                            </select>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                )}
               </>
             ) : (
               <>
