@@ -14,7 +14,6 @@ import { usePaletteBridge } from "./usePaletteBridge";
 import { GlobalSearch } from "./components/GlobalSearch";
 import { useNavigationHistory } from "./useNavigationHistory";
 import { Dashboard } from "./components/Dashboard";
-import { loadInboxIndex } from "./productIntelligence";
 import type { AiPromptHandoff } from "./aiPromptHandoff";
 import { UndoToast } from "./components/UndoToast";
 const ConversationHistory = lazy(() => import("./components/ConversationHistory").then(module => ({ default: module.ConversationHistory })));
@@ -35,6 +34,14 @@ import { PcStatus } from "./components/PcStatus";
 const SpeedTest = lazy(() => import("./components/SpeedTest").then(module => ({ default: module.SpeedTest })));
 const Archive = lazy(() => import("./components/Archive").then(module => ({ default: module.Archive })));
 import { loadPreferences } from "./preferences";
+import { invoke } from "@tauri-apps/api/core";
+import { collectAckContext } from "./ackIntegration";
+import { sendGeminiMessage, getGeminiKeyStatus, type AiMessage } from "./geminiClient";
+import { redactSecrets } from "./privacy";
+import { saveConversation, type Conversation } from "./conversationStore";
+import { phoneRequest } from "./phoneClient";
+import { recordActivity } from "./activityStore";
+import { saveInboxIndex, loadInboxIndex, type InboxReference } from "./productIntelligence";
 
 import { loadProjectSnapshot, saveProjects, type Project } from "./projectStore";
 import "./App.css";
@@ -85,31 +92,128 @@ function App() {
     return () => window.clearTimeout(timeout);
   }, [notice]);
 
-  const notifiedAiPrompts = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    const checkIncomingAi = () => {
-      const inboxList = loadInboxIndex();
-      if (!inboxList) return;
-      const unhandledAi = inboxList.find(item => !item.handled && item.kind === "ai_prompt" && !notifiedAiPrompts.current.has(item.id));
-      if (unhandledAi) {
-        notifiedAiPrompts.current.add(unhandledAi.id);
-        const promptText = `Bana mobilden şöyle bir not/istek bırakmıştın:
-> "${unhandledAi.title}"
+  function showDesktopNotification(title: string, body: string) {
+    try {
+      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        new Notification(title, { body });
+      }
+    } catch {}
+    try {
+      const text = body ? `${title}: ${body}`.slice(0, 160) : title.slice(0, 160);
+      void invoke("sync_task_reminders", {
+        reminders: [{ id: "notice:" + crypto.randomUUID(), text, dueAt: Date.now() }]
+      });
+    } catch {}
+  }
+
+  const desktopInitialized = useRef(false);
+  if (desktop.visible) desktopInitialized.current = true;
+
+  const processingAiIds = useRef<Set<string>>(new Set());
+  const notifiedPhoneItems = useRef<Set<string>>(new Set());
+
+  const processMobileAiPrompt = async (item: InboxReference) => {
+    if (processingAiIds.current.has(item.id)) return;
+    processingAiIds.current.add(item.id);
+
+    const hasKey = await getGeminiKeyStatus().catch(() => false);
+    if (!hasKey) {
+      setNotice("Gemini API anahtarı ekli olmadığı için mobil not işlenemedi.");
+      return;
+    }
+
+    const noteContent = item.title || "Mobil Not";
+    const promptText = `Bana mobilden şöyle bir not/istek bırakmıştın:
+> "${noteContent}"
 
 Bu notu değerlendir. Eğer analiz edebileceğin, özet çıkarabileceğin, araştırabileceğin veya görevlere dönüştürebileceğin bir konuysa doğrudan işle ve sonucunu üret. Eğer doğrudan aksiyon alınamayacak kişisel bir hatırlatma veya bilgi notuysa samimi bir dille "Hacı sen buraya atmıştın, haberin olsun, unutma!" diyerek içeriği bana hatırlat.`;
-        setNotice(`📲 Mobilden ACK AI için not bırakıldı: "${unhandledAi.title}"`);
-        setAiPrompt(undefined);
-        setPhoneAiDraft({ id: crypto.randomUUID(), text: promptText });
-        navigate({ page: "ai" });
+
+    setNotice(`📲 Mobilden gelen not ACK AI ile işleniyor: "${noteContent}"`);
+
+    try {
+      const { context } = await collectAckContext(promptText);
+      const userMsg: AiMessage = { role: "user", text: redactSecrets(promptText) };
+      const reply = await sendGeminiMessage([userMsg], "fast", context, false, []);
+      const cleanReply = redactSecrets(reply.text.trim());
+      const modelMsg: AiMessage = {
+        role: "model",
+        text: cleanReply,
+        sources: [...new Set(context.map(c => c.source))],
+      };
+
+      const threadId = crypto.randomUUID();
+      const now = Date.now();
+      const newThread: Conversation = {
+        id: threadId,
+        title: "📲 " + noteContent.slice(0, 50),
+        createdAt: now,
+        updatedAt: now,
+        messages: [userMsg, modelMsg],
+        model: "fast",
+      };
+
+      await saveConversation(newThread);
+      window.dispatchEvent(new CustomEvent("ack-conversations-changed", { detail: { selectId: threadId } }));
+
+      await phoneRequest("handled", { id: item.id }).catch(() => {});
+      const currentList = loadInboxIndex() ?? [];
+      saveInboxIndex(currentList.map(i => i.id === item.id ? { ...i, handled: 1 } : i));
+      recordActivity({
+        source: "inbox",
+        recordId: item.id,
+        label: noteContent,
+        kind: "processed",
+      });
+      window.dispatchEvent(new Event("ack-data-changed"));
+
+      const shortSummary = cleanReply.slice(0, 100).replace(/\n/g, " ");
+      showDesktopNotification("ACK AI: Mobilden notun işlendi", `"${noteContent}": ${shortSummary}`);
+      setNotice(`🤖 ACK AI: Mobilden bıraktığın not işlendi! Çıktı sohbette seni bekliyor.`);
+    } catch (err) {
+      setNotice(`ACK AI mobil notunu işleyemedi: ${err instanceof Error ? err.message : "Hata oluştu"}`);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+
+    const checkIncomingItems = () => {
+      const inboxList = loadInboxIndex();
+      if (!inboxList) return;
+
+      // 1. Unhandled AI Prompts: Process in background and notify with output
+      const unhandledAi = inboxList.find(item => !item.handled && item.kind === "ai_prompt" && !processingAiIds.current.has(item.id));
+      if (unhandledAi) {
+        void processMobileAiPrompt(unhandledAi);
+      }
+
+      // 2. Unhandled other incoming items (text, link, audio, image, file): Notify on PC open / sync
+      const unhandledNonAi = inboxList.filter(item => !item.handled && item.kind !== "ai_prompt" && !notifiedPhoneItems.current.has(item.id));
+      for (const item of unhandledNonAi) {
+        notifiedPhoneItems.current.add(item.id);
+        const kindLabels: Record<string, string> = {
+          text: "Metin Notu",
+          link: "Bağlantı",
+          audio: "Sesli Not",
+          image: "Fotoğraf",
+          file: "Dosya",
+        };
+        const label = kindLabels[item.kind] || "İçerik";
+        const itemTitle = item.title || "Yeni öğe";
+        showDesktopNotification("Telefondan Yeni Öğe", `${label}: "${itemTitle}"`);
+        setNotice(`📲 Telefondan yeni ${label.toLowerCase()} geldi: "${itemTitle}"`);
       }
     };
-    window.addEventListener("ack-data-changed", checkIncomingAi);
-    const timer = window.setTimeout(checkIncomingAi, 2000);
+
+    window.addEventListener("ack-data-changed", checkIncomingItems);
+    const timer = window.setTimeout(checkIncomingItems, 1500);
     return () => {
-      window.removeEventListener("ack-data-changed", checkIncomingAi);
+      window.removeEventListener("ack-data-changed", checkIncomingItems);
       window.clearTimeout(timer);
     };
-  }, [navigate]);
+  }, []);
 
   const pageViews: Record<Page, ReactNode> = {
     home: <Dashboard projects={projects} refreshMs={preferences.pcRefreshMs} onNavigate={navigate} onAskAi={askAi} onOpenSearch={() => setSearchOpen(true)} />,
@@ -135,9 +239,22 @@ Bu notu değerlendir. Eğer analiz edebileceğin, özet çıkarabileceğin, ara�
     <Sidebar activePage={page === "qr" || page === "ip" || page === "speed" || page === "pc" || page === "archive" || page === "files" ? "tools" : page === "workspaces" ? "projects" : page} onNavigate={setPage} />
     <div className="main-column"><UpdateNotice blocked={restoring || aiBusy} hidden={page === "settings"} /><main className={"main-content " + (page === "home" ? "dashboard-main" : "")}>
       {desktop.visible && page !== "home" && <button className="global-search-trigger button button-secondary" type="button" onClick={() => setSearchOpen(true)}>Genel Arama <kbd>Ctrl+K</kbd></button>}
-      <div key={route.serial}>
-      {desktop.visible && <Suspense fallback={<div className="page-skeleton" role="status" aria-label="Sayfa yükleniyor"><div/><div/><div/><span className="sr-only">Sayfa yükleniyor</span></div>}>{pageViews[page]}</Suspense>}
-      </div>
+      {(desktopInitialized.current || desktop.visible) && (
+        <>
+          <div style={{ display: page === "ai" ? "block" : "none", height: "100%" }}>
+            <Suspense fallback={<div className="page-skeleton" role="status" aria-label="Sayfa yükleniyor"><div/><div/><div/><span className="sr-only">Sayfa yükleniyor</span></div>}>
+              {pageViews.ai}
+            </Suspense>
+          </div>
+          {page !== "ai" && (
+            <div key={route.serial}>
+              <Suspense fallback={<div className="page-skeleton" role="status" aria-label="Sayfa yükleniyor"><div/><div/><div/><span className="sr-only">Sayfa yükleniyor</span></div>}>
+                {pageViews[page]}
+              </Suspense>
+            </div>
+          )}
+        </>
+      )}
     </main>
     {desktop.visible && !restoring && <FooterTicker />}
     </div>

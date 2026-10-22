@@ -36,9 +36,23 @@ const shortcuts: { label: string; icon: IconName; target: NavigationTarget }[] =
 ];
 export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, onOpenSearch }: Props) {
   const [data, setData] = useState(loadDashboardData), [now, setNow] = useState(() => new Date());
+  const [studyData, setStudyData] = useState(loadStudyPrograms);
   const [feedback, setFeedback] = useState("");
   const busy = useRef(false); const [opening, setOpening] = useState(false);
-  useEffect(() => { const refresh = () => setData(loadDashboardData()); window.addEventListener("ack-data-changed", refresh); window.addEventListener("ack-recents-changed", refresh); const timer = window.setInterval(() => setNow(new Date()), 60000); return () => { window.removeEventListener("ack-data-changed", refresh); window.removeEventListener("ack-recents-changed", refresh); window.clearInterval(timer); }; }, []);
+  useEffect(() => {
+    const refresh = () => {
+      setData(loadDashboardData());
+      setStudyData(loadStudyPrograms());
+    };
+    window.addEventListener("ack-data-changed", refresh);
+    window.addEventListener("ack-recents-changed", refresh);
+    const timer = window.setInterval(() => setNow(new Date()), 60000);
+    return () => {
+      window.removeEventListener("ack-data-changed", refresh);
+      window.removeEventListener("ack-recents-changed", refresh);
+      window.clearInterval(timer);
+    };
+  }, []);
   const daily = todayTasks(data.tasks.entries, now), shownProjects = dashboardProjects(projects);
   const recentProject = data.recents.find(item => item.source === "projects");
   const lastProject = projects.find(project => project.id === recentProject?.id && project.folderPath);
@@ -53,29 +67,39 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, onOpenSear
     catch { setFeedback("Kayıtlı öğe açılamadı. Konumu veya uygulamayı kontrol edin."); } finally { busy.current = false; setOpening(false); }
   }
   const summary = dailySummary();
-  const studyData = loadStudyPrograms();
   const allBlocks = studyBlocks(studyData.entries, now);
   const todayDateStr = localDateKey(now);
-  const todayStudyBlocks = allBlocks.filter(b => b.date === todayDateStr);
   const [selectedDate, setSelectedDate] = useState<string>(todayDateStr);
   const curWeekDates = weekDates(now);
+
+  const getTasksForDate = (dateStr: string) => {
+    return data.tasks.entries.filter(t => {
+      if (t.completed) return false;
+      if (t.recurrence) {
+        return scheduleDate(t, new Date(dateStr + "T12:00:00").getTime()) === dateStr;
+      }
+      return t.dueDate === dateStr;
+    });
+  };
+
   const weekDays = curWeekDates.map(dStr => {
     const d = new Date(dStr + "T12:00:00");
     const dayOfWeek = (d.getDay() + 6) % 7;
-    const count = allBlocks.filter(b => b.date === dStr).length;
+    const studyCount = allBlocks.filter(b => b.date === dStr).length;
+    const taskCount = getTasksForDate(dStr).length;
     return {
       date: dStr,
       shortLabel: WEEKDAY_SHORT[dayOfWeek],
       dayNum: d.getDate(),
-      count,
+      studyCount,
+      taskCount,
+      count: studyCount + taskCount,
     };
   });
 
   const isSelectedToday = selectedDate === todayDateStr;
   const displayedStudyBlocks = allBlocks.filter(b => b.date === selectedDate);
-  const displayedTasks = isSelectedToday
-    ? daily.map(d => d.task)
-    : data.tasks.entries.filter(t => !t.completed && scheduleDate(t) === selectedDate);
+  const displayedTasks = getTasksForDate(selectedDate);
 
   const selectedDateLabel = (() => {
     try {
@@ -198,7 +222,11 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, onOpenSear
                 <span className="overview-icon-small"><Icon name="grid" size={18} /></span>
                 <div>
                   <h2 id="dashboard-weekly-heading">Günün Akışı & Haftalık Çizelge</h2>
-                  <small>{todayStudyBlocks.length > 0 ? `Bugün ${todayStudyBlocks.length} ders oturumu planlı` : "Bugün için kayıtlı ders yok"}</small>
+                  <small>
+                    {timelineItems.length > 0
+                      ? `${isSelectedToday ? "Bugün" : selectedDateLabel} için ${displayedStudyBlocks.length > 0 ? `${displayedStudyBlocks.length} ders` : ""}${displayedStudyBlocks.length > 0 && displayedTasks.length > 0 ? " ve " : ""}${displayedTasks.length > 0 ? `${displayedTasks.length} görev` : ""} planlı`
+                      : `${isSelectedToday ? "Bugün" : selectedDateLabel} için planlı ders veya görev yok`}
+                  </small>
                 </div>
               </div>
               <button type="button" className="dashboard-more" onClick={() => onNavigate({ page: "calendar" })}>

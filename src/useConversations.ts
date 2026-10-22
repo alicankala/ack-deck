@@ -9,7 +9,26 @@ export function useConversations() {
   const unsaved = useRef(new Map<string, Conversation>());
   function persist(thread: Conversation) { unsaved.current.set(thread.id, thread); queue.current = queueConversationSave(thread).then(() => { if (unsaved.current.get(thread.id) === thread) unsaved.current.delete(thread.id); if (!unsaved.current.size) setError(""); }).catch(() => { setError("Sohbet kaydedilemedi. Konuşma ekranda korunuyor; kaydetmeyi tekrar deneyin."); }); }
   const state = useRef({ threads, activeId }); state.current = { threads, activeId };
-  useEffect(() => { const reload = () => { void loadConversations().then(items => { const initial = items.length ? items : [emptyConversation()]; setThreads(initial); setActiveId(initial[0].id); }).catch(() => setError("Sohbetler yeniden yüklenemedi.")); }; window.addEventListener("ack-data-restored", reload); return () => window.removeEventListener("ack-data-restored", reload); }, []);
+  useEffect(() => {
+    const reload = (event?: Event) => {
+      void loadConversations().then(items => {
+        const initial = items.length ? items : [emptyConversation()];
+        setThreads(initial);
+        const custom = event as CustomEvent<{ selectId?: string }>;
+        if (custom?.detail?.selectId) {
+          setActiveId(custom.detail.selectId);
+        } else if (!initial.some(t => t.id === activeId)) {
+          setActiveId(initial[0].id);
+        }
+      }).catch(() => setError("Sohbetler yeniden yüklenemedi."));
+    };
+    window.addEventListener("ack-data-restored", reload);
+    window.addEventListener("ack-conversations-changed", reload);
+    return () => {
+      window.removeEventListener("ack-data-restored", reload);
+      window.removeEventListener("ack-conversations-changed", reload);
+    };
+  }, [activeId]);
   const current = threads.find(thread => thread.id === activeId);
   const messages = current?.messages ?? [];
   const setMessages: Dispatch<SetStateAction<AiMessage[]>> = update => {

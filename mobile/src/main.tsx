@@ -720,9 +720,6 @@ function App() {
               </button>
             </div>
 
-            {/* Hero Prayer Card */}
-            <MobilePrayerCard records={state.records} onSave={saveMutation} />
-
             {/* Unified Schedule & Weekly Strip (Matching Desktop Concept) */}
             <section className="mobile-timeline-section" aria-label="Günün akışı ve haftalık çizelge">
               {/* Horizontal Week Mini Strip */}
@@ -868,6 +865,9 @@ function App() {
                 )}
               </div>
             </section>
+
+            {/* Namaz Vakitleri Kartı */}
+            <MobilePrayerCard records={state.records} onSave={saveMutation} />
 
             {/* Completed Tasks Accordion */}
             <details className="mobile-completed-accordion">
