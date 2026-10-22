@@ -1993,3 +1993,114 @@ body:has(.editor) nav { visibility: hidden; }
   font-size: 12px;
 }
 
+/* Mobile Subscription reordering and hiding */
+.subscription-order-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.order-btn {
+  padding: 4px 8px;
+  min-height: 28px;
+  font-size: 11px;
+  background: var(--app-surface-soft, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--app-border);
+  color: var(--app-text);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.order-btn:hover {
+  background: var(--app-control);
+}
+.hidden-subs-container {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: var(--app-surface-soft, rgba(255, 255, 255, 0.03));
+  border: 1px dashed var(--app-border);
+  border-radius: 10px;
+}
+.hidden-subs-toggle {
+  font-size: 12px;
+  color: var(--app-muted);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.is-hidden-sub-list {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.subscription-row.is-hidden-sub {
+  opacity: 0.75;
+  background: var(--app-surface-soft, rgba(255, 255, 255, 0.02));
+  border: 1px dashed var(--app-border);
+}
+.unhide-btn {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--app-control);
+  border: 1px solid var(--app-border);
+  color: var(--app-accent);
+  cursor: pointer;
+}
+
+/* Study reminders on mobile */
+.session-reminder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--app-muted);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+}
+.session-reminder-chip.has-reminder {
+  color: var(--app-accent);
+  background: var(--app-accent-soft, rgba(56, 189, 248, 0.12));
+}
+.mobile-study-reminders-panel {
+  padding: 14px;
+  margin-top: 16px;
+  border-radius: 12px;
+}
+.mobile-study-rem-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.mobile-study-rem-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--app-control);
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  gap: 8px;
+}
+.study-rem-name {
+  font-size: 13px;
+  font-weight: 550;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mobile-study-rem-row select {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--app-surface);
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
+}
+
+

@@ -62,6 +62,48 @@ function App() {
   const [taskFilter, setTaskFilter] = useState<"today" | "all">("today");
   const [planTab, setPlanTab] = useState<"calendar" | "subscriptions">("calendar");
 
+  // Mobile Subscriptions Ordering & Visibility
+  const [hiddenSubs, setHiddenSubs] = useState<string[]>(() => {
+    try { const raw = localStorage.getItem("ack-deck.mobile-hidden-subs.v1"); return raw ? JSON.parse(raw) : []; } catch { return []; }
+  });
+  const [subOrder, setSubOrder] = useState<string[]>(() => {
+    try { const raw = localStorage.getItem("ack-deck.mobile-sub-order.v1"); return raw ? JSON.parse(raw) : []; } catch { return []; }
+  });
+  const [showHiddenSubs, setShowHiddenSubs] = useState(false);
+
+  function toggleHideSub(id: string) {
+    setHiddenSubs(prev => {
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+      try { localStorage.setItem("ack-deck.mobile-hidden-subs.v1", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
+
+  function moveSub(id: string, delta: -1 | 1, orderedIds: string[]) {
+    const idx = orderedIds.indexOf(id);
+    if (idx === -1) return;
+    const targetIdx = idx + delta;
+    if (targetIdx < 0 || targetIdx >= orderedIds.length) return;
+    const next = [...orderedIds];
+    const [item] = next.splice(idx, 1);
+    next.splice(targetIdx, 0, item);
+    setSubOrder(next);
+    try { localStorage.setItem("ack-deck.mobile-sub-order.v1", JSON.stringify(next)); } catch {}
+  }
+
+  // Mobile Study Reminders
+  const [studyReminders, setStudyReminders] = useState<{ id: string; leadMinutes: number | null }[]>(() => {
+    try { const raw = localStorage.getItem("ack-deck.study-reminders.v1"); return raw ? JSON.parse(raw) : []; } catch { return []; }
+  });
+
+  function updateStudyReminder(programId: string, leadMinutes: number | null) {
+    setStudyReminders(prev => {
+      const next = [...prev.filter(x => x.id !== programId), { id: programId, leadMinutes }];
+      try { localStorage.setItem("ack-deck.study-reminders.v1", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
+
   const formRequestId = useRef(crypto.randomUUID());
   const sending = useRef(false);
   const recordingStarting = useRef(false);
@@ -656,16 +698,25 @@ function App() {
                   </button>
                 </div>
                 <div className="study-sessions-grid">
-                  {todayStudyBlocks.map(block => (
-                    <div key={block.id} className="study-session-card">
-                      <div className="session-time-badge">{block.time}</div>
-                      <div className="session-info">
-                        <strong>{block.label}</strong>
-                        {block.topic && <small>{block.topic}</small>}
+                  {todayStudyBlocks.map(block => {
+                    const lead = studyReminders.find(r => r.id === block.programId)?.leadMinutes;
+                    const remLabel = lead === 0 ? "Vaktinde" : lead ? `${lead} dk önce` : "Kapalı";
+                    return (
+                      <div key={block.id} className="study-session-card">
+                        <div className="session-time-badge">{block.time}</div>
+                        <div className="session-info">
+                          <strong>{block.label}</strong>
+                          {block.topic && <small>{block.topic}</small>}
+                        </div>
+                        <div className="session-meta-chips">
+                          <span className="session-duration">{block.minutes} dk</span>
+                          <span className={`session-reminder-chip ${lead !== null && lead !== undefined ? "has-reminder" : ""}`}>
+                            🔔 {remLabel}
+                          </span>
+                        </div>
                       </div>
-                      <span className="session-duration">{block.minutes} dk</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
             )}
@@ -701,11 +752,6 @@ function App() {
                           <h3>{task.text}</h3>
                         </div>
                         <div className="mobile-task-meta">
-                          {!!task.checklist?.length && (
-                            <span className="task-chip chip-checklist">
-                              {task.checklist.filter(c => c.completed).length}/{task.checklist.length} adım
-                            </span>
-                          )}
                           <span className="task-chip chip-date">
                             {task.recurrence ? recurrenceLabel(task.recurrence) : displayedDate(task) ? new Date(displayedDate(task) + "T12:00:00").toLocaleDateString("tr", { day: "numeric", month: "short" }) : "Tarihsiz"}
                             {task.dueTime && " · " + task.dueTime}
@@ -781,18 +827,48 @@ function App() {
             </div>
 
             {planTab === "calendar" ? (
-              <MobileWeek
-                disabled={busy}
-                onSave={saveMutation}
-                records={state.records}
-                onOpen={row => row.kind === "subscriptions" ? setSubscriptionDraft(row.data as Subscription) : openForm("task", row)}
-                onNew={day => { openForm("task"); setDate(day); }}
-                onAskAi={() => {
-                  openForm("ai_prompt");
-                  setTitle("Haftalık ders programı çizelgesi");
-                  setContent("Şu dersler için haftalık ders programı çizelgesi hazırla ve haftalık plana ekle: ");
-                }}
-              />
+              <>
+                <MobileWeek
+                  disabled={busy}
+                  onSave={saveMutation}
+                  records={state.records}
+                  onOpen={row => row.kind === "subscriptions" ? setSubscriptionDraft(row.data as Subscription) : openForm("task", row)}
+                  onNew={day => { openForm("task"); setDate(day); }}
+                  onAskAi={() => {
+                    openForm("ai_prompt");
+                    setTitle("Haftalık ders programı çizelgesi");
+                    setContent("Şu dersler için haftalık ders programı çizelgesi hazırla ve haftalık plana ekle: ");
+                  }}
+                />
+                {studyPrograms.length > 0 && (
+                  <section className="mobile-study-reminders-panel surface" aria-label="Ders hatırlatıcıları">
+                    <div className="section-title-row">
+                      <h3>Ders Hatırlatıcıları</h3>
+                    </div>
+                    <p className="section-subtext">Haftalık ders başlangıçları için hatırlatma tercihi.</p>
+                    <div className="mobile-study-rem-list">
+                      {studyPrograms.map(prog => {
+                        const currentLead = studyReminders.find(r => r.id === prog.id)?.leadMinutes ?? "off";
+                        return (
+                          <div key={prog.id} className="mobile-study-rem-row">
+                            <span className="study-rem-name">{prog.name}</span>
+                            <select
+                              value={currentLead}
+                              onChange={e => updateStudyReminder(prog.id, e.target.value === "off" ? null : Number(e.target.value))}
+                            >
+                              <option value="off">Kapalı</option>
+                              <option value="0">Ders başlangıcında</option>
+                              <option value="15">15 dakika önce</option>
+                              <option value="30">30 dakika önce</option>
+                              <option value="60">1 saat önce</option>
+                            </select>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
+              </>
             ) : (
               <>
                 <div className="page-heading subscription-page-header">
@@ -807,38 +883,114 @@ function App() {
                   </div>
                 </div>
                 <p className="status subscription-status-note">Dönem tutarlarının aylık ortalaması; para birimleri ayrı tutulur.</p>
-                <div className="subscription-list">
-                  {state.records.filter(r => r.kind === "subscriptions" && !r.deleted).map(row => {
-                    const sub = row.data as Subscription;
-                    return (
-                      <article className="subscription-row" key={row.id}>
-                        <button className="mobile-task-open" type="button" onClick={() => setSubscriptionDraft(sub)}>
-                          <h3>{sub.name}</h3>
-                          <p className="subscription-price">{money(sub.amount, sub.currency)} / {cycleLabel(sub)}</p>
-                          <span className={`subscription-badge status-${sub.status}`}>
-                            {sub.status === "active" ? paymentLabel(sub) : sub.status === "paused" ? "Duraklatıldı" : "İptal edildi"}
-                          </span>
-                        </button>
-                        <ActionMenu label={sub.name + " işlemleri"}>
-                          <button onClick={() => setSubscriptionDraft(sub)}>Düzenle</button>
+
+                {(() => {
+                  const allRows = state.records.filter(r => r.kind === "subscriptions" && !r.deleted);
+                  const sorted = [...allRows].sort((a, b) => {
+                    const idxA = subOrder.indexOf(a.id);
+                    const idxB = subOrder.indexOf(b.id);
+                    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                    if (idxA !== -1) return -1;
+                    if (idxB !== -1) return 1;
+                    return 0;
+                  });
+                  const visible = sorted.filter(r => !hiddenSubs.includes(r.id));
+                  const hidden = sorted.filter(r => hiddenSubs.includes(r.id));
+                  const visibleIds = visible.map(r => r.id);
+
+                  return (
+                    <>
+                      <div className="subscription-list">
+                        {visible.map((row, idx) => {
+                          const sub = row.data as Subscription;
+                          return (
+                            <article className="subscription-row" key={row.id}>
+                              <button className="mobile-task-open" type="button" onClick={() => setSubscriptionDraft(sub)}>
+                                <h3>{sub.name}</h3>
+                                <p className="subscription-price">{money(sub.amount, sub.currency)} / {cycleLabel(sub)}</p>
+                                <span className={`subscription-badge status-${sub.status}`}>
+                                  {sub.status === "active" ? paymentLabel(sub) : sub.status === "paused" ? "Duraklatıldı" : "İptal edildi"}
+                                </span>
+                              </button>
+                              <div className="subscription-order-buttons">
+                                <button
+                                  type="button"
+                                  className="order-btn"
+                                  disabled={idx === 0}
+                                  onClick={() => moveSub(row.id, -1, visibleIds)}
+                                  title="Yukarı taşı"
+                                >
+                                  ▲
+                                </button>
+                                <button
+                                  type="button"
+                                  className="order-btn"
+                                  disabled={idx === visible.length - 1}
+                                  onClick={() => moveSub(row.id, 1, visibleIds)}
+                                  title="Aşağı taşı"
+                                >
+                                  ▼
+                                </button>
+                              </div>
+                              <ActionMenu label={sub.name + " işlemleri"}>
+                                <button onClick={() => toggleHideSub(row.id)}>Aboneliği Gizle</button>
+                                <button onClick={() => setSubscriptionDraft(sub)}>Düzenle</button>
+                                <button
+                                  className="danger-action"
+                                  disabled={busy}
+                                  onClick={() => {
+                                    if (confirm("Yalnızca abonelik kaydı silinsin mi? Hizmet sağlayıcısındaki aboneliğiniz değişmez.")) {
+                                      void saveMutation({ mutationId: crypto.randomUUID(), kind: "subscriptions", id: row.id, baseVersion: row.version, data: null, deleted: true })
+                                        .then(() => setUndo({ row, expires: Date.now() + 10000 }))
+                                        .catch(e => setError(e.message));
+                                    }
+                                  }}
+                                >
+                                  Kaydı sil
+                                </button>
+                              </ActionMenu>
+                            </article>
+                          );
+                        })}
+                        {visible.length === 0 && <p className="status" style={{ textAlign: "center", padding: "1.5rem" }}>Görünür abonelik yok.</p>}
+                      </div>
+
+                      {hidden.length > 0 && (
+                        <div className="hidden-subs-container">
                           <button
-                            className="danger-action"
-                            disabled={busy}
-                            onClick={() => {
-                              if (confirm("Yalnızca abonelik kaydı silinsin mi? Hizmet sağlayıcısındaki aboneliğiniz değişmez.")) {
-                                void saveMutation({ mutationId: crypto.randomUUID(), kind: "subscriptions", id: row.id, baseVersion: row.version, data: null, deleted: true })
-                                  .then(() => setUndo({ row, expires: Date.now() + 10000 }))
-                                  .catch(e => setError(e.message));
-                              }
-                            }}
+                            type="button"
+                            className="text-action hidden-subs-toggle"
+                            onClick={() => setShowHiddenSubs(v => !v)}
                           >
-                            Kaydı sil
+                            {showHiddenSubs ? "Gizlenen abonelikleri kapat" : `Gizlenen abonelikler (${hidden.length})`}
                           </button>
-                        </ActionMenu>
-                      </article>
-                    );
-                  })}
-                </div>
+                          {showHiddenSubs && (
+                            <div className="subscription-list is-hidden-sub-list">
+                              {hidden.map(row => {
+                                const sub = row.data as Subscription;
+                                return (
+                                  <article className="subscription-row is-hidden-sub" key={row.id}>
+                                    <button className="mobile-task-open" type="button" onClick={() => setSubscriptionDraft(sub)}>
+                                      <h3>{sub.name} <small style={{ color: "var(--app-muted)" }}>(Gizli)</small></h3>
+                                      <p className="subscription-price">{money(sub.amount, sub.currency)}</p>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="unhide-btn"
+                                      onClick={() => toggleHideSub(row.id)}
+                                    >
+                                      Görünür Yap
+                                    </button>
+                                  </article>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </>
             )}
           </>
@@ -1116,7 +1268,6 @@ function App() {
                       ))}
                     </select>
                   </label>
-                  <ChecklistEditor value={checklist} onChange={setChecklist} />
                   <div className="editor-row">
                     <label>
                       {recurrence ? "Başlangıç günü" : "Tarih"}

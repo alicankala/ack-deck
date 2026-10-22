@@ -59,7 +59,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .sidebar-version span { color: #9bc8f5; padding: 0 calc(var(--ui-unit) * 4); }
 
 .main-content { flex: 1; min-width: 0; padding: calc(var(--ui-unit) * 47) clamp(calc(var(--ui-unit) * 24), 4.2vw, calc(var(--ui-unit) * 72)) calc(var(--ui-unit) * 26); }
-.dashboard { width: 100%; max-width: 1510px; margin: 0 auto; }
+.dashboard { width: 100%; max-width: 100%; margin: 0; }
 .dashboard-header { display: flex; justify-content: space-between; align-items: center; gap: calc(var(--ui-unit) * 28); padding-bottom: calc(var(--ui-unit) * 43); border-bottom: 1px solid #34404a; }
 .eyebrow { font-size: calc(var(--ui-unit) * 12); font-weight: 700; letter-spacing: .17em; color: #9bc8f5; }
 .eyebrow-line { display: inline-block; width: calc(var(--ui-unit) * 19); height: calc(var(--ui-unit) * 1); vertical-align: middle; background: #9bc8f5; margin-right: calc(var(--ui-unit) * 7); }
@@ -333,7 +333,7 @@ h1, h2, h3 { font-family: "Segoe UI Variable", "Segoe UI", sans-serif; }
 .feature-heading h1 { font-size: clamp(calc(var(--ui-unit) * 31), 3.1vw, calc(var(--ui-unit) * 43)); letter-spacing: -.055em; margin: calc(var(--ui-unit) * 9) 0 calc(var(--ui-unit) * 8); }
 .feature-heading p { color: #becbd6; font-size: calc(var(--ui-unit) * 15); }
 .feature-icon { width: calc(var(--ui-unit) * 44); height: calc(var(--ui-unit) * 44); display: grid; place-items: center; flex: 0 0 auto; color: #a9d4ff; background: #283b4e; border: 1px solid #587894; border-radius: calc(var(--ui-unit) * 10); }
-.settings-page, .ai-page { width: 100%; max-width: 1100px; margin: 0 auto; }
+.settings-page, .ai-page { width: 100%; max-width: 100%; margin: 0; }
 .settings-card { padding: clamp(calc(var(--ui-unit) * 20), 3vw, calc(var(--ui-unit) * 32)); }
 .settings-card-heading { display: flex; align-items: center; gap: calc(var(--ui-unit) * 15); padding-bottom: calc(var(--ui-unit) * 25); border-bottom: 1px solid #3a4651; }
 .settings-card-heading > div { min-width: 0; }
@@ -499,7 +499,7 @@ kbd { font-size: calc(var(--ui-unit) * 11); color: #bbd6ee; border: 1px solid #5
 
 /* Dashboard summaries; detail-page layouts remain independent. */
 .dashboard-main { padding-top: calc(var(--ui-unit) * 24); }
-.work-dashboard { display: flex; flex-direction: column; gap: calc(var(--ui-unit) * 26); max-width: 1360px; }
+.work-dashboard { display: flex; flex-direction: column; gap: calc(var(--ui-unit) * 26); width: 100%; max-width: 100%; }
 .work-dashboard .dashboard-header { padding-bottom: calc(var(--ui-unit) * 16); gap: calc(var(--ui-unit) * 18); }
 .work-dashboard .dashboard-header h1 { font-size: calc(var(--ui-unit) * 22); margin: 0 0 calc(var(--ui-unit) * 4); letter-spacing: -.04em; }
 .work-dashboard .dashboard-header time { color: #b9c6d1; font-size: calc(var(--ui-unit) * 13); text-transform: capitalize; font-variant-numeric: tabular-nums; }
@@ -641,7 +641,7 @@ kbd { font-size: calc(var(--ui-unit) * 11); color: #bbd6ee; border: 1px solid #5
 /* Shared desktop sizing: 100% retains the original 15px baseline. Viewport caps
    and container breakpoints use logical CSS dimensions, never monitor pixels. */
 :root {
-  --content-max: 1800px;
+  --content-max: 100%;
   --page-title-size: clamp(1.9333rem, 3.2vw, 3rem);
   --section-title-size: 1.4rem;
   --card-padding: 1.4667rem;
@@ -649,8 +649,8 @@ kbd { font-size: calc(var(--ui-unit) * 11); color: #bbd6ee; border: 1px solid #5
   --control-height: 2.6667rem;
   --surface-radius: .8rem;
 }
-.main-content > div { width: 100%; max-width: var(--content-max); margin-inline: auto; min-width: 0; }
-.work-dashboard { max-width: var(--content-max); gap: var(--major-gap); container-type: inline-size; }
+.main-content > div { width: 100%; max-width: 100%; margin-inline: 0; min-width: 0; }
+.work-dashboard { max-width: 100%; width: 100%; gap: var(--major-gap); container-type: inline-size; }
 .surface { border-radius: var(--surface-radius); }
 .section-heading h2 { font-size: var(--section-title-size); }
 .dashboard-header h1 { font-size: var(--page-title-size); }
@@ -783,7 +783,7 @@ dialog:not(.standalone-palette) { max-width: calc(100vw - 2rem); max-height: cal
   --footer-clearance: 4.8rem;
 }
 .main-content { padding: var(--page-padding); container-type: inline-size; }
-.main-content > div { max-width: var(--content-max); }
+.main-content > div { width: 100%; max-width: 100%; }
 .main-content :is(.feature-heading, .section-heading) { margin: 0 0 var(--section-gap); gap: .8rem; }
 .main-content :is(.feature-heading, .section-heading) h1 { font-size: var(--page-title-size); line-height: 1.25; letter-spacing: -.035em; margin: 0; overflow-wrap: anywhere; }
 .main-content .feature-heading > h1 + p, .main-content :is(.feature-heading, .section-heading) > div > h1 + p { margin-top: var(--header-gap); }

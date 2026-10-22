@@ -18,13 +18,12 @@ import { DisplayScaleSettings } from "./DisplayScaleSettings";
 import { PhoneSettings } from "./PhoneSettings";
 import { DesktopSettings } from "./DesktopSettings";
 import { BackupSettings } from "./BackupSettings";
-import { PaletteShortcutSettings } from "./PaletteShortcutSettings";
 import { UpdateSettings } from "./UpdateSettings";
 import { AboutSettings } from "./AboutSettings";
 import type { DesktopStatus } from "../desktopClient";
 
 const sections: { id: string; label: string; description: string; icon: IconName }[] = [
-  { id: "general", label: "Genel", description: "Başlangıç ve kısayollar", icon: "settings" },
+  { id: "general", label: "Genel", description: "Başlangıç ve genel tercihler", icon: "settings" },
   { id: "appearance", label: "Görünüm", description: "Tema, ölçek ve vakitler", icon: "grid" },
   { id: "ai", label: "ACK AI", description: "Model ve bağlantı", icon: "spark" },
   { id: "phone", label: "Telefon", description: "Eşitleme ve cihazlar", icon: "files" },
@@ -123,7 +122,6 @@ export function Settings({ preferences, onPreferencesChange, desktop, onDesktopC
 
     </section>
     <DesktopSettings status={desktop} onChange={onDesktopChange} />
-    <PaletteShortcutSettings />
 </section>
       <section role="tabpanel" id="settings-panel-appearance" aria-labelledby="settings-tab-appearance" hidden={selectedSection !== "appearance"} className="settings-section-panel">
         <section className="surface settings-card local-settings" aria-labelledby="theme-settings-title">

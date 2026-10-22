@@ -196,9 +196,15 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             })
             .build(),
     )?;
-    let text = load_shortcut(app.handle()).unwrap_or_else(|_| "Ctrl+Alt+Space".into());
-    let selected = parse_shortcut(&text).unwrap_or_else(|_| shortcut());
-    let registered = app.global_shortcut().register(selected).is_ok();
+    let text = load_shortcut(app.handle()).unwrap_or_else(|_| "disabled".into());
+    let (selected, registered) = if text == "disabled" || text == "none" || text == "Ctrl+Alt+Space" {
+        (shortcut(), false)
+    } else if let Ok(parsed) = parse_shortcut(&text) {
+        let reg = app.global_shortcut().register(parsed).is_ok();
+        (parsed, reg)
+    } else {
+        (shortcut(), false)
+    };
     app.manage(PaletteState {
         pending: Mutex::new(HashMap::new()),
         registered: AtomicBool::new(registered),

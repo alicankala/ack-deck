@@ -43,6 +43,7 @@ export function MobilePrayerCard({
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [noteDraft, setNoteDraft] = useState("");
   const [showStats, setShowStats] = useState(false);
+  const [showCompletedNotes, setShowCompletedNotes] = useState(false);
 
   useEffect(() => {
     function handleConfigChange() {
@@ -97,38 +98,72 @@ export function MobilePrayerCard({
     });
   }
 
+  // Persistent notes across all logs: uncompleted notes carry forward
+  const allNotesMap = new Map<string, { note: { id: string; text: string; done: boolean }; logId: string }>();
+  for (const log of prayerLogs) {
+    for (const note of log.notes) {
+      if (!allNotesMap.has(note.id)) {
+        allNotesMap.set(note.id, { note, logId: log.id });
+      }
+    }
+  }
+  const allNotesList = [...allNotesMap.values()];
+  const activePrayerNotes = allNotesList.filter(item => !item.note.done);
+  const completedPrayerNotes = allNotesList.filter(item => item.note.done);
+
   function handleAddNote(e: FormEvent) {
     e.preventDefault();
     const text = noteDraft.trim();
     if (!text || currentLog.notes.length >= 30) return;
-    const nextNotes = [
-      ...currentLog.notes,
-      { id: crypto.randomUUID(), text: text.slice(0, 240), done: false },
-    ];
+    const newNote = { id: crypto.randomUUID(), text: text.slice(0, 240), done: false };
     void saveDayLog({
       ...currentLog,
-      notes: nextNotes,
+      notes: [...currentLog.notes, newNote],
       updatedAt: Date.now(),
     });
     setNoteDraft("");
   }
 
   function toggleNote(id: string) {
-    const nextNotes = currentLog.notes.map(n => (n.id === id ? { ...n, done: !n.done } : n));
-    void saveDayLog({
-      ...currentLog,
-      notes: nextNotes,
-      updatedAt: Date.now(),
-    });
+    for (const row of records.filter(r => r.kind === "prayerLogs" && !r.deleted)) {
+      const log = row.data as PrayerLogDay;
+      if (log.notes.some(n => n.id === id)) {
+        void onSave({
+          mutationId: crypto.randomUUID(),
+          kind: "prayerLogs",
+          id: log.id,
+          baseVersion: row.version,
+          deleted: false,
+          data: {
+            ...log,
+            notes: log.notes.map(n => (n.id === id ? { ...n, done: !n.done } : n)),
+            updatedAt: Date.now(),
+          },
+        });
+        break;
+      }
+    }
   }
 
   function deleteNote(id: string) {
-    const nextNotes = currentLog.notes.filter(n => n.id !== id);
-    void saveDayLog({
-      ...currentLog,
-      notes: nextNotes,
-      updatedAt: Date.now(),
-    });
+    for (const row of records.filter(r => r.kind === "prayerLogs" && !r.deleted)) {
+      const log = row.data as PrayerLogDay;
+      if (log.notes.some(n => n.id === id)) {
+        void onSave({
+          mutationId: crypto.randomUUID(),
+          kind: "prayerLogs",
+          id: log.id,
+          baseVersion: row.version,
+          deleted: false,
+          data: {
+            ...log,
+            notes: log.notes.filter(n => n.id !== id),
+            updatedAt: Date.now(),
+          },
+        });
+        break;
+      }
+    }
   }
 
   if (!info) return null;
@@ -273,28 +308,72 @@ export function MobilePrayerCard({
 
         {/* Daily Spiritual / Prayer Notes */}
         <div className="mobile-prayer-notes">
-          {currentLog.notes.length > 0 && (
+          <div className="mobile-notes-header-row">
+            <span>İbadet Notları</span>
+            <small>{activePrayerNotes.length} aktif</small>
+          </div>
+          {activePrayerNotes.length > 0 ? (
             <div className="mobile-prayer-notes-list">
-              {currentLog.notes.map(note => (
-                <div key={note.id} className={`mobile-prayer-note-row ${note.done ? "is-done" : ""}`}>
+              {activePrayerNotes.map(({ note }) => (
+                <div key={note.id} className="mobile-prayer-note-row">
                   <button
                     type="button"
                     className="mobile-prayer-note-toggle"
                     onClick={() => toggleNote(note.id)}
+                    title="Tamamla ve arşive kaldır"
                   >
-                    <span className="mobile-note-box">{note.done ? "✓" : ""}</span>
+                    <span className="mobile-note-box" />
                     <span>{note.text}</span>
                   </button>
                   <button
                     type="button"
                     className="mobile-prayer-note-remove"
                     onClick={() => deleteNote(note.id)}
-                    aria-label="Notu kaldır"
+                    aria-label="Notu sil"
                   >
                     ×
                   </button>
                 </div>
               ))}
+            </div>
+          ) : (
+            <p className="mobile-notes-empty">Aktif ibadet notu yok.</p>
+          )}
+
+          {completedPrayerNotes.length > 0 && (
+            <div className="mobile-completed-notes-toggle">
+              <button
+                type="button"
+                className="text-action"
+                onClick={() => setShowCompletedNotes(v => !v)}
+              >
+                {showCompletedNotes ? "Tamamlananları gizle" : `Tamamlanan notlar (${completedPrayerNotes.length})`}
+              </button>
+              {showCompletedNotes && (
+                <div className="mobile-prayer-notes-list is-completed">
+                  {completedPrayerNotes.map(({ note }) => (
+                    <div key={note.id} className="mobile-prayer-note-row is-done">
+                      <button
+                        type="button"
+                        className="mobile-prayer-note-toggle"
+                        onClick={() => toggleNote(note.id)}
+                        title="Geri al"
+                      >
+                        <span className="mobile-note-box">✓</span>
+                        <span>{note.text}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="mobile-prayer-note-remove"
+                        onClick={() => deleteNote(note.id)}
+                        aria-label="Tamamen sil"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           <form onSubmit={handleAddNote} className="mobile-prayer-note-form">
