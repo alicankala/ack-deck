@@ -3,7 +3,7 @@ import { nativeNavigation } from "./nativeNavigation";
 import { FooterTicker } from "./components/FooterTicker";
 import { UpdateNotice } from "./components/UpdateNotice";
 import { Subscriptions } from "./components/Subscriptions";
-import { lazy, Suspense, useCallback, useEffect, useState, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useDesktop } from "./useDesktop";
 import { getDesktopStatus } from "./desktopClient";
 import { usePhoneCompanion } from "./usePhoneCompanion";
@@ -14,6 +14,7 @@ import { usePaletteBridge } from "./usePaletteBridge";
 import { GlobalSearch } from "./components/GlobalSearch";
 import { useNavigationHistory } from "./useNavigationHistory";
 import { Dashboard } from "./components/Dashboard";
+import { loadInboxIndex } from "./productIntelligence";
 import type { AiPromptHandoff } from "./aiPromptHandoff";
 import { UndoToast } from "./components/UndoToast";
 const ConversationHistory = lazy(() => import("./components/ConversationHistory").then(module => ({ default: module.ConversationHistory })));
@@ -83,6 +84,32 @@ function App() {
     const timeout = window.setTimeout(() => setNotice(""), 3200);
     return () => window.clearTimeout(timeout);
   }, [notice]);
+
+  const notifiedAiPrompts = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const checkIncomingAi = () => {
+      const inboxList = loadInboxIndex();
+      if (!inboxList) return;
+      const unhandledAi = inboxList.find(item => !item.handled && item.kind === "ai_prompt" && !notifiedAiPrompts.current.has(item.id));
+      if (unhandledAi) {
+        notifiedAiPrompts.current.add(unhandledAi.id);
+        const promptText = `Bana mobilden şöyle bir not/istek bırakmıştın:
+> "${unhandledAi.title}"
+
+Bu notu değerlendir. Eğer analiz edebileceğin, özet çıkarabileceğin, araştırabileceğin veya görevlere dönüştürebileceğin bir konuysa doğrudan işle ve sonucunu üret. Eğer doğrudan aksiyon alınamayacak kişisel bir hatırlatma veya bilgi notuysa samimi bir dille "Hacı sen buraya atmıştın, haberin olsun, unutma!" diyerek içeriği bana hatırlat.`;
+        setNotice(`📲 Mobilden ACK AI için not bırakıldı: "${unhandledAi.title}"`);
+        setAiPrompt(undefined);
+        setPhoneAiDraft({ id: crypto.randomUUID(), text: promptText });
+        navigate({ page: "ai" });
+      }
+    };
+    window.addEventListener("ack-data-changed", checkIncomingAi);
+    const timer = window.setTimeout(checkIncomingAi, 2000);
+    return () => {
+      window.removeEventListener("ack-data-changed", checkIncomingAi);
+      window.clearTimeout(timer);
+    };
+  }, [navigate]);
 
   const pageViews: Record<Page, ReactNode> = {
     home: <Dashboard projects={projects} refreshMs={preferences.pcRefreshMs} onNavigate={navigate} onAskAi={askAi} onOpenSearch={() => setSearchOpen(true)} />,

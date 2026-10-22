@@ -2253,5 +2253,135 @@ body:has(.editor) nav { visibility: hidden; }
   border-radius: 4px;
 }
 
+/* Mobile Week Calendar Strip */
+.mobile-week-strip-card {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 16px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.mobile-week-strip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.mobile-week-strip-header span {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--app-muted);
+}
+.mobile-week-strip-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.mobile-week-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 2px;
+  border-radius: 10px;
+  background: var(--app-control);
+  border: 1px solid var(--app-border);
+  color: var(--app-text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-height: 52px;
+}
+.mobile-week-cell:hover, .mobile-week-cell:active {
+  background: var(--app-surface-hover, rgba(255, 255, 255, 0.08));
+}
+.mobile-week-cell.is-today {
+  border-color: var(--app-accent);
+}
+.mobile-week-cell.is-selected {
+  border-color: var(--app-accent);
+  background: var(--app-accent-soft);
+  box-shadow: 0 0 0 1.5px var(--app-accent);
+}
+.mobile-week-cell-day {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--app-muted);
+}
+.mobile-week-cell.is-today .mobile-week-cell-day,
+.mobile-week-cell.is-selected .mobile-week-cell-day {
+  color: var(--app-accent);
+}
+.mobile-week-cell-num {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 2px 0;
+  color: var(--app-text);
+}
+.mobile-week-cell-indicator {
+  font-size: 10px;
+  min-height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mobile-week-dot {
+  display: inline-grid;
+  place-items: center;
+  background: var(--app-accent);
+  color: #000;
+  font-size: 9px;
+  font-weight: 800;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  line-height: 1;
+}
+.mobile-task-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f59e0b;
+}
+.mobile-week-dash {
+  color: rgba(255, 255, 255, 0.15);
+}
+
+.timeline-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.timeline-title-group h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--app-text);
+}
+.mobile-back-today-pill {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--app-accent);
+  background: var(--app-accent-soft);
+  border: 1px solid var(--app-accent-border);
+  padding: 2px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.mobile-timeline-empty {
+  text-align: center;
+  padding: 32px 16px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 16px;
+  color: var(--app-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
 
 

@@ -144,6 +144,7 @@ export function pendingPrayerReminders(
     const dayInfo = calculatePrayerTimes(config.latitude, config.longitude, targetDate, config.city);
 
     for (const item of dayInfo.items) {
+      if (item.name === "sunrise") continue;
       // 1. Exact prayer time notification
       if (config.notifyAtTime && item.timestamp > nowMs) {
         results.push({

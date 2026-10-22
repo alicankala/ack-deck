@@ -1,7 +1,7 @@
 import { dailySummary } from "../productIntelligence";
 import { Subscriptions } from "./Subscriptions";
 import { PrayerWidget } from "./PrayerWidget";
-import { completeOccurrence } from "../../shared/recurrence";
+import { completeOccurrence, scheduleDate } from "../../shared/recurrence";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Header } from "./Header";
 import { PcStatus } from "./PcStatus";
@@ -57,6 +57,7 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, onOpenSear
   const allBlocks = studyBlocks(studyData.entries, now);
   const todayDateStr = localDateKey(now);
   const todayStudyBlocks = allBlocks.filter(b => b.date === todayDateStr);
+  const [selectedDate, setSelectedDate] = useState<string>(todayDateStr);
   const curWeekDates = weekDates(now);
   const weekDays = curWeekDates.map(dStr => {
     const d = new Date(dStr + "T12:00:00");
@@ -69,6 +70,39 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, onOpenSear
       count,
     };
   });
+
+  const isSelectedToday = selectedDate === todayDateStr;
+  const displayedStudyBlocks = allBlocks.filter(b => b.date === selectedDate);
+  const displayedTasks = isSelectedToday
+    ? daily.map(d => d.task)
+    : data.tasks.entries.filter(t => !t.completed && scheduleDate(t) === selectedDate);
+
+  const selectedDateLabel = (() => {
+    try {
+      const [y, m, d] = selectedDate.split("-").map(Number);
+      return new Date(y, m - 1, d).toLocaleDateString("tr-TR", { day: "numeric", month: "long", weekday: "short" });
+    } catch {
+      return selectedDate;
+    }
+  })();
+
+  const timelineItems = [
+    ...displayedStudyBlocks.map(b => ({
+      kind: "study" as const,
+      id: b.id,
+      time: b.time,
+      endTime: b.endTime,
+      label: b.label,
+      topic: b.topic,
+    })),
+    ...displayedTasks.map(t => ({
+      kind: "task" as const,
+      id: t.id,
+      time: t.dueTime,
+      text: t.text,
+      completed: t.completed,
+    })),
+  ].sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
 
   return (
     <div className="dashboard work-dashboard">
@@ -174,36 +208,46 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, onOpenSear
 
             <div className="dashboard-schedule-layout">
               <div className="schedule-today-column">
-                <div className="schedule-column-title">
-                  <span className="column-dot" />
-                  <strong>Bugünkü Oturumlar & Saatli İşler</strong>
+                <div className="schedule-column-title" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <span className="column-dot" />
+                    <strong>{isSelectedToday ? "Bugünkü Oturumlar & İşler" : `${selectedDateLabel} Programı`}</strong>
+                  </div>
+                  {!isSelectedToday && (
+                    <button
+                      type="button"
+                      className="dashboard-text-button"
+                      style={{ fontSize: "0.76rem", padding: "0.2rem 0.5rem", height: "auto", minHeight: "auto" }}
+                      onClick={() => setSelectedDate(todayDateStr)}
+                    >
+                      Bugüne dön
+                    </button>
+                  )}
                 </div>
 
-                {todayStudyBlocks.length > 0 || daily.some(d => d.task.dueTime) ? (
+                {timelineItems.length > 0 ? (
                   <div className="schedule-timeline-list">
-                    {todayStudyBlocks.map(block => (
-                      <div key={block.id} className="schedule-timeline-item session-study">
-                        <span className="timeline-clock">{block.time} – {block.endTime}</span>
+                    {timelineItems.map(item => (
+                      <div
+                        key={item.id}
+                        className={`schedule-timeline-item ${item.kind === "study" ? "session-study" : "session-task"} ${item.kind === "task" && item.completed ? "is-completed" : ""}`}
+                      >
+                        <span className="timeline-clock">
+                          {item.kind === "study" ? `${item.time} – ${item.endTime}` : item.time || "Tüm gün"}
+                        </span>
                         <div className="timeline-content">
-                          <strong>{block.label}</strong>
-                          {block.topic ? <small>{block.topic}</small> : null}
+                          <strong>{item.kind === "study" ? item.label : item.text}</strong>
+                          {item.kind === "study" && item.topic ? <small>{item.topic}</small> : null}
                         </div>
-                        <span className="timeline-tag">Ders</span>
-                      </div>
-                    ))}
-                    {daily.filter(d => d.task.dueTime).map(({ task }) => (
-                      <div key={task.id} className="schedule-timeline-item session-task">
-                        <span className="timeline-clock">{task.dueTime}</span>
-                        <div className="timeline-content">
-                          <strong>{task.text}</strong>
-                        </div>
-                        <span className="timeline-tag task-tag">Görev</span>
+                        <span className={`timeline-tag ${item.kind === "study" ? "" : "task-tag"}`}>
+                          {item.kind === "study" ? "Ders" : "Görev"}
+                        </span>
                       </div>
                     ))}
                   </div>
                 ) : (
                   <div className="schedule-today-empty">
-                    <p>Bugün için saatli ders veya görev bulunmuyor.</p>
+                    <p>{isSelectedToday ? "Bugün için ders veya görev bulunmuyor." : `${selectedDateLabel} için planlı ders veya görev yok.`}</p>
                   </div>
                 )}
               </div>
@@ -217,8 +261,8 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, onOpenSear
                     <button
                       key={day.date}
                       type="button"
-                      className={`week-mini-cell ${day.date === todayDateStr ? "is-today" : ""}`}
-                      onClick={() => onNavigate({ page: "calendar" })}
+                      className={`week-mini-cell ${day.date === selectedDate ? "is-selected" : ""} ${day.date === todayDateStr ? "is-today" : ""}`}
+                      onClick={() => setSelectedDate(day.date)}
                       title={`${day.shortLabel} ${day.dayNum}: ${day.count > 0 ? `${day.count} ders oturumu` : "Ders yok"}`}
                     >
                       <span className="mini-cell-day">{day.shortLabel}</span>

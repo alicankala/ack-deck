@@ -581,7 +581,52 @@ function App() {
     .map(row => row.data as StudyProgram);
   const allWeekStudyBlocks = studyBlocks(studyPrograms, new Date());
   const todayStudyBlocks = allWeekStudyBlocks.filter(b => b.date === today);
-  const [timelineScope, setTimelineScope] = useState<"today" | "week">("today");
+
+  const curMobileWeekDates = (() => {
+    const d = new Date();
+    const day = (d.getDay() + 6) % 7;
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - day);
+    const list: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const cur = new Date(monday);
+      cur.setDate(monday.getDate() + i);
+      list.push(dateKey(cur));
+    }
+    return list;
+  })();
+
+  const [selectedMobileDate, setSelectedMobileDate] = useState<string>(today);
+
+  const mobileWeekDays = curMobileWeekDates.map(dStr => {
+    const [y, m, d] = dStr.split("-").map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    const dayOfWeek = (dateObj.getDay() + 6) % 7;
+    const studyCount = allWeekStudyBlocks.filter(b => b.date === dStr).length;
+    const taskCount = unfinished.filter(t => scheduleDate(t.data as PhoneTask) === dStr).length;
+    return {
+      date: dStr,
+      shortLabel: ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"][dayOfWeek],
+      dayNum: dateObj.getDate(),
+      studyCount,
+      taskCount,
+    };
+  });
+
+  const isSelectedMobileToday = selectedMobileDate === today;
+  const displayedMobileStudyBlocks = allWeekStudyBlocks.filter(b => b.date === selectedMobileDate);
+  const displayedMobileTasks = isSelectedMobileToday
+    ? todayTasks
+    : unfinished.filter(r => scheduleDate(r.data as PhoneTask) === selectedMobileDate);
+
+  const selectedMobileDateLabel = (() => {
+    try {
+      const [y, m, d] = selectedMobileDate.split("-").map(Number);
+      return new Date(y, m - 1, d).toLocaleDateString("tr-TR", { day: "numeric", month: "long", weekday: "short" });
+    } catch {
+      return selectedMobileDate;
+    }
+  })();
 
   const notesCount = state.records.filter(r => r.kind === "notes" && !r.deleted).length;
 
@@ -657,11 +702,11 @@ function App() {
           <>
             {/* Quick Metrics Bar at Top */}
             <div className="mobile-metrics-bar">
-              <button type="button" className="metric-chip" onClick={() => setTimelineScope("today")}>
+              <button type="button" className="metric-chip" onClick={() => setSelectedMobileDate(today)}>
                 <strong>{todayTasks.length}</strong>
                 <span>Bugün</span>
               </button>
-              <button type="button" className="metric-chip" onClick={() => setTimelineScope("week")}>
+              <button type="button" className="metric-chip" onClick={() => { changePage("plan"); setPlanTab("calendar"); }}>
                 <strong>{unfinished.length}</strong>
                 <span>Aktif Görev</span>
               </button>
@@ -678,107 +723,91 @@ function App() {
             {/* Hero Prayer Card */}
             <MobilePrayerCard records={state.records} onSave={saveMutation} />
 
-            {/* Unified Timeline & Schedule */}
-            <section className="mobile-timeline-section" aria-label="Günün akışı ve çizelge">
-              <div className="timeline-header-row">
-                <div className="mobile-segmented-bar">
+            {/* Unified Schedule & Weekly Strip (Matching Desktop Concept) */}
+            <section className="mobile-timeline-section" aria-label="Günün akışı ve haftalık çizelge">
+              {/* Horizontal Week Mini Strip */}
+              <div className="mobile-week-strip-card">
+                <div className="mobile-week-strip-header">
+                  <span>Haftanın Günleri</span>
                   <button
                     type="button"
-                    className={`segment-btn ${timelineScope === "today" ? "is-active" : ""}`}
-                    onClick={() => setTimelineScope("today")}
+                    className="text-action"
+                    onClick={() => { changePage("plan"); setPlanTab("calendar"); }}
                   >
-                    Bugün ({todayStudyBlocks.length + todayTasks.length})
-                  </button>
-                  <button
-                    type="button"
-                    className={`segment-btn ${timelineScope === "week" ? "is-active" : ""}`}
-                    onClick={() => setTimelineScope("week")}
-                  >
-                    Tüm Hafta ({allWeekStudyBlocks.length + unfinished.length})
+                    Tüm Planı Aç ›
                   </button>
                 </div>
-                <button className="primary-action-round" type="button" onClick={() => openForm("task")} title="Görev Ekle">+</button>
+                <div className="mobile-week-strip-grid">
+                  {mobileWeekDays.map(day => (
+                    <button
+                      key={day.date}
+                      type="button"
+                      className={`mobile-week-cell ${day.date === selectedMobileDate ? "is-selected" : ""} ${day.date === today ? "is-today" : ""}`}
+                      onClick={() => setSelectedMobileDate(day.date)}
+                    >
+                      <span className="mobile-week-cell-day">{day.shortLabel}</span>
+                      <span className="mobile-week-cell-num">{day.dayNum}</span>
+                      <span className="mobile-week-cell-indicator">
+                        {day.studyCount > 0 ? (
+                          <span className="mobile-week-dot">{day.studyCount}</span>
+                        ) : day.taskCount > 0 ? (
+                          <span className="mobile-task-dot" />
+                        ) : (
+                          <span className="mobile-week-dash">—</span>
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
+              {/* Day Timeline Header */}
+              <div className="timeline-header-row">
+                <div className="timeline-title-group">
+                  <h3>{isSelectedMobileToday ? "Bugünkü Oturumlar & Görevler" : `${selectedMobileDateLabel} Akışı`}</h3>
+                  {!isSelectedMobileToday && (
+                    <button
+                      type="button"
+                      className="mobile-back-today-pill"
+                      onClick={() => setSelectedMobileDate(today)}
+                    >
+                      Bugüne dön
+                    </button>
+                  )}
+                </div>
+                <button
+                  className="primary-action-round"
+                  type="button"
+                  onClick={() => { openForm("task"); if (!isSelectedMobileToday) setDate(selectedMobileDate); }}
+                  title="Görev Ekle"
+                >
+                  +
+                </button>
+              </div>
+
+              {/* Day's Chronological Feed */}
               <div className="mobile-timeline-list">
-                {timelineScope === "today" ? (
-                  <>
-                    {todayStudyBlocks.map(block => (
-                      <article className="mobile-timeline-card session-card" key={block.id}>
-                        <div className="timeline-card-header">
-                          <span className="session-time-pill">{block.time} – {block.endTime}</span>
-                          <span className="timeline-badge study-badge">Ders</span>
-                        </div>
-                        <div className="timeline-card-body">
-                          <strong>{block.label}</strong>
-                          {block.topic && <small>{block.topic}</small>}
-                        </div>
-                      </article>
-                    ))}
-                    {todayTasks.map((row, index) => {
-                      const task = row.data as PhoneTask;
-                      return (
-                        <article className={`mobile-timeline-card task-card ${task.completed ? "completed" : ""}`} key={row.id}>
-                          <div className="timeline-task-row">
-                            <button
-                              type="button"
-                              className="mobile-task-toggle"
-                              disabled={busy}
-                              onClick={() => void complete(row)}
-                              aria-label="Tamamlandı olarak işaretle"
-                            >
-                              {task.completed && <Icon name="check" size={12} />}
-                            </button>
-                            <button
-                              type="button"
-                              className="timeline-task-content"
-                              onClick={() => openForm("task", row)}
-                            >
-                              <span className="task-title-text">{task.text}</span>
-                              <div className="task-sub-meta">
-                                {task.dueTime && <span className="task-time-pill">⏰ {task.dueTime}</span>}
-                                {task.recurrence && <span className="task-recurrence-pill">🔁 {recurrenceLabel(task.recurrence)}</span>}
-                              </div>
-                            </button>
-                            <ActionMenu label={task.text + " işlemleri"}>
-                              <button disabled={busy || index === 0} onClick={() => void reorderTask(row.id, -1)}>Yukarı taşı</button>
-                              <button disabled={busy || index === todayTasks.length - 1} onClick={() => void reorderTask(row.id, 1)}>Aşağı taşı</button>
-                              <button disabled={busy} onClick={() => void snooze(row, 15)}>15 dk ertele</button>
-                              <button disabled={busy} onClick={() => void snooze(row, 60)}>1 saat ertele</button>
-                              <button
-                                disabled={busy}
-                                className="danger-action"
-                                onClick={() => {
-                                  if (confirm("Bu görev silinsin mi?")) {
-                                    void saveMutation({ mutationId: crypto.randomUUID(), kind: "tasks", id: row.id, baseVersion: row.version, data: null, deleted: true })
-                                      .then(() => setUndo({ row, expires: Date.now() + 10000 }))
-                                      .catch(e => setError(e.message));
-                                  }
-                                }}
-                              >
-                                Görevi sil
-                              </button>
-                            </ActionMenu>
-                          </div>
-                        </article>
-                      );
-                    })}
-                    {!todayStudyBlocks.length && !todayTasks.length && (
-                      <div className="mobile-empty-card">
-                        <div className="empty-badge"><Icon name="checkCircle" size={32} /></div>
-                        <strong>Harika, bugün bekleyen ders veya görev yok!</strong>
-                        <p>Haftalık planı görmek için 'Tüm Hafta' seçeneğine geçebilirsin.</p>
-                      </div>
-                    )}
-                  </>
+                {displayedMobileStudyBlocks.length === 0 && displayedMobileTasks.length === 0 ? (
+                  <div className="mobile-empty-card">
+                    <div className="empty-badge"><Icon name="checkCircle" size={32} /></div>
+                    <strong>{isSelectedMobileToday ? "Harika, bugün bekleyen ders veya görev yok!" : `${selectedMobileDateLabel} için ders veya görev yok.`}</strong>
+                    <button
+                      type="button"
+                      className="primary-action"
+                      style={{ marginTop: "12px", alignSelf: "center" }}
+                      onClick={() => { openForm("task"); if (!isSelectedMobileToday) setDate(selectedMobileDate); }}
+                    >
+                      + Görev Ekle
+                    </button>
+                  </div>
                 ) : (
                   <>
-                    {allWeekStudyBlocks.map(block => (
+                    {/* Lessons */}
+                    {displayedMobileStudyBlocks.map(block => (
                       <article className="mobile-timeline-card session-card" key={block.id}>
                         <div className="timeline-card-header">
                           <span className="session-time-pill">{block.time} – {block.endTime}</span>
                           <span className="timeline-badge study-badge">Ders</span>
-                          <span className="timeline-date-chip">{new Date(block.date + "T12:00:00").toLocaleDateString("tr-TR", { weekday: "short", day: "numeric" })}</span>
                         </div>
                         <div className="timeline-card-body">
                           <strong>{block.label}</strong>
@@ -786,7 +815,8 @@ function App() {
                         </div>
                       </article>
                     ))}
-                    {unfinished.map((row, index) => {
+                    {/* Tasks */}
+                    {displayedMobileTasks.map((row, index) => {
                       const task = row.data as PhoneTask;
                       return (
                         <article className={`mobile-timeline-card task-card ${task.completed ? "completed" : ""}`} key={row.id}>
@@ -807,18 +837,13 @@ function App() {
                             >
                               <span className="task-title-text">{task.text}</span>
                               <div className="task-sub-meta">
-                                {task.dueDate && (
-                                  <span className="task-date-pill">
-                                    📅 {new Date(task.dueDate + "T12:00:00").toLocaleDateString("tr-TR", { weekday: "short", day: "numeric" })}
-                                  </span>
-                                )}
                                 {task.dueTime && <span className="task-time-pill">⏰ {task.dueTime}</span>}
                                 {task.recurrence && <span className="task-recurrence-pill">🔁 {recurrenceLabel(task.recurrence)}</span>}
                               </div>
                             </button>
                             <ActionMenu label={task.text + " işlemleri"}>
                               <button disabled={busy || index === 0} onClick={() => void reorderTask(row.id, -1)}>Yukarı taşı</button>
-                              <button disabled={busy || index === unfinished.length - 1} onClick={() => void reorderTask(row.id, 1)}>Aşağı taşı</button>
+                              <button disabled={busy || index === displayedMobileTasks.length - 1} onClick={() => void reorderTask(row.id, 1)}>Aşağı taşı</button>
                               <button disabled={busy} onClick={() => void snooze(row, 15)}>15 dk ertele</button>
                               <button disabled={busy} onClick={() => void snooze(row, 60)}>1 saat ertele</button>
                               <button
@@ -839,12 +864,6 @@ function App() {
                         </article>
                       );
                     })}
-                    {!allWeekStudyBlocks.length && !unfinished.length && (
-                      <div className="mobile-empty-card">
-                        <div className="empty-badge"><Icon name="checkCircle" size={32} /></div>
-                        <strong>Bu hafta için bekleyen kayıt yok!</strong>
-                      </div>
-                    )}
                   </>
                 )}
               </div>

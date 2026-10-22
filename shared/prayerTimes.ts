@@ -1,4 +1,4 @@
-import { Coordinates, CalculationMethod, PrayerTimes } from "adhan";
+import { Coordinates, CalculationMethod, PrayerTimes, Madhab } from "adhan";
 
 export type PrayerTimesConfig = {
   city: string;
@@ -73,6 +73,7 @@ export function calculatePrayerTimes(
 ): PrayerDayInfo {
   const coords = new Coordinates(lat, lng);
   const params = CalculationMethod.Turkey();
+  params.madhab = Madhab.Hanafi;
   const pt = new PrayerTimes(coords, date, params);
 
   const items: PrayerItem[] = [

@@ -61,6 +61,7 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
           const target = new Date(now + offset * 86400000);
           const dayInfo = calculatePrayerTimes(cfg.latitude, cfg.longitude, target, cfg.city || "Ankara");
           for (const item of dayInfo.items) {
+            if (item.name === "sunrise") continue;
             if (cfg.notifyAtTime) {
               prayerAlerts.push({
                 id: `prayer:${item.name}:${item.timestamp}`,
