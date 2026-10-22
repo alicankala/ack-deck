@@ -218,7 +218,7 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
     <header className="feature-heading ai-heading">
       <div className="ai-page-title"><span className="ai-page-mark"><Icon name="spark" size={24}/></span><div><h1>ACK AI</h1><p>Düşün, planla, harekete geç.</p></div></div>
       <div className="ai-heading-tools" style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-        <div className="ai-quota-meter" title="Google Gemini tahmini ücretsiz günlük kullanım hakkı (Her gün yenilenir)">
+        <div className="ai-quota-meter" title="Google Gemini ücretsiz günlük kullanım kotası (Google sunucularıyla senkron: Her gün 10:00'da yenilenir)">
           <span className={`ai-quota-pill ${quota.fastRemaining <= 100 ? "is-low" : ""}`}>
             ⚡ Hızlı: <strong>{quota.fastRemaining}</strong>/{quota.fastLimit}
           </span>

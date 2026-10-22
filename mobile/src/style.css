@@ -1467,7 +1467,7 @@ body:has(.editor) nav { visibility: hidden; }
   padding: 14px 16px;
   margin: 0;
 }
-.subscription-row > div { flex: 1; min-width: 0; }
+.subscription-row .mobile-task-open { flex: 1; min-width: 0; text-align: left; background: transparent; border: 0; padding: 0; cursor: pointer; }
 .subscription-price { font-size: 13px; font-weight: 600; color: var(--app-accent); margin: 2px 0 4px; }
 .subscription-badge {
   display: inline-flex;
@@ -2141,24 +2141,40 @@ body:has(.editor) nav { visibility: hidden; }
 }
 
 /* Mobile Subscription reordering and hiding */
-.subscription-order-buttons {
+.subscription-card-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.subscription-order-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .order-btn {
-  padding: 4px 8px;
-  min-height: 28px;
-  font-size: 11px;
-  background: var(--app-surface-soft, rgba(255, 255, 255, 0.05));
+  padding: 0;
+  width: 22px;
+  height: 18px;
+  min-height: 18px;
+  line-height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  background: var(--app-surface-soft, rgba(255, 255, 255, 0.08));
   border: 1px solid var(--app-border);
   color: var(--app-text);
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
   transition: background 0.15s ease;
 }
-.order-btn:hover {
+.order-btn:hover:not(:disabled) {
   background: var(--app-control);
+}
+.order-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 .hidden-subs-container {
   margin-top: 14px;

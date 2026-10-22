@@ -998,43 +998,45 @@ function App() {
                                   {sub.status === "active" ? paymentLabel(sub) : sub.status === "paused" ? "Duraklatıldı" : "İptal edildi"}
                                 </span>
                               </button>
-                              <div className="subscription-order-buttons">
-                                <button
-                                  type="button"
-                                  className="order-btn"
-                                  disabled={idx === 0}
-                                  onClick={() => moveSub(row.id, -1, visibleIds)}
-                                  title="Yukarı taşı"
-                                >
-                                  ▲
-                                </button>
-                                <button
-                                  type="button"
-                                  className="order-btn"
-                                  disabled={idx === visible.length - 1}
-                                  onClick={() => moveSub(row.id, 1, visibleIds)}
-                                  title="Aşağı taşı"
-                                >
-                                  ▼
-                                </button>
+                              <div className="subscription-card-actions">
+                                <div className="subscription-order-buttons">
+                                  <button
+                                    type="button"
+                                    className="order-btn"
+                                    disabled={idx === 0}
+                                    onClick={() => moveSub(row.id, -1, visibleIds)}
+                                    title="Yukarı taşı"
+                                  >
+                                    ▲
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="order-btn"
+                                    disabled={idx === visible.length - 1}
+                                    onClick={() => moveSub(row.id, 1, visibleIds)}
+                                    title="Aşağı taşı"
+                                  >
+                                    ▼
+                                  </button>
+                                </div>
+                                <ActionMenu label={sub.name + " işlemleri"}>
+                                  <button onClick={() => toggleHideSub(row.id)}>Aboneliği Gizle</button>
+                                  <button onClick={() => setSubscriptionDraft(sub)}>Düzenle</button>
+                                  <button
+                                    className="danger-action"
+                                    disabled={busy}
+                                    onClick={() => {
+                                      if (confirm("Yalnızca abonelik kaydı silinsin mi? Hizmet sağlayıcısındaki aboneliğiniz değişmez.")) {
+                                        void saveMutation({ mutationId: crypto.randomUUID(), kind: "subscriptions", id: row.id, baseVersion: row.version, data: null, deleted: true })
+                                          .then(() => setUndo({ row, expires: Date.now() + 10000 }))
+                                          .catch(e => setError(e.message));
+                                      }
+                                    }}
+                                  >
+                                    Kaydı sil
+                                  </button>
+                                </ActionMenu>
                               </div>
-                              <ActionMenu label={sub.name + " işlemleri"}>
-                                <button onClick={() => toggleHideSub(row.id)}>Aboneliği Gizle</button>
-                                <button onClick={() => setSubscriptionDraft(sub)}>Düzenle</button>
-                                <button
-                                  className="danger-action"
-                                  disabled={busy}
-                                  onClick={() => {
-                                    if (confirm("Yalnızca abonelik kaydı silinsin mi? Hizmet sağlayıcısındaki aboneliğiniz değişmez.")) {
-                                      void saveMutation({ mutationId: crypto.randomUUID(), kind: "subscriptions", id: row.id, baseVersion: row.version, data: null, deleted: true })
-                                        .then(() => setUndo({ row, expires: Date.now() + 10000 }))
-                                        .catch(e => setError(e.message));
-                                    }
-                                  }}
-                                >
-                                  Kaydı sil
-                                </button>
-                              </ActionMenu>
                             </article>
                           );
                         })}

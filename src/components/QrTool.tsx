@@ -19,7 +19,7 @@ export function QrTool() {
     setBusy(true);
     setMessage("");
     try {
-      await toCanvas(canvasRef.current, value, { width: 320, margin: 3, errorCorrectionLevel: "M", color: { dark: "#111820", light: "#ffffffff" } });
+      await toCanvas(canvasRef.current, value, { width: 240, margin: 2, errorCorrectionLevel: "M", color: { dark: "#111820", light: "#ffffffff" } });
       setGenerated(value);
     } catch {
       setGenerated("");
