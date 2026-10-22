@@ -1495,32 +1495,35 @@ body:has(.editor) nav { visibility: hidden; }
 .editor {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 100;
+  width: 100%;
+  height: 100%;
   height: 100dvh;
-  padding: 0;
-  background: rgba(0, 0, 0, 0.72);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
   overscroll-behavior: contain;
-  touch-action: pan-y;
 }
 .editor > div {
   width: 100%;
-  max-width: 480px;
-  margin: 0 auto;
+  max-width: 440px;
+  margin: auto;
   background: var(--app-surface);
-  border: 1px solid var(--app-border-strong);
-  border-bottom: 0;
-  border-radius: 22px 22px 0 0;
-  padding: 12px 18px calc(24px + env(safe-area-inset-bottom));
-  max-height: min(88dvh, calc(100% - max(48px, env(safe-area-inset-top)) - 12px));
+  border: 1px solid var(--app-border);
+  border-radius: 20px;
+  padding: 18px 20px 22px;
+  max-height: calc(100dvh - 36px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.65);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
   position: relative;
+  box-sizing: border-box;
 }
 .editor > div::before {
   content: '';
@@ -2102,5 +2105,144 @@ body:has(.editor) nav { visibility: hidden; }
   color: var(--app-text);
   border: 1px solid var(--app-border);
 }
+
+/* Unified Mobile Timeline & Agenda */
+.timeline-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0 12px;
+}
+.mobile-timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mobile-timeline-card {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.15s ease;
+}
+.mobile-timeline-card.session-card {
+  border-left: 3px solid var(--app-accent);
+}
+.mobile-timeline-card.task-card {
+  border-left: 3px solid #f59e0b;
+}
+.mobile-timeline-card.task-card.completed {
+  opacity: 0.6;
+  border-left-color: var(--app-muted);
+}
+.timeline-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.session-time-pill {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--app-accent);
+  background: var(--app-accent-soft);
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+.timeline-badge {
+  font-size: 10px;
+  font-weight: 650;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.timeline-badge.study-badge {
+  background: var(--app-accent-soft);
+  color: var(--app-accent);
+}
+.timeline-date-chip {
+  font-size: 11px;
+  color: var(--app-muted);
+  margin-left: auto;
+}
+.timeline-card-body strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--app-text);
+  display: block;
+}
+.timeline-card-body small {
+  font-size: 12px;
+  color: var(--app-muted);
+  margin-top: 2px;
+  display: block;
+}
+
+.timeline-task-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+}
+.mobile-task-toggle {
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--app-muted);
+  background: transparent;
+  display: grid;
+  place-items: center;
+  color: var(--app-accent);
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.mobile-timeline-card.task-card.completed .mobile-task-toggle {
+  background: var(--app-accent);
+  border-color: var(--app-accent);
+  color: #000;
+}
+.timeline-task-content {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--app-text);
+}
+.task-title-text {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--app-text);
+  display: block;
+}
+.mobile-timeline-card.task-card.completed .task-title-text {
+  text-decoration: line-through;
+  color: var(--app-muted);
+}
+.task-sub-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+.task-time-pill, .task-date-pill, .task-recurrence-pill {
+  font-size: 11px;
+  color: var(--app-muted);
+  background: var(--app-control);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
 
 

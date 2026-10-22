@@ -568,7 +568,9 @@ function App() {
   const studyPrograms = state.records
     .filter(row => row.kind === "studyPrograms" && !row.deleted && row.data)
     .map(row => row.data as StudyProgram);
-  const todayStudyBlocks = studyBlocks(studyPrograms, new Date()).filter(b => b.date === today);
+  const allWeekStudyBlocks = studyBlocks(studyPrograms, new Date());
+  const todayStudyBlocks = allWeekStudyBlocks.filter(b => b.date === today);
+  const [timelineScope, setTimelineScope] = useState<"today" | "week">("today");
 
   const notesCount = state.records.filter(r => r.kind === "notes" && !r.deleted).length;
 
@@ -642,16 +644,13 @@ function App() {
         {/* 1. TODAY TAB (Günün Akışı & Görevler) */}
         {(page === "today" || page === "tasks") && (
           <>
-            {/* Hero Prayer Card */}
-            <MobilePrayerCard records={state.records} onSave={saveMutation} />
-
-            {/* Quick Metrics Bar */}
+            {/* Quick Metrics Bar at Top */}
             <div className="mobile-metrics-bar">
-              <button type="button" className="metric-chip" onClick={() => setTaskFilter("today")}>
+              <button type="button" className="metric-chip" onClick={() => setTimelineScope("today")}>
                 <strong>{todayTasks.length}</strong>
                 <span>Bugün</span>
               </button>
-              <button type="button" className="metric-chip" onClick={() => setTaskFilter("all")}>
+              <button type="button" className="metric-chip" onClick={() => setTimelineScope("week")}>
                 <strong>{unfinished.length}</strong>
                 <span>Aktif Görev</span>
               </button>
@@ -665,128 +664,179 @@ function App() {
               </button>
             </div>
 
-            {/* Smart Capture Bar */}
-            <div className="mobile-capture-tools">
-              <MobileSmartCapture records={state.records} onSave={saveMutation} />
-              <button
-                type="button"
-                className="mobile-new-record"
-                aria-expanded={quickAdd}
-                aria-label="Hızlı ekle"
-                onClick={() => setQuickAdd(!quickAdd)}
-              >
-                + Ekle
-              </button>
-            </div>
+            {/* Hero Prayer Card */}
+            <MobilePrayerCard records={state.records} onSave={saveMutation} />
 
-            {quickAdd && (
-              <div className="quick-add actions">
-                <button type="button" onClick={() => { openForm("task"); setQuickAdd(false); }}>+ Görev</button>
-                <button type="button" onClick={() => { openForm("note"); setQuickAdd(false); }}>+ Not</button>
-                <button type="button" onClick={() => { openForm("link"); setQuickAdd(false); }}>+ Link Gönder</button>
-                <button type="button" onClick={() => { changePage("more"); setQuickAdd(false); }}>⚡ PC'ye Gönder</button>
-              </div>
-            )}
-
-            {/* Today's Study Sessions */}
-            {todayStudyBlocks.length > 0 && (
-              <section className="mobile-study-today" aria-label="Bugünün dersleri">
-                <div className="section-title-row">
-                  <h3>Bugünün Dersleri</h3>
-                  <button type="button" className="text-action" onClick={() => { changePage("plan"); setPlanTab("calendar"); }}>
-                    Haftalık Plan ›
-                  </button>
-                </div>
-                <div className="study-sessions-grid">
-                  {todayStudyBlocks.map(block => {
-                    const lead = studyReminders.find(r => r.id === block.programId)?.leadMinutes;
-                    const remLabel = lead === 0 ? "Vaktinde" : lead ? `${lead} dk önce` : "Kapalı";
-                    return (
-                      <div key={block.id} className="study-session-card">
-                        <div className="session-time-badge">{block.time}</div>
-                        <div className="session-info">
-                          <strong>{block.label}</strong>
-                          {block.topic && <small>{block.topic}</small>}
-                        </div>
-                        <div className="session-meta-chips">
-                          <span className="session-duration">{block.minutes} dk</span>
-                          <span className={`session-reminder-chip ${lead !== null && lead !== undefined ? "has-reminder" : ""}`}>
-                            🔔 {remLabel}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
-            {/* Tasks Section with Quick Filter */}
-            <section className="today-tasks-section">
-              <div className="page-header-row" style={{ marginTop: "1rem" }}>
+            {/* Unified Timeline & Schedule */}
+            <section className="mobile-timeline-section" aria-label="Günün akışı ve çizelge">
+              <div className="timeline-header-row">
                 <div className="mobile-segmented-bar">
-                  <button className={`segment-btn ${taskFilter === "today" ? "is-active" : ""}`} onClick={() => setTaskFilter("today")}>Bugün ({todayTasks.length})</button>
-                  <button className={`segment-btn ${taskFilter === "all" ? "is-active" : ""}`} onClick={() => setTaskFilter("all")}>Tüm Görevler ({unfinished.length})</button>
+                  <button
+                    type="button"
+                    className={`segment-btn ${timelineScope === "today" ? "is-active" : ""}`}
+                    onClick={() => setTimelineScope("today")}
+                  >
+                    Bugün ({todayStudyBlocks.length + todayTasks.length})
+                  </button>
+                  <button
+                    type="button"
+                    className={`segment-btn ${timelineScope === "week" ? "is-active" : ""}`}
+                    onClick={() => setTimelineScope("week")}
+                  >
+                    Tüm Hafta ({allWeekStudyBlocks.length + unfinished.length})
+                  </button>
                 </div>
                 <button className="primary-action-round" type="button" onClick={() => openForm("task")} title="Görev Ekle">+</button>
               </div>
 
-              {(() => {
-                const list = taskFilter === "today" ? todayTasks : unfinished;
-                if (!list.length) {
-                  return (
-                    <div className="mobile-empty-card">
-                      <div className="empty-badge"><Icon name="checkCircle" size={32} /></div>
-                      <strong>{taskFilter === "today" ? "Harika, bugün bekleyen görev yok!" : "Kayıt bulunamadı"}</strong>
-                      <p>{taskFilter === "today" && unfinished.length > 0 ? "Diğer görevleri görmek için 'Tüm Görevler' filtresine geçebilirsin." : "Bu görünümde bekleyen görev yok."}</p>
-                    </div>
-                  );
-                }
-                return list.map((row, index) => {
-                  const task = row.data as PhoneTask;
-                  return (
-                    <article className="mobile-task-card" key={row.id}>
-                      <button className="mobile-task-open" type="button" onClick={() => openForm("task", row)}>
-                        <div className="task-header-line">
-                          <span className="task-check-dot" />
-                          <h3>{task.text}</h3>
+              <div className="mobile-timeline-list">
+                {timelineScope === "today" ? (
+                  <>
+                    {todayStudyBlocks.map(block => (
+                      <article className="mobile-timeline-card session-card" key={block.id}>
+                        <div className="timeline-card-header">
+                          <span className="session-time-pill">{block.time} – {block.endTime}</span>
+                          <span className="timeline-badge study-badge">Ders</span>
                         </div>
-                        <div className="mobile-task-meta">
-                          <span className="task-chip chip-date">
-                            {task.recurrence ? recurrenceLabel(task.recurrence) : displayedDate(task) ? new Date(displayedDate(task) + "T12:00:00").toLocaleDateString("tr", { day: "numeric", month: "short" }) : "Tarihsiz"}
-                            {task.dueTime && " · " + task.dueTime}
-                          </span>
+                        <div className="timeline-card-body">
+                          <strong>{block.label}</strong>
+                          {block.topic && <small>{block.topic}</small>}
                         </div>
-                      </button>
-                      <div className="mobile-task-footer">
-                        <button className="mobile-task-complete-btn" disabled={busy} onClick={() => void complete(row)}>
-                          Tamamla
-                        </button>
-                        <ActionMenu label={task.text + " işlemleri"}>
-                          <button disabled={busy || index === 0} onClick={() => void reorderTask(row.id, -1)}>Yukarı taşı</button>
-                          <button disabled={busy || index === list.length - 1} onClick={() => void reorderTask(row.id, 1)}>Aşağı taşı</button>
-                          <button disabled={busy} onClick={() => void snooze(row, 15)}>15 dakika ertele</button>
-                          <button disabled={busy} onClick={() => void snooze(row, 60)}>1 saat ertele</button>
-                          <button disabled={busy} onClick={() => void snooze(row, 1440)}>Yarın hatırlat</button>
-                          <button
-                            disabled={busy}
-                            className="danger-action"
-                            onClick={() => {
-                              if (confirm("Bu görev silinsin mi?")) {
-                                void saveMutation({ mutationId: crypto.randomUUID(), kind: "tasks", id: row.id, baseVersion: row.version, data: null, deleted: true })
-                                  .then(() => setUndo({ row, expires: Date.now() + 10000 }))
-                                  .catch(e => setError(e.message));
-                              }
-                            }}
-                          >
-                            Görevi sil
-                          </button>
-                        </ActionMenu>
+                      </article>
+                    ))}
+                    {todayTasks.map((row, index) => {
+                      const task = row.data as PhoneTask;
+                      return (
+                        <article className={`mobile-timeline-card task-card ${task.completed ? "completed" : ""}`} key={row.id}>
+                          <div className="timeline-task-row">
+                            <button
+                              type="button"
+                              className="mobile-task-toggle"
+                              disabled={busy}
+                              onClick={() => void complete(row)}
+                              aria-label="Tamamlandı olarak işaretle"
+                            >
+                              {task.completed && <Icon name="check" size={12} />}
+                            </button>
+                            <button
+                              type="button"
+                              className="timeline-task-content"
+                              onClick={() => openForm("task", row)}
+                            >
+                              <span className="task-title-text">{task.text}</span>
+                              <div className="task-sub-meta">
+                                {task.dueTime && <span className="task-time-pill">⏰ {task.dueTime}</span>}
+                                {task.recurrence && <span className="task-recurrence-pill">🔁 {recurrenceLabel(task.recurrence)}</span>}
+                              </div>
+                            </button>
+                            <ActionMenu label={task.text + " işlemleri"}>
+                              <button disabled={busy || index === 0} onClick={() => void reorderTask(row.id, -1)}>Yukarı taşı</button>
+                              <button disabled={busy || index === todayTasks.length - 1} onClick={() => void reorderTask(row.id, 1)}>Aşağı taşı</button>
+                              <button disabled={busy} onClick={() => void snooze(row, 15)}>15 dk ertele</button>
+                              <button disabled={busy} onClick={() => void snooze(row, 60)}>1 saat ertele</button>
+                              <button
+                                disabled={busy}
+                                className="danger-action"
+                                onClick={() => {
+                                  if (confirm("Bu görev silinsin mi?")) {
+                                    void saveMutation({ mutationId: crypto.randomUUID(), kind: "tasks", id: row.id, baseVersion: row.version, data: null, deleted: true })
+                                      .then(() => setUndo({ row, expires: Date.now() + 10000 }))
+                                      .catch(e => setError(e.message));
+                                  }
+                                }}
+                              >
+                                Görevi sil
+                              </button>
+                            </ActionMenu>
+                          </div>
+                        </article>
+                      );
+                    })}
+                    {!todayStudyBlocks.length && !todayTasks.length && (
+                      <div className="mobile-empty-card">
+                        <div className="empty-badge"><Icon name="checkCircle" size={32} /></div>
+                        <strong>Harika, bugün bekleyen ders veya görev yok!</strong>
+                        <p>Haftalık planı görmek için 'Tüm Hafta' seçeneğine geçebilirsin.</p>
                       </div>
-                    </article>
-                  );
-                });
-              })()}
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {allWeekStudyBlocks.map(block => (
+                      <article className="mobile-timeline-card session-card" key={block.id}>
+                        <div className="timeline-card-header">
+                          <span className="session-time-pill">{block.time} – {block.endTime}</span>
+                          <span className="timeline-badge study-badge">Ders</span>
+                          <span className="timeline-date-chip">{new Date(block.date + "T12:00:00").toLocaleDateString("tr-TR", { weekday: "short", day: "numeric" })}</span>
+                        </div>
+                        <div className="timeline-card-body">
+                          <strong>{block.label}</strong>
+                          {block.topic && <small>{block.topic}</small>}
+                        </div>
+                      </article>
+                    ))}
+                    {unfinished.map((row, index) => {
+                      const task = row.data as PhoneTask;
+                      return (
+                        <article className={`mobile-timeline-card task-card ${task.completed ? "completed" : ""}`} key={row.id}>
+                          <div className="timeline-task-row">
+                            <button
+                              type="button"
+                              className="mobile-task-toggle"
+                              disabled={busy}
+                              onClick={() => void complete(row)}
+                              aria-label="Tamamlandı olarak işaretle"
+                            >
+                              {task.completed && <Icon name="check" size={12} />}
+                            </button>
+                            <button
+                              type="button"
+                              className="timeline-task-content"
+                              onClick={() => openForm("task", row)}
+                            >
+                              <span className="task-title-text">{task.text}</span>
+                              <div className="task-sub-meta">
+                                {task.dueDate && (
+                                  <span className="task-date-pill">
+                                    📅 {new Date(task.dueDate + "T12:00:00").toLocaleDateString("tr-TR", { weekday: "short", day: "numeric" })}
+                                  </span>
+                                )}
+                                {task.dueTime && <span className="task-time-pill">⏰ {task.dueTime}</span>}
+                                {task.recurrence && <span className="task-recurrence-pill">🔁 {recurrenceLabel(task.recurrence)}</span>}
+                              </div>
+                            </button>
+                            <ActionMenu label={task.text + " işlemleri"}>
+                              <button disabled={busy || index === 0} onClick={() => void reorderTask(row.id, -1)}>Yukarı taşı</button>
+                              <button disabled={busy || index === unfinished.length - 1} onClick={() => void reorderTask(row.id, 1)}>Aşağı taşı</button>
+                              <button disabled={busy} onClick={() => void snooze(row, 15)}>15 dk ertele</button>
+                              <button disabled={busy} onClick={() => void snooze(row, 60)}>1 saat ertele</button>
+                              <button
+                                disabled={busy}
+                                className="danger-action"
+                                onClick={() => {
+                                  if (confirm("Bu görev silinsin mi?")) {
+                                    void saveMutation({ mutationId: crypto.randomUUID(), kind: "tasks", id: row.id, baseVersion: row.version, data: null, deleted: true })
+                                      .then(() => setUndo({ row, expires: Date.now() + 10000 }))
+                                      .catch(e => setError(e.message));
+                                  }
+                                }}
+                              >
+                                Görevi sil
+                              </button>
+                            </ActionMenu>
+                          </div>
+                        </article>
+                      );
+                    })}
+                    {!allWeekStudyBlocks.length && !unfinished.length && (
+                      <div className="mobile-empty-card">
+                        <div className="empty-badge"><Icon name="checkCircle" size={32} /></div>
+                        <strong>Bu hafta için bekleyen kayıt yok!</strong>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </section>
 
             {/* Completed Tasks Accordion */}
@@ -1233,15 +1283,6 @@ function App() {
               )}
               {form === "task" && (
                 <>
-                  <label>
-                    Proje
-                    <select value={projectId} onChange={e => setProjectId(e.target.value)}>
-                      <option value="">Projesiz</option>
-                      {state.records.filter(r => r.kind === "projects" && !r.deleted).map(p => (
-                        <option key={p.id} value={p.id}>{(p.data as PhoneProject).name}</option>
-                      ))}
-                    </select>
-                  </label>
                   <div className="editor-row">
                     <label>
                       {recurrence ? "Başlangıç günü" : "Tarih"}
