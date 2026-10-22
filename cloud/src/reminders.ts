@@ -1,5 +1,6 @@
 import { nextOccurrence } from "../../shared/recurrence";
 import { subscriptionReminder, money, type Subscription } from "../../shared/subscriptions";
+import { calculatePrayerTimes } from "../../shared/prayerTimes";
 import type { PhoneTask } from "../../shared/phone";
 import { buildPushPayload, vapidHeaders } from "@block65/webcrypto-web-push";
 import type { Env } from "./types";
@@ -26,8 +27,7 @@ export async function sendNotification(env: Env, subscription: string, data: unk
     throw error instanceof PushFailure?error:new PushFailure(stage==="vapid"?"VAPID_INVALID":stage==="payload"?"PUSH_ENCRYPTION_FAILED":"PUSH_NETWORK_FAILED");
   }
 }
-export async function runReminders(env: Env, send = sendNotification) {
-  const now = Date.now();
+export async function runReminders(env: Env, send = sendNotification, now = Date.now()) {
   const rows = await env.DB.prepare(`SELECT r.task_id,r.generation,r.due_at,r.kind,t.data,p.device_id,p.subscription FROM reminders r
     JOIN (SELECT kind,id,data,deleted FROM records UNION ALL SELECT kind,'subscription:'||id AS id,data,deleted FROM subscriptions) t ON t.kind=r.kind AND t.id=r.task_id AND t.deleted=0
     JOIN push_subscriptions p ON p.active=1 JOIN devices d ON d.id=p.device_id AND d.revoked_at IS NULL
@@ -49,6 +49,62 @@ export async function runReminders(env: Env, send = sendNotification) {
       const state = response.ok ? "sent" : response.status === 429 || response.status >= 500 ? "retry" : "failed";
       await env.DB.prepare("UPDATE reminder_deliveries SET state=?,retry_at=? WHERE generation=? AND device_id=?").bind(state,now+120000,row.generation,row.device_id).run();
     } catch { await env.DB.prepare("UPDATE reminder_deliveries SET state='uncertain' WHERE generation=? AND device_id=?").bind(row.generation,row.device_id).run(); }
+  }
+  // Prayer push notifications for paired devices
+  try {
+    const pc = await env.DB.prepare("SELECT prayer_config FROM desktop_state WHERE id=1").first<{prayer_config?:string|null}>();
+    if (pc?.prayer_config) {
+      const cfg = JSON.parse(pc.prayer_config);
+      if (cfg && typeof cfg.latitude === "number" && typeof cfg.longitude === "number" && (cfg.notifyAtTime || (typeof cfg.notifyBeforeMinutes === "number" && cfg.notifyBeforeMinutes > 0))) {
+        const prayerAlerts: { id: string; text: string; dueAt: number }[] = [];
+        for (const offset of [0, 1]) {
+          const target = new Date(now + offset * 86400000);
+          const dayInfo = calculatePrayerTimes(cfg.latitude, cfg.longitude, target, cfg.city || "Ankara");
+          for (const item of dayInfo.items) {
+            if (cfg.notifyAtTime) {
+              prayerAlerts.push({
+                id: `prayer:${item.name}:${item.timestamp}`,
+                text: `${item.label} vakti girdi (${item.time}).`,
+                dueAt: item.timestamp,
+              });
+            }
+            if (typeof cfg.notifyBeforeMinutes === "number" && cfg.notifyBeforeMinutes > 0) {
+              const leadDue = item.timestamp - cfg.notifyBeforeMinutes * 60000;
+              prayerAlerts.push({
+                id: `prayer-lead:${cfg.notifyBeforeMinutes}:${item.name}:${item.timestamp}`,
+                text: `${item.label} vaktine ${cfg.notifyBeforeMinutes} dakika kaldı (${item.time}).`,
+                dueAt: leadDue,
+              });
+            }
+          }
+        }
+        const dueAlerts = prayerAlerts.filter(r => r.dueAt <= now && r.dueAt >= now - 30 * 60000);
+        if (dueAlerts.length > 0) {
+          const devices = await env.DB.prepare("SELECT p.device_id, p.subscription FROM push_subscriptions p JOIN devices d ON d.id=p.device_id WHERE p.active=1 AND d.revoked_at IS NULL").all<{device_id:string;subscription:string}>();
+          for (const alert of dueAlerts) {
+            for (const device of devices.results) {
+              const claim = await env.DB.prepare("INSERT INTO reminder_deliveries(generation,device_id,state,attempts,retry_at) VALUES(?,?,'sending',1,0) ON CONFLICT(generation,device_id) DO UPDATE SET state='sending',attempts=attempts+1 WHERE state='retry' AND retry_at<=? AND attempts<3 RETURNING generation").bind(alert.id, device.device_id, now).first();
+              if (!claim) continue;
+              try {
+                const response = await send(env, device.subscription, {
+                  title: "ACKDeck",
+                  body: alert.text,
+                  url: "/#page=today",
+                  tag: alert.id,
+                });
+                if ([404, 410].includes(response.status)) await env.DB.prepare("UPDATE push_subscriptions SET active=0 WHERE device_id=?").bind(device.device_id).run();
+                const state = response.ok ? "sent" : response.status === 429 || response.status >= 500 ? "retry" : "failed";
+                await env.DB.prepare("UPDATE reminder_deliveries SET state=?,retry_at=? WHERE generation=? AND device_id=?").bind(state, now + 120000, alert.id, device.device_id).run();
+              } catch {
+                await env.DB.prepare("UPDATE reminder_deliveries SET state='uncertain' WHERE generation=? AND device_id=?").bind(alert.id, device.device_id).run();
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.warn("Prayer reminder processing error:", error);
   }
   // Advance the notification cursor only, not the user's overdue task. The
   // saved rule lets this same Cron continue while every desktop is powered off.

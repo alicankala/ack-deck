@@ -55,9 +55,14 @@ export const DEFAULT_PRAYER_CONFIG: PrayerTimesConfig = {
 };
 
 function formatHHMM(date: Date): string {
-  const h = String(date.getHours()).padStart(2, "0");
-  const m = String(date.getMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Istanbul",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const p = Object.fromEntries(parts.map(v => [v.type, v.value]));
+  return `${p.hour}:${p.minute}`;
 }
 
 export function calculatePrayerTimes(
@@ -151,7 +156,7 @@ export function calculatePrayerTimes(
     };
   }
 
-  const dateStr = date.toLocaleDateString("tr-TR", { day: "numeric", month: "long", weekday: "long" });
+  const dateStr = date.toLocaleDateString("tr-TR", { timeZone: "Europe/Istanbul", day: "numeric", month: "long", weekday: "long" });
 
   return {
     city: cityName,

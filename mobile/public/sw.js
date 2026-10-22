@@ -10,7 +10,7 @@ self.addEventListener('fetch', event => {
 self.addEventListener('push', event => {
   let data; try { data = event.data?.json(); } catch { return; }
   if (!data || typeof data.body !== 'string') return;
-  const url = typeof data.url === 'string' && (data.url.startsWith('/#task=') || data.url === '/#page=subscriptions') ? data.url : '/';
+  const url = typeof data.url === 'string' && (data.url.startsWith('/#task=') || data.url.startsWith('/#page=')) ? data.url : '/';
   event.waitUntil(self.registration.showNotification('ACKDeck', {body:data.body.slice(0,600),tag:String(data.tag || 'ackdeck'),icon:'/icon-192.png',badge:'/icon-192.png',data:{url}}));
 });
 self.addEventListener('notificationclick', event => {

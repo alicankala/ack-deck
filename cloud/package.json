@@ -10,7 +10,8 @@
     "migrate:local": "wrangler d1 migrations apply ack-deck-phone --local"
   },
   "dependencies": {
-    "@block65/webcrypto-web-push": "2.0.0"
+    "@block65/webcrypto-web-push": "2.0.0",
+    "adhan": "4.4.6"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "latest",

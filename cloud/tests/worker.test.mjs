@@ -80,7 +80,7 @@ before(async()=>{
 });
 after(async()=>{await mf?.dispose();});
 // Each isolated scenario has a fresh request budget; production throttling is unchanged.
-beforeEach(async()=>{await db.exec('DELETE FROM rate_limits');await db.prepare('UPDATE desktop_state SET last_seen=0').run();});
+beforeEach(async()=>{await db.exec('DELETE FROM rate_limits');await db.prepare('UPDATE desktop_state SET last_seen=0, prayer_config=NULL').run();});
 test('recurring series and subscriptions round-trip, offline retries and tombstones; same Cron continues with PC off',async()=>{
   const rec=await module('../shared/recurrence.ts'),subscriptions=await module('../shared/subscriptions.ts');
   const pair=await call('pair',{}),token=(await call('pair/exchange',{code:pair.data.code,name:'Recurrence test'},null)).data.token;
@@ -193,6 +193,65 @@ test('cron only sends due active reminders, snooze/completion/revocation suppres
   const sent=[];await reminders.runReminders(env,async(_env,_sub,data)=>{sent.push(data.body);return new Response('',{status:201});});assert.deepEqual(sent,['Due']);
   await reminders.runReminders(env,async()=>{throw new Error('duplicate dispatch');});assert.equal((await db.prepare("SELECT state FROM reminder_deliveries WHERE generation=? AND device_id=?").bind(dueId+':1',deviceId).first()).state,'sent');
   await call('revoke',{deviceId});await call('mutations',mutation('tasks',crypto.randomUUID(),task('Revoked due',Date.now()-10000)));await reminders.runReminders(env,async()=>{assert.fail('revoked subscription sent');});
+});
+
+test('cron sends prayer notifications when prayer_config is active, routes to /#page=today, and deduplicates',async()=>{
+  await db.prepare('UPDATE devices SET revoked_at=NULL WHERE id=?').bind(deviceId).run();
+  const keys=await webcrypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},true,['deriveBits']);
+  const sub={endpoint:'https://web.push.apple.com/test-fixture',expirationTime:null,keys:{p256dh:Buffer.from(await webcrypto.subtle.exportKey('raw',keys.publicKey)).toString('base64url'),auth:Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString('base64url')}};
+  await db.prepare('INSERT OR REPLACE INTO push_subscriptions(device_id,subscription,active,updated_at) VALUES(?,?,1,?)').bind(deviceId,JSON.stringify(sub),Date.now()).run();
+  await db.exec('DELETE FROM reminders');
+  await db.exec('DELETE FROM reminder_deliveries');
+
+  const prayerConfig = {
+    city: 'Karabük',
+    latitude: 41.20488,
+    longitude: 32.62768,
+    notifyAtTime: true,
+    notifyBeforeMinutes: 15
+  };
+  await db.prepare('UPDATE desktop_state SET prayer_config=? WHERE id=1').bind(JSON.stringify(prayerConfig)).run();
+
+  const { calculatePrayerTimes } = await import('../../shared/prayerTimes.ts');
+  const baseTime = Date.now();
+  const dayInfo = calculatePrayerTimes(prayerConfig.latitude, prayerConfig.longitude, new Date(baseTime), prayerConfig.city);
+  const fajr = dayInfo.items.find(i => i.name === 'fajr');
+  assert.ok(fajr);
+
+  // 1. Early reminder delivery (15 min lead): set now to fajr.timestamp - 15*60*1000 + 1000
+  const leadNow = fajr.timestamp - 15 * 60000 + 1000;
+  const leadSent = [];
+  await reminders.runReminders(env, async (_env, _sub, data) => {
+    leadSent.push(data);
+    return new Response('', { status: 201 });
+  }, leadNow);
+
+  const leadAlert = leadSent.find(s => s.tag === `prayer-lead:15:fajr:${fajr.timestamp}`);
+  assert.ok(leadAlert);
+  assert.ok(leadAlert.body.includes('15 dakika kaldı'));
+  assert.equal(leadAlert.url, '/#page=today');
+  // Exact fajr alert shouldn't be sent yet at lead time
+  assert.equal(leadSent.filter(s => s.tag === `prayer:fajr:${fajr.timestamp}`).length, 0);
+
+  // 2. Exact time delivery: set now to fajr.timestamp + 1000
+  const sent = [];
+  await reminders.runReminders(env, async (_env, _sub, data) => {
+    sent.push(data);
+    return new Response('', { status: 201 });
+  }, fajr.timestamp + 1000);
+
+  const fajrAlert = sent.find(s => s.tag === `prayer:fajr:${fajr.timestamp}`);
+  assert.ok(fajrAlert);
+  assert.equal(fajrAlert.url, '/#page=today');
+  assert.ok(fajrAlert.body.includes('İmsak vakti girdi'));
+
+  // 3. Running again at the same moment must deduplicate and NOT send again
+  const duplicateSent = [];
+  await reminders.runReminders(env, async (_env, _sub, data) => {
+    duplicateSent.push(data);
+    return new Response('', { status: 201 });
+  }, fajr.timestamp + 1000);
+  assert.equal(duplicateSent.filter(s => s.tag === `prayer:fajr:${fajr.timestamp}`).length, 0);
 });
 
 test('real desktop and mobile sync engines round-trip tasks, notes, completion, offline retry and tombstones through D1',async()=>{
