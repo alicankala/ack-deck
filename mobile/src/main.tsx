@@ -31,6 +31,21 @@ type Inbox = { id: string; kind: string; title: string; content: string; mime: s
 type Workspace = { id: string; name: string; icon: string; description: string };
 const dateKey = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
+function formatAlarmHint(dueTime: string | null, reminderLeadMinutes?: number): string {
+  if (!dueTime) return "Alarm";
+  if (!reminderLeadMinutes || reminderLeadMinutes === 0) return dueTime;
+  const parts = dueTime.split(":");
+  if (parts.length !== 2) return dueTime;
+  const h = Number(parts[0]);
+  const m = Number(parts[1]);
+  if (isNaN(h) || isNaN(m)) return dueTime;
+  let totalMin = h * 60 + m - reminderLeadMinutes;
+  while (totalMin < 0) totalMin += 24 * 60;
+  const ah = Math.floor(totalMin / 60) % 24;
+  const am = totalMin % 60;
+  return `${String(ah).padStart(2, "0")}:${String(am).padStart(2, "0")}`;
+}
+
 function App() {
   const [state, setState] = useState<MobileState>(emptyState);
   const [ready, setReady] = useState(false);
@@ -660,6 +675,16 @@ function App() {
     }),
   ].sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
 
+  const currentHour = new Date().getHours();
+  const mobileGreeting =
+    currentHour >= 5 && currentHour < 12
+      ? "☀️ Günaydın, Alican"
+      : currentHour >= 12 && currentHour < 18
+      ? "☀️ İyi günler, Alican"
+      : currentHour >= 18 && currentHour < 24
+      ? "🌆 İyi akşamlar, Alican"
+      : "🌙 İyi geceler, Alican";
+
   const selectedMobileDateLabel = (() => {
     try {
       const [y, m, d] = selectedMobileDate.split("-").map(Number);
@@ -741,6 +766,11 @@ function App() {
         {/* 1. TODAY TAB (Günün Akışı & Görevler) */}
         {(page === "today" || page === "tasks") && (
           <>
+            {/* Dynamic Greeting Strip */}
+            <div className="mobile-greeting-strip">
+              <span className="mobile-greeting-title">{mobileGreeting}</span>
+            </div>
+
             {/* Quick Metrics Bar at Top */}
             <div className="mobile-metrics-bar">
               <button type="button" className="metric-chip" onClick={() => setSelectedMobileDate(today)}>
@@ -764,20 +794,30 @@ function App() {
             {/* Unified Schedule & Weekly Strip Card */}
             <section className="mobile-timeline-section unified-schedule-box" aria-label="Günün akışı ve haftalık çizelge">
               {/* Header inside the unified card */}
-              <div className="timeline-header-row" style={{ marginBottom: "0.75rem" }}>
-                <div className="timeline-title-group">
-                  <h3>{isSelectedMobileToday ? "Bugünkü Oturumlar & Görevler" : `${selectedMobileDateLabel} Akışı`}</h3>
+              <div className="timeline-card-header-v2">
+                <div className="timeline-header-meta">
+                  <div className="timeline-header-icon-box">
+                    <Icon name="grid" size={20} />
+                  </div>
+                  <div>
+                    <h3 className="timeline-title-text">Günün Akışı & Haftalık Çizelge</h3>
+                    <p className="timeline-subtitle-text">
+                      {isSelectedMobileToday
+                        ? `Bugün için ${todayStudyBlocks.length} ders ve ${todayTasks.filter(t => !(t.data as PhoneTask).completed).length} görev planlı`
+                        : `${selectedMobileDateLabel} için ${mobileTimelineItems.filter(i => i.kind === "study").length} ders ve ${mobileTimelineItems.filter(i => i.kind === "task" && !i.task.completed).length} görev planlı`}
+                    </p>
+                  </div>
+                </div>
+                <div className="timeline-header-actions">
                   {!isSelectedMobileToday && (
                     <button
                       type="button"
                       className="mobile-back-today-pill"
                       onClick={() => setSelectedMobileDate(today)}
                     >
-                      Bugüne dön
+                      Bugün
                     </button>
                   )}
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <button
                     className="primary-action-round"
                     type="button"
@@ -798,7 +838,7 @@ function App() {
               </div>
 
               {/* Horizontal Week Mini Strip directly inside the card */}
-              <div className="mobile-week-strip-grid" style={{ marginBottom: "1rem" }}>
+              <div className="mobile-week-strip-grid" style={{ marginBottom: "0.75rem" }}>
                 {mobileWeekDays.map(day => (
                   <button
                     key={day.date}
@@ -810,6 +850,12 @@ function App() {
                     <span className="mobile-week-cell-num">{day.dayNum}</span>
                   </button>
                 ))}
+              </div>
+
+              {/* Sub-header matching SS 2 */}
+              <div className="timeline-subhead-row">
+                <span className="timeline-subhead-dot">•</span>
+                <span>{isSelectedMobileToday ? "Bugünkü Oturumlar & İşler" : `${selectedMobileDateLabel} Oturumları & İşleri`}</span>
               </div>
 
               {/* Day's Chronological Feed */}
@@ -832,46 +878,56 @@ function App() {
                     if (item.kind === "study") {
                       return (
                         <article className="mobile-timeline-card session-card" key={item.id}>
-                          <div className="timeline-card-header">
-                            <span className="session-time-pill">⏰ {item.time} – {item.endTime}</span>
-                            <span className="timeline-badge study-badge">Ders</span>
+                          <span className="timeline-time-col">{item.time} – {item.endTime}</span>
+                          <div className="timeline-content-col">
+                            <strong className="timeline-item-title">{item.label}</strong>
+                            {item.topic && <small className="timeline-item-sub">{item.topic}</small>}
                           </div>
-                          <div className="timeline-card-body">
-                            <strong>{item.label}</strong>
-                            {item.topic && <small>{item.topic}</small>}
+                          <div className="timeline-end-col">
+                            <span className="timeline-badge study-badge">Ders</span>
                           </div>
                         </article>
                       );
                     }
 
                     const { task, row, index } = item;
+                    const hasMeta = (task.reminder && task.dueTime) || task.recurrence;
                     return (
                       <article className={`mobile-timeline-card task-card ${task.completed ? "completed" : ""}`} key={row.id}>
-                        <div className="timeline-task-row">
-                          <button
-                            type="button"
-                            className="mobile-task-toggle"
-                            disabled={busy}
-                            onClick={() => void complete(row)}
-                            aria-label="Tamamlandı olarak işaretle"
-                          >
-                            {task.completed && <Icon name="check" size={12} />}
-                          </button>
-                          <button
-                            type="button"
-                            className="timeline-task-content"
-                            onClick={() => openForm("task", row)}
-                          >
-                            <span className="task-title-text">{task.text}</span>
-                            <div className="task-sub-meta">
-                              <span className="timeline-badge task-badge">Görev</span>
-                              {task.dueTime && <span className="task-time-pill">⏰ {task.dueTime}</span>}
-                              {task.recurrence && <span className="task-recurrence-pill">🔁 {recurrenceLabel(task.recurrence)}</span>}
+                        <span className="timeline-time-col">{task.dueTime || "—"}</span>
+                        <button
+                          type="button"
+                          className="mobile-task-toggle"
+                          disabled={busy}
+                          onClick={() => void complete(row)}
+                          aria-label="Tamamlandı olarak işaretle"
+                        >
+                          {task.completed && <Icon name="check" size={12} />}
+                        </button>
+                        <button
+                          type="button"
+                          className="timeline-content-col clickable"
+                          onClick={() => openForm("task", row)}
+                        >
+                          <strong className="timeline-item-title">{task.text}</strong>
+                          {hasMeta && (
+                            <div className="timeline-item-chips">
+                              {task.reminder && task.dueTime && (
+                                <span className="timeline-chip alarm-chip" title="Alarm">
+                                  🔔 {formatAlarmHint(task.dueTime, task.reminderLeadMinutes)}
+                                </span>
+                              )}
+                              {task.recurrence && (
+                                <span className="timeline-chip recurrence-chip" title="Tekrarlama">
+                                  🔁 {recurrenceLabel(task.recurrence)}
+                                </span>
+                              )}
                             </div>
-                          </button>
+                          )}
+                        </button>
+                        <div className="timeline-end-col">
+                          <span className="timeline-badge task-badge">Görev</span>
                           <ActionMenu label={task.text + " işlemleri"}>
-                            <button disabled={busy || index === 0} onClick={() => void reorderTask(row.id, -1)}>Yukarı taşı</button>
-                            <button disabled={busy || index === displayedMobileTasks.length - 1} onClick={() => void reorderTask(row.id, 1)}>Aşağı taşı</button>
                             <button disabled={busy} onClick={() => void snooze(row, 15)}>15 dk ertele</button>
                             <button disabled={busy} onClick={() => void snooze(row, 60)}>1 saat ertele</button>
                             <button

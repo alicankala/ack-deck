@@ -1836,6 +1836,19 @@ body:has(.editor) nav { visibility: hidden; }
 
 /* --- Native App Layout Styles --- */
 
+.mobile-greeting-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 2px 10px;
+}
+.mobile-greeting-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--app-text);
+  letter-spacing: -0.015em;
+}
+
 .mobile-metrics-bar {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -2279,79 +2292,114 @@ body:has(.editor) nav { visibility: hidden; }
   flex-direction: column;
   gap: 8px;
 }
+/* Unified Schedule Box Header & Subhead (SS 2 Layout) */
+.timeline-card-header-v2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.timeline-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+.timeline-header-icon-box {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--app-border);
+  display: grid;
+  place-items: center;
+  color: var(--app-accent);
+}
+.timeline-title-text {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--app-text);
+  margin: 0;
+  line-height: 1.25;
+}
+.timeline-subtitle-text {
+  font-size: 12px;
+  color: var(--app-muted);
+  margin: 2px 0 0;
+  line-height: 1.2;
+}
+.timeline-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Sub-header matching SS 2 */
+.timeline-subhead-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #38bdf8;
+  margin: 12px 0 10px;
+  letter-spacing: -0.01em;
+}
+.timeline-subhead-dot {
+  font-size: 14px;
+}
+
+/* Mobile Timeline Feed Cards */
 .mobile-timeline-card {
   background: var(--app-surface);
   border: 1px solid var(--app-border);
-  border-radius: 14px;
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  transition: border-color 0.15s ease;
-}
-.mobile-timeline-card.session-card {
-  border-left: 3px solid var(--app-accent);
-}
-.mobile-timeline-card.task-card {
-  border-left: 3px solid #f59e0b;
-}
-.mobile-timeline-card.task-card.completed {
-  opacity: 0.6;
-  border-left-color: var(--app-muted);
-}
-.timeline-card-header {
+  border-radius: 12px;
+  padding: 10px 12px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+  min-height: 48px;
+  box-sizing: border-box;
 }
-.session-time-pill {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--app-accent);
-  background: var(--app-accent-soft);
-  padding: 2px 7px;
-  border-radius: 5px;
+.mobile-timeline-card.session-card {
+  border-left: 3.5px solid #38bdf8;
 }
-.timeline-badge {
-  font-size: 10px;
-  font-weight: 650;
-  text-transform: uppercase;
-  padding: 1px 5px;
-  border-radius: 4px;
+.mobile-timeline-card.task-card {
+  border-left: 3.5px solid #f59e0b;
 }
-.timeline-badge.study-badge {
-  background: var(--app-accent-soft);
-  color: var(--app-accent);
+.mobile-timeline-card.task-card.completed {
+  opacity: 0.55;
+  border-left-color: var(--app-muted);
 }
-.timeline-date-chip {
-  font-size: 11px;
+.mobile-timeline-card.task-card.completed .timeline-item-title {
+  text-decoration: line-through;
   color: var(--app-muted);
-  margin-left: auto;
-}
-.timeline-card-body strong {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--app-text);
-  display: block;
-}
-.timeline-card-body small {
-  font-size: 12px;
-  color: var(--app-muted);
-  margin-top: 2px;
-  display: block;
 }
 
-.timeline-task-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  width: 100%;
+/* Time Column */
+.timeline-time-col {
+  font-size: 13px;
+  font-weight: 700;
+  color: #38bdf8;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
+
+/* Checkbox Toggle */
 .mobile-task-toggle {
-  width: 22px;
-  height: 22px;
-  min-height: 22px;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
   border-radius: 50%;
   border: 2px solid var(--app-muted);
   background: transparent;
@@ -2361,47 +2409,122 @@ body:has(.editor) nav { visibility: hidden; }
   padding: 0;
   cursor: pointer;
   flex-shrink: 0;
-  margin-top: 2px;
 }
 .mobile-timeline-card.task-card.completed .mobile-task-toggle {
   background: var(--app-accent);
   border-color: var(--app-accent);
   color: #000;
 }
-.timeline-task-content {
+
+/* Content Column */
+.timeline-content-col {
   flex: 1;
   min-width: 0;
-  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+.timeline-content-col.clickable {
   background: none;
   border: none;
   padding: 0;
+  text-align: left;
   cursor: pointer;
-  color: var(--app-text);
+  color: inherit;
+  font: inherit;
 }
-.task-title-text {
-  font-size: 14px;
+.timeline-item-title {
+  font-size: 13.5px;
   font-weight: 600;
-  line-height: 1.35;
   color: var(--app-text);
-  display: block;
+  line-height: 1.3;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
-.mobile-timeline-card.task-card.completed .task-title-text {
-  text-decoration: line-through;
+.timeline-item-sub {
+  font-size: 11.5px;
   color: var(--app-muted);
+  line-height: 1.2;
 }
-.task-sub-meta {
+
+/* Chips under title (Alarm & Recurrence) */
+.timeline-item-chips {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 4px;
   flex-wrap: wrap;
+  margin-top: 3px;
 }
-.task-time-pill, .task-date-pill, .task-recurrence-pill {
+.timeline-chip {
   font-size: 11px;
-  color: var(--app-muted);
-  background: var(--app-control);
+  color: var(--app-secondary);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--app-border);
   padding: 1px 6px;
   border-radius: 4px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.timeline-chip.alarm-chip {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.3);
+  background: rgba(251, 191, 36, 0.1);
+}
+.timeline-chip.recurrence-chip {
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.3);
+  background: rgba(56, 189, 248, 0.1);
+}
+
+/* Right End Column: Badges & Action Menu */
+.timeline-end-col {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.timeline-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.timeline-badge.study-badge {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+.timeline-badge.task-badge {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+.timeline-end-col .record-action-menu {
+  margin-left: 0;
+}
+.timeline-end-col .record-menu-trigger {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 8px;
+  font-size: 15px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--app-muted);
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.timeline-end-col .record-menu-trigger:hover,
+.timeline-end-col .record-menu-trigger:active {
+  background: var(--app-surface-hover, rgba(255, 255, 255, 0.08));
+  border-color: var(--app-border);
+  color: var(--app-text);
 }
 
 /* Mobile Week Calendar Strip */

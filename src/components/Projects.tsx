@@ -87,8 +87,9 @@ export function Projects({ projects, onChange, fullPage = false, initialId, onNa
   }
 
   return <section className={fullPage ? "projects-page" : "section projects-section"} aria-labelledby="projects-heading">
-    {fullPage ? <header className="feature-heading"><h1 id="projects-heading">Projeler</h1><p>Projelerin, görevlerin ve notların aynı yerde.</p></header> :
-      <div className="section-heading"><div><span className="eyebrow">ÜZERİNDE ÇALIŞTIKLARIN</span><h2 id="projects-heading">Projeler</h2></div><span className="section-meta">{projects.length} PROJE</span></div>}
+    {!fullPage && (
+      <div className="section-heading"><div><span className="eyebrow">ÜZERİNDE ÇALIŞTIKLARIN</span><h2 id="projects-heading">Projeler</h2></div><span className="section-meta">{projects.length} PROJE</span></div>
+    )}
     {message && <div className="project-feedback" role="alert">{message}</div>}
     {editor && <EditorDialog title={editor.id ? "Projeyi düzenle" : "Yeni proje"} onClose={() => setEditor(null)} busy={busy} error={message}><form className="project-editor surface" onSubmit={save} onKeyDown={(event) => { if (event.key === "Escape" && !busy) { event.preventDefault(); setEditor(null); } }}>
 
@@ -103,7 +104,9 @@ export function Projects({ projects, onChange, fullPage = false, initialId, onNa
     {fullPage ? (
       <div className="projects-split-layout">
         <div className="projects-split-left">
-          {projects.length > 1 && <p className="project-reorder-hint">Kartları sürükleyerek sırala. İşlemler menüsünden de taşıyabilirsin.</p>}
+          <header className="feature-heading projects-column-heading" style={{ margin: "0 0 1.25rem" }}>
+            <h1 id="projects-heading">Projeler</h1>
+          </header>
           <div className="project-grid">
             {projects.map((project, index) => <article draggable={!busy} onDragStart={event=>{setDragged(project.id);event.dataTransfer.setData("text/plain",project.id);event.dataTransfer.effectAllowed="move";}} onDragOver={event=>{if(dragged){event.preventDefault();setDragOver(project.id);}}} onDrop={event=>{event.preventDefault();if(dragged)onChange(moveTo(projects,dragged,project.id));setDragged(null);setDragOver(null);}} onDragEnd={()=>{setDragged(null);setDragOver(null);}} id={"project-" + project.id} className={"project-card surface " + (initialId === project.id ? "record-highlight " : "")+(dragged===project.id?"dragging ":"")+(dragOver===project.id?"drag-over":"")} key={project.id}>
               <div className="project-top"><span className="project-avatar">{project.name.trim().charAt(0).toLocaleUpperCase("tr-TR") || "P"}</span><span className="project-number">{String(index + 1).padStart(2, "0")} / {String(projects.length).padStart(2, "0")}</span></div>
@@ -117,38 +120,35 @@ export function Projects({ projects, onChange, fullPage = false, initialId, onNa
         </div>
 
         <div className="projects-split-right">
-          <section className="project-embedded-tools surface" aria-label="Geliştirici ve Sistem Araçları">
-            <div className="section-heading" style={{ marginBottom: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.6rem" }}>
-              <div>
-                <span className="eyebrow">YARDIMCI ARAÇLAR</span>
-                <h2 style={{ fontSize: "1.2rem", margin: "2px 0 0" }}>Geliştirici & Ağ Araçları</h2>
-              </div>
-              <div className="project-tools-tab-buttons" style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  className={`button ${toolTab === "speed" ? "button-primary" : "button-secondary"}`}
-                  onClick={() => setToolTab("speed")}
-                >
-                  ⚡ Hız Testi
-                </button>
-                <button
-                  type="button"
-                  className={`button ${toolTab === "ip" ? "button-primary" : "button-secondary"}`}
-                  onClick={() => setToolTab("ip")}
-                >
-                  🌐 IP Bilgisi
-                </button>
-                <button
-                  type="button"
-                  className={`button ${toolTab === "qr" ? "button-primary" : "button-secondary"}`}
-                  onClick={() => setToolTab("qr")}
-                >
-                  📱 QR Kod
-                </button>
-              </div>
+          <header className="feature-heading tools-column-heading" style={{ margin: "0 0 1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", minHeight: "2.5rem" }}>
+            <h1 style={{ margin: 0 }}>Araçlar</h1>
+            <div className="project-tools-tab-buttons" style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className={`button ${toolTab === "speed" ? "button-primary" : "button-secondary"}`}
+                onClick={() => setToolTab("speed")}
+              >
+                ⚡ Hız Testi
+              </button>
+              <button
+                type="button"
+                className={`button ${toolTab === "ip" ? "button-primary" : "button-secondary"}`}
+                onClick={() => setToolTab("ip")}
+              >
+                🌐 IP Bilgisi
+              </button>
+              <button
+                type="button"
+                className={`button ${toolTab === "qr" ? "button-primary" : "button-secondary"}`}
+                onClick={() => setToolTab("qr")}
+              >
+                📱 QR Kod
+              </button>
             </div>
+          </header>
 
-            <div className="project-tool-content" style={{ marginTop: "0.75rem" }}>
+          <section className="project-embedded-tools surface" aria-label="Araçlar">
+            <div className="project-tool-content">
               {toolTab === "speed" && <SpeedTest />}
               {toolTab === "ip" && <IpTool />}
               {toolTab === "qr" && <QrTool />}
