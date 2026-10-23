@@ -11,7 +11,7 @@ import { NotesList } from "./NotesList";
 import { RecurrenceFields } from "../../shared/RecurrenceFields";
 import { SubscriptionForm, newSubscription } from "../../shared/SubscriptionForm";
 import { money, cycleLabel, paymentLabel, monthlyTotals, type Subscription } from "../../shared/subscriptions";
-import { completeOccurrence, nextOccurrence, recurrenceLabel, scheduleDate, type Recurrence } from "../../shared/recurrence";
+import { completeOccurrence, nextOccurrence, recurrenceLabel, scheduleDate, isOccurrenceCompleted, uncompleteOccurrence, completedTaskSortTime, type Recurrence } from "../../shared/recurrence";
 import { studyBlocks, type StudyProgram } from "../../shared/studyPrograms";
 import { savePrayerConfig, type PrayerTimesConfig } from "../../shared/prayerTimes";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -451,6 +451,9 @@ function App() {
   }
 
   async function complete(row: CloudRecord) {
+    const task = row.data as PhoneTask;
+    const isCompleted = isOccurrenceCompleted(task);
+    const nextData = isCompleted ? uncompleteOccurrence(task) : completeOccurrence(task);
     try {
       await saveMutation({
         mutationId: crypto.randomUUID(),
@@ -458,7 +461,7 @@ function App() {
         id: row.id,
         baseVersion: row.version,
         deleted: false,
-        data: completeOccurrence(row.data as PhoneTask),
+        data: nextData,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Görev kaydedilemedi.");
@@ -582,7 +585,7 @@ function App() {
   const today = dateKey();
   const displayedDate = (task: PhoneTask) => scheduleDate(task) ?? "";
   const unfinished = tasks
-    .filter(row => !(row.data as PhoneTask).completed)
+    .filter(row => !isOccurrenceCompleted(row.data as PhoneTask))
     .sort((a, b) => (displayedDate(a.data as PhoneTask) || "9999").localeCompare(displayedDate(b.data as PhoneTask) || "9999") || ((a.data as PhoneTask).dueTime ?? "").localeCompare((b.data as PhoneTask).dueTime ?? ""));
 
   const todayTasks = unfinished.filter(row => {
@@ -803,8 +806,8 @@ function App() {
                     <h3 className="timeline-title-text">Günün Akışı & Haftalık Çizelge</h3>
                     <p className="timeline-subtitle-text">
                       {isSelectedMobileToday
-                        ? `Bugün için ${todayStudyBlocks.length} ders ve ${todayTasks.filter(t => !(t.data as PhoneTask).completed).length} görev planlı`
-                        : `${selectedMobileDateLabel} için ${mobileTimelineItems.filter(i => i.kind === "study").length} ders ve ${mobileTimelineItems.filter(i => i.kind === "task" && !i.task.completed).length} görev planlı`}
+                        ? `Bugün için ${todayStudyBlocks.length} ders ve ${todayTasks.length} görev planlı`
+                        : `${selectedMobileDateLabel} için ${mobileTimelineItems.filter(i => i.kind === "study").length} ders ve ${mobileTimelineItems.filter(i => i.kind === "task" && !isOccurrenceCompleted(i.task)).length} görev planlı`}
                     </p>
                   </div>
                 </div>
@@ -891,9 +894,10 @@ function App() {
                     }
 
                     const { task, row, index } = item;
+                    const isTaskDone = isOccurrenceCompleted(task);
                     const hasMeta = (task.reminder && task.dueTime) || task.recurrence;
                     return (
-                      <article className={`mobile-timeline-card task-card ${task.completed ? "completed" : ""}`} key={row.id}>
+                      <article className={`mobile-timeline-card task-card ${isTaskDone ? "completed" : ""}`} key={row.id}>
                         <span className="timeline-time-col">{task.dueTime || "—"}</span>
                         <button
                           type="button"
@@ -902,7 +906,7 @@ function App() {
                           onClick={() => void complete(row)}
                           aria-label="Tamamlandı olarak işaretle"
                         >
-                          {task.completed && <Icon name="check" size={12} />}
+                          {isTaskDone && <Icon name="check" size={12} />}
                         </button>
                         <button
                           type="button"
@@ -952,16 +956,19 @@ function App() {
               </div>
 
               {/* Completed Tasks (Inside the unified card) */}
-              {tasks.filter(row => (row.data as PhoneTask).completed).length > 0 && (
+              {tasks.filter(row => isOccurrenceCompleted(row.data as PhoneTask)).length > 0 && (
                 <details className="mobile-completed-accordion" style={{ marginTop: "1rem" }}>
-                  <summary>Tamamlananlar ({tasks.filter(row => (row.data as PhoneTask).completed).length})</summary>
+                  <summary>Tamamlananlar ({tasks.filter(row => isOccurrenceCompleted(row.data as PhoneTask)).length})</summary>
                   <div className="mobile-completed-list">
-                    {tasks.filter(row => (row.data as PhoneTask).completed).map(row => (
-                      <article key={row.id} className="mobile-completed-item">
-                        <p>{(row.data as PhoneTask).text}</p>
-                        <button disabled={busy} onClick={() => void complete(row)}>Yeniden Aç</button>
-                      </article>
-                    ))}
+                    {tasks
+                      .filter(row => isOccurrenceCompleted(row.data as PhoneTask))
+                      .sort((a, b) => completedTaskSortTime(b.data as PhoneTask) - completedTaskSortTime(a.data as PhoneTask))
+                      .map(row => (
+                        <article key={row.id} className="mobile-completed-item">
+                          <p>{(row.data as PhoneTask).text}</p>
+                          <button disabled={busy} onClick={() => void complete(row)}>Yeniden Aç</button>
+                        </article>
+                      ))}
                   </div>
                 </details>
               )}

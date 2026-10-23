@@ -1,7 +1,7 @@
 import { captureDeleted } from "./trashStore";
 import { recordChanges } from "./activityStore";
 import { validLinks, validChecklist, type ChecklistItem, type RecordLinks } from "../shared/productivity";
-import { validRecurrence, zonedAt, scheduleDate, type Recurrence } from "../shared/recurrence";
+import { validRecurrence, zonedAt, scheduleDate, isOccurrenceCompleted, type Recurrence } from "../shared/recurrence";
 export type Task = RecordLinks & { checklist?: ChecklistItem[]; reminderLeadMinutes?: number; id: string; text: string; completed: boolean; dueDate?: string | null; dueTime?: string | null; priority?: "normal" | "important"; reminder?: boolean; recurrence?: Recurrence | null; dueAt?: number | null; occurrenceAt?: number | null; lastCompletedAt?: number | null; snoozedUntil?: number | null; timezone?: string; remindedFor?: string | null };
 export type TaskLoad = { entries: Task[]; preserved: unknown[]; locked: boolean; warning: string | null };
 const KEY = "ack-deck.tasks.v1";
@@ -54,5 +54,11 @@ export function taskDueAt(task: Task): number | null {
 export function reminderKey(task: Task): string | null { const due = taskDueAt(task); return due === null ? null : task.id + "|" + (due-(task.snoozedUntil?0:(task.reminderLeadMinutes??0)*60000)); }
 export type TaskFilter = "all" | "today" | "upcoming" | "undated" | "completed";
 export function filterTasks(tasks: Task[], filter: TaskFilter, today = localDateKey()): Task[] {
-  return tasks.filter((task) => { const date = task.recurrence ? scheduleDate(task, new Date(today + "T12:00:00").getTime()) : task.dueDate; return filter === "completed" ? task.completed : !task.completed && (filter === "all" || (filter === "today" ? !!date && date <= today : filter === "upcoming" ? !!date && date > today : !date)); });
+  return tasks.filter((task) => {
+    const isCompleted = isOccurrenceCompleted(task);
+    if (filter === "completed") return isCompleted;
+    if (isCompleted) return false;
+    const date = task.recurrence ? scheduleDate(task, new Date(today + "T12:00:00").getTime()) : task.dueDate;
+    return filter === "all" || (filter === "today" ? !!date && date <= today : filter === "upcoming" ? !!date && date > today : !date);
+  });
 }

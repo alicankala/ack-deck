@@ -115,6 +115,23 @@ test('tasks, notes, backups, and privacy boundaries keep local data safe and cre
   const secret = 'AIza' + 'X'.repeat(35);
   assert.equal(privacy.redactSecrets(`Key: ${secret}`).includes(secret), false);
 
+  // Test recurring completion, uncompletion and sorting in completed filter
+  const rec = env.load('../shared/recurrence');
+  const rule = { frequency: 'weekly', interval: 1, weekdays: [1, 2, 3, 4, 5], dayOfMonth: 1, start: '2026-10-19', time: '12:00', timezone: 'Europe/Istanbul' };
+  const recurringTask = { id: 'rec-1', text: 'Hafta içi görev', completed: false, dueDate: '2026-10-22', dueTime: '12:00', recurrence: rule };
+  const completedRec = rec.completeOccurrence(recurringTask, new Date('2026-10-22T12:00:00Z').getTime());
+  assert.equal(rec.isOccurrenceCompleted(completedRec), true);
+  const uncompletedRec = rec.uncompleteOccurrence(completedRec);
+  assert.equal(uncompletedRec.dueDate, '2026-10-22');
+  assert.equal(rec.isOccurrenceCompleted(uncompletedRec), false);
+
+  // Sorting: undated task completed at 12:30 slots between dated 12:00 and dated 13:00
+  const taskDated12 = { dueDate: '2026-10-22', dueTime: '12:00' };
+  const taskUndated1230 = { dueDate: null, dueTime: null, lastCompletedAt: new Date('2026-10-22T12:30:00').getTime() };
+  const taskDated13 = { dueDate: '2026-10-22', dueTime: '13:00' };
+  const sorted = [taskDated12, taskDated13, taskUndated1230].sort((a, b) => rec.completedTaskSortTime(b) - rec.completedTaskSortTime(a));
+  assert.deepEqual(sorted, [taskDated13, taskUndated1230, taskDated12]);
+
   const desktop = { closeToTray: false, startInTray: false, autoStart: false };
   const snapshot = backup.createBackup(desktop, '1.4.1');
   assert.equal(snapshot.data.tasks.length, 1);

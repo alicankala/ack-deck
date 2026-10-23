@@ -61,8 +61,46 @@ export function scheduleDate(task: RecurringFields, now = Date.now()): string | 
   return nextOccurrence(rule, after)?.date ?? task.dueDate ?? null;
 }
 export function completeOccurrence<T extends RecurringFields>(task:T,now=Date.now()):T {
-  if(!task.recurrence)return {...task,completed:!task.completed};
+  if(!task.recurrence)return {...task,completed:!task.completed,lastCompletedAt:!task.completed?(task.lastCompletedAt??now):null};
   const current=task.occurrenceAt ?? task.dueAt ?? zonedAt(task.dueDate!,task.dueTime!,task.recurrence.timezone);
   const next=nextOccurrence(task.recurrence,Math.max(now,current));
   return {...task,completed:!next,lastCompletedAt:current,occurrenceAt:next?.at??current,dueDate:next?.date??task.dueDate,dueTime:task.recurrence.time,dueAt:next?.at??task.dueAt,snoozedUntil:null,...("remindedFor" in task?{remindedFor:null}:{})};
+}
+
+export function isOccurrenceCompleted(task: RecurringFields): boolean {
+  return task.completed || Boolean(task.recurrence && task.lastCompletedAt);
+}
+
+export function uncompleteOccurrence<T extends RecurringFields>(task: T): T {
+  if (!task.recurrence) {
+    return { ...task, completed: false, lastCompletedAt: null };
+  }
+  const prevTimestamp = task.lastCompletedAt;
+  if (!prevTimestamp) {
+    return { ...task, completed: false, lastCompletedAt: null };
+  }
+  const prevDate = zonedParts(prevTimestamp, task.recurrence.timezone).date;
+  return {
+    ...task,
+    completed: false,
+    lastCompletedAt: null,
+    occurrenceAt: prevTimestamp,
+    dueDate: prevDate,
+    dueTime: task.recurrence.time,
+    dueAt: prevTimestamp,
+    snoozedUntil: null,
+    ...("remindedFor" in task ? { remindedFor: null } : {}),
+  };
+}
+
+export function completedTaskSortTime(task: { dueDate?: string | null; dueTime?: string | null; lastCompletedAt?: number | null }): number {
+  if (task.dueDate) {
+    const timeStr = task.dueTime || "00:00";
+    const ts = new Date(`${task.dueDate}T${timeStr}:00`).getTime();
+    if (Number.isFinite(ts)) return ts;
+  }
+  if (task.lastCompletedAt && Number.isFinite(task.lastCompletedAt)) {
+    return task.lastCompletedAt;
+  }
+  return 0;
 }

@@ -1344,5 +1344,32 @@
   font-size: 0.78rem;
 }
 
+/* Projects & Tools 50/50 Split Layout */
+.main-content .projects-page {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+.projects-split-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: start;
+  width: 100%;
+}
+.projects-split-left,
+.projects-split-right {
+  min-width: 0;
+  width: 100%;
+}
+.projects-split-left .project-grid {
+  grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr)) !important;
+  gap: 1rem;
+}
+@media (max-width: 900px) {
+  .projects-split-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 
 

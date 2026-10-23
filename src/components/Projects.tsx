@@ -120,32 +120,33 @@ export function Projects({ projects, onChange, fullPage = false, initialId, onNa
         </div>
 
         <div className="projects-split-right">
-          <header className="feature-heading tools-column-heading" style={{ margin: "0 0 1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", minHeight: "2.5rem" }}>
+          <header className="feature-heading tools-column-heading" style={{ margin: "0 0 1.25rem" }}>
             <h1 style={{ margin: 0 }}>Araçlar</h1>
-            <div className="project-tools-tab-buttons" style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
-              <button
-                type="button"
-                className={`button ${toolTab === "speed" ? "button-primary" : "button-secondary"}`}
-                onClick={() => setToolTab("speed")}
-              >
-                ⚡ Hız Testi
-              </button>
-              <button
-                type="button"
-                className={`button ${toolTab === "ip" ? "button-primary" : "button-secondary"}`}
-                onClick={() => setToolTab("ip")}
-              >
-                🌐 IP Bilgisi
-              </button>
-              <button
-                type="button"
-                className={`button ${toolTab === "qr" ? "button-primary" : "button-secondary"}`}
-                onClick={() => setToolTab("qr")}
-              >
-                📱 QR Kod
-              </button>
-            </div>
           </header>
+
+          <div className="project-tools-tab-buttons" style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className={`button ${toolTab === "speed" ? "button-primary" : "button-secondary"}`}
+              onClick={() => setToolTab("speed")}
+            >
+              ⚡ Hız Testi
+            </button>
+            <button
+              type="button"
+              className={`button ${toolTab === "ip" ? "button-primary" : "button-secondary"}`}
+              onClick={() => setToolTab("ip")}
+            >
+              🌐 IP Bilgisi
+            </button>
+            <button
+              type="button"
+              className={`button ${toolTab === "qr" ? "button-primary" : "button-secondary"}`}
+              onClick={() => setToolTab("qr")}
+            >
+              📱 QR Kod
+            </button>
+          </div>
 
           <section className="project-embedded-tools surface" aria-label="Araçlar">
             <div className="project-tool-content">
