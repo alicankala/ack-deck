@@ -47,8 +47,35 @@ pub fn show_window(app: &tauri::AppHandle, page: Option<&str>) {
     }
 }
 #[tauri::command]
-pub fn show_main_window(app: tauri::AppHandle) {
-    show_window(&app, None);
+pub fn show_main_window(app: tauri::AppHandle, target: Option<String>) {
+    show_window(&app, target.as_deref());
+}
+#[tauri::command]
+pub fn notify_desktop(
+    app: tauri::AppHandle,
+    title: String,
+    body: String,
+    target: Option<String>,
+) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let handle = app.clone();
+        let target_clone = target.clone();
+        let _ = tauri_winrt_notification::Toast::new(&app.config().identifier)
+            .title(&title)
+            .text1(&body)
+            .on_activated(move |_| {
+                show_window(&handle, target_clone.as_deref());
+                Ok(())
+            })
+            .show();
+    }
+    #[cfg(not(windows))]
+    {
+        use tauri_plugin_notification::NotificationExt;
+        let _ = app.notification().builder().title(&title).body(&body).show();
+    }
+    Ok(())
 }
 pub fn should_start_hidden(
     autostart_launch: bool,

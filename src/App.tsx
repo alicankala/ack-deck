@@ -25,7 +25,7 @@ const Settings = lazy(() => import("./components/Settings").then(module => ({ de
 import { Tasks } from "./components/Tasks";
 const Notes = lazy(() => import("./components/Notes").then(module => ({ default: module.Notes })));
 import { loadPreferences } from "./preferences";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { collectAckContext } from "./ackIntegration";
 import { sendGeminiMessage, getGeminiKeyStatus, type AiMessage } from "./geminiClient";
 import { redactSecrets } from "./privacy";
@@ -88,23 +88,29 @@ function App() {
   }, [notice]);
 
   function showDesktopNotification(title: string, body: string, target?: string) {
+    if (isTauri()) {
+      invoke("notify_desktop", { title, body, target: target ?? null }).catch(() => {
+        try {
+          if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+            const notif = new Notification(title, { body });
+            notif.onclick = () => {
+              void invoke("show_main_window", { target: target ?? null }).catch(() => {});
+              window.focus();
+              if (target) navigateNative(target);
+            };
+          }
+        } catch {}
+      });
+      return;
+    }
     try {
       if (typeof Notification !== "undefined" && Notification.permission === "granted") {
         const notif = new Notification(title, { body });
-        if (target) {
-          notif.onclick = () => {
-            window.focus();
-            navigateNative(target);
-          };
-        }
+        notif.onclick = () => {
+          window.focus();
+          if (target) navigateNative(target);
+        };
       }
-    } catch {}
-    try {
-      const text = body ? `${title}: ${body}`.slice(0, 160) : title.slice(0, 160);
-      const reminderId = target ? target : "notice:" + crypto.randomUUID();
-      void invoke("sync_task_reminders", {
-        reminders: [{ id: reminderId, text, dueAt: Date.now() }]
-      });
     } catch {}
   }
 

@@ -288,21 +288,35 @@ Bu notu değerlendir. Eğer analiz edebileceğin, özet çıkarabileceğin, ara�
                 </span>
               </div>
 
-              <h2 style={{ fontSize: "1.1rem", margin: "0.25rem 0" }}>{item.title}</h2>
-              <time style={{ fontSize: "0.78rem", color: "var(--app-muted)" }}>
-                {new Date(item.createdAt).toLocaleString("tr-TR")}
-              </time>
+              {(() => {
+                const titleStr = (item.title || "").trim();
+                const contentStr = (item.content || "").trim();
+                const isSnippet =
+                  !titleStr ||
+                  !contentStr ||
+                  titleStr === contentStr ||
+                  contentStr.startsWith(titleStr.replace(/\.{2,}$/, "").trim());
+                const showTitle = item.kind === "file" || item.kind === "link" || !isSnippet;
 
-              {item.kind === "file" ? (
-                <p>
-                  {item.size ? `${Math.ceil(item.size / 1024)} KB · ` : ""}
-                  {expired ? "Buluttaki saklama süresi dolmuş." : "Bulutta 30 gün saklanır."}
-                </p>
-              ) : (
-                <p className="phone-inbox-content" style={{ margin: "0.5rem 0", fontSize: "0.92rem", lineHeight: 1.5 }}>
-                  {item.content}
-                </p>
-              )}
+                return (
+                  <>
+                    {showTitle && <h2 style={{ fontSize: "1.1rem", margin: "0.25rem 0", fontWeight: 600 }}>{item.title}</h2>}
+                    <time style={{ fontSize: "0.78rem", color: "var(--app-muted)", display: "block", margin: "0.2rem 0 0.4rem" }}>
+                      {new Date(item.createdAt).toLocaleString("tr-TR")}
+                    </time>
+                    {item.kind === "file" ? (
+                      <p>
+                        {item.size ? `${Math.ceil(item.size / 1024)} KB · ` : ""}
+                        {expired ? "Buluttaki saklama süresi dolmuş." : "Bulutta 30 gün saklanır."}
+                      </p>
+                    ) : (
+                      <p className="phone-inbox-content" style={{ margin: "0.5rem 0", fontSize: "0.95rem", lineHeight: 1.55 }}>
+                        {item.content || item.title}
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
 
               {preview?.id === item.id && <PhoneMedia file={fileInfo(item)} />}
 

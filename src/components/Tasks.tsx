@@ -1,5 +1,4 @@
 import { parseSmartCapture } from "../../shared/smartCapture";
-import { moveBefore, moveTo } from "../reorder";
 import { EditorDialog } from "./EditorDialog";
 import { ActionMenu } from "./ActionMenu";
 import { RecurrenceFields } from "../../shared/RecurrenceFields";
@@ -12,7 +11,6 @@ const filters: [TaskFilter, string][] = [["all", "Aktif"], ["today", "Bugün"], 
 export function Tasks({ fullPage = false, initialId, focusNew = false, initialDate }: { fullPage?: boolean; initialId?: string; focusNew?: boolean; initialDate?: string }) {
   const [loaded, setLoaded] = useState(loadTasks);
   const [tasks, setTasks] = useState<Task[]>(loaded.entries), [error, setError] = useState(loaded.warning ?? "");
-  const [dragged,setDragged]=useState<string|null>(null);
   const [draft, setDraft] = useState(""), [editor, setEditor] = useState<Task | null>(null);
   const editorOriginal = useRef<Task | null>(null);
   useEffect(()=>{editorOriginal.current=editor?loadTasks().entries.find(t=>t.id===editor.id)??null:null;},[editor?.id]);
@@ -38,6 +36,16 @@ export function Tasks({ fullPage = false, initialId, focusNew = false, initialDa
   let shown = filterTasks(tasks, filter);
   if (filter === "completed") {
     shown = [...shown].sort((a, b) => completedTaskSortTime(b) - completedTaskSortTime(a));
+  } else {
+    const taskDate = (t: Task) => (t.recurrence ? scheduleDate(t) : t.dueDate) || "9999-99-99";
+    const taskTime = (t: Task) => t.dueTime || "99:99";
+    shown = [...shown].sort((a, b) => {
+      const dateDiff = taskDate(a).localeCompare(taskDate(b));
+      if (dateDiff !== 0) return dateDiff;
+      const timeDiff = taskTime(a).localeCompare(taskTime(b));
+      if (timeDiff !== 0) return timeDiff;
+      return a.text.localeCompare(b.text, "tr");
+    });
   }
   return <section className={"section tasks-section " + (fullPage ? "tasks-page" : "")} aria-labelledby="tasks-heading">
     <div className="section-heading"><div>{!fullPage && <span className="eyebrow">GÜNÜN AKIŞI</span>}{fullPage ? <><h1 id="tasks-heading">Görevler</h1><p className="tasks-description">Yapılacaklarını planla, tamamladıklarını ayrı tut.</p></> : <h2 id="tasks-heading">Yapılacaklar</h2>}</div><span className="task-count">{remaining} KALDI</span></div>
@@ -51,10 +59,10 @@ export function Tasks({ fullPage = false, initialId, focusNew = false, initialDa
         {editor.reminder&&<label className="archive-field">Ne zaman hatırlat?<select value={editor.reminderLeadMinutes??0} onChange={e=>setEditor({...editor,reminderLeadMinutes:Number(e.target.value)})}><option value="0">Görev saatinde</option><option value="15">15 dakika önce</option><option value="60">1 saat önce</option><option value="1440">1 gün önce</option>{editor.reminderLeadMinutes&&! [0,15,60,1440].includes(editor.reminderLeadMinutes)&&<option value={editor.reminderLeadMinutes}>{editor.reminderLeadMinutes} dakika önce</option>}</select></label>}<p className="task-hint">Windows bildirimleri ACKDeck çalışırken gönderilir. Telefon eşitlemesi ve bildirimler açıksa, bulut hatırlatmaları bilgisayar kapalıyken de sürer.</p>
         <div className="settings-actions"><button className="button button-primary" type="submit">Kaydet</button><button className="button button-secondary" type="button" onClick={() => setEditor(null)}>Vazgeç</button></div>
       </form></EditorDialog>}
-      <div className="task-list">{shown.length ? shown.map((task) => <div draggable={!loaded.locked} onDragStart={event=>{setDragged(task.id);event.dataTransfer.setData("text/plain",task.id);}} onDragOver={event=>{if(dragged)event.preventDefault();}} onDrop={event=>{event.preventDefault();if(dragged)commit(moveTo(loadTasks().entries,dragged,task.id));setDragged(null);}} onDragEnd={()=>setDragged(null)} id={"task-" + task.id} className={`task-item ${isOccurrenceCompleted(task) ? "completed" : ""} ${!isOccurrenceCompleted(task) && !task.recurrence && task.dueDate && task.dueDate < localDateKey() ? "overdue" : ""} ${initialId === task.id ? "record-highlight" : ""}`} key={task.id}>
+      <div className="task-list">{shown.length ? shown.map((task) => <div id={"task-" + task.id} className={`task-item ${isOccurrenceCompleted(task) ? "completed" : ""} ${!isOccurrenceCompleted(task) && !task.recurrence && task.dueDate && task.dueDate < localDateKey() ? "overdue" : ""} ${initialId === task.id ? "record-highlight" : ""}`} key={task.id}>
         <button className="task-toggle" type="button" disabled={loaded.locked} onClick={() => commit(loadTasks().entries.map((item) => item.id === task.id ? (isOccurrenceCompleted(item) ? uncompleteOccurrence(item) : completeOccurrence(item)) : item))} aria-label={`${task.text}: ${isOccurrenceCompleted(task) ? "tamamlanmadı olarak işaretle" : "tamamlandı olarak işaretle"}`} aria-pressed={isOccurrenceCompleted(task)}>{isOccurrenceCompleted(task) && <Icon name="check" size={13} />}</button>
         <div className="task-text"><button className="task-open" type="button" disabled={loaded.locked} onClick={() => { setEditor({ ...task }); setDeleteId(null); }}><span>{task.text}</span><small className="task-meta">{task.recurrence ? recurrenceLabel(task.recurrence) : task.dueDate ? task.dueDate.split("-").reverse().join(".") : "Tarihsiz"}{task.dueTime && " · " + task.dueTime}{!isOccurrenceCompleted(task) && !task.recurrence && task.dueDate && task.dueDate < localDateKey() && " · Tarihi geçti"}{task.recurrence && " · " + (scheduleDate(task)?.split("-").reverse().join(".") ?? "")}{task.snoozedUntil && " · Ertelendi"}</small></button>{deleteId === task.id && <div className="task-delete-confirm"><span>Bu görev silinsin mi?</span><button type="button" onClick={() => { if (commit(loadTasks().entries.filter((item) => item.id !== task.id))) { offerUndo({ source: "tasks", record: task }); setDeleteId(null); } }}>Evet, sil</button><button type="button" onClick={() => setDeleteId(null)}>Vazgeç</button></div>}</div>
-        <ActionMenu label={task.text+" işlemleri"}><button type="button" disabled={loaded.locked||shown[0]?.id===task.id} onClick={()=>{const previous=shown[shown.indexOf(task)-1];if(previous)commit(moveBefore(loadTasks().entries,task.id,previous.id));}}>Yukarı taşı</button><button type="button" disabled={loaded.locked||shown[shown.length-1]?.id===task.id} onClick={()=>{const next=shown[shown.indexOf(task)+1];if(next)commit(moveBefore(loadTasks().entries,next.id,task.id));}}>Aşağı taşı</button>{task.dueDate&&task.dueTime&&!task.completed&&<><button type="button" onClick={()=>snooze(task,15)}>15 dakika ertele</button><button type="button" onClick={()=>snooze(task,60)}>1 saat ertele</button><button type="button" onClick={()=>snooze(task,1440)}>Yarın hatırlat</button></>}<button className="task-details-button" type="button" disabled={loaded.locked} aria-label={task.text + " görevini düzenle"} onClick={() => { setEditor({ ...task }); setDeleteId(null); }}>Düzenle</button><button className="task-delete" type="button" disabled={loaded.locked} onClick={() => setDeleteId(task.id)} aria-label={`${task.text} görevini sil`}><Icon name="trash" size={16} /> Sil</button></ActionMenu>
+        <ActionMenu label={task.text+" işlemleri"}>{task.dueDate&&task.dueTime&&!task.completed&&<><button type="button" onClick={()=>snooze(task,15)}>15 dakika ertele</button><button type="button" onClick={()=>snooze(task,60)}>1 saat ertele</button><button type="button" onClick={()=>snooze(task,1440)}>Yarın hatırlat</button></>}<button className="task-details-button" type="button" disabled={loaded.locked} aria-label={task.text + " görevini düzenle"} onClick={() => { setEditor({ ...task }); setDeleteId(null); }}>Düzenle</button><button className="task-delete" type="button" disabled={loaded.locked} onClick={() => setDeleteId(task.id)} aria-label={`${task.text} görevini sil`}><Icon name="trash" size={16} /> Sil</button></ActionMenu>
       </div>) : <div className="empty-tasks">{tasks.length ? "Bu filtrede görev yok." : loaded.locked ? "Görevler okunamadı. Mevcut veriler korunuyor." : "Henüz görev yok. Yukarıdan bir görev ekleyebilirsin."}</div>}</div>
       <div className="task-footer"><span className="task-footer-dot" /> {tasks.length} görevden {tasks.length - remaining} tanesi tamamlandı</div>
     </div></section>;
