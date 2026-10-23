@@ -28,8 +28,11 @@ catch {
     return null;
 } }
 export function saveInboxIndex(items: InboxReference[]) { try {
-    window.localStorage.setItem(INBOX_INDEX_KEY, JSON.stringify(items.slice(0, 100).map(({ id, title, kind, handled, createdAt }) => ({ id, title: title.slice(0, 180), kind, handled, createdAt }))));
-    window.dispatchEvent?.(new Event("ack-data-changed"));
+    const raw = JSON.stringify(items.slice(0, 100).map(({ id, title, kind, handled, createdAt }) => ({ id, title: title.slice(0, 180), kind, handled, createdAt })));
+    const previous = window.localStorage.getItem(INBOX_INDEX_KEY);
+    if (previous === raw) return;
+    window.localStorage.setItem(INBOX_INDEX_KEY, raw);
+    window.dispatchEvent?.(new Event("ack-inbox-updated"));
 }
 catch { } }
 export type IntelligenceData = {

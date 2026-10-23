@@ -895,10 +895,14 @@ function App() {
 
                     const { task, row, index } = item;
                     const isTaskDone = isOccurrenceCompleted(task);
-                    const hasMeta = (task.reminder && task.dueTime) || task.recurrence;
+                    const hasEarlyReminder = Boolean(task.reminder && task.reminderLeadMinutes && task.reminderLeadMinutes > 0);
+                    const hasMeta = hasEarlyReminder || task.recurrence;
                     return (
                       <article className={`mobile-timeline-card task-card ${isTaskDone ? "completed" : ""}`} key={row.id}>
-                        <span className="timeline-time-col">{task.dueTime || "—"}</span>
+                        <span className="timeline-time-col">
+                          {task.dueTime || "—"}
+                          {task.reminder && <span className="timeline-alarm-bell" title="Alarm açık"> 🔔</span>}
+                        </span>
                         <button
                           type="button"
                           className="mobile-task-toggle"
@@ -916,9 +920,9 @@ function App() {
                           <strong className="timeline-item-title">{task.text}</strong>
                           {hasMeta && (
                             <div className="timeline-item-chips">
-                              {task.reminder && task.dueTime && (
-                                <span className="timeline-chip alarm-chip" title="Alarm">
-                                  🔔 {formatAlarmHint(task.dueTime, task.reminderLeadMinutes)}
+                              {hasEarlyReminder && (
+                                <span className="timeline-chip alarm-chip" title="Erken Alarm">
+                                  🔔 {task.reminderLeadMinutes} dk önce
                                 </span>
                               )}
                               {task.recurrence && (

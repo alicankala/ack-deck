@@ -43,6 +43,12 @@ export function recurrenceLabel(r:Recurrence|null|undefined):string {
   if(!r)return "Tek sefer";
   if(r.frequency==="daily")return r.interval===1?"Her gün":`Her ${r.interval} günde bir`;
   if(r.frequency==="monthly")return r.interval===1?`Her ayın ${r.dayOfMonth}'i`:`Her ${r.interval} ayda bir`;
+  const isWeekdays = r.weekdays.length === 5 && [1,2,3,4,5].every(d => r.weekdays.includes(d));
+  const isWeekends = r.weekdays.length === 2 && [0,6].every(d => r.weekdays.includes(d));
+  const isEveryDay = r.weekdays.length === 7;
+  if(r.interval===1 && isEveryDay) return "Her gün";
+  if(r.interval===1 && isWeekdays) return "Hafta içi";
+  if(r.interval===1 && isWeekends) return "Hafta sonu";
   const names=["Paz","Pzt","Sal","Çar","Per","Cum","Cmt"];
   const days=[...r.weekdays].sort((a,b)=>(a+6)%7-(b+6)%7).map(d=>names[d]).join(" · ");
   return r.interval===1?days:`Her ${r.interval} haftada · ${days}`;
@@ -93,7 +99,10 @@ export function uncompleteOccurrence<T extends RecurringFields>(task: T): T {
   };
 }
 
-export function completedTaskSortTime(task: { dueDate?: string | null; dueTime?: string | null; lastCompletedAt?: number | null }): number {
+export function completedTaskSortTime(task: { dueDate?: string | null; dueTime?: string | null; recurrence?: unknown; lastCompletedAt?: number | null }): number {
+  if (task.recurrence && task.lastCompletedAt && Number.isFinite(task.lastCompletedAt)) {
+    return task.lastCompletedAt;
+  }
   if (task.dueDate) {
     const timeStr = task.dueTime || "00:00";
     const ts = new Date(`${task.dueDate}T${timeStr}:00`).getTime();

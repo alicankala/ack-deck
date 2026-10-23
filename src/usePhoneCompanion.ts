@@ -1,13 +1,15 @@
 import { useEffect } from "react";
 import { configurePhone, phoneRequest, phoneStatus } from "./phoneClient";
-import { synchronizePhone, pausePhoneSync } from "./phoneSync";
+import { synchronizePhone, pausePhoneSync, isPhoneSyncRunning } from "./phoneSync";
 import { saveInboxIndex, type InboxReference } from "./productIntelligence";
 
 export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void){
   useEffect(()=>{
     let active=true,enabled=false,timer:ReturnType<typeof setInterval>|undefined,changeTimer:ReturnType<typeof setTimeout>|undefined;
+    let inFlight=false,lastErrorAlert=0;
     async function run(){
-      if(!active||!enabled||paused)return;
+      if(!active||!enabled||paused||inFlight)return;
+      inFlight=true;
       try{
         await synchronizePhone();
         const result=await phoneRequest<{commands:unknown[]}>("commands");
@@ -17,8 +19,15 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void)
           saveInboxIndex(inboxRes.items as InboxReference[]);
           window.dispatchEvent(new Event("ack-inbox-updated"));
         }
-      }catch{
-        if(active)onError("Telefon eşitlemesi tamamlanamadı. Yerel kayıtlar korunuyor.");
+      }catch(err){
+        console.warn("[ACKDeck Phone Sync]", err);
+        const now = Date.now();
+        if(active && now - lastErrorAlert > 300000){
+          lastErrorAlert = now;
+          onError("Telefon eşitlemesi tamamlanamadı. Yerel kayıtlar korunuyor.");
+        }
+      }finally{
+        inFlight=false;
       }
     }
     async function configure(){
@@ -31,7 +40,7 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void)
         pausePhoneSync(paused||!enabled);
         if(enabled&&!paused){
           void run();
-          timer=setInterval(()=>void run(),10000);
+          timer=setInterval(()=>void run(),30000);
         }
       }catch{
         enabled=false;
@@ -40,9 +49,9 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void)
     }
     const pauseForRestore=(event:Event)=>{if((event as CustomEvent).detail===true)pausePhoneSync(true);};
     const restored=()=>{pausePhoneSync(true);enabled=false;clearInterval(timer);try{window.localStorage.setItem("ack-deck.phone-restore-review.v1","true");}catch{}void phoneStatus().then(status=>status.enabled?configurePhone(status.url,false):undefined).then(()=>window.dispatchEvent(new Event("ack-phone-configured"))).catch(()=>{});};
-    const onPrayerLogsChanged=()=>{if(active&&enabled&&!paused)void run();};
+    const onPrayerLogsChanged=()=>{if(active&&enabled&&!paused&&!isPhoneSyncRunning())void run();};
     const onDataChanged=()=>{
-      if(active&&enabled&&!paused){
+      if(active&&enabled&&!paused&&!isPhoneSyncRunning()){
         clearTimeout(changeTimer);
         changeTimer=setTimeout(()=>void run(),400);
       }

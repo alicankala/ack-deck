@@ -47,8 +47,9 @@ fn valid_url(input: &str) -> bool {
 pub fn phone_status(app: tauri::AppHandle) -> Result<Value, String> {
     let config = read_config(&app)?;
     let configured = match credential()?.get_password() {
-        Ok(_) => true,
+        Ok(value) if !value.is_empty() => true,
         Err(KeyringError::NoEntry) => false,
+        Ok(_) => false,
         Err(_) => return Err("Telefon kimlik bilgilerine erişilemedi.".into()),
     };
     Ok(json!({"url":config.url,"enabled":config.enabled,"configured":configured}))
@@ -139,6 +140,9 @@ pub(crate) async fn request(
     let secret = credential()?
         .get_password()
         .map_err(|_| "Telefon sahibi anahtarı ayarlanmamış.")?;
+    if secret.is_empty() {
+        return Err("Telefon sahibi anahtarı ayarlanmamış.".into());
+    }
     let serialized = body.to_string();
     if serialized.len() > 65536 || (serialized.contains("AIza") || crate::privacy::unsafe_sync(&body)) || serialized.contains(&secret) {
         return Err("Telefon isteği çok büyük veya gizli bilgi içeriyor.".into());
@@ -198,6 +202,9 @@ pub async fn phone_request(
     let secret = credential()?
         .get_password()
         .map_err(|_| "Telefon kimlik bilgilerine erişilemedi.")?;
+    if secret.is_empty() {
+        return Err("Telefon sahibi anahtarı ayarlanmamış.".into());
+    }
     if value.contains(&secret) || value.contains("AIza") {
         return Err("Telefon yanıtı güvenli biçimde işlenemedi.".into());
     }

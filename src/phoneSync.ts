@@ -75,6 +75,7 @@ let running:Promise<SyncState>|null=null;
 let paused=false, epoch=0;
 export function pausePhoneSync(value:boolean){paused=value;epoch++;}
 export function phoneSyncPaused(){return paused;}
+export function isPhoneSyncRunning(){return running!==null;}
 export function synchronizePhone(request=phoneRequest):Promise<SyncState> {
   if(running)return running;
   running=sync(request).finally(()=>{running=null;});return running;

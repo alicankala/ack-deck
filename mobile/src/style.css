@@ -2392,6 +2392,15 @@ body:has(.editor) nav { visibility: hidden; }
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+.mobile-timeline-card.task-card .timeline-time-col {
+  color: #f59e0b;
+}
+.timeline-alarm-bell {
+  font-size: 11px;
+  margin-left: 3px;
 }
 
 /* Checkbox Toggle */
