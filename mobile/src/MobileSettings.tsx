@@ -66,8 +66,12 @@ export function MobileSettings({
     };
     setPrayerConfig(next);
     savePrayerConfig(next);
+    try {
+      localStorage.setItem("ack-deck.weather-city.v1", JSON.stringify(found.city));
+    } catch {}
     window.dispatchEvent(new Event("ack-prayer-config-changed"));
-    onNotice(`Konum ${found.city} olarak güncellendi.`);
+    window.dispatchEvent(new Event("ack-weather-city-changed"));
+    onNotice(`Konum ve hava durumu ${found.city} olarak güncellendi.`);
   }
 
   function handleNotifyAtTimeChange(enabled: boolean) {
@@ -161,11 +165,11 @@ export function MobileSettings({
         </div>
       </section>
 
-      {/* 2. Namaz Vakitleri & Konum */}
+      {/* 2. Hava Durumu, Namaz Vakitleri & Konum */}
       <section className="settings-card">
         <div className="settings-card-head">
           <Icon name="clock" size={20} />
-          <h3>Namaz Vakitleri & Konum</h3>
+          <h3>Hava Durumu & Namaz Konumu</h3>
         </div>
         <div className="settings-row">
           <label htmlFor="city-select">Şehir / Konum</label>

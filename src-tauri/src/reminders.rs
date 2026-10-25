@@ -54,15 +54,17 @@ fn now_ms() -> u64 {
 fn reminder_target(id: &str) -> String {
     if id.starts_with("study:") {
         "study".into()
-    } else if id.starts_with("prayer:") || id.starts_with("prayer-lead:") || id == "prayer" || id == "home" {
-        "home".into()
+    } else if id.starts_with("prayer:") || id.starts_with("prayer-lead:") || id == "prayer" {
+        "prayer".into()
+    } else if let Some(id) = id.strip_prefix("note:") {
+        format!("note:{id}")
     } else if let Some(id) = id.strip_prefix("subscription:") {
         format!("subscription:{id}")
     } else if let Some(id) = id.strip_prefix("ai:") {
         format!("ai:{id}")
     } else if let Some(id) = id.strip_prefix("inbox:") {
         format!("inbox:{id}")
-    } else if id.starts_with("notice:") {
+    } else if id.starts_with("notice:") || id == "home" {
         "home".into()
     } else {
         format!("task:{id}")
@@ -157,6 +159,11 @@ pub fn setup(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                         }
                         // Persist the delivery claim before dispatch, preventing duplicates after restart.
                         queue.delivered.insert(key.clone());
+                        let is_stale = now_ms().saturating_sub(reminder.due_at) > 15 * 60 * 1000;
+                        if is_stale {
+                            let _ = persist(&state.path, &queue.delivered);
+                            continue;
+                        }
                         if persist(&state.path, &queue.delivered).is_err() {
                             queue.delivered.remove(&key);
                             let _ = handle.emit(

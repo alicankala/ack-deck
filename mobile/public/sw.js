@@ -10,10 +10,29 @@ self.addEventListener('fetch', event => {
 self.addEventListener('push', event => {
   let data; try { data = event.data?.json(); } catch { return; }
   if (!data || typeof data.body !== 'string') return;
-  const url = typeof data.url === 'string' && (data.url.startsWith('/#task=') || data.url.startsWith('/#page=')) ? data.url : '/';
+  let url = '/';
+  if (typeof data.url === 'string') {
+    if (data.url.startsWith('/#') || data.url.startsWith('#')) {
+      url = data.url.startsWith('/') ? data.url : '/' + data.url;
+    } else if (data.url.startsWith('/')) {
+      url = data.url;
+    }
+  }
   event.waitUntil(self.registration.showNotification('ACKDeck', {body:data.body.slice(0,600),tag:String(data.tag || 'ackdeck'),icon:'/icon-192.png',badge:'/icon-192.png',data:{url}}));
 });
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  event.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(async clients => { const target = new URL(event.notification.data?.url || '/', self.location.origin).href; for (const client of clients) { if (new URL(client.url).origin === self.location.origin) { await client.navigate(target); return client.focus(); } } return self.clients.openWindow(target); }));
+  event.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(async clients => {
+    const target = new URL(event.notification.data?.url || '/', self.location.origin).href;
+    for (const client of clients) {
+      if (new URL(client.url).origin === self.location.origin) {
+        await client.navigate(target);
+        if (typeof client.postMessage === 'function') {
+          client.postMessage({ type: 'ack-navigate', url: target });
+        }
+        return client.focus();
+      }
+    }
+    return self.clients.openWindow(target);
+  }));
 });

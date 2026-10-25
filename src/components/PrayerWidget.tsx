@@ -166,7 +166,7 @@ export function PrayerWidget() {
   const stats = calculatePrayerStats(logsState.entries, todayStr);
 
   return (
-    <section className="dashboard-prayer surface" aria-labelledby="dashboard-prayer-heading">
+    <section id="prayer-widget" className="dashboard-prayer surface" aria-labelledby="dashboard-prayer-heading">
       <div className="dashboard-section-top">
         <div className="prayer-header-title">
           <span className="prayer-icon-badge" aria-hidden="true">🕌</span>

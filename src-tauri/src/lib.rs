@@ -86,6 +86,7 @@ pub fn run() {
             desktop::desktop_status,
             desktop::show_main_window,
             desktop::notify_desktop,
+            desktop::clear_notifications,
             desktop::desktop_ready,
             desktop::save_desktop_preferences,
             reminders::sync_task_reminders,

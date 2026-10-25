@@ -34,7 +34,9 @@ pub fn show_window(app: &tauri::AppHandle, page: Option<&str>) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
         let _ = window.unminimize();
+        let _ = window.set_always_on_top(true);
         let _ = window.set_focus();
+        let _ = window.set_always_on_top(false);
         let _ = window.emit("ack-visibility", true);
         if let Some(page) = page {
             if let Some(state) = app.try_state::<DesktopState>() {
@@ -49,6 +51,23 @@ pub fn show_window(app: &tauri::AppHandle, page: Option<&str>) {
 #[tauri::command]
 pub fn show_main_window(app: tauri::AppHandle, target: Option<String>) {
     show_window(&app, target.as_deref());
+}
+pub fn clear_windows_notifications(app_id: &str) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let script = format!(
+            "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; [Windows.UI.Notifications.ToastNotificationManager]::History.Clear('{app_id}');"
+        );
+        let _ = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", &script])
+            .creation_flags(0x08000000)
+            .spawn();
+    }
+}
+#[tauri::command]
+pub fn clear_notifications(app: tauri::AppHandle) {
+    clear_windows_notifications(&app.config().identifier);
 }
 #[tauri::command]
 pub fn notify_desktop(

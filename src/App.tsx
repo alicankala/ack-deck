@@ -44,7 +44,7 @@ function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = preferences.theme ?? "dark";
   }, [preferences.theme]);
-  const { route, navigate } = useNavigationHistory({ page: preferences.startPage }, () => restoring || aiBusy || history.mutating || !desktop.visible);
+  const { route, navigate } = useNavigationHistory({ page: preferences.startPage }, () => restoring || aiBusy || history.mutating);
   const page = route.target.page;
   const setPage = (page: Page) => navigate({ page });
   usePaletteBridge(navigate);
@@ -239,7 +239,7 @@ function App() {
   const projectsView = <Projects projects={projects} onChange={changeProjects} fullPage initialId={route.target.id} onNavigate={navigate} onAskAi={askAi} />;
 
   const pageViews: Record<Page, ReactNode> = {
-    home: <Dashboard projects={projects} refreshMs={preferences.pcRefreshMs} onNavigate={navigate} onAskAi={askAi} />,
+    home: <Dashboard targetId={route.target.id} projects={projects} refreshMs={preferences.pcRefreshMs} onNavigate={navigate} onAskAi={askAi} />,
     ai: <div className="ai-history-layout"><ConversationHistory history={{ ...history, newChat: () => { setAiPrompt(undefined); history.newChat(); }, select: id => { setAiPrompt(undefined); history.select(id); } }} disabled={aiBusy} />{history.ready ? <AckAi prefill={phoneAiDraft} onPrefillConsumed={() => setPhoneAiDraft(undefined)} key={history.activeId || "unsaved"} blocked={history.mutating} onNewChat={() => { setAiPrompt(undefined); history.newChat(); }} onBusyChange={setAiBusy} messages={history.messages} initialPrompt={aiPrompt} onPromptConsumed={consumeAiPrompt} onMessagesChange={history.setMessages} onOpenSettings={() => setPage("settings")} onNavigate={navigate} /> : <p role="status">{history.error || "Sohbetler yükleniyor..."}</p>}</div>,
     settings: <Settings preferences={preferences} onPreferencesChange={setPreferences} desktop={desktop.status} onDesktopChange={desktop.setStatus} />,
     inbox: <PhoneInbox initialId={route.target.id} onAiDraft={(text,attachment) => { setAiPrompt(undefined); setPhoneAiDraft({id:crypto.randomUUID(),text,attachment}); navigate({page:"ai"}); }} />,

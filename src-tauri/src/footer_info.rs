@@ -52,34 +52,133 @@ fn parse_rates(xml: &str) -> Option<Rates> {
     Some(Rates { date, rates })
 }
 
-async fn fetch_gold_rate(client: &reqwest::Client) -> Option<Rate> {
-    let json: Value = client
+async fn fetch_truncgil_rates(client: &reqwest::Client) -> (Option<Rate>, Option<Rate>) {
+    let json: Value = match client
         .get("https://finans.truncgil.com/v4/today.json")
         .send()
         .await
-        .ok()?
-        .error_for_status()
-        .ok()?
-        .json()
-        .await
-        .ok()?;
+    {
+        Ok(res) => match res.error_for_status() {
+            Ok(res) => res.json().await.unwrap_or(Value::Null),
+            Err(_) => Value::Null,
+        },
+        Err(_) => Value::Null,
+    };
 
-    let gra = &json["GRA"];
-    let buying = gra["Buying"]
-        .as_f64()
-        .or_else(|| gra["Buying"].as_str()?.replace(',', ".").parse().ok())?;
-    let selling = gra["Selling"]
-        .as_f64()
-        .or_else(|| gra["Selling"].as_str()?.replace(',', ".").parse().ok())?;
-    if buying.is_finite() && selling.is_finite() && buying > 0.0 && selling > 0.0 {
-        Some(Rate {
-            code: "GRA".into(),
-            buying,
-            selling,
-        })
-    } else {
-        None
+    let gra_rate = (|| {
+        let gra = &json["GRA"];
+        let buying = gra["Buying"]
+            .as_f64()
+            .or_else(|| gra["Buying"].as_str()?.replace(',', ".").parse().ok())?;
+        let selling = gra["Selling"]
+            .as_f64()
+            .or_else(|| gra["Selling"].as_str()?.replace(',', ".").parse().ok())?;
+        if buying.is_finite() && selling.is_finite() && buying > 0.0 && selling > 0.0 {
+            Some(Rate {
+                code: "GRA".into(),
+                buying,
+                selling,
+            })
+        } else {
+            None
+        }
+    })();
+
+    let xu100_rate = (|| {
+        let xu = &json["XU100"];
+        let selling = xu["Selling"]
+            .as_f64()
+            .or_else(|| xu["Selling"].as_str()?.replace(',', ".").parse().ok())?;
+        let buying = xu["Buying"]
+            .as_f64()
+            .or_else(|| xu["Buying"].as_str()?.replace(',', ".").parse().ok())
+            .unwrap_or(selling);
+        if selling.is_finite() && selling > 0.0 {
+            Some(Rate {
+                code: "XU100".into(),
+                buying,
+                selling,
+            })
+        } else {
+            None
+        }
+    })();
+
+    (gra_rate, xu100_rate)
+}
+
+async fn fetch_crypto_rates(client: &reqwest::Client) -> (Option<Rate>, Option<Rate>) {
+    // 1. Try Binance public ticker API
+    let binance_res = client
+        .get("https://api.binance.com/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22,%22ETHUSDT%22%5D")
+        .send()
+        .await;
+
+    if let Ok(res) = binance_res {
+        if let Ok(items) = res.json::<Vec<Value>>().await {
+            let mut btc = None;
+            let mut eth = None;
+            for item in items {
+                let sym = item["symbol"].as_str().unwrap_or_default();
+                let price: f64 = item["price"]
+                    .as_str()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or_default();
+                if price > 0.0 {
+                    if sym == "BTCUSDT" {
+                        btc = Some(Rate {
+                            code: "BTC".into(),
+                            buying: price,
+                            selling: price,
+                        });
+                    } else if sym == "ETHUSDT" {
+                        eth = Some(Rate {
+                            code: "ETH".into(),
+                            buying: price,
+                            selling: price,
+                        });
+                    }
+                }
+            }
+            if btc.is_some() || eth.is_some() {
+                return (btc, eth);
+            }
+        }
     }
+
+    // 2. Fallback to CoinGecko
+    let cg_res = client
+        .get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd")
+        .send()
+        .await;
+
+    if let Ok(res) = cg_res {
+        if let Ok(json) = res.json::<Value>().await {
+            let btc_price = json["bitcoin"]["usd"].as_f64().unwrap_or_default();
+            let eth_price = json["ethereum"]["usd"].as_f64().unwrap_or_default();
+            let btc = if btc_price > 0.0 {
+                Some(Rate {
+                    code: "BTC".into(),
+                    buying: btc_price,
+                    selling: btc_price,
+                })
+            } else {
+                None
+            };
+            let eth = if eth_price > 0.0 {
+                Some(Rate {
+                    code: "ETH".into(),
+                    buying: eth_price,
+                    selling: eth_price,
+                })
+            } else {
+                None
+            };
+            return (btc, eth);
+        }
+    }
+
+    (None, None)
 }
 
 #[tauri::command]
@@ -89,7 +188,8 @@ pub async fn footer_rates() -> Result<Rates, String> {
         .get("https://www.tcmb.gov.tr/kurlar/today.xml")
         .send()
         .await;
-    let gold_rate = fetch_gold_rate(&c).await;
+    let (gold_rate, xu100_rate) = fetch_truncgil_rates(&c).await;
+    let (btc_rate, eth_rate) = fetch_crypto_rates(&c).await;
 
     let xml = tcmb_res
         .map_err(|_| "Kurlar alınamadı.")?
@@ -102,6 +202,15 @@ pub async fn footer_rates() -> Result<Rates, String> {
     let mut rates = parse_rates(&xml).ok_or_else(|| "Kurlar alınamadı.".to_string())?;
     if let Some(gold) = gold_rate {
         rates.rates.push(gold);
+    }
+    if let Some(btc) = btc_rate {
+        rates.rates.push(btc);
+    }
+    if let Some(eth) = eth_rate {
+        rates.rates.push(eth);
+    }
+    if let Some(xu100) = xu100_rate {
+        rates.rates.push(xu100);
     }
     Ok(rates)
 }

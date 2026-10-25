@@ -13,7 +13,8 @@ import { SubscriptionForm, newSubscription } from "../../shared/SubscriptionForm
 import { money, cycleLabel, paymentLabel, monthlyTotals, type Subscription } from "../../shared/subscriptions";
 import { completeOccurrence, nextOccurrence, recurrenceLabel, scheduleDate, isOccurrenceCompleted, uncompleteOccurrence, completedTaskSortTime, type Recurrence } from "../../shared/recurrence";
 import { studyBlocks, type StudyProgram } from "../../shared/studyPrograms";
-import { savePrayerConfig, type PrayerTimesConfig } from "../../shared/prayerTimes";
+import { savePrayerConfig, loadPrayerConfig, TURKEY_CITIES, type PrayerTimesConfig } from "../../shared/prayerTimes";
+import { fetchMobileWeather, type WeatherData } from "../../shared/weather";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { MAX_ATTACHMENT, type CloudRecord, type PhoneTask, type PhoneNote, type Mutation } from "../../shared/phone";
@@ -50,9 +51,17 @@ function App() {
   const [state, setState] = useState<MobileState>(emptyState);
   const [ready, setReady] = useState(false);
   const [page, setPage] = useState<string>(() => {
-    const hash = new URLSearchParams(location.hash.slice(1)).get("page");
-    return hash === "subscriptions" ? "plan" : "today";
+    const raw = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash;
+    if (raw === "prayer" || raw.startsWith("prayer")) return "today";
+    const params = new URLSearchParams(raw);
+    const p = params.get("page");
+    if (p === "subscriptions" || p === "plan" || p === "calendar") return "plan";
+    if (p === "notes") return "notes";
+    if (p === "send") return "send";
+    if (p === "settings") return "settings";
+    return "today";
   });
+  const [weather, setWeather] = useState<WeatherData | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -335,16 +344,105 @@ function App() {
   }, [ready, state.records, notificationTask]);
 
   useEffect(() => {
-    const change = () => {
-      const hash = new URLSearchParams(location.hash.slice(1));
-      setNotificationTask(hash.get("task"));
-      if (hash.get("page") === "subscriptions") {
-        setPage("plan");
-        setPlanTab("subscriptions");
+    let active = true;
+    async function updateWeather() {
+      try {
+        let city = "Karabük";
+        const rawCity = localStorage.getItem("ack-deck.weather-city.v1");
+        if (rawCity) {
+          try {
+            const parsed = JSON.parse(rawCity);
+            if (typeof parsed === "string" && parsed.trim()) city = parsed.trim();
+          } catch {}
+        } else {
+          const prayer = loadPrayerConfig();
+          if (prayer.city) city = prayer.city;
+        }
+
+        const cityData =
+          Object.values(TURKEY_CITIES).find(c => c.city.toLowerCase() === city.toLowerCase()) ||
+          TURKEY_CITIES.karabuk || { city, lat: 41.20488, lng: 32.62768 };
+
+        const w = await fetchMobileWeather(cityData.city, cityData.lat, cityData.lng);
+        if (active && w) {
+          setWeather(w);
+        }
+      } catch {}
+    }
+
+    void updateWeather();
+    const interval = setInterval(updateWeather, 30 * 60 * 1000);
+    window.addEventListener("ack-weather-city-changed", updateWeather);
+    return () => {
+      active = false;
+      clearInterval(interval);
+      window.removeEventListener("ack-weather-city-changed", updateWeather);
+    };
+  }, []);
+
+  function handleHashRoute(urlOrHash?: string) {
+    let hashStr = "";
+    if (typeof urlOrHash === "string") {
+      const idx = urlOrHash.indexOf("#");
+      hashStr = idx !== -1 ? urlOrHash.slice(idx + 1) : urlOrHash;
+    } else {
+      hashStr = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash;
+    }
+    if (!hashStr) return;
+
+    if (hashStr === "prayer" || hashStr.startsWith("prayer")) {
+      setPage("today");
+      setTimeout(() => {
+        document.querySelector(".mobile-prayer-card")?.scrollIntoView({ behavior: "smooth" });
+      }, 200);
+      return;
+    }
+
+    const params = new URLSearchParams(hashStr);
+    const task = params.get("task");
+    if (task) {
+      setNotificationTask(task);
+      setPage("today");
+      return;
+    }
+
+    const p = params.get("page");
+    if (p === "prayer") {
+      setPage("today");
+      setTimeout(() => {
+        document.querySelector(".mobile-prayer-card")?.scrollIntoView({ behavior: "smooth" });
+      }, 200);
+    } else if (p === "subscriptions") {
+      setPage("plan");
+      setPlanTab("subscriptions");
+    } else if (p === "plan" || p === "calendar") {
+      setPage("plan");
+      setPlanTab("calendar");
+    } else if (p === "notes") {
+      setPage("notes");
+    } else if (p === "today" || p === "tasks") {
+      setPage("today");
+    } else if (p === "send") {
+      setPage("send");
+    } else if (p === "settings") {
+      setPage("settings");
+    }
+  }
+
+  useEffect(() => {
+    handleHashRoute();
+    const change = () => handleHashRoute();
+    window.addEventListener("hashchange", change);
+    const onMessage = (e: MessageEvent) => {
+      if (e.data?.type === "ack-navigate" && typeof e.data?.url === "string") {
+        handleHashRoute(e.data.url);
       }
     };
-    window.addEventListener("hashchange", change);
-    return () => window.removeEventListener("hashchange", change);
+    navigator.serviceWorker?.addEventListener("message", onMessage);
+    return () => {
+      window.removeEventListener("hashchange", change);
+      navigator.serviceWorker?.removeEventListener("message", onMessage);
+    };
   }, []);
 
   function closeForm() {
@@ -769,9 +867,18 @@ function App() {
         {/* 1. TODAY TAB (Günün Akışı & Görevler) */}
         {(page === "today" || page === "tasks") && (
           <>
-            {/* Dynamic Greeting Strip */}
+            {/* Dynamic Greeting Strip with Weather */}
             <div className="mobile-greeting-strip">
               <span className="mobile-greeting-title">{mobileGreeting}</span>
+              {weather && (
+                <div
+                  className="mobile-greeting-weather"
+                  title={`${weather.city} Hava Durumu: ${weather.temperature}°C, ${weather.desc}`}
+                >
+                  <span className="weather-symbol">{weather.symbol}</span>
+                  <span className="weather-text">{weather.city} {weather.temperature}°C · {weather.desc}</span>
+                </div>
+              )}
             </div>
 
             {/* Quick Metrics Bar at Top */}

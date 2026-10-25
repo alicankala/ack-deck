@@ -5,17 +5,17 @@ import { completeOccurrence, scheduleDate } from "../../shared/recurrence";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Header } from "./Header";
 import { PcStatus } from "./PcStatus";
-import { Icon, type IconName } from "./Icon";
-import { dashboardProjects, loadDashboardData, todayTasks } from "../dashboardData";
+import { PomodoroTimer } from "./PomodoroTimer";
+import { Icon } from "./Icon";
+import { loadDashboardData, todayTasks } from "../dashboardData";
 import { loadTasks, saveTasks, localDateKey } from "../taskStore";
-import { openRegisteredProject } from "../commandPalette";
 import { loadStudyPrograms } from "../studyProgramStore";
 import { studyBlocks, WEEKDAY_SHORT } from "../../shared/studyPrograms";
 import { weekDates } from "../../shared/weeklyPlan";
 import type { Project } from "../projectStore";
 import type { NavigationTarget } from "../navigation";
 
-type Props = { projects: Project[]; refreshMs: number; onNavigate: (target: NavigationTarget) => void; onAskAi: (text: string) => void };
+type Props = { projects: Project[]; refreshMs: number; onNavigate: (target: NavigationTarget) => void; onAskAi: (text: string) => void; targetId?: string; };
 function AiStart({ onAskAi }: Pick<Props, "onAskAi">) {
   const [draft, setDraft] = useState("");
   const submitting = useRef(false);
@@ -26,17 +26,22 @@ function AiStart({ onAskAi }: Pick<Props, "onAskAi">) {
     <form onSubmit={submit}><label className="sr-only" htmlFor="dashboard-ai-prompt">ACK AI mesajı</label><textarea id="dashboard-ai-prompt" value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} rows={3} maxLength={8000} placeholder="Bana ne yapmak istediğini yaz..." /><div className="dashboard-ai-send"><small>Enter ile gönder · İşlemler için onayın istenir.</small><button className="button button-primary" type="submit" disabled={!draft.trim()}>Gönder <Icon name="arrowRight" size={16} /></button></div></form>
   </section>;
 }
-const shortcuts: { label: string; icon: IconName; target: NavigationTarget }[] = [
-  { label: "Yeni görev", icon: "check", target: { page: "tasks", intent: "new-task" } },
-  { label: "Yeni not", icon: "note", target: { page: "notes", intent: "new-note" } },
-  { label: "Haftalık Plan", icon: "grid", target: { page: "calendar" } },
-  { label: "Projeler", icon: "folder", target: { page: "projects" } },
-];
-export function Dashboard({ projects, refreshMs, onNavigate, onAskAi }: Props) {
+export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, targetId }: Props) {
   const [data, setData] = useState(loadDashboardData), [now, setNow] = useState(() => new Date());
   const [studyData, setStudyData] = useState(loadStudyPrograms);
   const [feedback, setFeedback] = useState("");
-  const busy = useRef(false); const [opening, setOpening] = useState(false);
+
+  useEffect(() => {
+    if (targetId === "prayer") {
+      const el = document.getElementById("prayer-widget");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("prayer-widget-highlight");
+        const timer = setTimeout(() => el.classList.remove("prayer-widget-highlight"), 2500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [targetId]);
   useEffect(() => {
     const refresh = () => {
       setData(loadDashboardData());
@@ -51,11 +56,7 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi }: Props) {
       window.clearInterval(timer);
     };
   }, []);
-  const daily = todayTasks(data.tasks.entries, now), shownProjects = dashboardProjects(projects);
-  async function launch(id: string, mode: "folder" | "vscode") {
-    if (busy.current) return; busy.current = true; setOpening(true); setFeedback("");
-    try { await openRegisteredProject(id, mode); } catch { setFeedback("Proje açılamadı. Klasörü veya VS Code kurulumunu kontrol edin."); } finally { busy.current = false; setOpening(false); }
-  }
+  const daily = todayTasks(data.tasks.entries, now);
   function complete(id: string) { const current = loadTasks(); if (!saveTasks(current.entries.map(task => task.id === id ? completeOccurrence(task) : task), current)) setFeedback("Görev kaydedilemedi. Mevcut veriler korunuyor."); }
   const summary = dailySummary();
   const allBlocks = studyBlocks(studyData.entries, now);
@@ -225,8 +226,30 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi }: Props) {
               </button>
             </div>
 
-            <div className="dashboard-schedule-layout">
-              <div className="schedule-today-column">
+            <div className="dashboard-schedule-vertical-layout">
+              {/* Üstte: Haftanın Günleri Şeridi (İlk SS) */}
+              <div className="schedule-week-strip-box">
+                <div className="week-mini-strip-compact">
+                  {weekDays.map(day => (
+                    <button
+                      key={day.date}
+                      type="button"
+                      className={`week-mini-cell ${day.date === selectedDate ? "is-selected" : ""} ${day.date === todayDateStr ? "is-today" : ""}`}
+                      onClick={() => setSelectedDate(day.date)}
+                      title={`${day.shortLabel} ${day.dayNum}: ${day.count > 0 ? `${day.count} ders oturumu` : "Ders yok"}`}
+                    >
+                      <span className="mini-cell-day">{day.shortLabel}</span>
+                      <span className="mini-cell-num">{day.dayNum}</span>
+                      <span className="mini-cell-indicator">
+                        {day.count > 0 ? <span className="mini-count-dot">{day.count}</span> : <span className="mini-empty-dash">—</span>}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Altta: Seçilen Günün Oturum ve İşleri (İkinci SS) */}
+              <div className="schedule-day-feed-box">
                 <div className="schedule-column-title" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     <span className="column-dot" />
@@ -270,79 +293,14 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi }: Props) {
                   </div>
                 )}
               </div>
-
-              <div className="schedule-week-column">
-                <div className="schedule-column-title">
-                  <strong>Haftanın Günleri</strong>
-                </div>
-                <div className="week-mini-strip-compact">
-                  {weekDays.map(day => (
-                    <button
-                      key={day.date}
-                      type="button"
-                      className={`week-mini-cell ${day.date === selectedDate ? "is-selected" : ""} ${day.date === todayDateStr ? "is-today" : ""}`}
-                      onClick={() => setSelectedDate(day.date)}
-                      title={`${day.shortLabel} ${day.dayNum}: ${day.count > 0 ? `${day.count} ders oturumu` : "Ders yok"}`}
-                    >
-                      <span className="mini-cell-day">{day.shortLabel}</span>
-                      <span className="mini-cell-num">{day.dayNum}</span>
-                      <span className="mini-cell-indicator">
-                        {day.count > 0 ? <span className="mini-count-dot">{day.count}</span> : <span className="mini-empty-dash">—</span>}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
           </section>
 
-          <div className="dashboard-projects-open">
-            <section aria-labelledby="dashboard-projects-heading">
-              <div className="dashboard-section-top">
-                <h2 id="dashboard-projects-heading">Projeler</h2>
-                <button type="button" className="dashboard-more" onClick={() => onNavigate({ page: "projects" })}>
-                  Tüm projeleri gör <Icon name="arrowRight" size={14} />
-                </button>
-              </div>
-              <div className="dashboard-project-list">
-                {shownProjects.map(project => (
-                  <article className="dashboard-project surface" key={project.id}>
-                    <div className="dashboard-project-title">
-                      <Icon name="folder" size={19} />
-                      <h3 title={project.name}>{project.name}</h3>
-                    </div>
-                    <p title={project.description}>{project.description || "Açıklama eklenmedi."}</p>
-                    <div className="dashboard-project-actions">
-                      <button type="button" disabled={opening || !project.folderPath} onClick={() => void launch(project.id, "folder")}>
-                        Klasörü Aç
-                      </button>
-                      <button type="button" disabled={opening || !project.folderPath} onClick={() => void launch(project.id, "vscode")}>
-                        VS Code'da Aç
-                      </button>
-                    </div>
-                    {!project.folderPath && <small>Klasör Projeler sayfasından bağlanabilir.</small>}
-                  </article>
-                ))}
-              </div>
-              {!shownProjects.length && <p className="dashboard-empty">Henüz proje yok. Projeler sayfasından bir proje ekleyebilirsin.</p>}
-            </section>
-          </div>
+          {/* Pomodoro Odak Sayacı */}
+          <PomodoroTimer />
         </div>
 
-        <aside className="dashboard-right-rail" aria-label="Hızlı işlemler ve durum">
-          <section className="dashboard-quick" aria-labelledby="dashboard-quick-heading">
-            <div className="dashboard-section-top">
-              <h2 id="dashboard-quick-heading">Hızlı İşlemler</h2>
-            </div>
-            <div className="dashboard-shortcuts">
-              {shortcuts.map(item => (
-                <button type="button" key={item.label} onClick={() => onNavigate(item.target)}>
-                  <Icon name={item.icon} size={16} />
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </section>
+        <aside className="dashboard-right-rail" aria-label="Namaz vakitleri ve durum">
           <PrayerWidget />
           <Subscriptions compact onOpen={() => onNavigate({ page: "subscriptions" })} />
           <PcStatus refreshMs={refreshMs} compact />

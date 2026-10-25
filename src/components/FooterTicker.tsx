@@ -38,26 +38,45 @@ export function FooterTicker() {
   }, []);
 
   const items = [
-    ["USD", "Dolar", "$"],
-    ["EUR", "Euro", "€"],
-    ["GBP", "Sterlin", "£"],
-    ["GRA", "Gram Altın", "🪙"],
+    { code: "USD", label: "Dolar (Alış / Satış)", symbol: "$", type: "fiat" },
+    { code: "EUR", label: "Euro (Alış / Satış)", symbol: "€", type: "fiat" },
+    { code: "GBP", label: "Sterlin (Alış / Satış)", symbol: "£", type: "fiat" },
+    { code: "GRA", label: "Gram Altın (Alış / Satış)", symbol: "🪙", type: "gold" },
+    { code: "BTC", label: "Bitcoin (USD)", symbol: "₿", type: "crypto" },
+    { code: "ETH", label: "Ethereum (USD)", symbol: "Ξ", type: "crypto" },
+    { code: "XU100", label: "BIST 100 Endeksi", symbol: "📈", type: "stock" },
   ]
-    .map(([code, label, symbol]) => {
-      const rate = rates?.rates.find(value => value.code === code);
-      if (!rate && code === "GRA" && rates) {
+    .map(def => {
+      const rate = rates?.rates.find(value => value.code === def.code);
+      if (!rate && rates) {
         return null;
       }
-      const isGold = code === "GRA";
-      const sourceTitle = isGold ? "Serbest Piyasa · Canlı Altın" : "TCMB · Günlük kur";
+      let sourceTitle = "TCMB · Günlük kur";
+      let formattedValue = "Yükleniyor…";
+
+      if (rate) {
+        if (def.type === "crypto") {
+          sourceTitle = "Binance / Global Piyasa · Canlı (USD)";
+          formattedValue = `$${rate.selling.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        } else if (def.type === "stock") {
+          sourceTitle = "Borsa İstanbul (BIST) · Canlı Endeks";
+          formattedValue = `${rate.selling.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} P`;
+        } else if (def.type === "gold") {
+          sourceTitle = "Serbest Piyasa · Canlı Altın";
+          formattedValue = `${number(rate.buying)} / ${number(rate.selling)} ₺`;
+        } else {
+          sourceTitle = "TCMB · Günlük kur";
+          formattedValue = `${number(rate.buying)} / ${number(rate.selling)} ₺`;
+        }
+        if (rateError) formattedValue += " · Son veri";
+      } else if (rateError) {
+        formattedValue = "Alınamadı";
+      }
+
       return {
-        label: `${label} (Alış / Satış)`,
-        symbol,
-        value: rate
-          ? `${number(rate.buying)} / ${number(rate.selling)} ₺${rateError ? " · Son veri" : ""}`
-          : rateError
-          ? "Alınamadı"
-          : "Yükleniyor…",
+        label: def.label,
+        symbol: def.symbol,
+        value: formattedValue,
         title: `${sourceTitle}${rates?.date ? ` · ${rates.date}` : ""}${rateError ? " · Yenileme başarısız" : ""}`,
       };
     })

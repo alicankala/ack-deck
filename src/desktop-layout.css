@@ -185,10 +185,7 @@
 .dashboard-overview strong { font-size:1.5rem; font-weight:650; letter-spacing: -0.02em; }
 .dashboard-overview small { color:var(--app-secondary); font-size: 0.85rem; }
 .dashboard-overview button>svg { color:var(--app-muted); }
-.dashboard-right-rail .dashboard-quick { padding:1rem 1.1rem; background:var(--app-surface); border:1px solid var(--app-border); border-radius:1rem; }
 .dashboard-right-rail .dashboard-section-top { display:flex; justify-content:space-between; align-items:center; gap:.5rem; margin-bottom:0; }
-.dashboard-right-rail .dashboard-shortcuts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.45rem; margin-top:.75rem; }
-.dashboard-right-rail .dashboard-shortcuts button { width:100%; justify-content:flex-start; padding:.6rem .75rem; min-height:2.35rem; border-radius:.65rem; background:var(--app-control); font-size:.78rem; }
 .dashboard-right-rail .dashboard-pc { background:var(--app-surface); border:1px solid var(--app-border); border-radius:1rem; }
 .dashboard-right-rail .dashboard-pc>summary { display:flex; flex-direction:column; gap:.55rem; padding:.8rem 1rem; cursor:pointer; }
 .dashboard-pc-header-line { display:flex; align-items:center; justify-content:space-between; width:100%; }
@@ -1237,7 +1234,26 @@
   font-size: 0.85rem;
 }
 
-/* Dashboard Schedule Layout (Timeline + Mini-Week) */
+/* Dashboard Schedule Layout (Vertical: Mini-Week on Top, Feed below) */
+.dashboard-schedule-vertical-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.schedule-week-strip-box {
+  background: var(--app-control);
+  padding: 0.65rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--app-border);
+}
+
+.schedule-day-feed-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
 .dashboard-schedule-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 1fr);
@@ -1523,6 +1539,158 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Pomodoro Odak Sayacı */
+.dashboard-pomodoro {
+  padding: 1.2rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.pomodoro-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.pomodoro-modes {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--app-control);
+  padding: 0.25rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--app-border);
+}
+
+.pomodoro-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 0.45rem;
+  border: none;
+  background: transparent;
+  color: var(--app-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pomodoro-mode-btn:hover {
+  color: var(--app-text);
+  background: var(--app-surface-hover);
+}
+
+.pomodoro-mode-btn.is-active {
+  color: var(--app-accent);
+  background: var(--app-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.pomodoro-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.pomodoro-timer-display {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.pomodoro-digits {
+  font-family: var(--font-mono, monospace);
+  font-size: 2.2rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: var(--app-text);
+  line-height: 1;
+}
+
+.pomodoro-mode-badge {
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: var(--app-accent);
+  background: var(--app-accent-soft);
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.4rem;
+}
+
+.pomodoro-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pomodoro-action-btn {
+  min-width: 6.5rem;
+  font-weight: 650;
+}
+
+.pomodoro-reset-btn {
+  font-size: 0.82rem;
+}
+
+.pomodoro-sessions-track {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--app-muted);
+}
+
+.pomodoro-session-label {
+  font-size: 0.76rem;
+  margin-right: 0.2rem;
+}
+
+.pomodoro-dot {
+  font-size: 0.9rem;
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
+}
+
+.pomodoro-dot.is-done {
+  opacity: 1;
+}
+
+.pomodoro-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.pomodoro-progress-fill {
+  height: 100%;
+  background: var(--app-accent);
+  transition: width 0.3s ease;
+}
+
+/* Prayer Widget Notification Highlight */
+.prayer-widget-highlight {
+  animation: prayer-glow 1.8s ease-in-out;
+}
+
+@keyframes prayer-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  30%, 70% {
+    box-shadow: 0 0 0 4px var(--app-accent), 0 0 20px var(--app-accent);
+  }
+}
+
 
 
 
