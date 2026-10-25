@@ -1,6 +1,6 @@
 [package]
 name = "ack-deck"
-version = "1.6.2"
+version = "1.6.3"
 description = "ACKDeck personal desktop dashboard"
 authors = ["Alican"]
 edition = "2021"
@@ -46,8 +46,8 @@ tauri-winrt-notification = "0.8.1"
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]
-codegen-units = 1
-lto = true
+codegen-units = 16
+lto = "thin"
 opt-level = 3
 panic = "abort"
 strip = true

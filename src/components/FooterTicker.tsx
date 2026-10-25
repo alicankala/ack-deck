@@ -41,19 +41,27 @@ export function FooterTicker() {
     ["USD", "Dolar", "$"],
     ["EUR", "Euro", "€"],
     ["GBP", "Sterlin", "£"],
-  ].map(([code, label, symbol]) => {
-    const rate = rates?.rates.find(value => value.code === code);
-    return {
-      label: `${label} (Alış / Satış)`,
-      symbol,
-      value: rate
-        ? `${number(rate.buying)} / ${number(rate.selling)} ₺${rateError ? " · Son veri" : ""}`
-        : rateError
-        ? "Alınamadı"
-        : "Yükleniyor…",
-      title: `TCMB · Günlük kur${rates ? ` · ${rates.date}` : ""}${rateError ? " · Yenileme başarısız" : ""}`,
-    };
-  });
+    ["GRA", "Gram Altın", "🪙"],
+  ]
+    .map(([code, label, symbol]) => {
+      const rate = rates?.rates.find(value => value.code === code);
+      if (!rate && code === "GRA" && rates) {
+        return null;
+      }
+      const isGold = code === "GRA";
+      const sourceTitle = isGold ? "Serbest Piyasa · Canlı Altın" : "TCMB · Günlük kur";
+      return {
+        label: `${label} (Alış / Satış)`,
+        symbol,
+        value: rate
+          ? `${number(rate.buying)} / ${number(rate.selling)} ₺${rateError ? " · Son veri" : ""}`
+          : rateError
+          ? "Alınamadı"
+          : "Yükleniyor…",
+        title: `${sourceTitle}${rates?.date ? ` · ${rates.date}` : ""}${rateError ? " · Yenileme başarısız" : ""}`,
+      };
+    })
+    .filter(Boolean) as { label: string; symbol: string; value: string; title: string }[];
 
   useEffect(() => {
     if (hovered || focused || items.length === 0) return;
@@ -63,7 +71,7 @@ export function FooterTicker() {
 
   const item = items[index % items.length];
   return (
-    <footer className="app-footer" aria-label="Döviz bilgileri">
+    <footer className="app-footer" aria-label="Döviz ve altın bilgileri">
       <button
         type="button"
         className="footer-ticker"

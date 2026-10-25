@@ -52,19 +52,58 @@ fn parse_rates(xml: &str) -> Option<Rates> {
     Some(Rates { date, rates })
 }
 
-#[tauri::command]
-pub async fn footer_rates() -> Result<Rates, String> {
-    let xml = client()?
-        .get("https://www.tcmb.gov.tr/kurlar/today.xml")
+async fn fetch_gold_rate(client: &reqwest::Client) -> Option<Rate> {
+    let json: Value = client
+        .get("https://finans.truncgil.com/v4/today.json")
         .send()
         .await
+        .ok()?
+        .error_for_status()
+        .ok()?
+        .json()
+        .await
+        .ok()?;
+
+    let gra = &json["GRA"];
+    let buying = gra["Buying"]
+        .as_f64()
+        .or_else(|| gra["Buying"].as_str()?.replace(',', ".").parse().ok())?;
+    let selling = gra["Selling"]
+        .as_f64()
+        .or_else(|| gra["Selling"].as_str()?.replace(',', ".").parse().ok())?;
+    if buying.is_finite() && selling.is_finite() && buying > 0.0 && selling > 0.0 {
+        Some(Rate {
+            code: "GRA".into(),
+            buying,
+            selling,
+        })
+    } else {
+        None
+    }
+}
+
+#[tauri::command]
+pub async fn footer_rates() -> Result<Rates, String> {
+    let c = client()?;
+    let tcmb_res = c
+        .get("https://www.tcmb.gov.tr/kurlar/today.xml")
+        .send()
+        .await;
+    let gold_rate = fetch_gold_rate(&c).await;
+
+    let xml = tcmb_res
         .map_err(|_| "Kurlar alınamadı.")?
         .error_for_status()
         .map_err(|_| "Kurlar alınamadı.")?
         .text()
         .await
         .map_err(|_| "Kurlar alınamadı.")?;
-    parse_rates(&xml).ok_or_else(|| "Kurlar alınamadı.".into())
+
+    let mut rates = parse_rates(&xml).ok_or_else(|| "Kurlar alınamadı.".to_string())?;
+    if let Some(gold) = gold_rate {
+        rates.rates.push(gold);
+    }
+    Ok(rates)
 }
 
 #[derive(Serialize)]
