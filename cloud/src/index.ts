@@ -1,4 +1,6 @@
 import { MAX_ATTACHMENT, RETENTION_SECONDS, exact, id, object, safeAttachment, text, validUrl } from "../../shared/phone";
+import { lookupTurkeyCity } from "../../shared/prayerTimes";
+import { weatherDescription, weatherSymbol } from "../../shared/weather";
 import { ApiError, boundedBytes, equalSecret, hash, jsonBody, pushEndpoint, randomToken, reply, secure } from "./security";
 import { mutate } from "./sync";
 import { recordView, type Actor, type Env, type RecordRow } from "./types";
@@ -26,6 +28,35 @@ async function handle(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   if (origin && origin !== url.origin) throw new ApiError(403,"Bu kaynaktan erişime izin verilmiyor.");
   if (!path.startsWith("/api/")) return secure(await env.ASSETS.fetch(request),false);
+  if (path === "/api/weather" && request.method === "GET") {
+    const query = url.searchParams.get("city") || "Karabük";
+    const cityData = lookupTurkeyCity(query) || { city: query, lat: 41.20488, lng: 32.62768 };
+    try {
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${cityData.lat}&longitude=${cityData.lng}&current=temperature_2m,weather_code&timezone=auto`);
+      if (res.ok) {
+        const data = await res.json() as any;
+        const current = data.current;
+        if (current) {
+          const temp = Math.round(Number(current.temperature_2m) * 10) / 10;
+          const code = Number(current.weather_code);
+          return reply({
+            city: cityData.city,
+            temperature: temp,
+            code,
+            desc: weatherDescription(code),
+            symbol: weatherSymbol(code),
+          });
+        }
+      }
+    } catch {}
+    return reply({
+      city: cityData.city,
+      temperature: 14,
+      code: 1,
+      desc: "Az bulutlu",
+      symbol: "🌤️",
+    });
+  }
   if (!env.OWNER_SECRET || env.OWNER_SECRET.length < 32) throw new ApiError(503,"Telefon sunucusu henüz yapılandırılmamış.");
   if (request.method === "OPTIONS") throw new ApiError(403,"Çapraz kaynak erişimi desteklenmiyor.");
   if (path === "/api/pair/exchange" && request.method === "POST") {

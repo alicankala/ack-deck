@@ -17,7 +17,7 @@ export async function jsonBody(request: Request): Promise<unknown> {
 export function secure(response: Response, api = true) {
   const result = new Response(response.body, response);
   result.headers.set("X-Content-Type-Options", "nosniff"); result.headers.set("Referrer-Policy", "no-referrer"); result.headers.set("X-Frame-Options", "DENY");
-  result.headers.set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+  result.headers.set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob:; media-src 'self' blob:; connect-src 'self' https://api.open-meteo.com https://geocoding-api.open-meteo.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
   result.headers.set("Permissions-Policy", "camera=(), geolocation=(), microphone=(self)");
   if (api) result.headers.set("Cache-Control", "no-store"); return result;
 }

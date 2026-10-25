@@ -13,8 +13,8 @@ import { SubscriptionForm, newSubscription } from "../../shared/SubscriptionForm
 import { money, cycleLabel, paymentLabel, monthlyTotals, type Subscription } from "../../shared/subscriptions";
 import { completeOccurrence, nextOccurrence, recurrenceLabel, scheduleDate, isOccurrenceCompleted, uncompleteOccurrence, completedTaskSortTime, type Recurrence } from "../../shared/recurrence";
 import { studyBlocks, type StudyProgram } from "../../shared/studyPrograms";
-import { savePrayerConfig, loadPrayerConfig, TURKEY_CITIES, type PrayerTimesConfig } from "../../shared/prayerTimes";
-import { fetchMobileWeather, type WeatherData } from "../../shared/weather";
+import { savePrayerConfig, loadPrayerConfig, lookupTurkeyCity, type PrayerTimesConfig } from "../../shared/prayerTimes";
+import { fetchMobileWeather, loadWeatherCache, type WeatherData } from "../../shared/weather";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { MAX_ATTACHMENT, type CloudRecord, type PhoneTask, type PhoneNote, type Mutation } from "../../shared/phone";
@@ -61,7 +61,7 @@ function App() {
     if (p === "settings") return "settings";
     return "today";
   });
-  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [weather, setWeather] = useState<WeatherData | null>(() => loadWeatherCache());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -359,10 +359,7 @@ function App() {
           if (prayer.city) city = prayer.city;
         }
 
-        const cityData =
-          Object.values(TURKEY_CITIES).find(c => c.city.toLowerCase() === city.toLowerCase()) ||
-          TURKEY_CITIES.karabuk || { city, lat: 41.20488, lng: 32.62768 };
-
+        const cityData = lookupTurkeyCity(city) || { city, lat: 41.20488, lng: 32.62768 };
         const w = await fetchMobileWeather(cityData.city, cityData.lat, cityData.lng);
         if (active && w) {
           setWeather(w);
@@ -870,13 +867,18 @@ function App() {
             {/* Dynamic Greeting Strip with Weather */}
             <div className="mobile-greeting-strip">
               <span className="mobile-greeting-title">{mobileGreeting}</span>
-              {weather && (
+              {weather ? (
                 <div
                   className="mobile-greeting-weather"
                   title={`${weather.city} Hava Durumu: ${weather.temperature}°C, ${weather.desc}`}
                 >
                   <span className="weather-symbol">{weather.symbol}</span>
                   <span className="weather-text">{weather.city} {weather.temperature}°C · {weather.desc}</span>
+                </div>
+              ) : (
+                <div className="mobile-greeting-weather" title="Hava durumu yükleniyor">
+                  <span className="weather-symbol">🌤️</span>
+                  <span className="weather-text">Karabük yükleniyor…</span>
                 </div>
               )}
             </div>
