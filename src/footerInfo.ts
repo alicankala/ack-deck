@@ -1,7 +1,18 @@
 import { invoke } from "@tauri-apps/api/core";
 const KEY = "ack-deck.weather-city.v1";
 export const FOOTER_REFRESH_MS = 30 * 60 * 1000;
-export type Weather = { city: string; temperature: number; code: number };
+export type HourlyForecast = { time: string; temperature: number; code: number };
+export type Weather = {
+  city: string;
+  temperature: number;
+  code: number;
+  apparentTemperature?: number;
+  humidity?: number;
+  windSpeed?: number;
+  tempMax?: number;
+  tempMin?: number;
+  hourly?: HourlyForecast[];
+};
 export type Rates = { date: string; rates: { code: string; buying: number; selling: number }[] };
 export function loadWeatherCity(): string {
   try { const raw = window.localStorage.getItem(KEY); if (raw === null) return "Ankara"; const value = JSON.parse(raw); return validCity(value) ? value.trim() : "Ankara"; } catch { return "Ankara"; }
@@ -31,4 +42,18 @@ export function weatherDescription(code: number): string {
   if ([85, 86].includes(code)) return "Kar sağanağı";
   if ([95, 96, 99].includes(code)) return "Gök gürültülü";
   return "Durum alınamadı";
+}
+export function weatherSymbol(code: number): string {
+  if (code === 0) return "☀️";
+  if (code === 1) return "🌤️";
+  if (code === 2) return "⛅";
+  if (code === 3) return "☁️";
+  if ([45, 48].includes(code)) return "🌫️";
+  if (code >= 51 && code <= 57) return "🌦️";
+  if (code >= 61 && code <= 67) return "🌧️";
+  if (code >= 71 && code <= 77) return "🌨️";
+  if (code >= 80 && code <= 82) return "🌧️";
+  if ([85, 86].includes(code)) return "❄️";
+  if ([95, 96, 99].includes(code)) return "⛈️";
+  return "🌡️";
 }

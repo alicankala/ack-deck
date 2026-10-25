@@ -68,10 +68,25 @@ pub async fn footer_rates() -> Result<Rates, String> {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HourlyForecast {
+    pub time: String,
+    pub temperature: f64,
+    pub code: u64,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Weather {
-    city: String,
-    temperature: f64,
-    code: u64,
+    pub city: String,
+    pub temperature: f64,
+    pub code: u64,
+    pub apparent_temperature: Option<f64>,
+    pub humidity: Option<u64>,
+    pub wind_speed: Option<f64>,
+    pub temp_max: Option<f64>,
+    pub temp_min: Option<f64>,
+    pub hourly: Vec<HourlyForecast>,
 }
 
 #[tauri::command]
@@ -103,7 +118,13 @@ pub async fn footer_weather(city: String) -> Result<Weather, String> {
         .query(&[
             ("latitude", lat.to_string()),
             ("longitude", lon.to_string()),
-            ("current", "temperature_2m,weather_code".into()),
+            (
+                "current",
+                "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m".into(),
+            ),
+            ("daily", "temperature_2m_max,temperature_2m_min".into()),
+            ("hourly", "temperature_2m,weather_code".into()),
+            ("forecast_hours", "24".into()),
             ("timezone", "auto".into()),
         ])
         .send()
@@ -120,10 +141,51 @@ pub async fn footer_weather(city: String) -> Result<Weather, String> {
     let code = data["current"]["weather_code"]
         .as_u64()
         .ok_or("Hava durumu alınamadı.")?;
+    let apparent_temperature = data["current"]["apparent_temperature"].as_f64();
+    let humidity = data["current"]["relative_humidity_2m"].as_u64();
+    let wind_speed = data["current"]["wind_speed_10m"].as_f64();
+    let temp_max = data["daily"]["temperature_2m_max"]
+        .as_array()
+        .and_then(|a| a.first())
+        .and_then(|v| v.as_f64());
+    let temp_min = data["daily"]["temperature_2m_min"]
+        .as_array()
+        .and_then(|a| a.first())
+        .and_then(|v| v.as_f64());
+
+    let mut hourly = Vec::new();
+    if let (Some(times), Some(temps), Some(codes)) = (
+        data["hourly"]["time"].as_array(),
+        data["hourly"]["temperature_2m"].as_array(),
+        data["hourly"]["weather_code"].as_array(),
+    ) {
+        let count = times.len().min(temps.len()).min(codes.len()).min(12);
+        for i in 0..count {
+            if let (Some(t_str), Some(temp), Some(c)) = (
+                times[i].as_str(),
+                temps[i].as_f64(),
+                codes[i].as_u64(),
+            ) {
+                let time = t_str.split('T').nth(1).unwrap_or(t_str).to_string();
+                hourly.push(HourlyForecast {
+                    time,
+                    temperature: temp,
+                    code: c,
+                });
+            }
+        }
+    }
+
     Ok(Weather {
         city: location["name"].as_str().unwrap_or(city).into(),
         temperature,
         code,
+        apparent_temperature,
+        humidity,
+        wind_speed,
+        temp_max,
+        temp_min,
+        hourly,
     })
 }
 

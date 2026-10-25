@@ -11,7 +11,160 @@
 .gemini-model-settings { margin-top: 1.2rem; border-top: 1px solid var(--app-border, #35495f); padding-top: 1rem; }
 .gemini-model-settings summary { cursor: pointer; padding: .4rem 0; font-weight: 600; }
 .gemini-model-settings .archive-form-grid { margin-block: 1rem; }
-.dashboard-header-actions { display:flex; align-items:center; gap:1rem; }
+.dashboard-header-actions { display:flex; align-items:center; gap:0.75rem; }
+.dashboard-weather-wrapper { position: relative; }
+.dashboard-weather-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 1rem;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 9999px;
+  box-shadow: 0 4px 16px -4px rgba(0,0,0,0.35);
+  font-size: 0.88rem;
+  color: var(--app-text);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.dashboard-weather-btn:hover,
+.dashboard-weather-btn.is-active {
+  border-color: var(--app-accent-border);
+  background: var(--app-surface-hover, rgba(255, 255, 255, 0.06));
+  transform: translateY(-1px);
+}
+.weather-btn-icon { font-size: 1.15rem; line-height: 1; }
+.weather-btn-temp {
+  font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 0.98rem;
+  color: var(--app-text);
+}
+.weather-btn-sep { color: var(--app-muted); font-size: 0.7rem; }
+.weather-btn-city { color: var(--app-text); font-weight: 600; }
+.weather-btn-desc {
+  color: var(--app-muted);
+  font-weight: 500;
+  font-size: 0.82rem;
+  padding: 0.1rem 0.45rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+}
+.weather-btn-chevron { color: var(--app-muted); font-size: 0.75rem; margin-left: 0.15rem; }
+
+.dashboard-weather-popover {
+  position: absolute;
+  top: calc(100% + 0.6rem);
+  right: 0;
+  z-index: 120;
+  width: 360px;
+  max-width: 90vw;
+  padding: 1.2rem;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 1.1rem;
+  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  animation: weatherFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes weatherFadeIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.weather-popover-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+.weather-popover-main { display: flex; align-items: center; gap: 0.85rem; }
+.weather-popover-large-icon { font-size: 2.4rem; line-height: 1; }
+.weather-popover-temp-row { display: flex; align-items: baseline; gap: 0.6rem; }
+.weather-popover-temp { font-size: 1.85rem; font-weight: 800; letter-spacing: -0.03em; color: var(--app-text); }
+.weather-popover-desc { font-size: 0.92rem; color: var(--app-muted); font-weight: 500; }
+.weather-popover-city-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.2rem; }
+.weather-popover-city-name { font-size: 0.88rem; font-weight: 600; color: var(--app-text); }
+.weather-city-change-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: transparent;
+  border: 0;
+  padding: 0.2rem 0.4rem;
+  color: var(--app-accent);
+  font-size: 0.76rem;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.weather-city-change-btn:hover { background: var(--app-accent-soft); }
+.weather-city-form { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.35rem; }
+.weather-city-form input {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  background: var(--app-control, rgba(0, 0, 0, 0.3));
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  color: var(--app-text);
+  width: 120px;
+}
+
+.weather-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.55rem;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 0.85rem;
+  margin-bottom: 1rem;
+}
+.weather-metric-box { display: flex; flex-direction: column; gap: 0.15rem; }
+.weather-metric-label { font-size: 0.74rem; color: var(--app-muted); font-weight: 500; }
+.weather-metric-val { font-size: 0.95rem; font-weight: 700; color: var(--app-text); }
+
+.weather-hourly-section { margin-bottom: 0.85rem; }
+.weather-hourly-title { display: block; font-size: 0.76rem; font-weight: 600; color: var(--app-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.45rem; }
+.weather-hourly-strip {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+  scrollbar-width: thin;
+}
+.weather-hour-cell {
+  flex: 0 0 46px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.45rem 0.2rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  text-align: center;
+}
+.hour-time { font-size: 0.7rem; color: var(--app-muted); }
+.hour-icon { font-size: 1.05rem; line-height: 1; }
+.hour-temp { font-size: 0.82rem; font-weight: 700; color: var(--app-text); }
+
+.weather-popover-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--app-border);
+  color: var(--app-muted);
+  font-size: 0.72rem;
+}
+.weather-close-btn {
+  background: transparent;
+  border: 0;
+  color: var(--app-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+.weather-close-btn:hover { color: var(--app-text); background: rgba(255, 255, 255, 0.08); }
 .dashboard-greeting-title { font-size:1.9rem; font-weight:800; letter-spacing:-0.035em; color:var(--app-text); margin:0; line-height:1.2; }
 .dashboard-live-badge { display:inline-flex; align-items:center; gap:0.65rem; padding:0.6rem 1.15rem; background:var(--app-surface); border:1px solid var(--app-border); border-radius:9999px; box-shadow:0 4px 16px -4px rgba(0,0,0,0.4); font-size:0.88rem; color:var(--app-text); font-weight:600; }
 .live-status-dot { width:8px; height:8px; border-radius:50%; background:#10b981; box-shadow:0 0 8px #10b981; animation:livePulse 2s infinite; }

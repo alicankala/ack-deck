@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { WeatherWidget } from "./WeatherWidget";
 
 export function Header() {
   const [now, setNow] = useState(() => new Date());
@@ -23,12 +24,12 @@ export function Header() {
   const hours = now.getHours();
   const greeting =
     hours >= 5 && hours < 12
-      ? "Günaydın"
+      ? "Günaydın, Alican"
       : hours >= 12 && hours < 18
-      ? "İyi günler"
+      ? "İyi günler, Alican"
       : hours >= 18 && hours < 24
-      ? "İyi akşamlar"
-      : "İyi geceler";
+      ? "İyi akşamlar, Alican"
+      : "İyi geceler, Alican";
 
   return (
     <header className="dashboard-header">
@@ -36,6 +37,7 @@ export function Header() {
         <h1 className="dashboard-greeting-title">{greeting}</h1>
       </div>
       <div className="dashboard-header-actions">
+        <WeatherWidget />
         <div className="dashboard-live-badge" aria-label="Canlı Saat ve Tarih">
           <span className="live-status-dot" aria-hidden="true" />
           <span className="live-clock-text">{time}</span>
