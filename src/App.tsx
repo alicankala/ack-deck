@@ -236,7 +236,8 @@ function App() {
     };
   }, []);
 
-  const projectsView = <Projects projects={projects} onChange={changeProjects} fullPage initialId={route.target.id} onNavigate={navigate} onAskAi={askAi} />;
+  const currentTool: "converter" | "speed" | "ip" | "qr" = page === "speed" ? "speed" : page === "ip" ? "ip" : page === "qr" ? "qr" : "converter";
+  const projectsView = <Projects projects={projects} onChange={changeProjects} fullPage initialId={route.target.id} initialTool={currentTool} onNavigate={navigate} onAskAi={askAi} />;
 
   const pageViews: Record<Page, ReactNode> = {
     home: <Dashboard targetId={route.target.id} projects={projects} refreshMs={preferences.pcRefreshMs} onNavigate={navigate} onAskAi={askAi} />,

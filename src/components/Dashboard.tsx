@@ -143,71 +143,7 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, targetId }
             </button>
           </div>
 
-          <div className="dashboard-start-grid">
-            <section className="dashboard-today surface" aria-labelledby="dashboard-today-heading">
-              <div className="dashboard-section-top">
-                <div>
-                  <h2 id="dashboard-today-heading">Bugün</h2>
-                  <small className="today-date-subtitle">
-                    {now.toLocaleDateString("tr-TR", { day: "numeric", month: "long", weekday: "long" })}
-                  </small>
-                </div>
-                <button type="button" className="dashboard-text-button" onClick={() => onNavigate({ page: "tasks", intent: "new-task" })}>
-                  + Görev
-                </button>
-              </div>
-
-              <div className="daily-summary-counts">
-                <button type="button" className="today-badge-btn" onClick={() => onNavigate({ page: "tasks" })}>
-                  <Icon name="check" size={13} />
-                  <span><strong>{summary.today}</strong> görev {summary.overdue > 0 && <em className="overdue-count">({summary.overdue} geciken)</em>}</span>
-                </button>
-                <button type="button" className="today-badge-btn" onClick={() => onNavigate({ page: "inbox" })}>
-                  <Icon name="files" size={13} />
-                  <span><strong>{summary.unhandledInbox ?? "0"}</strong> gelen</span>
-                </button>
-                <button type="button" className="today-badge-btn" onClick={() => onNavigate({ page: "subscriptions" })}>
-                  <Icon name="archive" size={13} />
-                  <span><strong>{summary.subscriptions.length}</strong> abonelik</span>
-                </button>
-              </div>
-
-              {data.tasks.warning && <p className="dashboard-empty" role="status">{data.tasks.warning}</p>}
-
-              <div className="dashboard-daily-list">
-                {daily.map(({ task, label }) => (
-                  <div className="dashboard-daily-task" key={task.id}>
-                    <button
-                      type="button"
-                      className="task-toggle"
-                      onClick={() => complete(task.id)}
-                      aria-label={task.text + ": tamamlandı işaretle"}
-                    />
-                    <button type="button" className="dashboard-task-open" onClick={() => onNavigate({ page: "tasks", id: task.id })}>
-                      <strong>{task.text}</strong>
-                      <small className={label === "Zamanı geçti" ? "overdue" : ""}>
-                        {label}{task.dueTime && " · " + task.dueTime}
-                      </small>
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              {!daily.length && !data.tasks.locked && (
-                <div className="dashboard-empty-state">
-                  <span><Icon name="check" size={26} /></span>
-                  <strong>Günün açık</strong>
-                  <p>Bekleyen tarihli görev yok.</p>
-                </div>
-              )}
-            </section>
-
-            <AiStart onAskAi={onAskAi} />
-          </div>
-
-          {feedback && <p className="tool-feedback error" role="alert">{feedback}</p>}
-
-          {/* Günün Akışı & Haftalık Çizelge */}
+          {/* Günün Akışı & Haftalık Çizelge (Üstte) */}
           <section className="dashboard-weekly-preview surface" aria-labelledby="dashboard-weekly-heading">
             <div className="dashboard-section-top">
               <div className="weekly-preview-title">
@@ -295,6 +231,71 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, targetId }
               </div>
             </div>
           </section>
+
+          {feedback && <p className="tool-feedback error" role="alert">{feedback}</p>}
+
+          {/* Bugün ve ACK AI (Altta) */}
+          <div className="dashboard-start-grid">
+            <section className="dashboard-today surface" aria-labelledby="dashboard-today-heading">
+              <div className="dashboard-section-top">
+                <div>
+                  <h2 id="dashboard-today-heading">Bugün</h2>
+                  <small className="today-date-subtitle">
+                    {now.toLocaleDateString("tr-TR", { day: "numeric", month: "long", weekday: "long" })}
+                  </small>
+                </div>
+                <button type="button" className="dashboard-text-button" onClick={() => onNavigate({ page: "tasks", intent: "new-task" })}>
+                  + Görev
+                </button>
+              </div>
+
+              <div className="daily-summary-counts">
+                <button type="button" className="today-badge-btn" onClick={() => onNavigate({ page: "tasks" })}>
+                  <Icon name="check" size={13} />
+                  <span><strong>{summary.today}</strong> görev {summary.overdue > 0 && <em className="overdue-count">({summary.overdue} geciken)</em>}</span>
+                </button>
+                <button type="button" className="today-badge-btn" onClick={() => onNavigate({ page: "inbox" })}>
+                  <Icon name="files" size={13} />
+                  <span><strong>{summary.unhandledInbox ?? "0"}</strong> gelen</span>
+                </button>
+                <button type="button" className="today-badge-btn" onClick={() => onNavigate({ page: "subscriptions" })}>
+                  <Icon name="archive" size={13} />
+                  <span><strong>{summary.subscriptions.length}</strong> abonelik</span>
+                </button>
+              </div>
+
+              {data.tasks.warning && <p className="dashboard-empty" role="status">{data.tasks.warning}</p>}
+
+              <div className="dashboard-daily-list">
+                {daily.map(({ task, label }) => (
+                  <div className="dashboard-daily-task" key={task.id}>
+                    <button
+                      type="button"
+                      className="task-toggle"
+                      onClick={() => complete(task.id)}
+                      aria-label={task.text + ": tamamlandı işaretle"}
+                    />
+                    <button type="button" className="dashboard-task-open" onClick={() => onNavigate({ page: "tasks", id: task.id })}>
+                      <strong>{task.text}</strong>
+                      <small className={label === "Zamanı geçti" ? "overdue" : ""}>
+                        {label}{task.dueTime && " · " + task.dueTime}
+                      </small>
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {!daily.length && !data.tasks.locked && (
+                <div className="dashboard-empty-state">
+                  <span><Icon name="check" size={26} /></span>
+                  <strong>Günün açık</strong>
+                  <p>Bekleyen tarihli görev yok.</p>
+                </div>
+              )}
+            </section>
+
+            <AiStart onAskAi={onAskAi} />
+          </div>
 
           {/* Pomodoro Odak Sayacı */}
           <PomodoroTimer />

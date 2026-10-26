@@ -12,13 +12,14 @@ import { recordRecent } from "../recentStore";
 import { IpTool } from "./IpTool";
 import { QrTool } from "./QrTool";
 import { SpeedTest } from "./SpeedTest";
+import { FileConverter } from "./FileConverter";
 
 type Editor = { id: string | null; name: string; description: string; folderPath: string };
-type Props = { projects: Project[]; onChange: (projects: Project[]) => boolean; fullPage?: boolean; initialId?: string; workspaceId?: string; onNavigate?: (target: NavigationTarget)=>void; onAskAi?: (text:string)=>void };
+type Props = { projects: Project[]; onChange: (projects: Project[]) => boolean; fullPage?: boolean; initialId?: string; initialTool?: "converter" | "speed" | "ip" | "qr"; workspaceId?: string; onNavigate?: (target: NavigationTarget)=>void; onAskAi?: (text:string)=>void };
 const emptyEditor: Editor = { id: null, name: "", description: "", folderPath: "" };
 const safeErrors = new Set(["Klasör bulunamadı.", "Klasör açılamadı.", "VS Code bulunamadı veya açılamadı."]);
 
-export function Projects({ projects, onChange, fullPage = false, initialId, onNavigate, onAskAi }: Props) {
+export function Projects({ projects, onChange, fullPage = false, initialId, initialTool, onNavigate, onAskAi }: Props) {
   useEffect(() => { if (initialId) document.getElementById("project-" + initialId)?.scrollIntoView({ block: "center" }); }, [initialId]);
   const [hubId,setHubId]=useState(initialId??"");
   useEffect(()=>{if(hubId)document.getElementById("project-work-summary")?.scrollIntoView({block:"start",behavior:"smooth"});},[hubId]);
@@ -27,7 +28,7 @@ export function Projects({ projects, onChange, fullPage = false, initialId, onNa
   const [dragged,setDragged]=useState<string|null>(null),[dragOver,setDragOver]=useState<string|null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [toolTab, setToolTab] = useState<"speed" | "ip" | "qr">("speed");
+  const [toolTab, setToolTab] = useState<"converter" | "speed" | "ip" | "qr">(initialTool || "converter");
 
   function startEdit(project?: Project) {
     setMessage("");
@@ -127,6 +128,13 @@ export function Projects({ projects, onChange, fullPage = false, initialId, onNa
           <div className="project-tools-tab-buttons" style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
             <button
               type="button"
+              className={`button ${toolTab === "converter" ? "button-primary" : "button-secondary"}`}
+              onClick={() => setToolTab("converter")}
+            >
+              📑 Çevirici (Word / PDF / Görsel)
+            </button>
+            <button
+              type="button"
               className={`button ${toolTab === "speed" ? "button-primary" : "button-secondary"}`}
               onClick={() => setToolTab("speed")}
             >
@@ -150,6 +158,7 @@ export function Projects({ projects, onChange, fullPage = false, initialId, onNa
 
           <section className="project-embedded-tools surface" aria-label="Araçlar">
             <div className="project-tool-content">
+              {toolTab === "converter" && <FileConverter />}
               {toolTab === "speed" && <SpeedTest />}
               {toolTab === "ip" && <IpTool />}
               {toolTab === "qr" && <QrTool />}
