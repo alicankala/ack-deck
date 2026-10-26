@@ -2,15 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "./Icon";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
-type Mode = "pomodoro" | "shortBreak" | "longBreak";
+export type PomodoroMode = "pomodoro" | "shortBreak" | "longBreak";
 
-const MODE_DURATIONS: Record<Mode, number> = {
+const MODE_DURATIONS: Record<PomodoroMode, number> = {
   pomodoro: 25 * 60,
   shortBreak: 5 * 60,
   longBreak: 15 * 60,
 };
 
-const MODE_LABELS: Record<Mode, { title: string; icon: string }> = {
+const MODE_LABELS: Record<PomodoroMode, { title: string; icon: string }> = {
   pomodoro: { title: "Odak", icon: "🍅" },
   shortBreak: { title: "Kısa Mola", icon: "☕" },
   longBreak: { title: "Uzun Mola", icon: "🌴" },
@@ -20,13 +20,15 @@ const STORAGE_KEY = "ack-deck.pomodoro.v1";
 
 function playBeep() {
   try {
-    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "sine";
     osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
     osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15); // A5
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
     osc.connect(gain);
     gain.connect(ctx.destination);
@@ -36,18 +38,19 @@ function playBeep() {
 }
 
 export function PomodoroTimer() {
-  const [mode, setMode] = useState<Mode>("pomodoro");
+  const [mode, setMode] = useState<PomodoroMode>("pomodoro");
   const [timeLeft, setTimeLeft] = useState<number>(MODE_DURATIONS.pomodoro);
   const [isRunning, setIsRunning] = useState(false);
   const [completedSessions, setCompletedSessions] = useState(0);
+  const [autoStartBreaks, setAutoStartBreaks] = useState(true);
 
-  // Load saved state
+  // Load saved state on mount
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed.mode && MODE_DURATIONS[parsed.mode as Mode]) {
+        if (parsed.mode && MODE_DURATIONS[parsed.mode as PomodoroMode]) {
           setMode(parsed.mode);
         }
         if (typeof parsed.completedSessions === "number") {
@@ -56,52 +59,72 @@ export function PomodoroTimer() {
         if (typeof parsed.timeLeft === "number" && parsed.timeLeft > 0) {
           setTimeLeft(parsed.timeLeft);
         }
+        if (typeof parsed.autoStartBreaks === "boolean") {
+          setAutoStartBreaks(parsed.autoStartBreaks);
+        }
       }
     } catch {}
   }, []);
 
-  // Save state
+  // Save state on change
   useEffect(() => {
     try {
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ mode, timeLeft, completedSessions })
+        JSON.stringify({ mode, timeLeft, completedSessions, autoStartBreaks })
       );
     } catch {}
-  }, [mode, timeLeft, completedSessions]);
+  }, [mode, timeLeft, completedSessions, autoStartBreaks]);
 
-  const targetMode = useRef(mode);
-  targetMode.current = mode;
+  // Keep references to current state so the timer interval can cleanly transition
+  const stateRef = useRef({ mode, completedSessions, autoStartBreaks });
+  stateRef.current = { mode, completedSessions, autoStartBreaks };
 
-  // Timer interval
+  // Timer interval countdown
   useEffect(() => {
     if (!isRunning) return;
 
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
-          setIsRunning(false);
+          // Time is up! Handle mode transition
+          const { mode: curMode, completedSessions: curSessions, autoStartBreaks: autoStart } = stateRef.current;
           playBeep();
 
-          const currentMode = targetMode.current;
-          if (currentMode === "pomodoro") {
-            setCompletedSessions(c => c + 1);
+          if (curMode === "pomodoro") {
+            const nextSessions = curSessions + 1;
+            setCompletedSessions(nextSessions);
+            const isLong = nextSessions % 4 === 0;
+            const nextMode: PomodoroMode = isLong ? "longBreak" : "shortBreak";
+            const nextDuration = MODE_DURATIONS[nextMode];
+
+            setMode(nextMode);
+            setIsRunning(autoStart); // Auto-start the break if enabled
+
             if (isTauri()) {
               void invoke("notify_desktop", {
                 title: "🍅 Pomodoro Tamamlandı!",
-                body: "Tebrikler, 25 dakikalık odak seansını bitirdin. Şimdi mola zamanı!",
+                body: isLong
+                  ? "Tebrikler, 4 seansı tamamladın! 15 dakikalık uzun mola başladı."
+                  : "Tebrikler, 25 dakikalık odak seansını bitirdin. 5 dakikalık mola başladı!",
                 target: null,
               }).catch(() => {});
             }
-            return MODE_DURATIONS.shortBreak;
+
+            return nextDuration;
           } else {
+            // Break is over -> return to focus mode and pause until user clicks start
+            setMode("pomodoro");
+            setIsRunning(false);
+
             if (isTauri()) {
               void invoke("notify_desktop", {
                 title: "☕ Mola Bitti!",
-                body: "Mola süresi doldu. Yeni bir odak seansına hazır mısın?",
+                body: "Mola süresi doldu. Yeni bir odak seansına hazır olduğunda Başlat'a tıkla!",
                 target: null,
               }).catch(() => {});
             }
+
             return MODE_DURATIONS.pomodoro;
           }
         }
@@ -112,7 +135,7 @@ export function PomodoroTimer() {
     return () => clearInterval(timer);
   }, [isRunning]);
 
-  function switchMode(newMode: Mode) {
+  function switchMode(newMode: PomodoroMode) {
     setIsRunning(false);
     setMode(newMode);
     setTimeLeft(MODE_DURATIONS[newMode]);
@@ -125,6 +148,21 @@ export function PomodoroTimer() {
 
   function toggleRunning() {
     setIsRunning(!isRunning);
+  }
+
+  function skipPhase() {
+    setIsRunning(false);
+    if (mode === "pomodoro") {
+      const nextSessions = completedSessions + 1;
+      setCompletedSessions(nextSessions);
+      const isLong = nextSessions % 4 === 0;
+      const nextMode: PomodoroMode = isLong ? "longBreak" : "shortBreak";
+      setMode(nextMode);
+      setTimeLeft(MODE_DURATIONS[nextMode]);
+    } else {
+      setMode("pomodoro");
+      setTimeLeft(MODE_DURATIONS.pomodoro);
+    }
   }
 
   const totalTime = MODE_DURATIONS[mode];
@@ -152,7 +190,7 @@ export function PomodoroTimer() {
 
         {/* Mode Selector Tabs */}
         <div className="pomodoro-modes" role="tablist" aria-label="Pomodoro modları">
-          {(["pomodoro", "shortBreak", "longBreak"] as Mode[]).map(m => (
+          {(["pomodoro", "shortBreak", "longBreak"] as PomodoroMode[]).map(m => (
             <button
               type="button"
               key={m}
@@ -172,7 +210,7 @@ export function PomodoroTimer() {
         {/* Big Time Display */}
         <div className="pomodoro-timer-display">
           <span className="pomodoro-digits">{timeFormatted}</span>
-          <span className="pomodoro-mode-badge">{MODE_LABELS[mode].title}</span>
+          <span className={`pomodoro-mode-badge mode-${mode}`}>{MODE_LABELS[mode].title}</span>
         </div>
 
         {/* Action Controls */}
@@ -193,26 +231,46 @@ export function PomodoroTimer() {
           >
             Sıfırla
           </button>
+          <button
+            type="button"
+            className="button button-secondary pomodoro-skip-btn"
+            onClick={skipPhase}
+            title={mode === "pomodoro" ? "Molaya geç" : "Odağa geç"}
+          >
+            {mode === "pomodoro" ? "Molaya Geç" : "Odağa Dön"}
+          </button>
         </div>
 
-        {/* Sessions Counter Dots */}
-        <div className="pomodoro-sessions-track" title={`${completedSessions} seans tamamlandı`}>
-          <span className="pomodoro-session-label">Seanslar:</span>
-          {Array.from({ length: Math.max(4, (Math.floor(completedSessions / 4) + 1) * 4) }).map((_, i) => (
-            <span
-              key={i}
-              className={`pomodoro-dot ${i < completedSessions ? "is-done" : ""}`}
-              aria-hidden="true"
-            >
-              {i < completedSessions ? "🍅" : "○"}
-            </span>
-          ))}
+        {/* Sessions Counter & Auto-break Checkbox */}
+        <div className="pomodoro-footer-options">
+          <div className="pomodoro-sessions-track" title={`${completedSessions} seans tamamlandı (Her 4 seansta bir uzun mola)`}>
+            <span className="pomodoro-session-label">Döngü:</span>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <span
+                key={i}
+                className={`pomodoro-dot ${i < (completedSessions % 4) ? "is-done" : ""}`}
+                aria-hidden="true"
+              >
+                {i < (completedSessions % 4) ? "🍅" : "○"}
+              </span>
+            ))}
+            <span className="pomodoro-total-badge">Toplam {completedSessions}</span>
+          </div>
+
+          <label className="pomodoro-autobreak-label" title="25 dakika bittiğinde 5 dakikalık molayı otomatik başlatır">
+            <input
+              type="checkbox"
+              checked={autoStartBreaks}
+              onChange={e => setAutoStartBreaks(e.target.checked)}
+            />
+            <span>Otomatik molaya geç</span>
+          </label>
         </div>
       </div>
 
       {/* Progress Bar at Bottom of Card */}
       <div className="pomodoro-progress-bar" role="progressbar" aria-valuenow={progressPercent} aria-valuemin={0} aria-valuemax={100}>
-        <div className="pomodoro-progress-fill" style={{ width: `${progressPercent}%` }} />
+        <div className={`pomodoro-progress-fill mode-${mode}`} style={{ width: `${progressPercent}%` }} />
       </div>
     </section>
   );

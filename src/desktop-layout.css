@@ -1635,8 +1635,17 @@
   font-weight: 650;
 }
 
-.pomodoro-reset-btn {
+.pomodoro-reset-btn,
+.pomodoro-skip-btn {
   font-size: 0.82rem;
+  padding: 0.45rem 0.75rem;
+}
+
+.pomodoro-footer-options {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
 }
 
 .pomodoro-sessions-track {
@@ -1645,6 +1654,58 @@
   gap: 0.35rem;
   font-size: 0.8rem;
   color: var(--app-muted);
+}
+
+.pomodoro-total-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--app-muted);
+  background: var(--app-control);
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.35rem;
+  margin-left: 0.3rem;
+}
+
+.pomodoro-autobreak-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  color: var(--app-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.pomodoro-autobreak-label input {
+  accent-color: var(--app-accent);
+  cursor: pointer;
+}
+
+.pomodoro-mode-badge.mode-pomodoro {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.pomodoro-mode-badge.mode-shortBreak {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.pomodoro-mode-badge.mode-longBreak {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.pomodoro-progress-fill.mode-pomodoro {
+  background: #ef4444;
+}
+
+.pomodoro-progress-fill.mode-shortBreak {
+  background: #10b981;
+}
+
+.pomodoro-progress-fill.mode-longBreak {
+  background: #3b82f6;
 }
 
 .pomodoro-session-label {
