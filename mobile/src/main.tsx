@@ -2,8 +2,7 @@ import { ActionMenu } from "../../src/components/ActionMenu";
 import { MobileInboxProcessing } from "./InboxProcessing";
 import { MobileSmartCapture, MobileWeek } from "./ProductViews";
 import { MobilePrayerCard } from "./MobilePrayerCard";
-import { ChecklistEditor } from "../../shared/ChecklistEditor";
-import { productMetadata, type ChecklistItem } from "../../shared/productivity";
+import { productMetadata } from "../../shared/productivity";
 import { moveBy } from "../../src/reorder";
 import { NoteAttachments } from "./NoteAttachments";
 import { NoteEditor } from "./NoteEditor";
@@ -76,7 +75,6 @@ function App() {
   const [recurrence, setRecurrence] = useState<Recurrence | null>(null);
   const [subscriptionDraft, setSubscriptionDraft] = useState<Subscription | null>(null);
   const [quickAdd, setQuickAdd] = useState(false);
-  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [projectId, setProjectId] = useState("");
   const [reminderLead, setReminderLead] = useState(0);
   const [undo, setUndo] = useState<{ row: CloudRecord; expires: number } | null>(null);
@@ -316,7 +314,6 @@ function App() {
 
   function openForm(kind: NonNullable<typeof form>, row: CloudRecord | null = null) {
     const task = row?.kind === "tasks" ? row.data as PhoneTask : null;
-    setChecklist(task?.checklist ?? []);
     setProjectId((row?.data as PhoneNote | PhoneTask | undefined)?.projectId ?? "");
     setReminderLead(task?.reminderLeadMinutes ?? 0);
     setError("");
@@ -492,7 +489,7 @@ function App() {
           deleted: false,
           data: {
             ...productMetadata(previous ?? {}),
-            checklist,
+            checklist: previous?.checklist ?? [],
             projectId: projectId || null,
             reminderLeadMinutes: reminderLead,
             text: title.trim(),

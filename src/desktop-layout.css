@@ -583,12 +583,12 @@
 
 .projects-split-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(400px, 1fr);
-  gap: 1.75rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.5rem;
   align-items: start;
   width: 100%;
 }
-@media (max-width: 1100px) {
+@media (max-width: 900px) {
   .projects-split-layout {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1668,15 +1668,29 @@
 }
 .projects-split-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.5rem;
   align-items: start;
   width: 100%;
+  box-sizing: border-box;
+}
+.projects-split-layout.view-tools-only {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+.projects-split-layout.view-tools-only .projects-split-left {
+  display: none !important;
+}
+.projects-split-layout.view-projects-only {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+.projects-split-layout.view-projects-only .projects-split-right {
+  display: none !important;
 }
 .projects-split-left,
 .projects-split-right {
   min-width: 0;
   width: 100%;
+  box-sizing: border-box;
 }
 .projects-split-left .project-grid {
   grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr)) !important;
@@ -1684,8 +1698,85 @@
 }
 @media (max-width: 900px) {
   .projects-split-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) !important;
   }
+}
+
+/* Projects View Switcher Toolbar */
+.projects-view-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.85rem;
+}
+.projects-view-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  padding: 0.25rem;
+  border-radius: 0.65rem;
+}
+.projects-view-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--app-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 0.45rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.projects-view-pill:hover {
+  color: var(--app-text);
+  background: var(--app-field);
+}
+.projects-view-pill.active {
+  color: var(--app-accent);
+  background: var(--app-accent-soft);
+  font-weight: 600;
+}
+.column-view-toggle-btn {
+  background: var(--app-field);
+  border: 1px solid var(--app-border);
+  color: var(--app-secondary);
+  font-size: 0.76rem;
+  font-weight: 550;
+  padding: 0.3rem 0.65rem;
+  border-radius: 0.45rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.column-view-toggle-btn:hover {
+  color: var(--app-text);
+  border-color: var(--app-accent);
+  background: var(--app-surface);
+}
+:root[data-theme="light"] .projects-view-pills {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+:root[data-theme="light"] .projects-view-pill.active {
+  background: #ffffff;
+  color: #0284c7;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+:root[data-theme="light"] .column-view-toggle-btn {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+:root[data-theme="light"] .column-view-toggle-btn:hover {
+  background: #ffffff;
+  color: #0284c7;
+  border-color: #0284c7;
 }
 
 /* Pomodoro Odak Sayacı */

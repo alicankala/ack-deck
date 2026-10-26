@@ -16,6 +16,7 @@ const IpTool = lazy(() => import("./IpTool").then(m => ({ default: m.IpTool })))
 const QrTool = lazy(() => import("./QrTool").then(m => ({ default: m.QrTool })));
 
 type Editor = { id: string | null; name: string; description: string; folderPath: string };
+type ViewMode = "split" | "projects" | "tools";
 type Props = { projects: Project[]; onChange: (projects: Project[]) => boolean; fullPage?: boolean; initialId?: string; initialTool?: "converter" | "speed" | "ip" | "qr"; workspaceId?: string; onNavigate?: (target: NavigationTarget)=>void; onAskAi?: (text:string)=>void };
 const emptyEditor: Editor = { id: null, name: "", description: "", folderPath: "" };
 const safeErrors = new Set(["Klasör bulunamadı.", "Klasör açılamadı.", "VS Code bulunamadı veya açılamadı."]);
@@ -30,6 +31,7 @@ export function Projects({ projects, onChange, fullPage = false, initialId, init
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [toolTab, setToolTab] = useState<"converter" | "speed" | "ip" | "qr">(initialTool || "converter");
+  const [viewMode, setViewMode] = useState<ViewMode>("split");
 
   function startEdit(project?: Project) {
     setMessage("");
@@ -104,69 +106,138 @@ export function Projects({ projects, onChange, fullPage = false, initialId, init
       <div className="project-editor-actions"><button className="button button-primary" type="submit" disabled={!editor.name.trim() || busy}>Kaydet</button><button className="button button-secondary" type="button" onClick={() => setEditor(null)}>Vazgeç</button></div>
     </form></EditorDialog>}
     {fullPage ? (
-      <div className="projects-split-layout">
-        <div className="projects-split-left">
-          <header className="feature-heading projects-column-heading" style={{ margin: "0 0 1.25rem" }}>
-            <h1 id="projects-heading">Projeler</h1>
-          </header>
-          <div className="project-grid">
-            {projects.map((project, index) => <article draggable={!busy} onDragStart={event=>{setDragged(project.id);event.dataTransfer.setData("text/plain",project.id);event.dataTransfer.effectAllowed="move";}} onDragOver={event=>{if(dragged){event.preventDefault();setDragOver(project.id);}}} onDrop={event=>{event.preventDefault();if(dragged)onChange(moveTo(projects,dragged,project.id));setDragged(null);setDragOver(null);}} onDragEnd={()=>{setDragged(null);setDragOver(null);}} id={"project-" + project.id} className={"project-card surface " + (initialId === project.id ? "record-highlight " : "")+(dragged===project.id?"dragging ":"")+(dragOver===project.id?"drag-over":"")} key={project.id}>
-              <div className="project-top"><span className="project-avatar">{project.name.trim().charAt(0).toLocaleUpperCase("tr-TR") || "P"}</span><span className="project-number">{String(index + 1).padStart(2, "0")} / {String(projects.length).padStart(2, "0")}</span></div>
-              <div className="project-info"><h3><button className="project-hub-open" onClick={()=>setHubId(hubId===project.id?"":project.id)}>{project.name}</button></h3>{project.nextStep&&<p className="project-next-step">→ {project.nextStep}</p>}<p>{project.description || "Açıklama yok"}</p><span className="project-path" title={project.folderPath}>{project.folderPath || "Klasör bağlanmadı"}</span></div>
-              <div className="project-actions"><button type="button" aria-label={project.name + " klasörünü aç"} onClick={() => launch(project, "open_project_folder")} disabled={!project.folderPath || busy}>Klasörü Aç</button><button type="button" aria-label={project.name + " projesini VS Code'da aç"} onClick={() => launch(project, "open_project_in_vscode")} disabled={!project.folderPath || busy}>VS Code'da Aç</button><ActionMenu label={project.name+" işlemleri"}><button type="button" disabled={index===0||busy} onClick={()=>onChange(moveBy(projects,project.id,-1))}>Öne taşı</button><button type="button" disabled={index===projects.length-1||busy} onClick={()=>onChange(moveBy(projects,project.id,1))}>Arkaya taşı</button><button type="button" aria-label={project.name + " projesini düzenle"} onClick={() => startEdit(project)}>Düzenle</button><button className="project-delete" type="button" aria-label={project.name + " projesini sil"} onClick={() => setDeleteId(project.id)}>Sil</button></ActionMenu></div>
-              {deleteId === project.id && <div className="project-confirm"><span>Bu proje silinsin mi?</span><button type="button" aria-label={project.name + " projesini silmeyi onayla"} onClick={() => remove(project.id)}>Evet, sil</button><button type="button" onClick={() => setDeleteId(null)}>Vazgeç</button></div>}
-            </article>)}
-            <button className="project-add" type="button" onClick={() => startEdit()}><span className="add-icon"><Icon name="plus" size={22} /></span><strong>+ Proje</strong><span>Yeni bir proje ekle</span></button>
+      <div className="projects-container">
+        <div className="projects-view-toolbar">
+          <div className="projects-view-pills" role="group" aria-label="Görünüm Düzeni">
+            <button
+              type="button"
+              className={`projects-view-pill ${viewMode === "split" ? "active" : ""}`}
+              onClick={() => setViewMode("split")}
+              title="50 / 50 İkili Görünüm (Varsayılan)"
+            >
+              <Icon name="grid" size={13} /> 50 / 50 İkili
+            </button>
+            <button
+              type="button"
+              className={`projects-view-pill ${viewMode === "tools" ? "active" : ""}`}
+              onClick={() => setViewMode("tools")}
+              title="Tam Ekran Araçlar"
+            >
+              <Icon name="files" size={13} /> Tam Ekran Araçlar
+            </button>
+            <button
+              type="button"
+              className={`projects-view-pill ${viewMode === "projects" ? "active" : ""}`}
+              onClick={() => setViewMode("projects")}
+              title="Yalnızca Projeler"
+            >
+              <Icon name="folder" size={13} /> Yalnızca Projeler
+            </button>
           </div>
-          {hubId && projects.find(p=>p.id===hubId) && <ProjectHub key={hubId} project={projects.find(p=>p.id===hubId)!} onChange={patch=>onChange(projects.map(p=>p.id===hubId?{...p,...patch}:p))} onNavigate={onNavigate} onAskAi={onAskAi}/> }
         </div>
 
-        <div className="projects-split-right">
-          <header className="feature-heading tools-column-heading" style={{ margin: "0 0 1.25rem" }}>
-            <h1 style={{ margin: 0 }}>Araçlar</h1>
-          </header>
-
-          <div className="project-tools-tab-buttons" style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              className={`button ${toolTab === "converter" ? "button-primary" : "button-secondary"}`}
-              onClick={() => setToolTab("converter")}
-            >
-              📑 Çevirici (Word / PDF / Görsel)
-            </button>
-            <button
-              type="button"
-              className={`button ${toolTab === "speed" ? "button-primary" : "button-secondary"}`}
-              onClick={() => setToolTab("speed")}
-            >
-              ⚡ Hız Testi
-            </button>
-            <button
-              type="button"
-              className={`button ${toolTab === "ip" ? "button-primary" : "button-secondary"}`}
-              onClick={() => setToolTab("ip")}
-            >
-              🌐 IP Bilgisi
-            </button>
-            <button
-              type="button"
-              className={`button ${toolTab === "qr" ? "button-primary" : "button-secondary"}`}
-              onClick={() => setToolTab("qr")}
-            >
-              📱 QR Kod
-            </button>
+        <div className={`projects-split-layout ${viewMode === "tools" ? "view-tools-only" : viewMode === "projects" ? "view-projects-only" : ""}`}>
+          <div className="projects-split-left">
+            <header className="feature-heading projects-column-heading" style={{ margin: "0 0 1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h1 id="projects-heading" style={{ margin: 0 }}>Projeler</h1>
+              {viewMode === "split" ? (
+                <button
+                  type="button"
+                  className="column-view-toggle-btn"
+                  onClick={() => setViewMode("projects")}
+                  title="Projeleri tam genişliğe genişlet"
+                >
+                  Genişlet ⤢
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="column-view-toggle-btn"
+                  onClick={() => setViewMode("split")}
+                  title="50/50 İkili Görünüme Dön"
+                >
+                  ◀ 50/50 İkili Görünüm
+                </button>
+              )}
+            </header>
+            <div className="project-grid">
+              {projects.map((project, index) => <article draggable={!busy} onDragStart={event=>{setDragged(project.id);event.dataTransfer.setData("text/plain",project.id);event.dataTransfer.effectAllowed="move";}} onDragOver={event=>{if(dragged){event.preventDefault();setDragOver(project.id);}}} onDrop={event=>{event.preventDefault();if(dragged)onChange(moveTo(projects,dragged,project.id));setDragged(null);setDragOver(null);}} onDragEnd={()=>{setDragged(null);setDragOver(null);}} id={"project-" + project.id} className={"project-card surface " + (initialId === project.id ? "record-highlight " : "")+(dragged===project.id?"dragging ":"")+(dragOver===project.id?"drag-over":"")} key={project.id}>
+                <div className="project-top"><span className="project-avatar">{project.name.trim().charAt(0).toLocaleUpperCase("tr-TR") || "P"}</span><span className="project-number">{String(index + 1).padStart(2, "0")} / {String(projects.length).padStart(2, "0")}</span></div>
+                <div className="project-info"><h3><button className="project-hub-open" onClick={()=>setHubId(hubId===project.id?"":project.id)}>{project.name}</button></h3>{project.nextStep&&<p className="project-next-step">→ {project.nextStep}</p>}<p>{project.description || "Açıklama yok"}</p><span className="project-path" title={project.folderPath}>{project.folderPath || "Klasör bağlanmadı"}</span></div>
+                <div className="project-actions"><button type="button" aria-label={project.name + " klasörünü aç"} onClick={() => launch(project, "open_project_folder")} disabled={!project.folderPath || busy}>Klasörü Aç</button><button type="button" aria-label={project.name + " projesini VS Code'da aç"} onClick={() => launch(project, "open_project_in_vscode")} disabled={!project.folderPath || busy}>VS Code'da Aç</button><ActionMenu label={project.name+" işlemleri"}><button type="button" disabled={index===0||busy} onClick={()=>onChange(moveBy(projects,project.id,-1))}>Öne taşı</button><button type="button" disabled={index===projects.length-1||busy} onClick={()=>onChange(moveBy(projects,project.id,1))}>Arkaya taşı</button><button type="button" aria-label={project.name + " projesini düzenle"} onClick={() => startEdit(project)}>Düzenle</button><button className="project-delete" type="button" aria-label={project.name + " projesini sil"} onClick={() => setDeleteId(project.id)}>Sil</button></ActionMenu></div>
+                {deleteId === project.id && <div className="project-confirm"><span>Bu proje silinsin mi?</span><button type="button" aria-label={project.name + " projesini silmeyi onayla"} onClick={() => remove(project.id)}>Evet, sil</button><button type="button" onClick={() => setDeleteId(null)}>Vazgeç</button></div>}
+              </article>)}
+              <button className="project-add" type="button" onClick={() => startEdit()}><span className="add-icon"><Icon name="plus" size={22} /></span><strong>+ Proje</strong><span>Yeni bir proje ekle</span></button>
+            </div>
+            {hubId && projects.find(p=>p.id===hubId) && <ProjectHub key={hubId} project={projects.find(p=>p.id===hubId)!} onChange={patch=>onChange(projects.map(p=>p.id===hubId?{...p,...patch}:p))} onNavigate={onNavigate} onAskAi={onAskAi}/> }
           </div>
 
-          <section className="project-embedded-tools surface" aria-label="Araçlar">
-            <div className="project-tool-content">
-              <Suspense fallback={<div className="tool-skeleton" style={{ padding: "2.5rem", textAlign: "center", color: "var(--app-secondary)" }}>Araç hazırlanıyor...</div>}>
-                {toolTab === "converter" && <FileConverter />}
-                {toolTab === "speed" && <SpeedTest />}
-                {toolTab === "ip" && <IpTool />}
-                {toolTab === "qr" && <QrTool />}
-              </Suspense>
+          <div className="projects-split-right">
+            <header className="feature-heading tools-column-heading" style={{ margin: "0 0 1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h1 style={{ margin: 0 }}>Araçlar</h1>
+              {viewMode === "split" ? (
+                <button
+                  type="button"
+                  className="column-view-toggle-btn"
+                  onClick={() => setViewMode("tools")}
+                  title="Araçları tam genişliğe genişlet"
+                >
+                  Genişlet ⤢
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="column-view-toggle-btn"
+                  onClick={() => setViewMode("split")}
+                  title="50/50 İkili Görünüme Dön"
+                >
+                  ◀ 50/50 İkili Görünüm
+                </button>
+              )}
+            </header>
+
+            <div className="project-tools-tab-buttons" style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className={`button ${toolTab === "converter" ? "button-primary" : "button-secondary"}`}
+                onClick={() => setToolTab("converter")}
+              >
+                📑 Çevirici (Word / PDF / Görsel)
+              </button>
+              <button
+                type="button"
+                className={`button ${toolTab === "speed" ? "button-primary" : "button-secondary"}`}
+                onClick={() => setToolTab("speed")}
+              >
+                ⚡ Hız Testi
+              </button>
+              <button
+                type="button"
+                className={`button ${toolTab === "ip" ? "button-primary" : "button-secondary"}`}
+                onClick={() => setToolTab("ip")}
+              >
+                🌐 IP Bilgisi
+              </button>
+              <button
+                type="button"
+                className={`button ${toolTab === "qr" ? "button-primary" : "button-secondary"}`}
+                onClick={() => setToolTab("qr")}
+              >
+                📱 QR Kod
+              </button>
             </div>
-          </section>
+
+            <section className="project-embedded-tools surface" aria-label="Araçlar">
+              <div className="project-tool-content">
+                <Suspense fallback={<div className="tool-skeleton" style={{ padding: "2.5rem", textAlign: "center", color: "var(--app-secondary)" }}>Araç hazırlanıyor...</div>}>
+                  {toolTab === "converter" && <FileConverter />}
+                  {toolTab === "speed" && <SpeedTest />}
+                  {toolTab === "ip" && <IpTool />}
+                  {toolTab === "qr" && <QrTool />}
+                </Suspense>
+              </div>
+            </section>
+          </div>
         </div>
       </div>
     ) : (

@@ -813,7 +813,7 @@ export function FileConverter() {
 
               {/* Ek Görsel Ayarları (Eğer resimse) */}
               {(selectedFile.type.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(selectedFile.name)) && targetFormat !== "pdf" && (
-                <div className="image-advanced-settings" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.8rem", padding: "0.75rem", background: "var(--app-field)", borderRadius: "0.5rem", marginBottom: "1rem" }}>
+                <div className="image-advanced-settings" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.8rem", padding: "0.75rem", background: "var(--app-field)", borderRadius: "0.5rem", marginBottom: "1rem" }}>
                   <div>
                     <label style={{ fontSize: "0.78rem", color: "var(--app-secondary)" }}>
                       Kalite: %{Math.round(imageQuality * 100)}
