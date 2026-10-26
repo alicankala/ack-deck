@@ -107,6 +107,56 @@ pub async fn choose_backup(app: tauri::AppHandle) -> Result<Option<String>, Stri
     .await
     .map_err(|_| "Yedek dosyası seçilemedi.".to_string())?
 }
+#[tauri::command]
+pub async fn save_auto_backup(
+    app: tauri::AppHandle,
+    content: String,
+) -> Result<String, String> {
+    if !valid_envelope(&content) {
+        return Err("Yedek verileri geçersiz veya gizli anahtar içeriyor.".into());
+    }
+    use tauri::Manager;
+    let base_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|_| "Uygulama veri dizinine erişilemedi.")?
+        .join("auto-backups");
+
+    std::fs::create_dir_all(&base_dir).map_err(|_| "Yedekleme dizini oluşturulamadı.")?;
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let file_name = format!("ACKDeck-AutoBackup-{}.json", now);
+    let target_path = base_dir.join(&file_name);
+
+    std::fs::write(&target_path, content.as_bytes())
+        .map_err(|_| "Otomatik yedek dosyası yazılamadı.")?;
+
+    // Rotate: keep at most 7 recent backups
+    if let Ok(entries) = std::fs::read_dir(&base_dir) {
+        let mut files: Vec<(std::path::PathBuf, std::time::SystemTime)> = Vec::new();
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file()
+                && path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|name| name.starts_with("ACKDeck-AutoBackup-") && name.ends_with(".json"))
+            {
+                let modified = entry.metadata().and_then(|m| m.modified()).unwrap_or(std::time::UNIX_EPOCH);
+                files.push((path, modified));
+            }
+        }
+        files.sort_by(|a, b| b.1.cmp(&a.1));
+        for (old_path, _) in files.into_iter().skip(7) {
+            let _ = std::fs::remove_file(old_path);
+        }
+    }
+
+    Ok(file_name)
+}
 #[cfg(test)]
 mod tests {
     use super::*;

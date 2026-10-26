@@ -57,7 +57,10 @@ pub fn clear_windows_notifications(app_id: &str) {
     {
         use std::os::windows::process::CommandExt;
         let script = format!(
-            "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; [Windows.UI.Notifications.ToastNotificationManager]::History.Clear('{app_id}');"
+            "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; \
+            try {{ [Windows.UI.Notifications.ToastNotificationManager]::History.Clear('{app_id}') }} catch {{}}; \
+            try {{ [Windows.UI.Notifications.ToastNotificationManager]::History.Clear('com.alican.ackdeck') }} catch {{}}; \
+            try {{ [Windows.UI.Notifications.ToastNotificationManager]::History.Clear('ACKDeck') }} catch {{}};"
         );
         let _ = std::process::Command::new("powershell")
             .args(["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", &script])
@@ -118,6 +121,7 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         }
         Err(_) => (DesktopPreferences::default(), false),
     };
+    clear_windows_notifications(&app.config().identifier);
     let open = MenuItem::with_id(app, "open", "ACKDeck'i Aç", true, None::<&str>)?;
     let ai = MenuItem::with_id(app, "ai", "ACK AI", true, None::<&str>)?;
     let task = MenuItem::with_id(app, "tasks", "Yeni Görev", true, None::<&str>)?;

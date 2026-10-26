@@ -92,6 +92,7 @@ pub fn run() {
             reminders::sync_task_reminders,
             backup::save_backup,
             backup::choose_backup,
+            backup::save_auto_backup,
             portable_backup::save_portable_backup,
             portable_backup::choose_portable_backup,
             portable_backup::prepare_portable_restore,

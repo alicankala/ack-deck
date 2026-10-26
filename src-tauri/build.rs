@@ -44,6 +44,7 @@ fn main() {
             "sync_task_reminders",
             "save_backup",
             "choose_backup",
+            "save_auto_backup",
             "save_portable_backup",
             "choose_portable_backup",
             "prepare_portable_restore",

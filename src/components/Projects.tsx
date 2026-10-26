@@ -3,16 +3,17 @@ import type { NavigationTarget } from "../navigation";
 import { moveTo, moveBy } from "../reorder";
 import { EditorDialog } from "./EditorDialog";
 import { ActionMenu } from "./ActionMenu";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, lazy, Suspense, type FormEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 import type { Project } from "../projectStore";
 import { Icon } from "./Icon";
 import { recordRecent } from "../recentStore";
-import { IpTool } from "./IpTool";
-import { QrTool } from "./QrTool";
-import { SpeedTest } from "./SpeedTest";
-import { FileConverter } from "./FileConverter";
+
+const FileConverter = lazy(() => import("./FileConverter").then(m => ({ default: m.FileConverter })));
+const SpeedTest = lazy(() => import("./SpeedTest").then(m => ({ default: m.SpeedTest })));
+const IpTool = lazy(() => import("./IpTool").then(m => ({ default: m.IpTool })));
+const QrTool = lazy(() => import("./QrTool").then(m => ({ default: m.QrTool })));
 
 type Editor = { id: string | null; name: string; description: string; folderPath: string };
 type Props = { projects: Project[]; onChange: (projects: Project[]) => boolean; fullPage?: boolean; initialId?: string; initialTool?: "converter" | "speed" | "ip" | "qr"; workspaceId?: string; onNavigate?: (target: NavigationTarget)=>void; onAskAi?: (text:string)=>void };
@@ -158,10 +159,12 @@ export function Projects({ projects, onChange, fullPage = false, initialId, init
 
           <section className="project-embedded-tools surface" aria-label="Araçlar">
             <div className="project-tool-content">
-              {toolTab === "converter" && <FileConverter />}
-              {toolTab === "speed" && <SpeedTest />}
-              {toolTab === "ip" && <IpTool />}
-              {toolTab === "qr" && <QrTool />}
+              <Suspense fallback={<div className="tool-skeleton" style={{ padding: "2.5rem", textAlign: "center", color: "var(--app-secondary)" }}>Araç hazırlanıyor...</div>}>
+                {toolTab === "converter" && <FileConverter />}
+                {toolTab === "speed" && <SpeedTest />}
+                {toolTab === "ip" && <IpTool />}
+                {toolTab === "qr" && <QrTool />}
+              </Suspense>
             </div>
           </section>
         </div>

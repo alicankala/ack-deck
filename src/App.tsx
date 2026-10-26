@@ -1,4 +1,3 @@
-import { WeeklyPlan } from "./components/WeeklyPlan";
 import { nativeNavigation } from "./nativeNavigation";
 import { FooterTicker } from "./components/FooterTicker";
 import { UpdateNotice } from "./components/UpdateNotice";
@@ -7,7 +6,6 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNod
 import { useDesktop } from "./useDesktop";
 import { getDesktopStatus } from "./desktopClient";
 import { usePhoneCompanion } from "./usePhoneCompanion";
-import { PhoneInbox } from "./components/PhoneInbox";
 import { PhoneCommands } from "./components/PhoneCommands";
 import { useReminders } from "./useReminders";
 import { usePaletteBridge } from "./usePaletteBridge";
@@ -19,11 +17,14 @@ const ConversationHistory = lazy(() => import("./components/ConversationHistory"
 import { useConversations } from "./useConversations";
 const AckAi = lazy(() => import("./components/AckAi").then(module => ({ default: module.AckAi })));
 import { Icon } from "./components/Icon";
-import { Projects } from "./components/Projects";
+const Projects = lazy(() => import("./components/Projects").then(module => ({ default: module.Projects })));
+const WeeklyPlan = lazy(() => import("./components/WeeklyPlan").then(module => ({ default: module.WeeklyPlan })));
+const Tasks = lazy(() => import("./components/Tasks").then(module => ({ default: module.Tasks })));
+const PhoneInbox = lazy(() => import("./components/PhoneInbox").then(module => ({ default: module.PhoneInbox })));
 import { Sidebar, type Page } from "./components/Sidebar";
 const Settings = lazy(() => import("./components/Settings").then(module => ({ default: module.Settings })));
-import { Tasks } from "./components/Tasks";
 const Notes = lazy(() => import("./components/Notes").then(module => ({ default: module.Notes })));
+import { useAutoBackup } from "./useAutoBackup";
 import { loadPreferences } from "./preferences";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { collectAckContext } from "./ackIntegration";
@@ -48,6 +49,18 @@ function App() {
   const page = route.target.page;
   const setPage = (page: Page) => navigate({ page });
   usePaletteBridge(navigate);
+  useAutoBackup();
+
+  useEffect(() => {
+    if (isTauri()) {
+      invoke("clear_notifications").catch(() => {});
+      const onFocus = () => {
+        invoke("clear_notifications").catch(() => {});
+      };
+      window.addEventListener("focus", onFocus);
+      return () => window.removeEventListener("focus", onFocus);
+    }
+  }, []);
   const [restoring, setRestoring] = useState(false);
   const [restoreBlocked, setRestoreBlocked] = useState(false);
   useEffect(() => { const blocked = () => { setRestoreBlocked(true); setRestoring(true); }; window.addEventListener("ack-restore-blocked", blocked); return () => window.removeEventListener("ack-restore-blocked", blocked); }, []);

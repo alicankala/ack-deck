@@ -43,14 +43,20 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, targetId }
     }
   }, [targetId]);
   useEffect(() => {
+    let frameId: number | null = null;
     const refresh = () => {
-      setData(loadDashboardData());
-      setStudyData(loadStudyPrograms());
+      if (frameId !== null) cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => {
+        setData(loadDashboardData());
+        setStudyData(loadStudyPrograms());
+        frameId = null;
+      });
     };
     window.addEventListener("ack-data-changed", refresh);
     window.addEventListener("ack-recents-changed", refresh);
     const timer = window.setInterval(() => setNow(new Date()), 60000);
     return () => {
+      if (frameId !== null) cancelAnimationFrame(frameId);
       window.removeEventListener("ack-data-changed", refresh);
       window.removeEventListener("ack-recents-changed", refresh);
       window.clearInterval(timer);

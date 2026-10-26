@@ -983,6 +983,154 @@
   color: var(--app-text) !important;
 }
 
+/* Light Mode Overrides for Schedule, Pomodoro, and Converter */
+:root[data-theme="light"] .dashboard-weekly-preview {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.06);
+}
+
+:root[data-theme="light"] .week-mini-cell {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+:root[data-theme="light"] .week-mini-cell:hover {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
+:root[data-theme="light"] .week-mini-cell.is-selected {
+  background: #e0f2fe !important;
+  border-color: #0284c7 !important;
+  color: #0369a1 !important;
+}
+
+:root[data-theme="light"] .week-mini-cell.is-today .mini-cell-day {
+  color: #0284c7 !important;
+  font-weight: 700;
+}
+
+:root[data-theme="light"] .schedule-day-feed-box {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+:root[data-theme="light"] .schedule-timeline-item {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+:root[data-theme="light"] .schedule-timeline-item.session-study {
+  border-left: 3px solid #0284c7 !important;
+  background: #f0f9ff !important;
+}
+
+:root[data-theme="light"] .schedule-timeline-item.session-task {
+  border-left: 3px solid #10b981 !important;
+  background: #f0fdf4 !important;
+}
+
+:root[data-theme="light"] .schedule-timeline-item .timeline-clock {
+  color: #64748b !important;
+}
+
+:root[data-theme="light"] .pomodoro-widget {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.06);
+}
+
+:root[data-theme="light"] .pomodoro-display strong {
+  color: #0f172a !important;
+}
+
+:root[data-theme="light"] .pomodoro-modes button {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+:root[data-theme="light"] .pomodoro-modes button.is-active {
+  background: #e0f2fe !important;
+  border-color: #0284c7 !important;
+  color: #0369a1 !important;
+}
+
+:root[data-theme="light"] .converter-dropzone {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+
+:root[data-theme="light"] .converter-dropzone:hover,
+:root[data-theme="light"] .converter-dropzone.is-dragover {
+  background: #f0f9ff !important;
+  border-color: #0284c7 !important;
+}
+
+:root[data-theme="light"] .target-format-btn {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+:root[data-theme="light"] .target-format-btn:hover {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
+:root[data-theme="light"] .target-format-btn.is-selected {
+  background: #e0f2fe !important;
+  border-color: #0284c7 !important;
+  color: #0369a1 !important;
+}
+
+:root[data-theme="light"] .converter-subtab-btn {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+:root[data-theme="light"] .converter-subtab-btn.is-active {
+  background: #e0f2fe !important;
+  border-color: #0284c7 !important;
+  color: #0369a1 !important;
+}
+
+:root[data-theme="light"] .converter-result-card,
+:root[data-theme="light"] .text-result-box {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+
+:root[data-theme="light"] .result-preview-box {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+:root[data-theme="light"] .multi-image-dropzone {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+
+:root[data-theme="light"] .multi-img-card {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+:root[data-theme="light"] .today-badge-btn {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+:root[data-theme="light"] .today-badge-btn:hover {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
 /* Today widget polish & Weekly preview */
 .today-date-subtitle {
   display: block;

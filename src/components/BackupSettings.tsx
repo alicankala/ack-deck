@@ -1,12 +1,20 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { createFullBackup, parseBackup, restoreBackup, type Backup } from "../backupStore";
 import { getDesktopStatus, type DesktopStatus } from "../desktopClient";
 import { localDateKey } from "../taskStore";
+import { getAutoBackupInfo } from "../useAutoBackup";
 export function BackupSettings({ desktop }: { desktop: DesktopStatus | null }) {
   const [busy, setBusy] = useState(false), [feedback, setFeedback] = useState(""), [pending, setPending] = useState<Backup | null>(null);
   const busyRef = useRef(false);
   const [kind, setKind] = useState("portable"), [token, setToken] = useState<string | null>(null), [fileCount, setFileCount] = useState(0);
+  const [autoBackup, setAutoBackup] = useState(getAutoBackupInfo);
+
+  useEffect(() => {
+    const onBackupDone = () => setAutoBackup(getAutoBackupInfo());
+    window.addEventListener("ack-auto-backup-completed", onBackupDone);
+    return () => window.removeEventListener("ack-auto-backup-completed", onBackupDone);
+  }, []);
   async function exportBackup() {
     if (!desktop || busyRef.current) return; busyRef.current = true; setBusy(true); setFeedback("");
     try {
@@ -31,5 +39,16 @@ export function BackupSettings({ desktop }: { desktop: DesktopStatus | null }) {
     finally { busyRef.current = false; setBusy(false); }
   }
   return <section className="settings-card surface local-settings" aria-labelledby="backup-title"><h2 id="backup-title">Yedekleme</h2><p className="task-hint">Kayıtlarını, sohbetlerini ve tercihlerini sakla. Dosyalı yedek, not eklerini ve arşive bağladığın dosyaları başka bilgisayara taşır. API anahtarları ve seçilmiş uygulamaların çalışma izni yedeklenmez.</p><label className="archive-field backup-kind">Yedek türü<select value={kind} disabled={busy || !!pending} onChange={e => setKind(e.target.value)}><option value="portable">Dosyalar dahil · ZIP</option><option value="json">Yalnız kayıtlar · JSON</option></select><small>{kind === "portable" ? "Dosya başına 100 MB, toplam 512 MB. Eksik dosya varsa yedekleme durur." : "Dosya yolları saklanır; dosyaların içeriği taşınmaz."}</small></label><div className="settings-actions"><button type="button" className="button button-secondary" onClick={exportBackup} disabled={busy || !desktop || !!pending}>Yedek Oluştur</button><button type="button" className="button button-secondary" onClick={selectBackup} disabled={busy || !desktop || !!pending}>Yedekten Geri Yükle</button></div>
+    <div className="auto-backup-status-badge" style={{ marginTop: "1rem", padding: "0.65rem 0.85rem", background: "rgba(14, 165, 233, 0.08)", border: "1px solid rgba(14, 165, 233, 0.2)", borderRadius: "0.6rem", fontSize: "0.82rem", display: "flex", alignItems: "center", gap: "0.6rem" }}>
+      <span style={{ fontSize: "1.2rem" }}>🛡️</span>
+      <div>
+        <strong>Otomatik Yerel Yedekleme:</strong> Aktif (Her 4 saatte bir diskte son 7 güvenli sürüm otomatik saklanır).
+        {autoBackup.lastTime && (
+          <span style={{ display: "block", color: "var(--app-secondary)", fontSize: "0.75rem", marginTop: "0.15rem" }}>
+            Son otomatik yedek: {new Date(autoBackup.lastTime).toLocaleString("tr-TR")} ({autoBackup.lastFile})
+          </span>
+        )}
+      </div>
+    </div>
     {pending && <div className="backup-confirm" role="group" aria-label="Yedekten geri yükleme onayı"><h3>Mevcut ACKDeck kayıtları değiştirilsin mi?</h3><p>Görevler, projeler, notlar, dosya kayıtları, arşiv, hız testi sonucu ve tercihler yedektekilerle değişir. Windows başlangıç tercihleri de uygulanır. Yedekte varsa çalışma alanları, kısayollar, sabitlemeler, son kullanılanlar, sohbetler ve global kısayol da geri yüklenir. Eski yedekler yeni kayıtları silmez. Gemini anahtarı değişmez.</p>{token ? <p>{fileCount} ek dosya uygulamanın veri klasörüne kopyalanır; var olan dosyaların üzerine yazılmaz.</p> : <p>Bu JSON yedeği fiziksel dosyaları içermez.</p>}<p>Seçilmiş uygulama hedefleri yalnızca bu bilgisayardaki güvenli kayıttan açılır. Başka bilgisayarda veya eksik native kayıtta uygulamayı yeniden seçmek gerekir.</p><p>Yedek tarihi: {new Date(pending.createdAt).toLocaleString("tr-TR")}</p><button type="button" className="button button-primary" disabled={busy} onClick={confirm}>Onayla ve Geri Yükle</button><button type="button" className="button button-secondary" disabled={busy} onClick={() => { if (token) void invoke("finish_portable_restore", { token, keep:false }).catch(() => {}); setPending(null); setToken(null); }}>İptal</button></div>}{feedback && <p className="feedback" role="status">{feedback}</p>}</section>;
 }
