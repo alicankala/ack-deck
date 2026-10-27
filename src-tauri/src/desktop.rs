@@ -334,6 +334,9 @@ pub async fn window_close(window: tauri::Window) -> Result<(), String> {
 
 #[tauri::command]
 pub fn window_start_dragging(window: tauri::WebviewWindow) -> Result<(), String> {
+    if window.is_maximized().unwrap_or(false) {
+        let _ = window.unmaximize();
+    }
     window.start_dragging().map_err(|e| e.to_string())
 }
 
@@ -345,14 +348,17 @@ pub async fn fetch_dorm_menu() -> Result<String, String> {
         .map_err(|e| e.to_string())?;
 
     let urls = [
-        "https://altinkalemkarabuk.com/icerik/icerik.json",
         "https://ack-deck-phone.ack-deck-cloud.workers.dev/api/dorm-menu",
+        "https://altinkalemkarabuk.com/icerik/icerik.json",
     ];
 
     for url in urls {
         if let Ok(resp) = client
             .get(url)
-            .header("User-Agent", "ACKDeck")
+            .header(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            )
             .send()
             .await
         {

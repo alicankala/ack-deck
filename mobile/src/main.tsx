@@ -1009,30 +1009,19 @@ function App() {
                           <div className="timeline-content-col">
                             <strong className="timeline-item-title">{item.label}</strong>
                             {item.topic && <small className="timeline-item-sub">{item.topic}</small>}
-                            <div className="study-att-toolbar" style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
-                              <button
-                                type="button"
-                                className={`study-att-btn ${attendance[item.id]?.status === "attended" ? "is-active-attended" : ""}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const next = setStudyBlockStatus(item.id, attendance[item.id]?.status === "attended" ? null : "attended");
-                                  setAttendance(next);
-                                }}
-                              >
-                                {attendance[item.id]?.status === "attended" ? "✓ Çalıştım" : "Çalıştım"}
-                              </button>
-                              <button
-                                type="button"
-                                className={`study-att-btn ${attendance[item.id]?.status === "skipped" ? "is-active-skipped" : ""}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const next = setStudyBlockStatus(item.id, attendance[item.id]?.status === "skipped" ? null : "skipped");
-                                  setAttendance(next);
-                                }}
-                              >
-                                {attendance[item.id]?.status === "skipped" ? "✗ Çalışmadım" : "Çalışmadım"}
-                              </button>
-                            </div>
+                            {attendance[item.id]?.status && (
+                              <div style={{ marginTop: "4px" }}>
+                                {attendance[item.id]?.status === "attended" ? (
+                                  <span className="timeline-status-badge is-attended" style={{ fontSize: "0.75rem", color: "#34d399", fontWeight: 600 }}>
+                                    ✓ Çalışıldı
+                                  </span>
+                                ) : attendance[item.id]?.status === "skipped" ? (
+                                  <span className="timeline-status-badge is-skipped" style={{ fontSize: "0.75rem", color: "#f87171", fontWeight: 600 }}>
+                                    ✗ Çalışılmadı
+                                  </span>
+                                ) : null}
+                              </div>
+                            )}
                           </div>
                           <div className="timeline-end-col">
                             <span className="timeline-badge study-badge">Ders</span>
@@ -1460,6 +1449,7 @@ function App() {
                                   try {
                                     await api(state, "inbox/" + item.id, {
                                       method: "PUT",
+                                      headers: { "Content-Type": "application/json" },
                                       body: JSON.stringify({ title: nextTitle, content: trimmed }),
                                     });
                                     setInbox(cur => cur.map(row => row.id === item.id ? { ...row, title: nextTitle, content: trimmed } : row));

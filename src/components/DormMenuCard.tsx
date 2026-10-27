@@ -41,7 +41,9 @@ export function DormMenuCard() {
           <span className="dorm-menu-badge-icon" aria-hidden="true">🍽️</span>
           <div>
             <h3>Günün Yemek Menüsü</h3>
-            <small className="dorm-menu-source">Altınkalem · {todayKey.split("-").reverse().join(".")}</small>
+            <small className="dorm-menu-source">
+              Altınkalem · {menu?.isFallback ? `Son Menü (${menu.date.split("-").reverse().join(".")})` : todayKey.split("-").reverse().join(".")}
+            </small>
           </div>
         </div>
         <button

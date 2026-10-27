@@ -3,7 +3,7 @@ import { Subscriptions } from "./Subscriptions";
 import { PrayerWidget } from "./PrayerWidget";
 import { DormMenuCard } from "./DormMenuCard";
 import { completeOccurrence, scheduleDate } from "../../shared/recurrence";
-import { loadStudyAttendance, setStudyBlockStatus } from "../../shared/studyAttendance";
+import { loadStudyAttendance } from "../../shared/studyAttendance";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Header } from "./Header";
 import { PcStatus } from "./PcStatus";
@@ -222,30 +222,17 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, targetId }
                         <div className="timeline-content">
                           <strong>{item.kind === "study" ? item.label : item.text}</strong>
                           {item.kind === "study" && item.topic ? <small>{item.topic}</small> : null}
-                          {item.kind === "study" && (
-                            <div className="study-att-toolbar" style={{ marginTop: "4px" }}>
-                              <button
-                                type="button"
-                                className={`study-att-btn ${attendance[item.id]?.status === "attended" ? "is-active-attended" : ""}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const next = setStudyBlockStatus(item.id, attendance[item.id]?.status === "attended" ? null : "attended");
-                                  setAttendance(next);
-                                }}
-                              >
-                                {attendance[item.id]?.status === "attended" ? "✓ Çalıştım" : "Çalıştım"}
-                              </button>
-                              <button
-                                type="button"
-                                className={`study-att-btn ${attendance[item.id]?.status === "skipped" ? "is-active-skipped" : ""}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const next = setStudyBlockStatus(item.id, attendance[item.id]?.status === "skipped" ? null : "skipped");
-                                  setAttendance(next);
-                                }}
-                              >
-                                {attendance[item.id]?.status === "skipped" ? "✗ Çalışmadım" : "Çalışmadım"}
-                              </button>
+                          {item.kind === "study" && attendance[item.id]?.status && (
+                            <div style={{ marginTop: "4px" }}>
+                              {attendance[item.id]?.status === "attended" ? (
+                                <span className="timeline-status-badge is-attended" style={{ fontSize: "0.78rem", color: "#34d399", fontWeight: 600 }}>
+                                  ✓ Çalışıldı
+                                </span>
+                              ) : attendance[item.id]?.status === "skipped" ? (
+                                <span className="timeline-status-badge is-skipped" style={{ fontSize: "0.78rem", color: "#f87171", fontWeight: 600 }}>
+                                  ✗ Çalışılmadı
+                                </span>
+                              ) : null}
                             </div>
                           )}
                         </div>

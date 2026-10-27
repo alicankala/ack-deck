@@ -15,6 +15,7 @@ export type DailyMenu = {
   rawDinner: string;
   rawBreakfast: string;
   isToday: boolean;
+  isFallback?: boolean;
 };
 
 export const DORM_MENU_CACHE_KEY = "ack-deck.dorm-menu.v1";
@@ -61,12 +62,23 @@ export function saveDormMenuCache(records: DormMenuRecord[]): void {
 }
 
 export function findMenuForDate(records: DormMenuRecord[], targetDate: string): DailyMenu | null {
+  if (!records || records.length === 0) return null;
   const cleanTarget = targetDate.trim();
-  const match = records.find(
+  let match = records.find(
     (r) =>
       r.yayinda !== false &&
       (r.tarih?.trim() === cleanTarget || r.tarih?.startsWith(cleanTarget))
   );
+  let isFallback = false;
+  if (!match) {
+    const valid = records
+      .filter((r) => r.yayinda !== false && (r.aksam?.trim() || r.kahvalti?.trim()))
+      .sort((a, b) => (b.tarih || "").localeCompare(a.tarih || ""));
+    if (valid.length > 0) {
+      match = valid[0];
+      isFallback = true;
+    }
+  }
   if (!match) return null;
   const todayKey = turkeyDateKey();
   return {
@@ -76,6 +88,7 @@ export function findMenuForDate(records: DormMenuRecord[], targetDate: string): 
     rawDinner: match.aksam || "",
     rawBreakfast: match.kahvalti || "",
     isToday: match.tarih?.trim() === todayKey,
+    isFallback,
   };
 }
 

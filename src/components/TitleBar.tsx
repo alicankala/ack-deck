@@ -1,18 +1,35 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
 export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
   const inTauri = isTauri();
 
-  const handleMinimize = async () => {
+  useEffect(() => {
+    if (!inTauri) return;
+    let unlisten: (() => void) | undefined;
+    import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
+      const win = getCurrentWindow();
+      win.isMaximized().then(setIsMaximized).catch(() => {});
+      win.onResized(() => {
+        win.isMaximized().then(setIsMaximized).catch(() => {});
+      }).then((u) => { unlisten = u; }).catch(() => {});
+    }).catch(() => {});
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [inTauri]);
+
+  const handleMinimize = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!inTauri) return;
     try {
       await invoke("window_minimize");
     } catch {}
   };
 
-  const handleToggleMaximize = async () => {
+  const handleToggleMaximize = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     if (!inTauri) return;
     try {
       const max = await invoke<boolean>("window_toggle_maximize");
@@ -20,7 +37,8 @@ export function TitleBar() {
     } catch {}
   };
 
-  const handleClose = async () => {
+  const handleClose = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!inTauri) return;
     try {
       await invoke("window_close");
@@ -39,22 +57,29 @@ export function TitleBar() {
   return (
     <div
       className="desktop-window-bar"
-      data-tauri-drag-region
-      onMouseDown={handleStartDragging}
       onDoubleClick={(e) => {
         if (!(e.target as HTMLElement).closest("button")) {
           void handleToggleMaximize();
         }
       }}
     >
-      <div className="window-drag-region" data-tauri-drag-region onMouseDown={handleStartDragging} />
-      <div className="window-controls-cluster" aria-label="Pencere Kontrolleri">
+      <div
+        className="window-drag-region"
+        data-tauri-drag-region
+        onMouseDown={handleStartDragging}
+      />
+      <div
+        className="window-controls-cluster"
+        aria-label="Pencere Kontrolleri"
+        style={{ WebkitAppRegion: "no-drag", pointerEvents: "auto" } as React.CSSProperties}
+      >
         <button
           type="button"
           className="window-ctrl-btn btn-min"
           onClick={handleMinimize}
           title="Simge Durumuna Küçült"
           aria-label="Küçült"
+          style={{ WebkitAppRegion: "no-drag", pointerEvents: "auto" } as React.CSSProperties}
         >
           <span aria-hidden="true">—</span>
         </button>
@@ -64,6 +89,7 @@ export function TitleBar() {
           onClick={handleToggleMaximize}
           title={isMaximized ? "Önceki Boyut" : "Ekranı Kapla"}
           aria-label={isMaximized ? "Küçült" : "Kapla"}
+          style={{ WebkitAppRegion: "no-drag", pointerEvents: "auto" } as React.CSSProperties}
         >
           <span aria-hidden="true">{isMaximized ? "❐" : "◻"}</span>
         </button>
@@ -73,6 +99,7 @@ export function TitleBar() {
           onClick={handleClose}
           title="Kapat"
           aria-label="Kapat"
+          style={{ WebkitAppRegion: "no-drag", pointerEvents: "auto" } as React.CSSProperties}
         >
           <span aria-hidden="true">✕</span>
         </button>

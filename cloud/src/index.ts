@@ -223,14 +223,15 @@ async function handle(request: Request, env: Env): Promise<Response> {
   const inboxMatch = path.match(/^\/api\/inbox\/([\w.-]{1,128})$/);
   if (inboxMatch && ["PATCH","DELETE","PUT"].includes(request.method)) {
     const item = await env.DB.prepare("SELECT kv_key, device_id FROM inbox_items WHERE id=?").bind(inboxMatch[1]).first<{kv_key:string|null; device_id:string|null}>();
+    if (!item) throw new ApiError(404, "Kayıt bulunamadı.");
     if (request.method === "DELETE") {
-      if (!actor.owner && item?.device_id !== actor.id) throw new ApiError(403, "Bu gönderiyi sadece oluşturan cihaz veya bilgisayar silebilir.");
+      if (!actor.owner && item.device_id !== actor.id) throw new ApiError(403, "Bu gönderiyi sadece oluşturan cihaz veya bilgisayar silebilir.");
       await env.DB.prepare("DELETE FROM inbox_items WHERE id=?").bind(inboxMatch[1]).run();
-      if (item?.kv_key) await env.ATTACHMENTS.delete(item.kv_key);
+      if (item.kv_key) await env.ATTACHMENTS.delete(item.kv_key);
       return reply({ok:true});
     }
     if (request.method === "PUT") {
-      if (!actor.owner && item?.device_id !== actor.id) throw new ApiError(403, "Bu gönderiyi sadece oluşturan cihaz veya bilgisayar düzenleyebilir.");
+      if (!actor.owner && item.device_id !== actor.id) throw new ApiError(403, "Bu gönderiyi sadece oluşturan cihaz veya bilgisayar düzenleyebilir.");
       const body = await jsonBody(request);
       if (!object(body) || !text(body.title, 180, true)) throw new ApiError(400, "Gönderi başlığı geçersiz.");
       const newContent = typeof body.content === "string" ? body.content : body.title;

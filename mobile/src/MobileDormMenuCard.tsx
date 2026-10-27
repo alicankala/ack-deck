@@ -41,7 +41,9 @@ export function MobileDormMenuCard() {
           <span className="mobile-dorm-icon" aria-hidden="true">🍽️</span>
           <div>
             <h3>Günün Yemek Menüsü</h3>
-            <span className="mobile-dorm-sub">Altınkalem Yurdu</span>
+            <span className="mobile-dorm-sub">
+              Altınkalem · {menu?.isFallback ? `Son Menü (${menu.date.split("-").reverse().join(".")})` : todayKey.split("-").reverse().join(".")}
+            </span>
           </div>
         </div>
         <button
