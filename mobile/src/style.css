@@ -3284,6 +3284,48 @@ body:has(.editor) nav { visibility: hidden; }
   border-color: #e2e8f0;
 }
 
+.mobile-task-item.study-task-item.is-study-attended {
+  opacity: 0.94;
+  border-color: rgba(52, 211, 153, 0.35);
+  background: rgba(16, 185, 129, 0.06);
+}
+.mobile-task-item.study-task-item.is-study-skipped {
+  opacity: 0.94;
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(239, 68, 68, 0.06);
+}
+.mobile-task-item.study-task-item.is-study-skipped strong {
+  text-decoration: line-through;
+  color: var(--app-muted);
+}
+.mobile-task-toggle.study-status-toggle.is-attended {
+  background: #10b981;
+  border-color: #10b981;
+  color: #ffffff;
+}
+.mobile-task-toggle.study-status-toggle.is-skipped {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+}
+.study-toggle-x {
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+.study-att-inline.is-attended {
+  color: #34d399;
+  font-weight: 600;
+}
+.study-att-inline.is-skipped {
+  color: #f87171;
+  font-weight: 600;
+}
+.study-att-hint {
+  color: var(--app-muted);
+  opacity: 0.8;
+}
+
 
 
 

@@ -1,3 +1,5 @@
+import { hasCredentials } from "./privacy";
+
 export type MediaType = "movie" | "series" | "book" | "game";
 export type MediaStatus = "completed" | "in_progress" | "planned";
 
@@ -34,14 +36,42 @@ export const MEDIA_STATUS_LABELS: Record<MediaStatus, string> = {
   planned: "Listemde",
 };
 
+const MEDIA_ALLOWED_KEYS = new Set([
+  "id",
+  "type",
+  "title",
+  "status",
+  "rating",
+  "review",
+  "progress",
+  "completedDate",
+  "createdAt",
+  "updatedAt",
+]);
+
+const safeMediaText = (value: unknown, max: number, required = false): value is string =>
+  typeof value === "string" &&
+  value.length <= max &&
+  (!required || !!value.trim()) &&
+  !hasCredentials(value) &&
+  !/[A-Za-z]:[\\/]|\\\\/.test(value);
+
+const safeTimestamp = (value: unknown): value is number =>
+  typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= 8.64e15;
+
 export function validMediaItem(v: unknown): v is MediaItem {
   if (!v || typeof v !== "object" || Array.isArray(v)) return false;
   const item = v as Record<string, unknown>;
-  if (typeof item.id !== "string" || !item.id.trim()) return false;
+  if (!Object.keys(item).every((k) => MEDIA_ALLOWED_KEYS.has(k))) return false;
+  if (typeof item.id !== "string" || !/^[a-zA-Z0-9_.-]{1,128}$/.test(item.id)) return false;
   if (!["movie", "series", "book", "game"].includes(String(item.type))) return false;
   if (!["completed", "in_progress", "planned"].includes(String(item.status))) return false;
-  if (typeof item.title !== "string" || !item.title.trim()) return false;
-  if (item.rating !== undefined && (typeof item.rating !== "number" || item.rating < 0 || item.rating > 10)) return false;
+  if (!safeMediaText(item.title, 300, true)) return false;
+  if (item.rating !== undefined && (typeof item.rating !== "number" || !Number.isFinite(item.rating) || item.rating < 0 || item.rating > 10)) return false;
+  if (item.review !== undefined && !safeMediaText(item.review, 5000)) return false;
+  if (item.progress !== undefined && !safeMediaText(item.progress, 200)) return false;
+  if (item.completedDate !== undefined && item.completedDate !== "" && (typeof item.completedDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(item.completedDate))) return false;
+  if (!safeTimestamp(item.createdAt) || !safeTimestamp(item.updatedAt)) return false;
   return true;
 }
 

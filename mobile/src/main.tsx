@@ -14,7 +14,17 @@ import { SubscriptionForm, newSubscription } from "../../shared/SubscriptionForm
 import { money, cycleLabel, paymentLabel, monthlyTotals, type Subscription } from "../../shared/subscriptions";
 import { completeOccurrence, nextOccurrence, recurrenceLabel, scheduleDate, isOccurrenceCompleted, uncompleteOccurrence, completedTaskSortTime, formatCompletedTime, type Recurrence } from "../../shared/recurrence";
 import { studyBlocks, type StudyProgram } from "../../shared/studyPrograms";
-import { loadStudyAttendance, setStudyBlockStatus } from "../../shared/studyAttendance";
+import {
+  loadStudyAttendance,
+  saveStudyAttendance,
+  setStudyBlockStatus,
+  cycleAttendanceStatus,
+  canonicalAttendanceDay,
+  groupStudyAttendanceByDay,
+  type StudyAttendanceDay,
+  type AttendanceEntry,
+} from "../../shared/studyAttendance";
+import { loadMedia } from "../../src/mediaStore";
 import { savePrayerConfig, loadPrayerConfig, lookupTurkeyCity, type PrayerTimesConfig } from "../../shared/prayerTimes";
 import { fetchMobileWeather, loadWeatherCache, type WeatherData } from "../../shared/weather";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -67,6 +77,8 @@ function App() {
   const [weather, setWeather] = useState<WeatherData | null>(() => loadWeatherCache());
   const [weatherModalOpen, setWeatherModalOpen] = useState(false);
   const [attendance, setAttendance] = useState(() => loadStudyAttendance());
+  const pendingAttendanceDays = useRef<Set<string>>(new Set());
+  const attendanceSyncTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -259,13 +271,52 @@ function App() {
 
   useEffect(() => {
     let active = true;
-    void readState().then(value => {
+    void readState().then(async value => {
       if (active) {
-        ref.current = value;
-        setState(value);
-        setName(value.name);
+        let initial = value;
+        try {
+          let dirty = false;
+          if (localStorage.getItem("ack-deck.media-migrated.v1") !== "1") {
+            const legacyMedia = loadMedia().entries;
+            for (const item of legacyMedia) {
+              if (!initial.records.some(r => r.kind === "mediaItems" && r.id === item.id)) {
+                initial = enqueue(initial, {
+                  mutationId: crypto.randomUUID(),
+                  kind: "mediaItems",
+                  id: item.id,
+                  baseVersion: 0,
+                  deleted: false,
+                  data: item,
+                });
+                dirty = true;
+              }
+            }
+            localStorage.setItem("ack-deck.media-migrated.v1", "1");
+          }
+          if (localStorage.getItem("ack-deck.study-att-migrated.v1") !== "1") {
+            const legacyDays = groupStudyAttendanceByDay(loadStudyAttendance());
+            for (const dayObj of legacyDays) {
+              if (!initial.records.some(r => r.kind === "studyAttendance" && r.id === dayObj.id)) {
+                initial = enqueue(initial, {
+                  mutationId: crypto.randomUUID(),
+                  kind: "studyAttendance",
+                  id: dayObj.id,
+                  baseVersion: 0,
+                  deleted: false,
+                  data: dayObj,
+                });
+                dirty = true;
+              }
+            }
+            localStorage.setItem("ack-deck.study-att-migrated.v1", "1");
+          }
+          if (dirty) await saveState(initial);
+        } catch {}
+        ref.current = initial;
+        setState(initial);
+        setName(initial.name);
         setReady(true);
-        void refresh(value);
+        void refresh(initial);
       }
     }).catch(() => setError("Telefon kayıtları okunamadı. Mevcut veriler korundu."));
     const reconnect = () => { void refresh(); };
@@ -334,6 +385,68 @@ function App() {
     setTime(task?.dueTime ?? "");
     setReminder(task?.reminder ?? false);
     setRecurrence(task?.recurrence ?? null);
+  }
+
+  useEffect(() => {
+    if (!ready) return;
+    const attRows = state.records.filter(r => r.kind === "studyAttendance");
+    if (attRows.length === 0) return;
+    const currentLocal = loadStudyAttendance();
+    const merged: Record<string, AttendanceEntry> = {};
+    // Preserve pending optimistic days
+    for (const [k, v] of Object.entries(currentLocal)) {
+      const d = k.slice(-10);
+      if (pendingAttendanceDays.current.has(d)) merged[k] = v;
+    }
+    for (const row of attRows) {
+      if (row.deleted || !row.data || pendingAttendanceDays.current.has(row.id)) continue;
+      const dayData = row.data as StudyAttendanceDay;
+      for (const [k, v] of Object.entries(dayData.entries)) {
+        merged[k] = v;
+      }
+    }
+    if (JSON.stringify(merged) !== JSON.stringify(currentLocal)) {
+      saveStudyAttendance(merged);
+      setAttendance(merged);
+    }
+  }, [ready, state.records]);
+
+  function scheduleAttendanceSync(dateStr: string) {
+    const prevTimer = attendanceSyncTimers.current.get(dateStr);
+    if (prevTimer) clearTimeout(prevTimer);
+    const timer = setTimeout(async () => {
+      if (locked.current) {
+        scheduleAttendanceSync(dateStr);
+        return;
+      }
+      attendanceSyncTimers.current.delete(dateStr);
+      const latestMap = loadStudyAttendance();
+      const dayObj = canonicalAttendanceDay(dateStr, latestMap, Date.now());
+      const hasEntries = Object.keys(dayObj.entries).length > 0;
+      const existingRow = ref.current.records.find(r => r.kind === "studyAttendance" && r.id === dateStr);
+      pendingAttendanceDays.current.delete(dateStr);
+      if (!hasEntries && (!existingRow || existingRow.deleted)) return;
+      try {
+        await saveMutation({
+          mutationId: crypto.randomUUID(),
+          kind: "studyAttendance",
+          id: dateStr,
+          baseVersion: existingRow?.version ?? 0,
+          deleted: !hasEntries,
+          data: hasEntries ? dayObj : null,
+        });
+      } catch {}
+    }, 450);
+    attendanceSyncTimers.current.set(dateStr, timer);
+  }
+
+  function toggleMobileStudyBlock(blockId: string) {
+    const nextStatus = cycleAttendanceStatus(attendance[blockId]?.status);
+    const dateStr = blockId.slice(-10);
+    pendingAttendanceDays.current.add(dateStr);
+    const nextMap = setStudyBlockStatus(blockId, nextStatus);
+    setAttendance(nextMap);
+    scheduleAttendanceSync(dateStr);
   }
 
   useEffect(() => {
@@ -922,8 +1035,8 @@ function App() {
             {/* Quick Metrics Bar at Top */}
             <div className="mobile-metrics-bar">
               <button type="button" className="metric-chip" onClick={() => setSelectedMobileDate(today)}>
-                <strong>{todayStudyBlocks.length > 0 ? todayStudyBlocks.length : todayTasks.length}</strong>
-                <span>{todayStudyBlocks.length > 0 ? (todayStudyBlocks.length === 1 ? "1 Ders" : `${todayStudyBlocks.length} Ders`) : "Bugün"}</span>
+                <strong>{todayTasks.length}</strong>
+                <span>Bugün</span>
               </button>
               <button type="button" className="metric-chip" onClick={() => { changePage("plan"); setPlanTab("calendar"); }}>
                 <strong>{unfinished.length}</strong>
@@ -1081,6 +1194,7 @@ function App() {
                     <h3 className="mobile-tasks-title">Görevler</h3>
                     <p className="mobile-tasks-subtitle">
                       {displayedMobileTasks.filter(r => !isOccurrenceCompleted(r.data as PhoneTask)).length} bekleyen görev
+                      {displayedMobileStudyBlocks.length > 0 && ` · ${displayedMobileStudyBlocks.filter(b => !attendance[b.id]?.status).length}/${displayedMobileStudyBlocks.length} ders`}
                     </p>
                   </div>
                 </div>
@@ -1096,72 +1210,119 @@ function App() {
                 </div>
               </div>
 
-              {/* Tasks List for today or selected day */}
+              {/* Study Blocks & Tasks List for today or selected day */}
               <div className="mobile-tasks-list">
-                {tasks.filter(row => {
+                {displayedMobileStudyBlocks.length === 0 && tasks.filter(row => {
                   const t = row.data as PhoneTask;
                   if (isOccurrenceCompleted(t)) return false;
                   return t.dueDate === selectedMobileDate || (!t.dueDate && isSelectedMobileToday);
                 }).length === 0 ? (
                   <div className="mobile-tasks-empty">
-                    <p>Bu gün için bekleyen görev bulunmuyor.</p>
+                    <p>Bu gün için bekleyen görev veya ders bulunmuyor.</p>
                   </div>
                 ) : (
-                  tasks
-                    .filter(row => {
-                      const t = row.data as PhoneTask;
-                      if (isOccurrenceCompleted(t)) return false;
-                      return t.dueDate === selectedMobileDate || (!t.dueDate && isSelectedMobileToday);
-                    })
-                    .map(row => {
-                      const task = row.data as PhoneTask;
-                      const isTaskDone = isOccurrenceCompleted(task);
-                      const hasEarlyReminder = Boolean(task.reminder && task.reminderLeadMinutes && task.reminderLeadMinutes > 0);
-                      const hasMeta = hasEarlyReminder || task.recurrence;
+                  <>
+                    {displayedMobileStudyBlocks.map(block => {
+                      const att = attendance[block.id];
+                      const status = att?.status;
                       return (
-                        <article className={`mobile-task-item ${isTaskDone ? "completed" : ""}`} key={row.id}>
+                        <article
+                          className={`mobile-task-item study-task-item ${status === "attended" ? "completed is-study-attended" : status === "skipped" ? "is-study-skipped" : ""}`}
+                          key={block.id}
+                        >
                           <button
                             type="button"
-                            className="mobile-task-toggle"
-                            disabled={busy}
-                            onClick={() => void complete(row)}
-                            aria-label="Tamamlandı olarak işaretle"
+                            className={`mobile-task-toggle study-status-toggle ${status === "attended" ? "is-attended" : status === "skipped" ? "is-skipped" : ""}`}
+                            onClick={() => toggleMobileStudyBlock(block.id)}
+                            aria-label={`${block.label}: ${status === undefined ? "Çalıştım olarak işaretle" : status === "attended" ? "Çalışmadım olarak işaretle" : "Durumu sıfırla"}`}
+                            title="1 tık: Çalıştım · 2 tık: Çalışmadım · 3 tık: Sıfırla"
                           >
-                            {isTaskDone && <Icon name="check" size={12} />}
+                            {status === "attended" ? (
+                              <Icon name="check" size={12} />
+                            ) : status === "skipped" ? (
+                              <span className="study-toggle-x" aria-hidden="true">✕</span>
+                            ) : null}
                           </button>
                           <button
                             type="button"
                             className="mobile-task-content"
-                            onClick={() => openForm("task", row)}
+                            onClick={() => toggleMobileStudyBlock(block.id)}
                           >
-                            <strong>{task.text}</strong>
+                            <strong>{block.label}{block.topic ? ` · ${block.topic}` : ""}</strong>
                             <small>
-                              {task.dueTime || (task.dueDate ? task.dueDate.split("-").reverse().join(".") : "Tarihsiz")}
-                              {task.reminder && " · 🔔"}
-                              {hasEarlyReminder && ` · ${task.reminderLeadMinutes} dk önce`}
-                              {task.recurrence && ` · 🔁 ${recurrenceLabel(task.recurrence)}`}
+                              {block.time} – {block.endTime}
+                              {status === "attended" ? (
+                                <span className="study-att-inline is-attended">
+                                  {" · ✓ Çalışıldı"}{formatCompletedTime(att?.at) ? ` (${formatCompletedTime(att?.at)})` : ""}
+                                </span>
+                              ) : status === "skipped" ? (
+                                <span className="study-att-inline is-skipped">
+                                  {" · ✗ Çalışılmadı"}{formatCompletedTime(att?.at) ? ` (${formatCompletedTime(att?.at)})` : ""}
+                                </span>
+                              ) : (
+                                <span className="study-att-hint"> · 1 tık ✓ · 2 tık ✕</span>
+                              )}
                             </small>
                           </button>
-                          <ActionMenu label={task.text + " işlemleri"}>
-                            <button disabled={busy} onClick={() => void snooze(row, 15)}>15 dk ertele</button>
-                            <button disabled={busy} onClick={() => void snooze(row, 60)}>1 saat ertele</button>
-                            <button
-                              disabled={busy}
-                              className="danger-action"
-                              onClick={() => {
-                                if (confirm("Bu görev silinsin mi?")) {
-                                  void saveMutation({ mutationId: crypto.randomUUID(), kind: "tasks", id: row.id, baseVersion: row.version, data: null, deleted: true })
-                                    .then(() => setUndo({ row, expires: Date.now() + 10000 }))
-                                    .catch(e => setError(e.message));
-                                }
-                              }}
-                            >
-                              Görevi sil
-                            </button>
-                          </ActionMenu>
+                          <span className="timeline-badge study-badge" style={{ flexShrink: 0 }}>Ders</span>
                         </article>
                       );
-                    })
+                    })}
+                    {tasks
+                      .filter(row => {
+                        const t = row.data as PhoneTask;
+                        if (isOccurrenceCompleted(t)) return false;
+                        return t.dueDate === selectedMobileDate || (!t.dueDate && isSelectedMobileToday);
+                      })
+                      .map(row => {
+                        const task = row.data as PhoneTask;
+                        const isTaskDone = isOccurrenceCompleted(task);
+                        const hasEarlyReminder = Boolean(task.reminder && task.reminderLeadMinutes && task.reminderLeadMinutes > 0);
+                        return (
+                          <article className={`mobile-task-item ${isTaskDone ? "completed" : ""}`} key={row.id}>
+                            <button
+                              type="button"
+                              className="mobile-task-toggle"
+                              disabled={busy}
+                              onClick={() => void complete(row)}
+                              aria-label="Tamamlandı olarak işaretle"
+                            >
+                              {isTaskDone && <Icon name="check" size={12} />}
+                            </button>
+                            <button
+                              type="button"
+                              className="mobile-task-content"
+                              onClick={() => openForm("task", row)}
+                            >
+                              <strong>{task.text}</strong>
+                              <small>
+                                {task.dueTime || (task.dueDate ? task.dueDate.split("-").reverse().join(".") : "Tarihsiz")}
+                                {task.reminder && " · 🔔"}
+                                {hasEarlyReminder && ` · ${task.reminderLeadMinutes} dk önce`}
+                                {task.recurrence && ` · 🔁 ${recurrenceLabel(task.recurrence)}`}
+                              </small>
+                            </button>
+                            <ActionMenu label={task.text + " işlemleri"}>
+                              <button disabled={busy} onClick={() => void snooze(row, 15)}>15 dk ertele</button>
+                              <button disabled={busy} onClick={() => void snooze(row, 60)}>1 saat ertele</button>
+                              <button
+                                disabled={busy}
+                                className="danger-action"
+                                onClick={() => {
+                                  if (confirm("Bu görev silinsin mi?")) {
+                                    void saveMutation({ mutationId: crypto.randomUUID(), kind: "tasks", id: row.id, baseVersion: row.version, data: null, deleted: true })
+                                      .then(() => setUndo({ row, expires: Date.now() + 10000 }))
+                                      .catch(e => setError(e.message));
+                                  }
+                                }}
+                              >
+                                Görevi sil
+                              </button>
+                            </ActionMenu>
+                          </article>
+                        );
+                      })}
+                  </>
                 )}
               </div>
 
@@ -1366,7 +1527,13 @@ function App() {
 
         {/* 3. MEDYA GÜNLÜĞÜ SEKMESİ */}
         {page === "media" && (
-          <MobileMediaTracker onNotice={setNotice} />
+          <MobileMediaTracker
+            records={state.records}
+            onSave={saveMutation}
+            disabled={busy}
+            onNotice={setNotice}
+            onError={setError}
+          />
         )}
 
         {/* 4. GÖNDER SEKMESİ (Masaüstüne Gönder) */}

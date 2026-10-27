@@ -67,20 +67,7 @@ export function TitleBar() {
       <div
         className="window-drag-region"
         data-tauri-drag-region="deep"
-        title="Pencereyi taşımak için basılı tutup sürükleyin"
-      >
-        <div className="window-drag-pill" aria-hidden="true">
-          <svg className="window-drag-dots" width="12" height="6" viewBox="0 0 12 6" fill="currentColor">
-            <circle cx="2" cy="1.5" r="1.1" />
-            <circle cx="6" cy="1.5" r="1.1" />
-            <circle cx="10" cy="1.5" r="1.1" />
-            <circle cx="2" cy="4.5" r="1.1" />
-            <circle cx="6" cy="4.5" r="1.1" />
-            <circle cx="10" cy="4.5" r="1.1" />
-          </svg>
-          <span className="window-drag-bar" />
-        </div>
-      </div>
+      />
 
       <div
         className="window-controls-cluster"

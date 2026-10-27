@@ -2,7 +2,7 @@ import { MAX_ATTACHMENT, RETENTION_SECONDS, exact, id, object, safeAttachment, t
 import { lookupTurkeyCity } from "../../shared/prayerTimes";
 import { weatherDescription, weatherSymbol } from "../../shared/weather";
 import { ApiError, boundedBytes, equalSecret, hash, jsonBody, pushEndpoint, randomToken, reply, secure } from "./security";
-import { mutate } from "./sync";
+import { mutate, ensureSyncTables } from "./sync";
 import { recordView, type Actor, type Env, type RecordRow } from "./types";
 import { runReminders, sendNotification, PushFailure } from "./reminders";
 
@@ -153,24 +153,25 @@ async function handle(request: Request, env: Env): Promise<Response> {
     if(!result.ok){console.warn(JSON.stringify({event:"push_rejected",status:result.status}));if([404,410].includes(result.status)){await env.DB.prepare("UPDATE push_subscriptions SET active=0 WHERE device_id=?").bind(target).run();return reply({error:"Bildirim aboneliğinin süresi dolmuş. Bildirimleri yeniden açın.",code:"PUSH_SUBSCRIPTION_EXPIRED"},410);}return reply({error:"Bildirim sunucuya gönderilemedi. Biraz sonra tekrar deneyin.",code:"PUSH_SERVICE_REJECTED"},502);}return reply({ok:true});
   }
   if (path === "/api/sync" && request.method === "GET") {
+    await ensureSyncTables(env);
     const cursor = Number(url.searchParams.get("cursor") ?? "0"); if (!Number.isSafeInteger(cursor) || cursor<0) throw new ApiError(400,"Eşitleme bilgisi geçersiz.");
     const changes = await env.DB.prepare("SELECT seq,kind,record_id FROM changes WHERE seq>? ORDER BY seq LIMIT 40").bind(cursor).all<{seq:number;kind:string;record_id:string}>();
     const unique = new Map(changes.results.map(change => [`${change.kind}:${change.record_id}`,change]));
-    const records = await Promise.all([...unique.values()].map(change => env.DB.prepare(`SELECT * FROM ${change.kind==="prayerLogs"?"prayer_logs":change.kind==="studyPrograms"?"study_programs":change.kind==="subscriptions"?"subscriptions":change.kind==="projects"?"projects":"records"} WHERE kind=? AND id=?`).bind(change.kind,change.record_id).first<RecordRow>()));
+    const records = await Promise.all([...unique.values()].map(change => env.DB.prepare(`SELECT * FROM ${change.kind==="mediaItems"?"media_items":change.kind==="studyAttendance"?"study_attendance":change.kind==="prayerLogs"?"prayer_logs":change.kind==="studyPrograms"?"study_programs":change.kind==="subscriptions"?"subscriptions":change.kind==="projects"?"projects":"records"} WHERE kind=? AND id=?`).bind(change.kind,change.record_id).first<RecordRow>()));
     const views=records.filter((row):row is RecordRow => !!row).map(recordView);
     // Installed 1.0 clients have an exact task/note schema. Keep their original
     // records usable until the user opens the 1.1 desktop/PWA; never flatten a
     // recurring series into a one-shot task or return an unknown record kind.
     const schema=request.headers.get("X-ACKDeck-Schema");
-    const stripped=views.filter(row=>row.kind!=="projects"&&row.kind!=="studyPrograms"&&row.kind!=="prayerLogs").map(row=>{if(row.deleted||row.kind==="subscriptions")return row;const {projectId:_project,workspaceId:_space,sourceInboxId:_source,checklist:_checklist,reminderLeadMinutes:_lead,attachments:_attachments,...data}=row.data;return {...row,data};});
-    const compatible=schema==="4"?views:schema==="3"?views.filter(row=>row.kind!=="studyPrograms"&&row.kind!=="prayerLogs"):schema==="2"?stripped:stripped.filter(row=>row.kind!=="subscriptions"&&(row.deleted||row.kind!=="tasks"||!row.data?.recurrence)).map(row=>{
+    const stripped=views.filter(row=>row.kind!=="projects"&&row.kind!=="studyPrograms"&&row.kind!=="prayerLogs"&&row.kind!=="mediaItems"&&row.kind!=="studyAttendance").map(row=>{if(row.deleted||row.kind==="subscriptions")return row;const {projectId:_project,workspaceId:_space,sourceInboxId:_source,checklist:_checklist,reminderLeadMinutes:_lead,attachments:_attachments,...data}=row.data;return {...row,data};});
+    const compatible=schema==="5"?views:schema==="4"?views.filter(row=>row.kind!=="mediaItems"&&row.kind!=="studyAttendance"):schema==="3"?views.filter(row=>row.kind!=="studyPrograms"&&row.kind!=="prayerLogs"&&row.kind!=="mediaItems"&&row.kind!=="studyAttendance"):schema==="2"?stripped:stripped.filter(row=>row.kind!=="subscriptions"&&(row.deleted||row.kind!=="tasks"||!row.data?.recurrence)).map(row=>{
       if(row.kind!=="tasks"||row.deleted)return row;
       const {recurrence:_rule,occurrenceAt:_occurrence,lastCompletedAt:_completed,snoozedUntil:_snooze,...data}=row.data;
       return {...row,data};
     });
     return reply({ records:compatible, cursor:changes.results.at(-1)?.seq ?? cursor, more:changes.results.length===40 });
   }
-  if (path === "/api/mutations" && request.method === "POST") {const result=await mutate(env,actor,await jsonBody(request),request.headers.get("X-ACKDeck-Schema")??"1");if(!["3","4"].includes(request.headers.get("X-ACKDeck-Schema")??"")&&result.record?.data&&["tasks","notes"].includes(result.record.kind)){const {projectId:_p,workspaceId:_w,sourceInboxId:_s,checklist:_c,reminderLeadMinutes:_r,attachments:_a,...data}=result.record.data as Record<string,unknown>;return reply({...result,record:{...result.record,data}});}return reply(result);}
+  if (path === "/api/mutations" && request.method === "POST") {const result=await mutate(env,actor,await jsonBody(request),request.headers.get("X-ACKDeck-Schema")??"1");if(!["3","4","5"].includes(request.headers.get("X-ACKDeck-Schema")??"")&&result.record?.data&&["tasks","notes"].includes(result.record.kind)){const {projectId:_p,workspaceId:_w,sourceInboxId:_s,checklist:_c,reminderLeadMinutes:_r,attachments:_a,...data}=result.record.data as Record<string,unknown>;return reply({...result,record:{...result.record,data}});}return reply(result);}
   if (path === "/api/heartbeat" && request.method === "POST") {
     owner(actor);
     const body = await jsonBody(request).catch(() => null);

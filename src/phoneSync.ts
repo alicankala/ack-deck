@@ -1,5 +1,14 @@
 import { loadPrayerConfig, type PrayerLogDay } from "../shared/prayerTimes";
 import { loadPrayerLogs, savePrayerLogs } from "./prayerStore";
+import { loadMedia, saveMedia } from "./mediaStore";
+import { type MediaItem } from "../shared/media";
+import {
+  loadStudyAttendanceSnapshot,
+  groupStudyAttendanceByDay,
+  applyStudyAttendanceDay,
+  canonicalAttendanceDay,
+  type StudyAttendanceDay,
+} from "../shared/studyAttendance";
 import { loadStudyPrograms, saveStudyPrograms } from "./studyProgramStore";
 import { type StudyProgram } from "../shared/studyPrograms";
 import { scrubSync } from "../shared/privacy";
@@ -14,15 +23,15 @@ import { loadWorkspaces } from "./workHubStore";
 import { phoneRequest } from "./phoneClient";
 import { validCloudRecord, validMutation, validNote, validTask, type CloudRecord, type Kind, type Mutation, type PhoneTask, type PhoneNote } from "../shared/phone";
 export const PHONE_SYNC_KEY = "ack-deck.phone-sync.v1";
-export type SyncState = {syncSchema?:2|3|4;cursor:number;base:Record<string,{version:number;local:string|null}>;queue:Mutation[];conflicts:{local:Mutation;server:CloudRecord|null}[];lastSync:number;workspaceFingerprint?:string};
+export type SyncState = {syncSchema?:2|3|4|5;cursor:number;base:Record<string,{version:number;local:string|null}>;queue:Mutation[];conflicts:{local:Mutation;server:CloudRecord|null}[];lastSync:number;workspaceFingerprint?:string};
 const key = (kind:Kind,id:string) => `${kind}:${id}`;
 export function readPhoneSync():SyncState {
   const raw=window.localStorage.getItem(PHONE_SYNC_KEY);
-  if(raw===null)return{syncSchema:4,cursor:0,base:{},queue:[],conflicts:[],lastSync:0};
+  if(raw===null)return{syncSchema:5,cursor:0,base:{},queue:[],conflicts:[],lastSync:0};
   const value=JSON.parse(raw) as SyncState;
-  if((value.syncSchema!==undefined&&![2,3,4].includes(value.syncSchema))||!Number.isSafeInteger(value.cursor)||value.cursor<0||!value.base||typeof value.base!=="object"||!Array.isArray(value.queue)||!value.queue.every(validMutation)||!Array.isArray(value.conflicts)||!Number.isFinite(value.lastSync))throw new Error("Telefon eşitleme kaydı okunamadı. Mevcut veriler korunuyor.");
-  if(Array.isArray(value.base)||!Object.entries(value.base).every(([reference,row])=>/^(tasks|notes|subscriptions|projects|studyPrograms|prayerLogs):[a-zA-Z0-9_.-]{1,128}$/.test(reference)&&row&&Number.isSafeInteger(row.version)&&row.version>=0&&(row.local===null||typeof row.local==="string"))||!value.conflicts.every(row=>row&&validMutation(row.local)&&(row.server===null||validCloudRecord(row.server))))throw new Error("Telefon eşitleme kaydı okunamadı. Mevcut veriler korunuyor.");
-  if(value.syncSchema!==4){value.cursor=0;value.syncSchema=4;}
+  if((value.syncSchema!==undefined&&![2,3,4,5].includes(value.syncSchema))||!Number.isSafeInteger(value.cursor)||value.cursor<0||!value.base||typeof value.base!=="object"||!Array.isArray(value.queue)||!value.queue.every(validMutation)||!Array.isArray(value.conflicts)||!Number.isFinite(value.lastSync))throw new Error("Telefon eşitleme kaydı okunamadı. Mevcut veriler korunuyor.");
+  if(Array.isArray(value.base)||!Object.entries(value.base).every(([reference,row])=>/^(tasks|notes|subscriptions|projects|studyPrograms|prayerLogs|mediaItems|studyAttendance):[a-zA-Z0-9_.-]{1,128}$/.test(reference)&&row&&Number.isSafeInteger(row.version)&&row.version>=0&&(row.local===null||typeof row.local==="string"))||!value.conflicts.every(row=>row&&validMutation(row.local)&&(row.server===null||validCloudRecord(row.server))))throw new Error("Telefon eşitleme kaydı okunamadı. Mevcut veriler korunuyor.");
+  if(value.syncSchema!==5){value.cursor=0;value.syncSchema=5;}
   return value;
 }
 function save(state:SyncState){window.localStorage.setItem(PHONE_SYNC_KEY,JSON.stringify(state));}
@@ -32,18 +41,29 @@ function localTask(record:CloudRecord):Task {
   if(data.dueAt!==null&&!data.recurrence){const local=new Date(data.dueAt);date=localDateKey(local);time=`${String(local.getHours()).padStart(2,"0")}:${String(local.getMinutes()).padStart(2,"0")}`;}
   return{...productMetadata(data),id:record.id,text:data.text,completed:data.completed,dueDate:date,dueTime:time,priority:data.priority,reminder:data.reminder,timezone:data.recurrence?data.timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,...(data.recurrence!==undefined?{recurrence:data.recurrence,occurrenceAt:data.occurrenceAt??null,lastCompletedAt:data.lastCompletedAt??null,snoozedUntil:data.snoozedUntil??null}:{})};
 }
-function snapshot():Map<string, {kind:Kind;id:string;data:PhoneTask|PhoneNote|Subscription|PhoneProject|StudyProgram|PrayerLogDay}> {
-  const tasks=loadTasks(),notes=loadNotes(),subscriptions=loadSubscriptions(),projects=loadProjectSnapshot(),programs=loadStudyPrograms(),prayerLogs=loadPrayerLogs();if(prayerLogs.locked||programs.locked||tasks.locked||notes.error||subscriptions.locked||projects.locked)throw new Error("Görev veya not kayıtları okunamadı; eşitleme durduruldu.");
+function snapshot():Map<string, {kind:Kind;id:string;data:PhoneTask|PhoneNote|Subscription|PhoneProject|StudyProgram|PrayerLogDay|MediaItem|StudyAttendanceDay}> {
+  const tasks=loadTasks(),notes=loadNotes(),subscriptions=loadSubscriptions(),projects=loadProjectSnapshot(),programs=loadStudyPrograms(),prayerLogs=loadPrayerLogs(),media=loadMedia(),attendance=loadStudyAttendanceSnapshot();if(media.locked||attendance.locked||prayerLogs.locked||programs.locked||tasks.locked||notes.error||subscriptions.locked||projects.locked)throw new Error("Görev veya not kayıtları okunamadı; eşitleme durduruldu.");
   const safeText=(s:string)=>/[A-Za-z]:[\\/]|\\\\/.test(s)?"":s;
-  return new Map([...prayerLogs.entries.map(data=>({kind:"prayerLogs" as const,id:data.id,data})),...programs.entries.map(data=>({kind:"studyPrograms" as const,id:data.id,data})),...projects.entries.map(p=>({kind:"projects" as const,id:p.id,data:{name:safeText(p.name)||"Proje",description:safeText(p.description),nextStep:safeText(p.nextStep??""),workspaceId:p.workspaceId??null,inboxIds:p.inboxIds??[]}})),...tasks.entries.map(task=>({kind:"tasks" as const,id:task.id,data:phoneTask(task)})),...subscriptions.entries.map(data=>({kind:"subscriptions" as const,id:data.id,data})),...notes.notes.map(note=>({kind:"notes" as const,id:note.id,data:{...productMetadata(note),...(note.attachments?{attachments:note.attachments}:{}),title:note.title,content:note.content,updatedAt:note.updatedAt}}))].map(item=>[key(item.kind,item.id),{...item,data:scrubSync(item.data)}]));
+  const attendanceDays=groupStudyAttendanceByDay(attendance.map);
+  return new Map([...media.entries.map(data=>({kind:"mediaItems" as const,id:data.id,data})),...attendanceDays.map(data=>({kind:"studyAttendance" as const,id:data.id,data})),...prayerLogs.entries.map(data=>({kind:"prayerLogs" as const,id:data.id,data})),...programs.entries.map(data=>({kind:"studyPrograms" as const,id:data.id,data})),...projects.entries.map(p=>({kind:"projects" as const,id:p.id,data:{name:safeText(p.name)||"Proje",description:safeText(p.description),nextStep:safeText(p.nextStep??""),workspaceId:p.workspaceId??null,inboxIds:p.inboxIds??[]}})),...tasks.entries.map(task=>({kind:"tasks" as const,id:task.id,data:phoneTask(task)})),...subscriptions.entries.map(data=>({kind:"subscriptions" as const,id:data.id,data})),...notes.notes.map(note=>({kind:"notes" as const,id:note.id,data:{...productMetadata(note),...(note.attachments?{attachments:note.attachments}:{}),title:note.title,content:note.content,updatedAt:note.updatedAt}}))].map(item=>[key(item.kind,item.id),{...item,data:scrubSync(item.data)}]));
 }
-function fingerprint(record:CloudRecord){return record.deleted?null:JSON.stringify(record.kind==="tasks"?phoneTask(localTask(record)):record.data);}
+function fingerprint(record:CloudRecord){
+  if(record.deleted)return null;
+  if(record.kind==="tasks")return JSON.stringify(phoneTask(localTask(record)));
+  if(record.kind==="studyAttendance"){const d=record.data as StudyAttendanceDay;return JSON.stringify(canonicalAttendanceDay(d.date,d.entries,d.updatedAt));}
+  return JSON.stringify(record.data);
+}
 function replaceRecord<T extends {id:string}>(entries:T[],id:string,next:T|null):T[]{
   if(!next)return entries.filter(item=>item.id!==id);
   return entries.some(item=>item.id===id)?entries.map(item=>item.id===id?next:item):[...entries,next];
 }
 function apply(record:CloudRecord) {
-  if(record.kind==="prayerLogs"){
+  if(record.kind==="mediaItems"){
+    const loaded=loadMedia();
+    if(!saveMedia(replaceRecord(loaded.entries,record.id,record.deleted?null:record.data as MediaItem),loaded))throw new Error("Günlük kaydı eşitlenemedi; mevcut kayıtlar korunuyor.");
+  }else if(record.kind==="studyAttendance"){
+    if(!applyStudyAttendanceDay(record.id,record.deleted?null:record.data as StudyAttendanceDay))throw new Error("Ders katılım kaydı eşitlenemedi; mevcut kayıtlar korunuyor.");
+  }else if(record.kind==="prayerLogs"){
     const loaded=loadPrayerLogs();
     if(!savePrayerLogs(replaceRecord(loaded.entries,record.id,record.deleted?null:record.data as PrayerLogDay),loaded))throw new Error("Namaz kaydı eşitlenemedi; mevcut kayıtlar korunuyor.");
   }else if(record.kind==="studyPrograms"){

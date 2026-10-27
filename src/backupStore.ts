@@ -2,6 +2,8 @@ import { validStudyReminder } from "./studyReminderStore";
 import { validGeminiModels, type GeminiModels } from "../shared/geminiModels";
 import { validStudyProgram } from "../shared/studyPrograms";
 import { validPrayerLog } from "../shared/prayerTimes";
+import { validMediaItem } from "../shared/media";
+import { validAttendanceEntry } from "../shared/studyAttendance";
 import { hasCredentials } from "../shared/privacy";
 import { validActivity,ACTIVITY_LIMIT } from "./activityStore";
 import { validTemplate } from "./templateStore";
@@ -22,7 +24,7 @@ import { isWorkspace, isShortcutData } from "./workHubStore";
 import { isUsage } from "./usageStore";
 export type BackupDesktop = DesktopPreferences & { autoStart: boolean };
 export const BACKUP_KEYS = { tasks: "ack-deck.tasks.v1", projects: "ack-deck.projects.v1", notes: "ack-deck.notes.v1", files: "ack-deck.files.v1", speedTest: "ack-deck.speed-test.v1", archive: "ack-deck.archive.v1", preferences: "ack-deck.preferences.v1", aiModel: "ack-deck.ai-model.v1" } as const;
-export const HUB_BACKUP_KEYS = { studyReminders: "ack-deck.study-reminders.v1", studyPrograms: "ack-deck.study-programs.v1", prayerLogs: "ack-deck.prayer-logs.v1", activity: "ack-deck.activity.v1", templates: "ack-deck.templates.v1", subscriptions: "ack-deck.subscriptions.v1", workspaces: "ack-deck.workspaces.v1", shortcuts: "ack-deck.shortcuts.v1", usage: "ack-deck.usage.v1", hiddenLegacy: "ack-deck.shortcuts-legacy-hidden.v1", recent: "ack-deck.recent-items.v1" } as const;
+export const HUB_BACKUP_KEYS = { studyReminders: "ack-deck.study-reminders.v1", studyPrograms: "ack-deck.study-programs.v1", prayerLogs: "ack-deck.prayer-logs.v1", mediaItems: "ack-deck.media-entries.v1", studyAttendance: "ack-deck.study-attendance.v1", activity: "ack-deck.activity.v1", templates: "ack-deck.templates.v1", subscriptions: "ack-deck.subscriptions.v1", workspaces: "ack-deck.workspaces.v1", shortcuts: "ack-deck.shortcuts.v1", usage: "ack-deck.usage.v1", hiddenLegacy: "ack-deck.shortcuts-legacy-hidden.v1", recent: "ack-deck.recent-items.v1" } as const;
 const JOURNAL_KEY = "ack-deck.restore-journal.v1";
 export type Backup = { formatVersion: 1 | 2; appVersion: string; createdAt: string; data: Record<keyof typeof BACKUP_KEYS, unknown> & Partial<Record<keyof typeof HUB_BACKUP_KEYS, unknown>> & { desktop: BackupDesktop; conversations?: import("./conversationStore").Conversation[]; paletteShortcut?: string; geminiModels?: GeminiModels } };
 type Store = Pick<Storage, "getItem" | "setItem" | "removeItem">;
@@ -39,6 +41,8 @@ function validData(data: unknown): boolean {
   if(data.studyReminders!==undefined&&!array(data.studyReminders,validStudyReminder))return false;
   if(data.studyPrograms!==undefined&&(!array(data.studyPrograms,validStudyProgram)||(data.studyPrograms as unknown[]).length>100))return false;
   if(data.prayerLogs!==undefined&&(!array(data.prayerLogs,validPrayerLog)||(data.prayerLogs as unknown[]).length>50000))return false;
+  if(data.mediaItems!==undefined&&(!array(data.mediaItems,validMediaItem)||(data.mediaItems as unknown[]).length>10000))return false;
+  if(data.studyAttendance!==undefined&&(!object(data.studyAttendance)||Object.entries(data.studyAttendance).length>100000||!Object.entries(data.studyAttendance).every(([k,v])=>/^[a-zA-Z0-9_.:-]{1,300}$/.test(k)&&validAttendanceEntry(v))))return false;
   if(data.subscriptions!==undefined&&!array(data.subscriptions,validSubscription))return false;
   if (data.workspaces !== undefined && !array(data.workspaces, isWorkspace) || data.shortcuts !== undefined && !isShortcutData(data.shortcuts) || data.usage !== undefined && (!Array.isArray(data.usage) || data.usage.length > 500 || !data.usage.every(isUsage)) || data.hiddenLegacy !== undefined && (!Array.isArray(data.hiddenLegacy) || !data.hiddenLegacy.every(v => typeof v === "string" && v.length <= 512))) return false;
   return array(data.tasks, (item) => isTask(item) && fields(item, ["id", "text", "completed", "dueDate", "dueTime", "priority", "reminder", "remindedFor", "recurrence", "dueAt", "occurrenceAt", "lastCompletedAt", "snoozedUntil", "timezone", "checklist", "projectId", "workspaceId", "sourceInboxId", "reminderLeadMinutes"])) &&

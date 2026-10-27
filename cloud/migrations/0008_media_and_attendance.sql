@@ -1,0 +1,3 @@
+-- Media tracker entries (Günlük: movie, series, book, game) and daily study attendance logs
+CREATE TABLE IF NOT EXISTS media_items (kind TEXT NOT NULL DEFAULT 'mediaItems' CHECK(kind='mediaItems'), id TEXT NOT NULL, version INTEGER NOT NULL, data TEXT, deleted INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL, PRIMARY KEY(kind,id));
+CREATE TABLE IF NOT EXISTS study_attendance (kind TEXT NOT NULL DEFAULT 'studyAttendance' CHECK(kind='studyAttendance'), id TEXT NOT NULL, version INTEGER NOT NULL, data TEXT, deleted INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL, PRIMARY KEY(kind,id));

@@ -2,8 +2,8 @@ import { dailySummary } from "../productIntelligence";
 import { Subscriptions } from "./Subscriptions";
 import { PrayerWidget } from "./PrayerWidget";
 import { DormMenuCard } from "./DormMenuCard";
-import { completeOccurrence, scheduleDate } from "../../shared/recurrence";
-import { loadStudyAttendance } from "../../shared/studyAttendance";
+import { completeOccurrence, scheduleDate, formatCompletedTime } from "../../shared/recurrence";
+import { loadStudyAttendance, setStudyBlockStatus, cycleAttendanceStatus } from "../../shared/studyAttendance";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Header } from "./Header";
 import { PcStatus } from "./PcStatus";
@@ -74,8 +74,17 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, targetId }
   useEffect(() => {
     const handleAtt = () => setAttendance(loadStudyAttendance());
     window.addEventListener("ack-study-attendance-changed", handleAtt);
-    return () => window.removeEventListener("ack-study-attendance-changed", handleAtt);
+    window.addEventListener("ack-data-changed", handleAtt);
+    return () => {
+      window.removeEventListener("ack-study-attendance-changed", handleAtt);
+      window.removeEventListener("ack-data-changed", handleAtt);
+    };
   }, []);
+  function toggleStudyBlock(blockId: string) {
+    const nextStatus = cycleAttendanceStatus(attendance[blockId]?.status);
+    setAttendance(setStudyBlockStatus(blockId, nextStatus));
+  }
+  const todayStudyBlocks = allBlocks.filter(b => b.date === todayDateStr);
   const curWeekDates = weekDates(now);
 
   const getTasksForDate = (dateStr: string) => {
@@ -271,7 +280,11 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, targetId }
               <div className="daily-summary-counts">
                 <button type="button" className="today-badge-btn" onClick={() => onNavigate({ page: "tasks" })}>
                   <Icon name="check" size={13} />
-                  <span><strong>{summary.today}</strong> görev {summary.overdue > 0 && <em className="overdue-count">({summary.overdue} geciken)</em>}</span>
+                  <span>
+                    <strong>{summary.today}</strong> görev
+                    {todayStudyBlocks.length > 0 && ` · ${todayStudyBlocks.filter(b => !attendance[b.id]?.status).length}/${todayStudyBlocks.length} ders`}
+                    {summary.overdue > 0 && <em className="overdue-count"> ({summary.overdue} geciken)</em>}
+                  </span>
                 </button>
                 <button type="button" className="today-badge-btn" onClick={() => onNavigate({ page: "inbox" })}>
                   <Icon name="files" size={13} />
@@ -286,6 +299,51 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, targetId }
               {data.tasks.warning && <p className="dashboard-empty" role="status">{data.tasks.warning}</p>}
 
               <div className="dashboard-daily-list">
+                {todayStudyBlocks.map(block => {
+                  const att = attendance[block.id];
+                  const status = att?.status;
+                  return (
+                    <div
+                      className={`dashboard-daily-task study-daily-row ${status === "attended" ? "is-study-attended" : status === "skipped" ? "is-study-skipped" : ""}`}
+                      key={block.id}
+                    >
+                      <button
+                        type="button"
+                        className={`task-toggle study-status-toggle ${status === "attended" ? "is-attended" : status === "skipped" ? "is-skipped" : ""}`}
+                        onClick={() => toggleStudyBlock(block.id)}
+                        title="1 tık: Çalıştım · 2 tık: Çalışmadım · 3 tık: Sıfırla"
+                        aria-label={`${block.label}: ${status === undefined ? "Çalıştım olarak işaretle" : status === "attended" ? "Çalışmadım olarak işaretle" : "Durumu sıfırla"}`}
+                      >
+                        {status === "attended" ? (
+                          <Icon name="check" size={12} />
+                        ) : status === "skipped" ? (
+                          <span className="study-toggle-x" aria-hidden="true">✕</span>
+                        ) : null}
+                      </button>
+                      <button
+                        type="button"
+                        className="dashboard-task-open"
+                        onClick={() => toggleStudyBlock(block.id)}
+                      >
+                        <strong>{block.label}{block.topic ? ` · ${block.topic}` : ""}</strong>
+                        <small>
+                          📚 Ders · {block.time} – {block.endTime}
+                          {status === "attended" ? (
+                            <span className="study-att-inline is-attended">
+                              {" · ✓ Çalışıldı"}{formatCompletedTime(att?.at) ? ` (${formatCompletedTime(att?.at)})` : ""}
+                            </span>
+                          ) : status === "skipped" ? (
+                            <span className="study-att-inline is-skipped">
+                              {" · ✗ Çalışılmadı"}{formatCompletedTime(att?.at) ? ` (${formatCompletedTime(att?.at)})` : ""}
+                            </span>
+                          ) : (
+                            <span className="study-att-hint"> · 1 tık ✓ · 2 tık ✕</span>
+                          )}
+                        </small>
+                      </button>
+                    </div>
+                  );
+                })}
                 {daily.map(({ task, label }) => (
                   <div className="dashboard-daily-task" key={task.id}>
                     <button
@@ -304,11 +362,11 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, targetId }
                 ))}
               </div>
 
-              {!daily.length && !data.tasks.locked && (
+              {!daily.length && !todayStudyBlocks.length && !data.tasks.locked && (
                 <div className="dashboard-empty-state">
                   <span><Icon name="check" size={26} /></span>
                   <strong>Günün açık</strong>
-                  <p>Bekleyen tarihli görev yok.</p>
+                  <p>Bekleyen tarihli görev veya ders yok.</p>
                 </div>
               )}
             </section>

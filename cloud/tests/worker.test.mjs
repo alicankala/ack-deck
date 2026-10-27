@@ -73,6 +73,7 @@ before(async()=>{
   await db.exec(readFileSync(new URL('migrations/0005_study_programs.sql',root),'utf8').replace(/^--.*$/gm,''));
   await db.exec(readFileSync(new URL('migrations/0006_prayer_config.sql',root),'utf8').replace(/^--.*$/gm,''));
   await db.exec(readFileSync(new URL('migrations/0007_prayer_logs.sql',root),'utf8').replace(/^--.*$/gm,''));
+  await db.exec(readFileSync(new URL('migrations/0008_media_and_attendance.sql',root),'utf8').replace(/^--.*$/gm,''));
   assert.equal((await db.prepare("SELECT data FROM records WHERE id='migration-preserved'").first()).data,JSON.stringify({title:'Migration fixture',content:'Preserve',updatedAt:1}));
   assert.equal((await db.prepare("SELECT state FROM reminder_deliveries WHERE generation='migration-fixture'").first()).state,'sent');
   env={...bindings,DB:db,ATTACHMENTS:kv};worker=await module('src/index.ts');reminders=await module('src/reminders.ts');security=await module('src/security.ts');shared=await module('../shared/phone.ts');
@@ -260,8 +261,8 @@ test('real desktop and mobile sync engines round-trip tasks, notes, completion, 
   const window={localStorage:{getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)},dispatchEvent:()=>{}};
   function load(path){if(modules[path])return modules[path];const exports={};modules[path]=exports;const source=readFileSync(new URL('../'+path+'.ts',root),'utf8');runInNewContext(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,window,require:name=>name==='@tauri-apps/api/core'?{invoke:async()=>{throw Error('Unexpected native call');}}:name==='adhan'?{Coordinates:class{},CalculationMethod:{Turkey:()=>({})},PrayerTimes:class{}}:load(posix.normalize(posix.join(posix.dirname(path),name))),structuredClone,crypto,URL,TextEncoder,TextDecoder,Intl,Event,Date});return exports;}
   const desktop=load('src/phoneSync'),mobile=await module('../mobile/src/store.ts');
-  const desktopRequest=async(operation,body)=>{const path=operation==='mutate'?'mutations':operation==='sync'?'sync?cursor='+body.cursor:operation;const response=await call(path,['sync'].includes(operation)?undefined:body??{},ownerSecret,operation==='sync'?'GET':'POST',{'X-ACKDeck-Schema':'4'});assert.equal(response.response.status,200,JSON.stringify({operation,data:response.data}));return response.data;};
-  const phoneRequest=async(state,path,options={})=>(await call(path,options.body?JSON.parse(options.body):undefined,state.token,options.body?'POST':'GET',{'X-ACKDeck-Schema':'4'})).data;
+  const desktopRequest=async(operation,body)=>{const path=operation==='mutate'?'mutations':operation==='sync'?'sync?cursor='+body.cursor:operation;const response=await call(path,['sync'].includes(operation)?undefined:body??{},ownerSecret,operation==='sync'?'GET':'POST',{'X-ACKDeck-Schema':'5'});assert.equal(response.response.status,200,JSON.stringify({operation,data:response.data}));return response.data;};
+  const phoneRequest=async(state,path,options={})=>(await call(path,options.body?JSON.parse(options.body):undefined,state.token,options.body?'POST':'GET',{'X-ACKDeck-Schema':'5'})).data;
   const persist=async()=>{};
   await desktop.synchronizePhone(desktopRequest);
   let state=await mobile.synchronize({...mobile.emptyState(),token},phoneRequest,persist);
@@ -311,4 +312,17 @@ test('real desktop and mobile sync engines round-trip tasks, notes, completion, 
   state=await mobile.synchronize(state,phoneRequest,persist);await desktop.synchronizePhone(desktopRequest);
   assert.equal(load('src/prayerStore').loadPrayerLogs().entries[0].prayers.maghrib,'prayed');assert.equal(load('src/prayerStore').loadPrayerLogs().entries[0].notes[0].done,true);
   const currentProject=state.records.find(r=>r.id==='chain-project');state=mobile.enqueue(state,mutation('projects',currentProject.id,null,currentProject.version,true));state=await mobile.synchronize(state,phoneRequest,persist);await desktop.synchronizePhone(desktopRequest);assert.equal(load('src/projectStore').loadProjects().length,0);assert.equal(load('src/notesStore').loadNotes().notes.find(n=>n.id==='chain-note').projectId,'chain-project');
+  const movie={id:'chain-movie',type:'movie',title:'Interstellar',status:'completed',rating:9.5,review:'Harika',progress:'',completedDate:'2026-10-28',createdAt:10,updatedAt:10};
+  assert.equal(load('src/mediaStore').saveMedia([movie]),true);await desktop.synchronizePhone(desktopRequest);state=await mobile.synchronize(state,phoneRequest,persist);
+  const movieRow=state.records.find(r=>r.kind==='mediaItems'&&r.id==='chain-movie');assert.equal(movieRow.data.title,'Interstellar');
+  assert.equal((await call('sync?cursor=0',undefined,token,'GET',{'X-ACKDeck-Schema':'4'})).data.records.some(r=>r.kind==='mediaItems'),false);
+  state=mobile.enqueue(state,mutation('mediaItems',movie.id,{...movieRow.data,rating:10,review:'Başyapıt',updatedAt:20},movieRow.version));
+  state=await mobile.synchronize(state,phoneRequest,persist);await desktop.synchronizePhone(desktopRequest);
+  assert.equal(load('src/mediaStore').loadMedia().entries[0].review,'Başyapıt');
+  load('shared/studyAttendance').setStudyBlockStatus('prog1:sess1:2026-10-28','attended');
+  await desktop.synchronizePhone(desktopRequest);state=await mobile.synchronize(state,phoneRequest,persist);
+  const attRow=state.records.find(r=>r.kind==='studyAttendance'&&r.id==='2026-10-28');assert.equal(attRow.data.entries['prog1:sess1:2026-10-28'].status,'attended');
+  state=mobile.enqueue(state,mutation('studyAttendance','2026-10-28',{id:'2026-10-28',date:'2026-10-28',entries:{'prog1:sess1:2026-10-28':{status:'skipped',at:30}},updatedAt:30},attRow.version));
+  state=await mobile.synchronize(state,phoneRequest,persist);await desktop.synchronizePhone(desktopRequest);
+  assert.equal(load('shared/studyAttendance').loadStudyAttendance()['prog1:sess1:2026-10-28'].status,'skipped');
 });

@@ -156,7 +156,7 @@ pub(crate) async fn request(
         reqwest::Method::from_bytes(method.as_bytes()).map_err(|_| "Telefon isteği geçersiz.")?;
     let mut req = client
         .request(method.clone(), format!("{}/api/{path}", config.url))
-        .header("X-ACKDeck-Schema", "4")
+        .header("X-ACKDeck-Schema", "5")
         .bearer_auth(&secret);
     if method != reqwest::Method::GET {
         req = req.json(&body);

@@ -5,7 +5,7 @@ import type { PlanEvent } from "./weeklyPlan";
 import { studyBlocks, studyConflicts, type StudyProgram } from "./studyPrograms";
 import { StudyProgramsModal } from "./StudyProgramPanel";
 import { ExamDialog } from "./ExamDialog";
-import { loadStudyAttendance, setStudyBlockStatus } from "./studyAttendance";
+import { loadStudyAttendance } from "./studyAttendance";
 import "./planner.css";
 
 const WEEKDAYS = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
@@ -253,30 +253,12 @@ export function PlanCalendar({
                 {b.topic && <span>{b.topic}</span>}
                 <small className="calendar-event-program">{b.programName}</small>
                 {conflicts.has(b.id) && <small className="calendar-conflict">Saatler çakışıyor</small>}
-
-                {/* Attendance Toggle: Çalıştım / Çalışmadım */}
-                <div className="study-att-toolbar" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    className={`study-att-btn ${attendance[b.id]?.status === "attended" ? "is-active-attended" : ""}`}
-                    onClick={() => {
-                      const next = setStudyBlockStatus(b.id, attendance[b.id]?.status === "attended" ? null : "attended");
-                      setAttendance(next);
-                    }}
-                  >
-                    {attendance[b.id]?.status === "attended" ? "✓ Çalıştım" : "Çalıştım"}
-                  </button>
-                  <button
-                    type="button"
-                    className={`study-att-btn ${attendance[b.id]?.status === "skipped" ? "is-active-skipped" : ""}`}
-                    onClick={() => {
-                      const next = setStudyBlockStatus(b.id, attendance[b.id]?.status === "skipped" ? null : "skipped");
-                      setAttendance(next);
-                    }}
-                  >
-                    {attendance[b.id]?.status === "skipped" ? "✗ Çalışmadım" : "Çalışmadım"}
-                  </button>
-                </div>
+                {attendance[b.id]?.status === "attended" && (
+                  <small style={{ color: "#34d399", fontWeight: 600 }}>✓ Çalışıldı</small>
+                )}
+                {attendance[b.id]?.status === "skipped" && (
+                  <small style={{ color: "#f87171", fontWeight: 600 }}>✗ Çalışılmadı</small>
+                )}
               </button>
             ) : e && (
               <button

@@ -2824,3 +2824,47 @@ dialog,
   gap: 0.75rem;
   margin-top: 0.8rem;
 }
+
+/* Study 3-State Completion Toggle in Dashboard & Tasks */
+.task-toggle.study-status-toggle.is-attended,
+.task-item.completed .task-toggle.study-status-toggle.is-attended {
+  background: #10b981;
+  border-color: #10b981;
+  color: #ffffff;
+}
+.task-toggle.study-status-toggle.is-skipped {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+}
+.study-toggle-x {
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.study-att-inline.is-attended {
+  color: #34d399;
+  font-weight: 600;
+}
+.study-att-inline.is-skipped {
+  color: #f87171;
+  font-weight: 600;
+}
+.study-att-hint {
+  opacity: 0.75;
+}
+.study-task-row.is-study-attended {
+  border-color: rgba(52, 211, 153, 0.3) !important;
+}
+.study-task-row.is-study-skipped {
+  border-color: rgba(248, 113, 113, 0.3) !important;
+}
+.study-task-row.is-study-skipped .task-open > span,
+.study-daily-row.is-study-skipped .dashboard-task-open > strong {
+  text-decoration: line-through;
+  color: var(--app-muted);
+}
+.study-daily-row.is-study-attended .dashboard-task-open > strong {
+  text-decoration: line-through;
+  opacity: 0.85;
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import {
   type MediaItem,
   type MediaType,
@@ -8,38 +8,30 @@ import {
   MEDIA_STATUS_LABELS,
   newMediaItem,
 } from "../../shared/media";
-import { loadMedia, saveMedia } from "../../src/mediaStore";
+import type { CloudRecord, Mutation } from "../../shared/phone";
 
 export function MobileMediaTracker({
+  records,
+  onSave,
+  disabled = false,
   onNotice,
+  onError,
 }: {
+  records: CloudRecord[];
+  onSave: (mutation: Mutation) => Promise<void>;
+  disabled?: boolean;
   onNotice: (text: string) => void;
+  onError?: (text: string) => void;
 }) {
-  const [items, setItems] = useState<MediaItem[]>(() => loadMedia().entries);
   const [typeFilter, setTypeFilter] = useState<MediaType | "all">("all");
   const [statusFilter, setStatusFilter] = useState<MediaStatus | "all">("all");
   const [search, setSearch] = useState("");
   const [editor, setEditor] = useState<MediaItem | null>(null);
 
-  useEffect(() => {
-    const refresh = () => {
-      setItems(loadMedia().entries);
-    };
-    window.addEventListener("ack-media-changed", refresh);
-    window.addEventListener("ack-data-changed", refresh);
-    return () => {
-      window.removeEventListener("ack-media-changed", refresh);
-      window.removeEventListener("ack-data-changed", refresh);
-    };
-  }, []);
-
-  const commit = (next: MediaItem[]) => {
-    if (saveMedia(next)) {
-      setItems(next);
-      return true;
-    }
-    return false;
-  };
+  const items = records
+    .filter((r) => r.kind === "mediaItems" && !r.deleted && r.data)
+    .map((r) => r.data as MediaItem)
+    .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
 
   const counts = {
     movie: items.filter((i) => i.type === "movie").length,
@@ -61,28 +53,51 @@ export function MobileMediaTracker({
     return true;
   });
 
-  const handleSave = (e: FormEvent) => {
+  const handleSave = async (e: FormEvent) => {
     e.preventDefault();
-    if (!editor || !editor.title.trim()) return;
-    const cleanItem = {
+    if (!editor || !editor.title.trim() || disabled) return;
+    const cleanItem: MediaItem = {
       ...editor,
       title: editor.title.trim(),
       updatedAt: Date.now(),
     };
-    const exists = items.some((i) => i.id === cleanItem.id);
-    const next = exists
-      ? items.map((i) => (i.id === cleanItem.id ? cleanItem : i))
-      : [cleanItem, ...items];
-    commit(next);
-    onNotice(exists ? "Kayıt güncellendi." : "Yeni kayıt eklendi.");
-    setEditor(null);
+    const existingRow = records.find((r) => r.kind === "mediaItems" && r.id === cleanItem.id);
+    const exists = Boolean(existingRow && !existingRow.deleted);
+    try {
+      await onSave({
+        mutationId: crypto.randomUUID(),
+        kind: "mediaItems",
+        id: cleanItem.id,
+        baseVersion: existingRow?.version ?? 0,
+        deleted: false,
+        data: cleanItem,
+      });
+      onNotice(exists ? "Kayıt güncellendi." : "Yeni kayıt eklendi.");
+      setEditor(null);
+    } catch (err) {
+      onError?.(err instanceof Error ? err.message : "Kayıt kaydedilemedi.");
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    if (disabled) return;
     if (!window.confirm("Bu kayıt silinsin mi?")) return;
-    commit(items.filter((i) => i.id !== id));
-    onNotice("Kayıt silindi.");
-    setEditor(null);
+    const existingRow = records.find((r) => r.kind === "mediaItems" && r.id === id);
+    if (!existingRow) return;
+    try {
+      await onSave({
+        mutationId: crypto.randomUUID(),
+        kind: "mediaItems",
+        id,
+        baseVersion: existingRow.version,
+        deleted: true,
+        data: null,
+      });
+      onNotice("Kayıt silindi.");
+      setEditor(null);
+    } catch (err) {
+      onError?.(err instanceof Error ? err.message : "Kayıt silinemedi.");
+    }
   };
 
   return (
