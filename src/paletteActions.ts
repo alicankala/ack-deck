@@ -4,7 +4,7 @@ import { quickCapture } from "./quickCapture";
 import { updateUsage, usageFor, type UsageSource } from "./usageStore";
 import type { NavigationTarget } from "./navigation";
 export type PaletteRequest = { id: string; kind: "ai" | "task" | "note" | "workspace" | "shortcut" | "project" | "navigate" | "pin"; value: string; mode?: string | null };
-export const HUB_PAGES = ["home", "ai", "tasks", "projects", "workspaces", "files", "notes", "archive", "tools", "qr", "ip", "speed", "pc", "settings", "inbox", "subscriptions", "calendar"] as const;
+export const HUB_PAGES = ["home", "ai", "tasks", "projects", "workspaces", "files", "notes", "media", "archive", "tools", "qr", "ip", "speed", "pc", "settings", "inbox", "subscriptions", "calendar"] as const;
 export function navigationFromJson(value: string): NavigationTarget {
   const target = JSON.parse(value) as NavigationTarget;
   if (!target || typeof target !== "object" || !HUB_PAGES.includes(target.page) || Object.keys(target).some(v => !["page", "id", "intent", "date"].includes(v)) || (target.id !== undefined && (typeof target.id !== "string" || target.id.length > 512)) || (target.intent !== undefined && !["new-task", "new-note", "new-archive", "start-speed"].includes(target.intent))) throw new Error("Sayfa bilgisi geçersiz.");

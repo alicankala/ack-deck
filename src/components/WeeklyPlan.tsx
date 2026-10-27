@@ -4,7 +4,7 @@ import { loadStudyReminders, saveStudyReminder } from "../studyReminderStore";
 import { useEffect, useState } from "react";
 import { monthlyPlan } from "../../shared/weeklyPlan";
 import { intelligenceData } from "../productIntelligence";
-import { taskDueAt } from "../taskStore";
+import { taskDueAt, loadTasks, saveTasks, type Task } from "../taskStore";
 import type { NavigationTarget } from "../navigation";
 
 export function WeeklyPlan({ onNavigate }: {
@@ -31,6 +31,25 @@ export function WeeklyPlan({ onNavigate }: {
         disabled={programs.locked}
         onEvent={e => onNavigate({ page: e.source, id: e.id })}
         onNew={day => onNavigate({ page: "tasks", intent: "new-task", date: day })}
+        onSaveExam={async (exam) => {
+          const loaded = loadTasks();
+          const text = `🎓 [${exam.type}] ${exam.course}${exam.room ? ` (${exam.room})` : ""}${exam.notes ? ` - ${exam.notes}` : ""}`;
+          const newTaskItem: Task = {
+            id: crypto.randomUUID(),
+            text,
+            completed: false,
+            dueDate: exam.date,
+            dueTime: exam.time,
+            priority: "important",
+            reminder: true,
+            reminderLeadMinutes: exam.leadMinutes,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            dueAt: null,
+          };
+          if (!saveTasks([newTaskItem, ...loaded.entries], loaded)) {
+            throw Error("Sınav kaydedilemedi.");
+          }
+        }}
         getReminder={id => reminders.entries.find(r => r.id === id)?.leadMinutes ?? null}
         onReminderChange={(id, lead) => saveStudyReminder(id, lead)}
         onSaveProgram={async program => { const loaded=loadStudyPrograms(); if(!saveStudyPrograms([...loaded.entries.filter(p=>p.id!==program.id),program],loaded)) throw Error("Program kaydedilemedi; mevcut kayıtlar korunuyor."); }}

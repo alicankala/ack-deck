@@ -32,19 +32,35 @@ async function handle(request: Request, env: Env): Promise<Response> {
     const query = url.searchParams.get("city") || "Karabük";
     const cityData = lookupTurkeyCity(query) || { city: query, lat: 41.20488, lng: 32.62768 };
     try {
-      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${cityData.lat}&longitude=${cityData.lng}&current=temperature_2m,weather_code&timezone=auto`);
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${cityData.lat}&longitude=${cityData.lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&hourly=temperature_2m,weather_code&forecast_hours=24&timezone=auto`);
       if (res.ok) {
         const data = await res.json() as any;
         const current = data.current;
         if (current) {
           const temp = Math.round(Number(current.temperature_2m) * 10) / 10;
           const code = Number(current.weather_code);
+          const apparentTemperature = current.apparent_temperature !== undefined ? Math.round(Number(current.apparent_temperature) * 10) / 10 : temp;
+          const humidity = current.relative_humidity_2m !== undefined ? Math.round(Number(current.relative_humidity_2m)) : undefined;
+          const windSpeed = current.wind_speed_10m !== undefined ? Math.round(Number(current.wind_speed_10m)) : undefined;
+          const tempMax = Array.isArray(data.daily?.temperature_2m_max) ? Math.round(Number(data.daily.temperature_2m_max[0])) : undefined;
+          const tempMin = Array.isArray(data.daily?.temperature_2m_min) ? Math.round(Number(data.daily.temperature_2m_min[0])) : undefined;
+          const hourly = Array.isArray(data.hourly?.time) ? data.hourly.time.slice(0, 12).map((t: string, idx: number) => ({
+            time: t.slice(11, 16),
+            temperature: Math.round(Number(data.hourly.temperature_2m[idx])),
+            code: Number(data.hourly.weather_code[idx])
+          })) : [];
           return reply({
             city: cityData.city,
             temperature: temp,
             code,
             desc: weatherDescription(code),
             symbol: weatherSymbol(code),
+            apparentTemperature,
+            humidity,
+            windSpeed,
+            tempMax,
+            tempMin,
+            hourly,
           });
         }
       }
@@ -56,6 +72,19 @@ async function handle(request: Request, env: Env): Promise<Response> {
       desc: "Az bulutlu",
       symbol: "🌤️",
     });
+  }
+  if (path === "/api/dorm-menu" && request.method === "GET") {
+    try {
+      const res = await fetch("https://altinkalemkarabuk.com/icerik/icerik.json", {
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+      });
+      if (res.ok) {
+        const json = await res.json() as any;
+        const records = json?.menu?.kayitlar ?? [];
+        return reply({ ok: true, records });
+      }
+    } catch {}
+    return reply({ ok: false, records: [] });
   }
   if (!env.OWNER_SECRET || env.OWNER_SECRET.length < 32) throw new ApiError(503,"Telefon sunucusu henüz yapılandırılmamış.");
   if (request.method === "OPTIONS") throw new ApiError(403,"Çapraz kaynak erişimi desteklenmiyor.");
@@ -193,10 +222,17 @@ async function handle(request: Request, env: Env): Promise<Response> {
   }
   const inboxMatch = path.match(/^\/api\/inbox\/([\w.-]{1,128})$/);
   if (inboxMatch && ["PATCH","DELETE"].includes(request.method)) {
-    if(request.method==="DELETE")owner(actor); const item = await env.DB.prepare("SELECT kv_key FROM inbox_items WHERE id=?").bind(inboxMatch[1]).first<{kv_key:string|null}>();
-    if (request.method === "PATCH") await env.DB.prepare("UPDATE inbox_items SET handled=1 WHERE id=?").bind(inboxMatch[1]).run();
-    else { await env.DB.prepare("DELETE FROM inbox_items WHERE id=?").bind(inboxMatch[1]).run(); if (item?.kv_key) await env.ATTACHMENTS.delete(item.kv_key); }
-    return reply({ok:true});
+    const item = await env.DB.prepare("SELECT kv_key, device_id FROM inbox_items WHERE id=?").bind(inboxMatch[1]).first<{kv_key:string|null; device_id:string|null}>();
+    if (request.method === "DELETE") {
+      if (!actor.owner && item?.device_id !== actor.id) throw new ApiError(403, "Bu gönderiyi sadece oluşturan cihaz veya bilgisayar silebilir.");
+      await env.DB.prepare("DELETE FROM inbox_items WHERE id=?").bind(inboxMatch[1]).run();
+      if (item?.kv_key) await env.ATTACHMENTS.delete(item.kv_key);
+      return reply({ok:true});
+    }
+    if (request.method === "PATCH") {
+      await env.DB.prepare("UPDATE inbox_items SET handled=1 WHERE id=?").bind(inboxMatch[1]).run();
+      return reply({ok:true});
+    }
   }
   if (path === "/api/attachments" && request.method === "POST") {
     if (actor.owner) throw new ApiError(403,"Dosyalar telefondan gönderilir."); await rate(env,`uploads:${actor.id}`,20,86400);

@@ -4,6 +4,12 @@ export type WeatherData = {
   code: number;
   desc: string;
   symbol: string;
+  apparentTemperature?: number;
+  humidity?: number;
+  windSpeed?: number;
+  tempMax?: number;
+  tempMin?: number;
+  hourly?: { time: string; temperature: number; code: number }[];
 };
 
 export const WEATHER_CACHE_KEY = "ack-deck.mobile-weather-cache.v1";
@@ -73,20 +79,36 @@ export async function fetchMobileWeather(city: string, lat?: number, lng?: numbe
   if (typeof lat === "number" && typeof lng === "number") {
     try {
       const res = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code&timezone=auto`
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&hourly=temperature_2m,weather_code&forecast_hours=24&timezone=auto`
       );
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json() as any;
         const current = data.current;
         if (current) {
           const temp = Math.round(Number(current.temperature_2m) * 10) / 10;
           const code = Number(current.weather_code);
+          const apparentTemperature = current.apparent_temperature !== undefined ? Math.round(Number(current.apparent_temperature) * 10) / 10 : temp;
+          const humidity = current.relative_humidity_2m !== undefined ? Math.round(Number(current.relative_humidity_2m)) : undefined;
+          const windSpeed = current.wind_speed_10m !== undefined ? Math.round(Number(current.wind_speed_10m)) : undefined;
+          const tempMax = Array.isArray(data.daily?.temperature_2m_max) ? Math.round(Number(data.daily.temperature_2m_max[0])) : undefined;
+          const tempMin = Array.isArray(data.daily?.temperature_2m_min) ? Math.round(Number(data.daily.temperature_2m_min[0])) : undefined;
+          const hourly = Array.isArray(data.hourly?.time) ? data.hourly.time.slice(0, 12).map((t: string, idx: number) => ({
+            time: t.slice(11, 16),
+            temperature: Math.round(Number(data.hourly.temperature_2m[idx])),
+            code: Number(data.hourly.weather_code[idx])
+          })) : [];
           const w: WeatherData = {
             city,
             temperature: temp,
             code,
             desc: weatherDescription(code),
             symbol: weatherSymbol(code),
+            apparentTemperature,
+            humidity,
+            windSpeed,
+            tempMax,
+            tempMin,
+            hourly,
           };
           saveWeatherCache(w);
           return w;

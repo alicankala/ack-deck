@@ -1,10 +1,11 @@
 import { Icon, type IconName } from "./Icon";
 
-export type MobileTabId = "today" | "plan" | "notes" | "send";
+export type MobileTabId = "today" | "plan" | "media" | "notes" | "send";
 
 const tabs: { id: MobileTabId; label: string; icon: IconName }[] = [
   { id: "today", label: "Bugün", icon: "checkCircle" },
   { id: "plan", label: "Aylık Plan", icon: "calendar" },
+  { id: "media", label: "Medya", icon: "archive" },
   { id: "notes", label: "Notlar", icon: "note" },
   { id: "send", label: "Gönder", icon: "send" },
 ];

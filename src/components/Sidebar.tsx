@@ -5,6 +5,7 @@ export type Page =
   | "tasks"
   | "calendar"
   | "notes"
+  | "media"
   | "projects"
   | "ai"
   | "subscriptions"
@@ -33,6 +34,7 @@ const navigationGroups: { label: string; items: { id: Page; label: string; icon:
     label: "Üretkenlik & Araçlar",
     items: [
       { id: "projects", label: "Projeler & Araçlar", icon: "folder" },
+      { id: "media", label: "Medya Günlüğü", icon: "archive" },
       { id: "ai", label: "ACK AI", icon: "spark" },
       { id: "subscriptions", label: "Abonelikler", icon: "archive" },
     ],

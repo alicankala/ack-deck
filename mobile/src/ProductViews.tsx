@@ -66,6 +66,28 @@ export function MobileWeek({ records, onOpen, onNew, onSave, disabled = false, g
     programs={programs}
     disabled={disabled}
     onNew={onNew}
+    onSaveExam={async exam => {
+      const draftId = crypto.randomUUID();
+      const text = `🎓 [${exam.type}] ${exam.course}${exam.room ? ` (${exam.room})` : ""}${exam.notes ? ` - ${exam.notes}` : ""}`;
+      await onSave({
+        mutationId: draftId,
+        kind: "tasks",
+        id: draftId,
+        baseVersion: 0,
+        deleted: false,
+        data: {
+          text,
+          completed: false,
+          dueDate: exam.date,
+          dueTime: exam.time,
+          priority: "important",
+          reminder: true,
+          reminderLeadMinutes: exam.leadMinutes,
+          dueAt: null,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        },
+      });
+    }}
     onEvent={e=>{const row=records.find(r=>r.id===e.id&&r.kind===e.source);if(row)onOpen(row);}}
     getReminder={getReminder}
     onReminderChange={onReminderChange}

@@ -1,12 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { dateKey, monthDates } from "./weeklyPlan";
 import { planAgenda, reminderText, type AgendaEvent } from "./planAgenda";
 import type { PlanEvent } from "./weeklyPlan";
 import { studyBlocks, studyConflicts, type StudyProgram } from "./studyPrograms";
 import { StudyProgramsModal } from "./StudyProgramPanel";
+import { ExamDialog } from "./ExamDialog";
+import { loadStudyAttendance, setStudyBlockStatus } from "./studyAttendance";
 import "./planner.css";
 
 const WEEKDAYS = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+
+export function isExam(text: string): boolean {
+  return text.includes("🎓") || /\[(Vize|Final|Büt|Quiz|Sınav)\]/i.test(text);
+}
 
 export function PlanCalendar({
   anchor,
@@ -16,6 +22,7 @@ export function PlanCalendar({
   onEvent,
   onProgram,
   onNew,
+  onSaveExam,
   mobile = false,
   onSaveProgram,
   onDeleteProgram,
@@ -30,6 +37,7 @@ export function PlanCalendar({
   onEvent: (event: AgendaEvent) => void;
   onProgram?: (id: string) => void;
   onNew: (day: string) => void;
+  onSaveExam?: (exam: { type: string; course: string; date: string; time: string; room: string; notes: string; leadMinutes: number }) => Promise<void>;
   mobile?: boolean;
   onSaveProgram?: (program: StudyProgram) => Promise<void>;
   onDeleteProgram?: (id: string) => Promise<void>;
@@ -38,11 +46,23 @@ export function PlanCalendar({
   disabled?: boolean;
 }) {
   const [showProgramsModal, setShowProgramsModal] = useState(false);
+  const [showExamModal, setShowExamModal] = useState(false);
+  const [attendance, setAttendance] = useState(() => loadStudyAttendance());
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const days = monthDates(anchor);
   const today = dateKey(new Date());
   const [selected, setSelected] = useState(today);
   const activeDay = days.includes(selected) ? selected : today;
+
+  useEffect(() => {
+    const handleAttChanged = () => setAttendance(loadStudyAttendance());
+    window.addEventListener("ack-study-attendance-changed", handleAttChanged);
+    window.addEventListener("ack-data-changed", handleAttChanged);
+    return () => {
+      window.removeEventListener("ack-study-attendance-changed", handleAttChanged);
+      window.removeEventListener("ack-data-changed", handleAttChanged);
+    };
+  }, []);
 
   const currentMonthNum = anchor.getMonth();
   const currentYearNum = anchor.getFullYear();
@@ -71,10 +91,21 @@ export function PlanCalendar({
         </div>
         <div className="calendar-legend" aria-label="Takvim renkleri">
           <span className="study">Ders / Çalışma</span>
+          <span className="exam">🎓 Sınav</span>
           <span className="tasks">Görev</span>
           <span className="subscriptions">Ödeme</span>
         </div>
         <div className="calendar-navigation">
+          {onSaveExam && (
+            <button
+              type="button"
+              className="calendar-exam-btn"
+              title="Sınav tarihi ekle (Vize, Final, Büt)"
+              onClick={() => setShowExamModal(true)}
+            >
+              🎓 Sınav Ekle
+            </button>
+          )}
           {onSaveProgram && (
             <button
               type="button"
@@ -155,7 +186,7 @@ export function PlanCalendar({
                   <button
                     type="button"
                     key={`${ev.source}:${ev.id}:${ev.occurrenceKey ?? day}`}
-                    className={`month-event-pill ${ev.source}`}
+                    className={`month-event-pill ${isExam(ev.label) ? "exam" : ev.source}`}
                     title={ev.label}
                     onClick={(e) => { e.stopPropagation(); onEvent(ev); }}
                   >
@@ -215,11 +246,35 @@ export function PlanCalendar({
                 {b.topic && <span>{b.topic}</span>}
                 <small className="calendar-event-program">{b.programName}</small>
                 {conflicts.has(b.id) && <small className="calendar-conflict">Saatler çakışıyor</small>}
+
+                {/* Attendance Toggle: Çalıştım / Çalışmadım */}
+                <div className="study-att-toolbar" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    className={`study-att-btn ${attendance[b.id]?.status === "attended" ? "is-active-attended" : ""}`}
+                    onClick={() => {
+                      const next = setStudyBlockStatus(b.id, attendance[b.id]?.status === "attended" ? null : "attended");
+                      setAttendance(next);
+                    }}
+                  >
+                    {attendance[b.id]?.status === "attended" ? "✓ Çalıştım" : "Çalıştım"}
+                  </button>
+                  <button
+                    type="button"
+                    className={`study-att-btn ${attendance[b.id]?.status === "skipped" ? "is-active-skipped" : ""}`}
+                    onClick={() => {
+                      const next = setStudyBlockStatus(b.id, attendance[b.id]?.status === "skipped" ? null : "skipped");
+                      setAttendance(next);
+                    }}
+                  >
+                    {attendance[b.id]?.status === "skipped" ? "✗ Çalışmadım" : "Çalışmadım"}
+                  </button>
+                </div>
               </button>
             ) : e && (
               <button
                 type="button"
-                className={`calendar-event ${e.source} ${e.reminder ? "reminder" : ""}`}
+                className={`calendar-event ${e.source} ${e.reminder ? "reminder" : ""} ${isExam(e.label) ? "is-exam-event" : ""}`}
                 key={`${e.source}:${e.id}:${e.occurrenceKey ?? activeDay}:${e.reminder ? "reminder" : "event"}`}
                 onClick={() => onEvent(e)}
               >
@@ -244,6 +299,18 @@ export function PlanCalendar({
           onSave={onSaveProgram}
           onDelete={onDeleteProgram}
           onClose={() => { setShowProgramsModal(false); setSelectedProgramId(null); }}
+        />
+      )}
+
+      {showExamModal && (
+        <ExamDialog
+          open={showExamModal}
+          initialDate={activeDay}
+          onClose={() => setShowExamModal(false)}
+          onSave={async (exam) => {
+            if (onSaveExam) await onSaveExam(exam);
+            setShowExamModal(false);
+          }}
         />
       )}
     </section>

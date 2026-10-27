@@ -1,7 +1,9 @@
 import { ActionMenu } from "../../src/components/ActionMenu";
-import { MobileInboxProcessing } from "./InboxProcessing";
 import { MobileSmartCapture, MobileWeek } from "./ProductViews";
 import { MobilePrayerCard } from "./MobilePrayerCard";
+import { MobileDormMenuCard } from "./MobileDormMenuCard";
+import { MobileMediaTracker } from "./MobileMediaTracker";
+import { MobileWeatherModal } from "./MobileWeatherModal";
 import { productMetadata } from "../../shared/productivity";
 import { moveBy } from "../../src/reorder";
 import { NoteAttachments } from "./NoteAttachments";
@@ -10,8 +12,9 @@ import { NotesList } from "./NotesList";
 import { RecurrenceFields } from "../../shared/RecurrenceFields";
 import { SubscriptionForm, newSubscription } from "../../shared/SubscriptionForm";
 import { money, cycleLabel, paymentLabel, monthlyTotals, type Subscription } from "../../shared/subscriptions";
-import { completeOccurrence, nextOccurrence, recurrenceLabel, scheduleDate, isOccurrenceCompleted, uncompleteOccurrence, completedTaskSortTime, type Recurrence } from "../../shared/recurrence";
+import { completeOccurrence, nextOccurrence, recurrenceLabel, scheduleDate, isOccurrenceCompleted, uncompleteOccurrence, completedTaskSortTime, formatCompletedTime, type Recurrence } from "../../shared/recurrence";
 import { studyBlocks, type StudyProgram } from "../../shared/studyPrograms";
+import { loadStudyAttendance, setStudyBlockStatus } from "../../shared/studyAttendance";
 import { savePrayerConfig, loadPrayerConfig, lookupTurkeyCity, type PrayerTimesConfig } from "../../shared/prayerTimes";
 import { fetchMobileWeather, loadWeatherCache, type WeatherData } from "../../shared/weather";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -55,12 +58,15 @@ function App() {
     const params = new URLSearchParams(raw);
     const p = params.get("page");
     if (p === "subscriptions" || p === "plan" || p === "calendar") return "plan";
+    if (p === "media") return "media";
     if (p === "notes") return "notes";
     if (p === "send") return "send";
     if (p === "settings") return "settings";
     return "today";
   });
   const [weather, setWeather] = useState<WeatherData | null>(() => loadWeatherCache());
+  const [weatherModalOpen, setWeatherModalOpen] = useState(false);
+  const [attendance, setAttendance] = useState(() => loadStudyAttendance());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -373,6 +379,14 @@ function App() {
       window.removeEventListener("ack-weather-city-changed", updateWeather);
     };
   }, []);
+
+  async function handleMobileChangeCity(newCity: string) {
+    localStorage.setItem("ack-deck.weather-city.v1", newCity);
+    const cityData = lookupTurkeyCity(newCity) || { city: newCity, lat: 41.20488, lng: 32.62768 };
+    const w = await fetchMobileWeather(cityData.city, cityData.lat, cityData.lng);
+    if (w) setWeather(w);
+    setNotice(`Hava durumu konumu ${newCity} olarak güncellendi.`);
+  }
 
   function handleHashRoute(urlOrHash?: string) {
     let hashStr = "";
@@ -885,13 +899,16 @@ function App() {
             <div className="mobile-greeting-strip">
               <span className="mobile-greeting-title">{mobileGreeting}</span>
               {weather ? (
-                <div
+                <button
+                  type="button"
                   className="mobile-greeting-weather"
-                  title={`${weather.city} Hava Durumu: ${weather.temperature}°C, ${weather.desc}`}
+                  onClick={() => setWeatherModalOpen(true)}
+                  title={`${weather.city} Hava Durumu: ${weather.temperature}°C, ${weather.desc} — Detaylar için tıkla`}
+                  style={{ background: "none", border: "none", padding: 0, font: "inherit", cursor: "pointer", textAlign: "right" }}
                 >
                   <span className="weather-symbol">{weather.symbol}</span>
                   <span className="weather-text">{weather.city} {weather.temperature}°C · {weather.desc}</span>
-                </div>
+                </button>
               ) : (
                 <div className="mobile-greeting-weather" title="Hava durumu yükleniyor">
                   <span className="weather-symbol">🌤️</span>
@@ -990,6 +1007,30 @@ function App() {
                           <div className="timeline-content-col">
                             <strong className="timeline-item-title">{item.label}</strong>
                             {item.topic && <small className="timeline-item-sub">{item.topic}</small>}
+                            <div className="study-att-toolbar" style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
+                              <button
+                                type="button"
+                                className={`study-att-btn ${attendance[item.id]?.status === "attended" ? "is-active-attended" : ""}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const next = setStudyBlockStatus(item.id, attendance[item.id]?.status === "attended" ? null : "attended");
+                                  setAttendance(next);
+                                }}
+                              >
+                                {attendance[item.id]?.status === "attended" ? "✓ Çalıştım" : "Çalıştım"}
+                              </button>
+                              <button
+                                type="button"
+                                className={`study-att-btn ${attendance[item.id]?.status === "skipped" ? "is-active-skipped" : ""}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const next = setStudyBlockStatus(item.id, attendance[item.id]?.status === "skipped" ? null : "skipped");
+                                  setAttendance(next);
+                                }}
+                              >
+                                {attendance[item.id]?.status === "skipped" ? "✗ Çalışmadım" : "Çalışmadım"}
+                              </button>
+                            </div>
                           </div>
                           <div className="timeline-end-col">
                             <span className="timeline-badge study-badge">Ders</span>
@@ -1143,7 +1184,14 @@ function App() {
                       .sort((a, b) => completedTaskSortTime(b.data as PhoneTask) - completedTaskSortTime(a.data as PhoneTask))
                       .map(row => (
                         <article key={row.id} className="mobile-completed-item">
-                          <p>{(row.data as PhoneTask).text}</p>
+                          <div style={{ flex: 1 }}>
+                            <p style={{ margin: 0 }}>{(row.data as PhoneTask).text}</p>
+                            {formatCompletedTime((row.data as PhoneTask).lastCompletedAt) && (
+                              <small style={{ color: "var(--app-accent, #60a5fa)", fontSize: "11px", display: "block", marginTop: "2px", fontWeight: 550 }}>
+                                ✓ {formatCompletedTime((row.data as PhoneTask).lastCompletedAt)}
+                              </small>
+                            )}
+                          </div>
                           <button disabled={busy} onClick={() => void complete(row)}>Yeniden Aç</button>
                         </article>
                       ))}
@@ -1154,6 +1202,9 @@ function App() {
 
             {/* Namaz Vakitleri Kartı */}
             <MobilePrayerCard records={state.records} onSave={saveMutation} />
+
+            {/* Günün Yemek Menüsü (Altınkalem) */}
+            <MobileDormMenuCard />
           </>
         )}
 
@@ -1322,6 +1373,11 @@ function App() {
           </>
         )}
 
+        {/* 3. MEDYA GÜNLÜĞÜ SEKMESİ */}
+        {page === "media" && (
+          <MobileMediaTracker onNotice={setNotice} />
+        )}
+
         {/* 4. GÖNDER SEKMESİ (Masaüstüne Gönder) */}
         {page === "send" && (
           <div className="more-sections-container">
@@ -1369,12 +1425,37 @@ function App() {
                             {item.handled ? "İşlendi" : "Bekliyor"}
                           </span>
                         </div>
-                        <MobileInboxProcessing
-                          item={item}
-                          records={state.records}
-                          onSave={saveMutation}
-                          onHandled={() => api(state, "inbox/handle", json({ id: item.id })).then(() => setInbox(current => current.map(row => row.id === item.id ? { ...row, handled: Date.now() } : row)))}
-                        />
+                        <div className="mobile-sent-actions" style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", justifyContent: "flex-end", alignItems: "center" }}>
+                          {item.content && (
+                            <button
+                              type="button"
+                              className="mobile-button-secondary"
+                              style={{ padding: "0.3rem 0.65rem", fontSize: "0.78rem" }}
+                              onClick={() => {
+                                void navigator.clipboard.writeText(item.content);
+                                setNotice("Metin kopyalandı.");
+                              }}
+                            >
+                              Kopyala
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="mobile-button-secondary"
+                            style={{ padding: "0.3rem 0.65rem", fontSize: "0.78rem", color: "#f87171", borderColor: "rgba(248, 113, 113, 0.3)" }}
+                            onClick={() => {
+                              if (!window.confirm("Bu gönderi silinsin mi?")) return;
+                              void api(state, "inbox/" + item.id, { method: "DELETE" })
+                                .then(() => {
+                                  setInbox(cur => cur.filter(row => row.id !== item.id));
+                                  setNotice("Gönderi silindi.");
+                                })
+                                .catch(e => setError(e instanceof Error ? e.message : "Silinemedi."));
+                            }}
+                          >
+                            Sil
+                          </button>
+                        </div>
                       </article>
                     ))}
                   </div>
@@ -1474,7 +1555,12 @@ function App() {
         </div>
       )}
 
-      {notice && <div className="mobile-toast" role="status">{notice}</div>}
+      {notice && (
+        <div className="mobile-toast" role="status">
+          <span style={{ fontSize: "14px" }}>✨</span>
+          <span>{notice}</span>
+        </div>
+      )}
 
       {/* Note Editor */}
       {form === "note" && (
@@ -1576,6 +1662,15 @@ function App() {
             </form>
           </div>
         </section>
+      )}
+
+      {/* Detailed Weather Modal */}
+      {weatherModalOpen && weather && (
+        <MobileWeatherModal
+          weather={weather}
+          onClose={() => setWeatherModalOpen(false)}
+          onChangeCity={handleMobileChangeCity}
+        />
       )}
 
       {/* Bottom Native Tab Navigation */}

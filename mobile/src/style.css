@@ -1772,19 +1772,39 @@ body:has(.editor) nav { visibility: hidden; }
 }
 .mobile-toast {
   position: fixed;
-  bottom: calc(80px + env(safe-area-inset-bottom));
-  left: 16px;
-  right: 16px;
-  max-width: 580px;
-  margin-inline: auto;
-  background: var(--app-surface-elevated);
-  border: 1px solid var(--app-border-strong);
-  border-radius: 14px;
-  padding: 12px 16px;
-  z-index: 30;
+  top: calc(14px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: auto;
+  width: auto;
+  max-width: calc(100vw - 32px);
+  background: rgba(24, 24, 27, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9999px;
+  padding: 8px 18px;
+  z-index: 100;
   font-size: 13px;
-  font-weight: 550;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  font-weight: 600;
+  color: #fafafa;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: mobileToastSlideDown 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes mobileToastSlideDown {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 
 /* Pairing Page */
@@ -3250,3 +3270,404 @@ body:has(.editor) nav { visibility: hidden; }
 
 
 
+
+
+/* Mobile Weather Detailed Modal */
+.mobile-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+  animation: fadeIn 0.18s ease-out;
+}
+.mobile-weather-modal {
+  width: 100%;
+  max-width: 440px;
+  background: var(--app-surface-elevated, #1c1c1f);
+  border: 1px solid var(--app-border-strong, rgba(255, 255, 255, 0.15));
+  border-radius: 22px;
+  padding: 20px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65);
+  animation: scaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes scaleUp {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.mobile-weather-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mobile-weather-lead {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.mobile-weather-large-icon {
+  font-size: 42px;
+  line-height: 1;
+}
+.mobile-weather-temp-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.mobile-weather-temp {
+  font-size: 28px;
+  font-weight: 750;
+  letter-spacing: -0.5px;
+}
+.mobile-weather-desc {
+  font-size: 14px;
+  color: var(--app-text-muted, #a1a1aa);
+  font-weight: 500;
+}
+.mobile-weather-city-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.mobile-weather-city-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--app-text, #f4f4f5);
+}
+.mobile-weather-change-btn {
+  background: none;
+  border: none;
+  color: var(--app-accent, #60a5fa);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.mobile-modal-close {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--app-text-muted, #a1a1aa);
+  font-size: 16px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.mobile-weather-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+.mobile-weather-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.mobile-weather-card .metric-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--app-text-muted, #a1a1aa);
+  font-weight: 600;
+}
+.mobile-weather-card .metric-val {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--app-text, #fafafa);
+}
+.mobile-weather-hourly-wrap {
+  margin-top: 16px;
+}
+.mobile-weather-hourly-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--app-text-muted, #a1a1aa);
+  margin-bottom: 8px;
+}
+.mobile-weather-hourly-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  -webkit-overflow-scrolling: touch;
+}
+.mobile-weather-hour-box {
+  min-width: 54px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 8px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+.mobile-weather-hour-box .hour-time {
+  font-size: 11px;
+  color: var(--app-text-muted, #a1a1aa);
+}
+.mobile-weather-hour-box .hour-symbol {
+  font-size: 18px;
+}
+.mobile-weather-hour-box .hour-temp {
+  font-size: 13px;
+  font-weight: 700;
+}
+.mobile-weather-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.mobile-weather-city-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+.mobile-weather-city-form input {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--app-border-strong, #3f3f46);
+  background: var(--app-surface, #18181b);
+  color: #fff;
+  font-size: 13px;
+}
+.city-form-btns {
+  display: flex;
+  gap: 6px;
+}
+
+
+/* Mobile Dorm Menu Card */
+.mobile-dorm-menu-card {
+  background: var(--app-surface-elevated, #1c1c1f);
+  border: 1px solid var(--app-border-strong, rgba(255, 255, 255, 0.12));
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-top: 12px;
+}
+.mobile-dorm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.mobile-dorm-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mobile-dorm-icon {
+  font-size: 22px;
+}
+.mobile-dorm-title-group h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--app-text, #fafafa);
+}
+.mobile-dorm-sub {
+  font-size: 11px;
+  color: var(--app-text-muted, #a1a1aa);
+}
+.mobile-dorm-refresh {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--app-text-muted, #a1a1aa);
+  font-size: 14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.mobile-dorm-dishes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mobile-dorm-dish-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+.mobile-dorm-dish-row .dish-bullet {
+  font-size: 14px;
+}
+.mobile-dorm-dish-row .dish-text {
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--app-text, #f4f4f5);
+}
+.mobile-dorm-empty {
+  padding: 6px 0;
+  color: var(--app-text-muted, #a1a1aa);
+}
+
+
+/* Mobile Media Tracker Styles */
+.mobile-media-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mobile-media-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.mobile-media-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+.mobile-media-subtitle {
+  font-size: 12px;
+  color: var(--app-text-muted, #a1a1aa);
+}
+.mobile-media-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.mobile-media-stats .stat-chip {
+  background: var(--app-surface-elevated, #1c1c1f);
+  border: 1px solid var(--app-border-strong, rgba(255, 255, 255, 0.1));
+  border-radius: 12px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.mobile-media-stats .stat-chip.active {
+  border-color: var(--app-accent, #60a5fa);
+  background: rgba(96, 165, 250, 0.12);
+}
+.mobile-media-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mobile-media-filters .status-pills-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.mobile-search-input {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--app-border-strong, rgba(255, 255, 255, 0.12));
+  background: var(--app-surface-elevated, #1c1c1f);
+  color: #fff;
+  font-size: 13px;
+  width: 100%;
+}
+.mobile-media-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mobile-media-card {
+  background: var(--app-surface-elevated, #1c1c1f);
+  border: 1px solid var(--app-border-strong, rgba(255, 255, 255, 0.1));
+  border-radius: 14px;
+  padding: 12px 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mobile-media-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.mobile-media-card-top .type-badge {
+  font-size: 12px;
+  color: var(--app-text-muted, #a1a1aa);
+  font-weight: 600;
+}
+.mobile-media-card-top .status-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+}
+.mobile-media-card-top .status-badge.is-completed {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+.mobile-media-card-top .status-badge.is-in_progress {
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
+}
+.mobile-media-card-top .status-badge.is-planned {
+  background: rgba(234, 179, 8, 0.15);
+  color: #facc15;
+}
+.mobile-media-title {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--app-text, #fff);
+  margin-top: 2px;
+}
+.mobile-media-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+  margin-top: 2px;
+}
+.mobile-media-meta .rating-tag {
+  background: rgba(250, 204, 21, 0.15);
+  color: #fde047;
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-weight: 600;
+}
+.mobile-media-meta .progress-tag, .mobile-media-meta .date-tag {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--app-text-muted, #a1a1aa);
+  padding: 1px 6px;
+  border-radius: 5px;
+}
+.mobile-media-review {
+  font-size: 12px;
+  color: var(--app-text-muted, #a1a1aa);
+  font-style: italic;
+  margin: 4px 0 0;
+  line-height: 1.4;
+}

@@ -1,7 +1,9 @@
 import { dailySummary } from "../productIntelligence";
 import { Subscriptions } from "./Subscriptions";
 import { PrayerWidget } from "./PrayerWidget";
+import { DormMenuCard } from "./DormMenuCard";
 import { completeOccurrence, scheduleDate } from "../../shared/recurrence";
+import { loadStudyAttendance, setStudyBlockStatus } from "../../shared/studyAttendance";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Header } from "./Header";
 import { PcStatus } from "./PcStatus";
@@ -68,6 +70,12 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, targetId }
   const allBlocks = studyBlocks(studyData.entries, now);
   const todayDateStr = localDateKey(now);
   const [selectedDate, setSelectedDate] = useState<string>(todayDateStr);
+  const [attendance, setAttendance] = useState(() => loadStudyAttendance());
+  useEffect(() => {
+    const handleAtt = () => setAttendance(loadStudyAttendance());
+    window.addEventListener("ack-study-attendance-changed", handleAtt);
+    return () => window.removeEventListener("ack-study-attendance-changed", handleAtt);
+  }, []);
   const curWeekDates = weekDates(now);
 
   const getTasksForDate = (dateStr: string) => {
@@ -214,6 +222,32 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, targetId }
                         <div className="timeline-content">
                           <strong>{item.kind === "study" ? item.label : item.text}</strong>
                           {item.kind === "study" && item.topic ? <small>{item.topic}</small> : null}
+                          {item.kind === "study" && (
+                            <div className="study-att-toolbar" style={{ marginTop: "4px" }}>
+                              <button
+                                type="button"
+                                className={`study-att-btn ${attendance[item.id]?.status === "attended" ? "is-active-attended" : ""}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const next = setStudyBlockStatus(item.id, attendance[item.id]?.status === "attended" ? null : "attended");
+                                  setAttendance(next);
+                                }}
+                              >
+                                {attendance[item.id]?.status === "attended" ? "✓ Çalıştım" : "Çalıştım"}
+                              </button>
+                              <button
+                                type="button"
+                                className={`study-att-btn ${attendance[item.id]?.status === "skipped" ? "is-active-skipped" : ""}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const next = setStudyBlockStatus(item.id, attendance[item.id]?.status === "skipped" ? null : "skipped");
+                                  setAttendance(next);
+                                }}
+                              >
+                                {attendance[item.id]?.status === "skipped" ? "✗ Çalışmadım" : "Çalışmadım"}
+                              </button>
+                            </div>
+                          )}
                         </div>
                         <span className={`timeline-tag ${item.kind === "study" ? "" : "task-tag"}`}>
                           {item.kind === "study" ? "Ders" : "Görev"}
@@ -301,6 +335,7 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, targetId }
 
         <aside className="dashboard-right-rail" aria-label="Namaz vakitleri ve durum">
           <PrayerWidget />
+          <DormMenuCard />
           <Subscriptions compact onOpen={() => onNavigate({ page: "subscriptions" })} />
           <PcStatus refreshMs={refreshMs} compact />
         </aside>

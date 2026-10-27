@@ -1,10 +1,8 @@
-import { inboxToTask, inboxToNote } from "../inboxProcessing";
 import { saveInboxIndex } from "../productIntelligence";
 import { recordActivity } from "../activityStore";
 import { useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { cachePhoneFile, downloadPhoneFile, phoneRequest, phoneAiAttachment } from "../phoneClient";
-import type { AiAttachment } from "../aiAttachments";
+import { downloadPhoneFile, phoneRequest } from "../phoneClient";
 import type { NoteAttachment } from "../notesStore";
 import { validUrl } from "../../shared/phone";
 import { PhoneMedia } from "./PhoneMedia";
@@ -25,10 +23,10 @@ const isAudio = (item: Inbox) => item.mime?.startsWith("audio/");
 const fileInfo = (item: Inbox): NoteAttachment => ({ id: item.id, name: item.title, mime: item.mime ?? "", size: item.size ?? 0 });
 
 export function PhoneInbox({
-  onAiDraft,
+  onAiDraft: _onAiDraft,
   initialId,
 }: {
-  onAiDraft: (text: string, attachment?: AiAttachment) => void;
+  onAiDraft?: (text: string, attachment?: import("../aiAttachments").AiAttachment) => void;
   initialId?: string;
 }) {
   const [items, setItems] = useState<Inbox[]>([]);
@@ -113,66 +111,6 @@ export function PhoneInbox({
         return next;
       });
       setNotice(`${unhandled.length} öğe işlendi olarak işaretlendi.`);
-    });
-  }
-
-  async function handleQuickToTask(item: Inbox) {
-    await action(async () => {
-      inboxToTask({ sourceId: item.id, title: item.title, content: item.content });
-      if (!item.handled) {
-        await phoneRequest("handled", { id: item.id }).catch(() => {});
-        setItems(rows => {
-          const next = rows.map(r => (r.id === item.id ? { ...r, handled: 1 } : r));
-          saveInboxIndex(next);
-          return next;
-        });
-      }
-      setNotice("Görevlere eklendi ve işlendi olarak işaretlendi.");
-    });
-  }
-
-  async function handleQuickToNote(item: Inbox) {
-    await action(async () => {
-      const attachments = item.kind === "file" ? [await cachePhoneFile(item.id, item.title)] : undefined;
-      inboxToNote({ sourceId: item.id, title: item.title, content: item.kind === "file" ? "" : item.content, attachment: attachments?.[0] });
-      if (!item.handled) {
-        await phoneRequest("handled", { id: item.id }).catch(() => {});
-        setItems(rows => {
-          const next = rows.map(r => (r.id === item.id ? { ...r, handled: 1 } : r));
-          saveInboxIndex(next);
-          return next;
-        });
-      }
-      setNotice("Notlara kaydedildi ve işlendi olarak işaretlendi.");
-    });
-  }
-
-  async function handleSendToAi(item: Inbox) {
-    await action(async () => {
-      let attachment: AiAttachment | undefined;
-      if (item.kind === "file" && ["image/png", "image/jpeg", "image/webp", "application/pdf", "text/plain"].includes(item.mime ?? "")) {
-        await cachePhoneFile(item.id, item.title);
-        attachment = await phoneAiAttachment(item.id);
-      } else if (isAudio(item)) {
-        await cachePhoneFile(item.id, item.title);
-        attachment = await phoneAiAttachment(item.id);
-      }
-
-      const promptText = `Bana mobilden şöyle bir not/istek bırakmıştın:
-> "${item.content || item.title}"
-
-Bu notu değerlendir. Eğer analiz edebileceğin, özet çıkarabileceğin, araştırabileceğin veya görevlere dönüştürebileceğin bir konuysa doğrudan işle ve sonucunu üret. Eğer doğrudan aksiyon alınamayacak kişisel bir hatırlatma veya bilgi notuysa samimi bir dille "Hacı sen buraya atmıştın, haberin olsun, unutma!" diyerek içeriği bana hatırlat.`;
-
-      if (!item.handled) {
-        await phoneRequest("handled", { id: item.id }).catch(() => {});
-        setItems(rows => {
-          const next = rows.map(r => (r.id === item.id ? { ...r, handled: 1 } : r));
-          saveInboxIndex(next);
-          return next;
-        });
-      }
-
-      onAiDraft(promptText, attachment);
     });
   }
 
@@ -332,41 +270,7 @@ Bu notu değerlendir. Eğer analiz edebileceğin, özet çıkarabileceğin, ara�
                   {item.handled ? "Geri Al" : "✓ İşlendi"}
                 </button>
 
-                {/* 2. ACK AI Action */}
-                <button
-                  type="button"
-                  className="button button-secondary"
-                  disabled={busy}
-                  onClick={() => void handleSendToAi(item)}
-                  title="ACK AI'da aç ve işle"
-                  style={{ borderColor: "var(--app-accent)", color: "var(--app-accent)" }}
-                >
-                  🤖 ACK AI ile İşle
-                </button>
-
-                {/* 3. Quick Note Action */}
-                <button
-                  type="button"
-                  className="button button-secondary"
-                  disabled={busy}
-                  onClick={() => void handleQuickToNote(item)}
-                  title="Not olarak kaydet ve işlendi yap"
-                >
-                  📝 Not Yap
-                </button>
-
-                {/* 4. Quick Task Action */}
-                <button
-                  type="button"
-                  className="button button-secondary"
-                  disabled={busy}
-                  onClick={() => void handleQuickToTask(item)}
-                  title="Görev olarak kaydet ve işlendi yap"
-                >
-                  ✓ Görev Yap
-                </button>
-
-                {/* 5. Special File / Link Controls */}
+                {/* Special File / Link / Text Controls */}
                 {item.kind === "file" && (
                   <button
                     type="button"

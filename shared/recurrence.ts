@@ -113,3 +113,20 @@ export function completedTaskSortTime(task: { dueDate?: string | null; dueTime?:
   }
   return 0;
 }
+
+export function formatCompletedTime(ts: number | null | undefined): string {
+  if (!ts || !Number.isFinite(ts)) return "";
+  const d = new Date(ts);
+  const now = new Date();
+  const timeStr = d.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+  if (d.toDateString() === now.toDateString()) {
+    return `Bugün ${timeStr}`;
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) {
+    return `Dün ${timeStr}`;
+  }
+  const dateStr = d.toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
+  return `${dateStr} ${timeStr}`;
+}

@@ -1,4 +1,5 @@
 import { nativeNavigation } from "./nativeNavigation";
+import { TitleBar } from "./components/TitleBar";
 import { FooterTicker } from "./components/FooterTicker";
 import { UpdateNotice } from "./components/UpdateNotice";
 import { Subscriptions } from "./components/Subscriptions";
@@ -6,6 +7,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNod
 import { useDesktop } from "./useDesktop";
 import { getDesktopStatus } from "./desktopClient";
 import { usePhoneCompanion } from "./usePhoneCompanion";
+import { useDormMealReminder } from "./useDormMealReminder";
 import { PhoneCommands } from "./components/PhoneCommands";
 import { useReminders } from "./useReminders";
 import { usePaletteBridge } from "./usePaletteBridge";
@@ -24,6 +26,7 @@ const PhoneInbox = lazy(() => import("./components/PhoneInbox").then(module => (
 import { Sidebar, type Page } from "./components/Sidebar";
 const Settings = lazy(() => import("./components/Settings").then(module => ({ default: module.Settings })));
 const Notes = lazy(() => import("./components/Notes").then(module => ({ default: module.Notes })));
+const MediaTracker = lazy(() => import("./components/MediaTracker").then(module => ({ default: module.MediaTracker })));
 import { useAutoBackup } from "./useAutoBackup";
 import { loadPreferences } from "./preferences";
 import { invoke, isTauri } from "@tauri-apps/api/core";
@@ -88,6 +91,7 @@ function App() {
   const [notice, setNotice] = useState(projectStorage.warning ?? "");
   useEffect(() => { const refresh = () => { const value = loadProjectSnapshot(); setProjectStorage(value); setProjects(value.entries); }; window.addEventListener("ack-data-changed", refresh); return () => window.removeEventListener("ack-data-changed", refresh); }, []);
   useReminders(setNotice);
+  useDormMealReminder(setNotice);
   usePhoneCompanion(restoring, setNotice);
   useEffect(() => { const restored = (event: Event) => { const value = loadProjectSnapshot(); setProjectStorage(value); setProjects(value.entries); setPreferences(loadPreferences());  setAiPrompt(undefined); navigate({ page: "settings" }); void getDesktopStatus().then(desktop.setStatus).catch(() => {}); setNotice((event as CustomEvent).detail === "rollback" ? "Geri yükleme tamamlanamadı; önceki kayıtlar geri getirildi." : "Yedek başarıyla geri yüklendi."); }; window.addEventListener("ack-data-restored", restored); return () => window.removeEventListener("ack-data-restored", restored); }, [navigate, desktop.setStatus]);
   function changeProjects(next: Project[]) {
@@ -262,6 +266,7 @@ function App() {
     tasks: <Tasks fullPage initialId={route.target.id} focusNew={route.target.intent === "new-task"} initialDate={route.target.date} />,
     projects: projectsView,
     notes: <Notes initialId={route.target.id} createNew={route.target.intent === "new-note"} />,
+    media: <MediaTracker />,
     workspaces: projectsView,
     tools: projectsView,
     qr: projectsView,
@@ -278,32 +283,42 @@ function App() {
     ? "home"
     : page) as Page;
 
-  return <><div className="app-shell" inert={restoring}>
-    <Sidebar activePage={activeSidebarPage} onNavigate={setPage} />
-    <div className="main-column"><UpdateNotice blocked={restoring || aiBusy} hidden={page === "settings"} /><main className={"main-content " + (page === "home" ? "dashboard-main" : "")}>
-      {(desktopInitialized.current || desktop.visible) && (
-        <>
-          <div style={{ display: page === "ai" ? "block" : "none", height: "100%" }}>
-            <Suspense fallback={<div className="page-skeleton" role="status" aria-label="Sayfa yükleniyor"><div/><div/><div/><span className="sr-only">Sayfa yükleniyor</span></div>}>
-              {pageViews.ai}
-            </Suspense>
+  return (
+    <>
+      <div className="desktop-window-container">
+        <TitleBar />
+        <div className="app-shell" inert={restoring}>
+          <Sidebar activePage={activeSidebarPage} onNavigate={setPage} />
+          <div className="main-column">
+            <UpdateNotice blocked={restoring || aiBusy} hidden={page === "settings"} />
+            <main className={"main-content " + (page === "home" ? "dashboard-main" : "")}>
+              {(desktopInitialized.current || desktop.visible) && (
+                <>
+                  <div style={{ display: page === "ai" ? "block" : "none", height: "100%" }}>
+                    <Suspense fallback={<div className="page-skeleton" role="status" aria-label="Sayfa yükleniyor"><div/><div/><div/><span className="sr-only">Sayfa yükleniyor</span></div>}>
+                      {pageViews.ai}
+                    </Suspense>
+                  </div>
+                  {page !== "ai" && (
+                    <div key={route.serial}>
+                      <Suspense fallback={<div className="page-skeleton" role="status" aria-label="Sayfa yükleniyor"><div/><div/><div/><span className="sr-only">Sayfa yükleniyor</span></div>}>
+                        {pageViews[page] ?? pageViews.home}
+                      </Suspense>
+                    </div>
+                  )}
+                </>
+              )}
+            </main>
+            {desktop.visible && !restoring && <FooterTicker />}
           </div>
-          {page !== "ai" && (
-            <div key={route.serial}>
-              <Suspense fallback={<div className="page-skeleton" role="status" aria-label="Sayfa yükleniyor"><div/><div/><div/><span className="sr-only">Sayfa yükleniyor</span></div>}>
-                {pageViews[page] ?? pageViews.home}
-              </Suspense>
-            </div>
-          )}
-        </>
-      )}
-    </main>
-    {desktop.visible && !restoring && <FooterTicker />}
-    </div>
-    <PhoneCommands paused={restoring} onNotice={setNotice} />
-    <UndoToast />
-    {notice && <div className="toast" role="status"><Icon name="info" size={17} />{notice}</div>}
-  </div>{restoring && <div className="restore-overlay" role={restoreBlocked ? "alert" : "status"}>{restoreBlocked ? "Geri yükleme kurtarılamadı. Kurtarma kaydı korunuyor. ACKDeck'i kapatıp yeniden açın; kurtarma tamamlanana kadar değişiklik yapamazsınız." : "Veriler güvenli biçimde geri yükleniyor. Lütfen bekleyin."}</div>}</>;
+          <PhoneCommands paused={restoring} onNotice={setNotice} />
+          <UndoToast />
+          {notice && <div className="toast" role="status"><Icon name="info" size={17} />{notice}</div>}
+        </div>
+      </div>
+      {restoring && <div className="restore-overlay" role={restoreBlocked ? "alert" : "status"}>{restoreBlocked ? "Geri yükleme kurtarılamadı. Kurtarma kaydı korunuyor. ACKDeck'i kapatıp yeniden açın; kurtarma tamamlanana kadar değişiklik yapamazsınız." : "Veriler güvenli biçimde geri yükleniyor. Lütfen bekleyin."}</div>}
+    </>
+  );
 }
 
 export default App;
