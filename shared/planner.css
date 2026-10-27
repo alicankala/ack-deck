@@ -1,14 +1,18 @@
 .plan-calendar, .study-programs { min-width: 0; container-type: inline-size; }
-.calendar-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; padding: .9rem 1.1rem; margin-bottom: .85rem; background: #151f2b; border: 1px solid #2b3c4f; border-radius: .85rem; }
-.calendar-range { display: grid; gap: .2rem; }
+.calendar-toolbar { display: flex; flex-direction: column; gap: .75rem; padding: .9rem 1.1rem; margin-bottom: .85rem; background: #151f2b; border: 1px solid #2b3c4f; border-radius: .85rem; }
+.calendar-header-row { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: .75rem; }
+.calendar-subbar-row { display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: .65rem; }
+.calendar-range { display: grid; gap: .2rem; min-width: 0; }
 .calendar-range strong { font-size: 1.1rem; font-weight: 650; color: #eef5fc; }
 .calendar-range span, .calendar-legend, .study-summary { color: #a5b5c8; font-size: .8rem; }
-.calendar-navigation { display: flex; gap: .35rem; flex: 0 0 auto; }
-.calendar-navigation button, .calendar-add { min-height: 2.4rem; border: 1px solid #35465a; border-radius: .55rem; background: #1c2a3b; color: #d5e5f6; padding: .4rem .75rem; font-size: .82rem; font-weight: 550; }
-.calendar-navigation button:hover, .calendar-add:hover { background: #26384f; border-color: #526e8d; }
-.calendar-navigation button:is(:first-child,:last-child) { min-width: 2.4rem; font-size: 1.15rem; padding: .2rem; }
-.calendar-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin: 0 auto 0 .5rem; }
-.calendar-legend span { display: inline-flex; align-items: center; gap: .4rem; font-weight: 500; }
+.calendar-nav-group { display: flex; align-items: center; gap: .35rem; flex: 0 0 auto; }
+.calendar-nav-group button, .calendar-action-buttons button, .calendar-add { min-height: 2.4rem; border: 1px solid #35465a; border-radius: .55rem; background: #1c2a3b; color: #d5e5f6; padding: .4rem .75rem; font-size: .82rem; font-weight: 550; }
+.calendar-nav-group button:hover, .calendar-action-buttons button:hover, .calendar-add:hover { background: #26384f; border-color: #526e8d; }
+.calendar-nav-group button:is(:first-child,:last-child) { min-width: 2.4rem; font-size: 1.15rem; padding: .2rem; }
+.calendar-this-month-btn { font-weight: 600 !important; }
+.calendar-action-buttons { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.calendar-legend { display: flex; flex-wrap: wrap; align-items: center; gap: .85rem; }
+.calendar-legend span { display: inline-flex; align-items: center; gap: .4rem; font-weight: 500; font-size: .78rem; }
 .calendar-legend span::before { content: ""; display: inline-block; width: .5rem; height: .5rem; border-radius: 50%; background: #9ccbf5; }
 .calendar-legend .study::before { background: #7dd3b0; }
 .calendar-legend .subscriptions::before { background: #b8a1e8; }
@@ -319,53 +323,48 @@
   color: #f87171;
 }
 
-/* Exam Dialog */
-.exam-modal-overlay {
-  z-index: 1050;
+/* Exam Dialog Modal */
+.exam-dialog-modal {
+  width: min(38rem, calc(100vw - 2rem));
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100dvh - 3rem);
+  border-radius: 1.2rem;
+  margin: auto;
 }
-.exam-modal-card {
-  max-width: 500px;
-  width: 100%;
-  padding: 1.5rem;
-  border-radius: 20px;
-  background: var(--app-surface-elevated, #181b22);
-  border: 1px solid var(--app-border, rgba(255, 255, 255, 0.15));
+.exam-dialog-modal .study-modal-body {
+  padding: 1.25rem;
+  max-height: calc(100dvh - 10rem);
+  overflow-y: auto;
 }
-.exam-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.25rem;
-}
-.exam-modal-title {
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-}
-.exam-title-icon { font-size: 1.6rem; }
-.exam-modal-title h3 { margin: 0; font-size: 1.15rem; font-weight: 700; color: #fff; }
-.exam-modal-title small { font-size: .8rem; color: var(--app-text-muted, #94a3b8); }
-
 .exam-type-selector {
   display: flex;
   gap: .5rem;
-  margin-bottom: .85rem;
+  margin-bottom: 1.1rem;
   flex-wrap: wrap;
+  padding-bottom: .85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 .exam-type-pill {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--app-text-muted, #94a3b8);
   font-size: .85rem;
   font-weight: 600;
-  padding: .35rem .85rem;
+  padding: .35rem .95rem;
   border-radius: 9999px;
   cursor: pointer;
+  transition: all .12s ease;
+}
+.exam-type-pill:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
 }
 .exam-type-pill.is-active {
   background: #a855f7;
+  border-color: #c084fc;
   color: #fff;
-  border-color: #a855f7;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.35);
 }
 
 .exam-form {

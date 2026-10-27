@@ -37,7 +37,7 @@ export function useAutoBackup() {
         const desktop = await getDesktopStatus().catch(() => ({
           preferences: { closeToTray: false, startInTray: false },
           autoStart: false,
-          version: "1.6.9",
+          version: "1.7.0",
         }));
 
         const backup = await createFullBackup(

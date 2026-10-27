@@ -2378,10 +2378,12 @@
 
 /* Media & Culture Tracker Styles */
 .media-tracker-page {
-  padding: 1.5rem;
-  max-width: 1400px;
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
   overflow-y: auto;
   height: 100%;
+  box-sizing: border-box;
 }
 .media-stats-strip {
   display: flex;
@@ -2460,8 +2462,55 @@
 
 .media-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+.media-empty {
+  grid-column: 1 / -1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 4rem 2rem;
+  background: var(--app-surface-elevated, #181b22);
+  border: 1px dashed var(--app-border, rgba(255, 255, 255, 0.14));
+  border-radius: 18px;
+  box-sizing: border-box;
+  margin: 1rem 0;
+}
+.media-empty-icon {
+  font-size: 3.2rem;
+  margin-bottom: 0.85rem;
+  line-height: 1;
+}
+.media-empty h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--app-text, #f1f5f9);
+  margin: 0 0 0.4rem;
+}
+.media-empty p {
+  color: var(--app-text-muted, #94a3b8);
+  font-size: 0.92rem;
+  max-width: 32rem;
+  margin: 0 0 1.25rem;
+  line-height: 1.55;
+}
+.media-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
 }
 .media-card {
   padding: 1.15rem;

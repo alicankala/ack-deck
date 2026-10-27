@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, useRef, useEffect, type FormEvent } from "react";
 
 export function ExamDialog({
   open,
@@ -19,6 +19,7 @@ export function ExamDialog({
     leadMinutes: number;
   }) => Promise<void>;
 }) {
+  const dialog = useRef<HTMLDialogElement>(null);
   const [examType, setExamType] = useState<"Vize" | "Final" | "Büt" | "Quiz" | "Sınav">("Vize");
   const [course, setCourse] = useState("");
   const [date, setDate] = useState(() => initialDate || new Date().toISOString().slice(0, 10));
@@ -28,6 +29,15 @@ export function ExamDialog({
   const [leadMinutes, setLeadMinutes] = useState(1440); // 1 day before
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      const el = dialog.current;
+      el?.showModal();
+    } else {
+      dialog.current?.close();
+    }
+  }, [open]);
 
   if (!open) return null;
 
@@ -62,24 +72,28 @@ export function ExamDialog({
   }
 
   return (
-    <div className="mobile-modal-overlay exam-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Sınav Tarihi Ekle">
-      <div className="surface exam-modal-card" onClick={(e) => e.stopPropagation()}>
-        <div className="exam-modal-header">
-          <div className="exam-modal-title">
-            <span className="exam-title-icon" aria-hidden="true">🎓</span>
-            <div>
-              <h3>Sınav Tarihi Ekle</h3>
-              <small>Takvime ve bildirimlere eklenir</small>
-            </div>
-          </div>
-          <button type="button" className="mobile-modal-close" onClick={onClose} aria-label="Kapat">
-            ✕
-          </button>
+    <dialog
+      ref={dialog}
+      className="study-dialog exam-dialog-modal"
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+    >
+      <header className="study-dialog-heading">
+        <div>
+          <h2>🎓 Sınav Tarihi Ekle</h2>
+          <p>Takvime ve bildirimlere eklenir; sınav günlerinde mor rozetle öne çıkar.</p>
         </div>
+        <button type="button" aria-label="Kapat" onClick={onClose}>
+          ×
+        </button>
+      </header>
 
-        {error && <p className="tool-feedback error" style={{ margin: "0.5rem 0" }}>{error}</p>}
+      <div className="study-modal-body">
+        {error && <p className="planner-error">{error}</p>}
 
-        <form onSubmit={handleSubmit} className="exam-form">
+        <form onSubmit={handleSubmit}>
           <div className="exam-type-selector">
             {(["Vize", "Final", "Büt", "Quiz", "Sınav"] as const).map((t) => (
               <button
@@ -93,87 +107,89 @@ export function ExamDialog({
             ))}
           </div>
 
-          <label className="exam-field">
-            <span>Ders Adı *</span>
-            <input
-              type="text"
-              required
-              autoFocus
-              value={course}
-              onChange={(e) => setCourse(e.target.value)}
-              placeholder="örn. Matematik 1, Algoritmalar, Fizik..."
-              maxLength={120}
-            />
-          </label>
-
-          <div className="exam-form-row">
-            <label className="exam-field">
-              <span>Sınav Tarihi *</span>
-              <input
-                type="date"
-                required
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </label>
-            <label className="exam-field">
-              <span>Saat *</span>
-              <input
-                type="time"
-                required
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-              />
-            </label>
-          </div>
-
-          <div className="exam-form-row">
-            <label className="exam-field">
-              <span>Sınav Yeri / Derslik</span>
+          <fieldset className="study-fields">
+            <label>
+              <span>Ders Adı *</span>
               <input
                 type="text"
-                value={room}
-                onChange={(e) => setRoom(e.target.value)}
-                placeholder="örn. D204, Amfi 1"
-                maxLength={60}
+                required
+                autoFocus
+                value={course}
+                onChange={(e) => setCourse(e.target.value)}
+                placeholder="örn. Matematik 1, Algoritmalar, Fizik..."
+                maxLength={120}
               />
             </label>
-            <label className="exam-field">
-              <span>Hatırlatma</span>
-              <select
-                value={leadMinutes}
-                onChange={(e) => setLeadMinutes(Number(e.target.value))}
-              >
-                <option value={1440}>1 gün önce</option>
-                <option value={120}>2 saat önce</option>
-                <option value={60}>1 saat önce</option>
-                <option value={15}>15 dakika önce</option>
-                <option value={0}>Sınav anında</option>
-              </select>
+
+            <div className="study-date-fields">
+              <label>
+                <span>Sınav Tarihi *</span>
+                <input
+                  type="date"
+                  required
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              </label>
+              <label>
+                <span>Saat *</span>
+                <input
+                  type="time"
+                  required
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                />
+              </label>
+            </div>
+
+            <div className="study-time-fields">
+              <label>
+                <span>Sınav Salonu / Konum</span>
+                <input
+                  type="text"
+                  value={room}
+                  onChange={(e) => setRoom(e.target.value)}
+                  placeholder="örn. D204, Amfi 1"
+                  maxLength={60}
+                />
+              </label>
+              <label>
+                <span>Hatırlatma</span>
+                <select
+                  value={leadMinutes}
+                  onChange={(e) => setLeadMinutes(Number(e.target.value))}
+                >
+                  <option value={1440}>1 gün önce</option>
+                  <option value={120}>2 saat önce</option>
+                  <option value={60}>1 saat önce</option>
+                  <option value={15}>15 dakika önce</option>
+                  <option value={0}>Sınav anında</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              <span>Notlar / Gereksinimler</span>
+              <input
+                type="text"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="örn. Formül kağıdı serbest, hesap makinesi..."
+                maxLength={200}
+              />
             </label>
-          </div>
+          </fieldset>
 
-          <label className="exam-field">
-            <span>Notlar / Gereksinimler</span>
-            <input
-              type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="örn. Formül kağıdı serbest, hesap makinesi..."
-              maxLength={200}
-            />
-          </label>
-
-          <div className="exam-form-actions">
-            <button type="submit" disabled={busy} className="button button-primary">
-              {busy ? "Kaydediliyor…" : `🎓 ${examType} Ekle`}
-            </button>
-            <button type="button" disabled={busy} onClick={onClose} className="button button-secondary">
+          <footer className="study-dialog-actions">
+            <button type="button" disabled={busy} onClick={onClose} className="planner-secondary">
               Vazgeç
             </button>
-          </div>
+            <button type="submit" disabled={busy} className="planner-primary">
+              {busy ? "Kaydediliyor…" : `🎓 ${examType} Ekle`}
+            </button>
+          </footer>
         </form>
       </div>
-    </div>
+    </dialog>
   );
 }

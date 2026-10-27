@@ -32,15 +32,31 @@ export function TitleBar() {
     } catch {}
   };
 
+  const handleStartDragging = (e: React.MouseEvent) => {
+    if (!inTauri) return;
+    if (e.button === 0 && !(e.target as HTMLElement).closest("button")) {
+      void invoke("window_start_dragging");
+    }
+  };
+
   return (
-    <header className="desktop-titlebar" data-tauri-drag-region>
-      <div className="titlebar-brand" data-tauri-drag-region>
+    <header
+      className="desktop-titlebar"
+      data-tauri-drag-region
+      onMouseDown={handleStartDragging}
+      onDoubleClick={(e) => {
+        if (!(e.target as HTMLElement).closest("button")) {
+          void handleToggleMaximize();
+        }
+      }}
+    >
+      <div className="titlebar-brand" data-tauri-drag-region onMouseDown={handleStartDragging}>
         <span className="titlebar-logo-icon" aria-hidden="true">⚡</span>
         <strong className="titlebar-title">ACKDeck</strong>
-        <span className="titlebar-version-badge">v1.6.9</span>
+        <span className="titlebar-version-badge">v1.7.0</span>
       </div>
 
-      <div className="titlebar-drag-spacer" data-tauri-drag-region />
+      <div className="titlebar-drag-spacer" data-tauri-drag-region onMouseDown={handleStartDragging} />
 
       {inTauri && (
         <div className="titlebar-controls" aria-label="Pencere Kontrolleri">

@@ -165,7 +165,22 @@ export function MediaTracker() {
       <div className="media-grid">
         {filtered.length === 0 ? (
           <div className="media-empty surface">
-            <p>{items.length === 0 ? "Henüz kayıtlı film, dizi, kitap veya oyun bulunmuyor. Yukarıdaki butondan ilk kaydını ekleyebilirsin!" : "Bu filtreye uygun kayıt bulunamadı."}</p>
+            <span className="media-empty-icon" aria-hidden="true">🎬</span>
+            <h3>{items.length === 0 ? "Medya Kütüphanen Henüz Boş" : "Eşleşen Kayıt Bulunamadı"}</h3>
+            <p>
+              {items.length === 0
+                ? "İzlediğin filmleri, dizileri, okuduğun kitapları ve bitirdiğin oyunları ekleyip puanlayabilir, kişisel notlarını tutabilirsin."
+                : "Seçili filtrelere uygun film, dizi, kitap veya oyun bulunamadı."}
+            </p>
+            {items.length === 0 && (
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={() => setEditor(newMediaItem(typeFilter === "all" ? "movie" : typeFilter))}
+              >
+                + İlk Kaydını Ekle
+              </button>
+            )}
           </div>
         ) : (
           filtered.map((item) => (
@@ -236,7 +251,7 @@ export function MediaTracker() {
 
       {/* Editor Modal */}
       {editor && (
-        <div className="mobile-modal-overlay" onClick={() => setEditor(null)} role="dialog" aria-modal="true">
+        <div className="media-modal-overlay" onClick={() => setEditor(null)} role="dialog" aria-modal="true">
           <div className="surface media-editor-modal" onClick={(e) => e.stopPropagation()}>
             <div className="media-editor-header">
               <h3>{items.some((i) => i.id === editor.id) ? "Kaydı Düzenle" : "Yeni Medya Kaydı Ekle"}</h3>

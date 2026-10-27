@@ -332,6 +332,41 @@ pub async fn window_close(window: tauri::Window) -> Result<(), String> {
     window.close().map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub fn window_start_dragging(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.start_dragging().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn fetch_dorm_menu() -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(8))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let urls = [
+        "https://altinkalemkarabuk.com/icerik/icerik.json",
+        "https://ack-deck-phone.ack-deck-cloud.workers.dev/api/dorm-menu",
+    ];
+
+    for url in urls {
+        if let Ok(resp) = client
+            .get(url)
+            .header("User-Agent", "ACKDeck")
+            .send()
+            .await
+        {
+            if resp.status().is_success() {
+                if let Ok(text) = resp.text().await {
+                    return Ok(text);
+                }
+            }
+        }
+    }
+
+    Err("Yemek menüsü alınamadı".into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

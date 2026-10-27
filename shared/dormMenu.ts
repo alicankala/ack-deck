@@ -61,7 +61,12 @@ export function saveDormMenuCache(records: DormMenuRecord[]): void {
 }
 
 export function findMenuForDate(records: DormMenuRecord[], targetDate: string): DailyMenu | null {
-  const match = records.find((r) => r.tarih === targetDate && r.yayinda !== false);
+  const cleanTarget = targetDate.trim();
+  const match = records.find(
+    (r) =>
+      r.yayinda !== false &&
+      (r.tarih?.trim() === cleanTarget || r.tarih?.startsWith(cleanTarget))
+  );
   if (!match) return null;
   const todayKey = turkeyDateKey();
   return {
@@ -70,12 +75,35 @@ export function findMenuForDate(records: DormMenuRecord[], targetDate: string): 
     breakfastDishes: parseDishes(match.kahvalti),
     rawDinner: match.aksam || "",
     rawBreakfast: match.kahvalti || "",
-    isToday: match.tarih === todayKey,
+    isToday: match.tarih?.trim() === todayKey,
   };
 }
 
 export async function fetchDormMenu(): Promise<DormMenuRecord[]> {
+  // If in desktop Tauri environment, fetch through native Rust command
+  if (typeof window !== "undefined" && Boolean((window as any).__TAURI_INTERNALS__)) {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const raw = await invoke<string>("fetch_dorm_menu");
+      if (raw) {
+        const json = JSON.parse(raw);
+        const records = Array.isArray(json?.records)
+          ? json.records
+          : Array.isArray(json?.menu?.kayitlar)
+          ? json.menu.kayitlar
+          : null;
+        if (records && Array.isArray(records) && records.length > 0) {
+          saveDormMenuCache(records);
+          return records;
+        }
+      }
+    } catch {
+      // Continue to fetch via HTTP fallback
+    }
+  }
+
   const urls = [
+    "https://ack-deck-phone.ack-deck-cloud.workers.dev/api/dorm-menu",
     "/api/dorm-menu",
     "https://altinkalemkarabuk.com/icerik/icerik.json?t=" + Date.now(),
   ];

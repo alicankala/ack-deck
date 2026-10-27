@@ -157,6 +157,8 @@ function App() {
   const [online, setOnline] = useState(false);
   const [push, setPush] = useState(false);
   const [inbox, setInbox] = useState<Inbox[]>([]);
+  const [editingInboxId, setEditingInboxId] = useState<string | null>(null);
+  const [editingInboxText, setEditingInboxText] = useState("");
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [recording, setRecording] = useState(false);
   const [audio, setAudio] = useState<Blob | null>(null);
@@ -1425,37 +1427,97 @@ function App() {
                             {item.handled ? "İşlendi" : "Bekliyor"}
                           </span>
                         </div>
-                        <div className="mobile-sent-actions" style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", justifyContent: "flex-end", alignItems: "center" }}>
-                          {item.content && (
+                        {editingInboxId === item.id ? (
+                          <div style={{ marginTop: "0.5rem" }}>
+                            <textarea
+                              value={editingInboxText}
+                              onChange={(e) => setEditingInboxText(e.target.value)}
+                              className="mobile-textarea"
+                              rows={3}
+                              autoFocus
+                              style={{ width: "100%", borderRadius: "8px", padding: "8px", fontSize: "0.85rem", boxSizing: "border-box" }}
+                            />
+                            <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end", marginTop: "6px" }}>
+                              <button
+                                type="button"
+                                className="mobile-button-secondary"
+                                style={{ padding: "0.3rem 0.65rem", fontSize: "0.78rem" }}
+                                onClick={() => setEditingInboxId(null)}
+                              >
+                                Vazgeç
+                              </button>
+                              <button
+                                type="button"
+                                className="mobile-button-primary"
+                                style={{ padding: "0.3rem 0.65rem", fontSize: "0.78rem" }}
+                                onClick={async () => {
+                                  const trimmed = editingInboxText.trim();
+                                  if (!trimmed) {
+                                    setError("İçerik boş olamaz.");
+                                    return;
+                                  }
+                                  const nextTitle = trimmed.split("\n")[0].slice(0, 100);
+                                  try {
+                                    await api(state, "inbox/" + item.id, {
+                                      method: "PUT",
+                                      body: JSON.stringify({ title: nextTitle, content: trimmed }),
+                                    });
+                                    setInbox(cur => cur.map(row => row.id === item.id ? { ...row, title: nextTitle, content: trimmed } : row));
+                                    setEditingInboxId(null);
+                                    setNotice("Gönderi güncellendi.");
+                                  } catch (err) {
+                                    setError(err instanceof Error ? err.message : "Güncellenemedi.");
+                                  }
+                                }}
+                              >
+                                Kaydet
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mobile-sent-actions" style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", justifyContent: "flex-end", alignItems: "center" }}>
+                            {item.content && (
+                              <button
+                                type="button"
+                                className="mobile-button-secondary"
+                                style={{ padding: "0.3rem 0.65rem", fontSize: "0.78rem" }}
+                                onClick={() => {
+                                  void navigator.clipboard.writeText(item.content);
+                                  setNotice("Metin kopyalandı.");
+                                }}
+                              >
+                                Kopyala
+                              </button>
+                            )}
                             <button
                               type="button"
                               className="mobile-button-secondary"
                               style={{ padding: "0.3rem 0.65rem", fontSize: "0.78rem" }}
                               onClick={() => {
-                                void navigator.clipboard.writeText(item.content);
-                                setNotice("Metin kopyalandı.");
+                                setEditingInboxId(item.id);
+                                setEditingInboxText(item.content || item.title);
                               }}
                             >
-                              Kopyala
+                              Düzenle
                             </button>
-                          )}
-                          <button
-                            type="button"
-                            className="mobile-button-secondary"
-                            style={{ padding: "0.3rem 0.65rem", fontSize: "0.78rem", color: "#f87171", borderColor: "rgba(248, 113, 113, 0.3)" }}
-                            onClick={() => {
-                              if (!window.confirm("Bu gönderi silinsin mi?")) return;
-                              void api(state, "inbox/" + item.id, { method: "DELETE" })
-                                .then(() => {
-                                  setInbox(cur => cur.filter(row => row.id !== item.id));
-                                  setNotice("Gönderi silindi.");
-                                })
-                                .catch(e => setError(e instanceof Error ? e.message : "Silinemedi."));
-                            }}
-                          >
-                            Sil
-                          </button>
-                        </div>
+                            <button
+                              type="button"
+                              className="mobile-button-secondary"
+                              style={{ padding: "0.3rem 0.65rem", fontSize: "0.78rem", color: "#f87171", borderColor: "rgba(248, 113, 113, 0.3)" }}
+                              onClick={() => {
+                                if (!window.confirm("Bu gönderi silinsin mi?")) return;
+                                void api(state, "inbox/" + item.id, { method: "DELETE" })
+                                  .then(() => {
+                                    setInbox(cur => cur.filter(row => row.id !== item.id));
+                                    setNotice("Gönderi silindi.");
+                                  })
+                                  .catch(e => setError(e instanceof Error ? e.message : "Silinemedi."));
+                              }}
+                            >
+                              Sil
+                            </button>
+                          </div>
+                        )}
                       </article>
                     ))}
                   </div>

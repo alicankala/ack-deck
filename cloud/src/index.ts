@@ -221,12 +221,20 @@ async function handle(request: Request, env: Env): Promise<Response> {
     await env.DB.prepare("INSERT INTO inbox_items(id,kind,title,content,created_at,device_id) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING").bind(body.id,body.kind,body.title,body.content,now,actor.id).run(); return reply({ok:true});
   }
   const inboxMatch = path.match(/^\/api\/inbox\/([\w.-]{1,128})$/);
-  if (inboxMatch && ["PATCH","DELETE"].includes(request.method)) {
+  if (inboxMatch && ["PATCH","DELETE","PUT"].includes(request.method)) {
     const item = await env.DB.prepare("SELECT kv_key, device_id FROM inbox_items WHERE id=?").bind(inboxMatch[1]).first<{kv_key:string|null; device_id:string|null}>();
     if (request.method === "DELETE") {
       if (!actor.owner && item?.device_id !== actor.id) throw new ApiError(403, "Bu gönderiyi sadece oluşturan cihaz veya bilgisayar silebilir.");
       await env.DB.prepare("DELETE FROM inbox_items WHERE id=?").bind(inboxMatch[1]).run();
       if (item?.kv_key) await env.ATTACHMENTS.delete(item.kv_key);
+      return reply({ok:true});
+    }
+    if (request.method === "PUT") {
+      if (!actor.owner && item?.device_id !== actor.id) throw new ApiError(403, "Bu gönderiyi sadece oluşturan cihaz veya bilgisayar düzenleyebilir.");
+      const body = await jsonBody(request);
+      if (!object(body) || !text(body.title, 180, true)) throw new ApiError(400, "Gönderi başlığı geçersiz.");
+      const newContent = typeof body.content === "string" ? body.content : body.title;
+      await env.DB.prepare("UPDATE inbox_items SET title=?, content=? WHERE id=?").bind(body.title, newContent, inboxMatch[1]).run();
       return reply({ok:true});
     }
     if (request.method === "PATCH") {

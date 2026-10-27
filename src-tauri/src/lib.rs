@@ -92,6 +92,8 @@ pub fn run() {
             desktop::window_minimize,
             desktop::window_toggle_maximize,
             desktop::window_close,
+            desktop::window_start_dragging,
+            desktop::fetch_dorm_menu,
             reminders::sync_task_reminders,
             backup::save_backup,
             backup::choose_backup,

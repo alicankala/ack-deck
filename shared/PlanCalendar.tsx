@@ -85,40 +85,47 @@ export function PlanCalendar({
   return (
     <section className={`plan-calendar month-calendar-view ${mobile ? "mobile-calendar" : "desktop-calendar"}`} aria-label="Aylık takvim">
       <div className="calendar-toolbar">
-        <div className="calendar-range">
-          <strong>{monthName.charAt(0).toLocaleUpperCase("tr-TR") + monthName.slice(1)}</strong>
-          <span>{blocks.length} ders bloğu · {agenda.filter(e => !e.reminder).length} kayıt</span>
+        <div className="calendar-header-row">
+          <div className="calendar-range">
+            <strong>{monthName.charAt(0).toLocaleUpperCase("tr-TR") + monthName.slice(1)}</strong>
+            <span>{blocks.length} ders bloğu · {agenda.filter(e => !e.reminder).length} kayıt</span>
+          </div>
+          <div className="calendar-nav-group">
+            <button type="button" aria-label="Önceki ay" onClick={() => shiftMonth(-1)}>‹</button>
+            <button type="button" className="calendar-this-month-btn" onClick={() => { const now = new Date(); onAnchor(now); setSelected(dateKey(now)); }}>Bu ay</button>
+            <button type="button" aria-label="Sonraki ay" onClick={() => shiftMonth(1)}>›</button>
+          </div>
         </div>
-        <div className="calendar-legend" aria-label="Takvim renkleri">
-          <span className="study">Ders / Çalışma</span>
-          <span className="exam">🎓 Sınav</span>
-          <span className="tasks">Görev</span>
-          <span className="subscriptions">Ödeme</span>
-        </div>
-        <div className="calendar-navigation">
-          {onSaveExam && (
-            <button
-              type="button"
-              className="calendar-exam-btn"
-              title="Sınav tarihi ekle (Vize, Final, Büt)"
-              onClick={() => setShowExamModal(true)}
-            >
-              🎓 Sınav Ekle
-            </button>
-          )}
-          {onSaveProgram && (
-            <button
-              type="button"
-              className="calendar-programs-btn"
-              title="Ders programlarını yönet"
-              onClick={() => { setSelectedProgramId(null); setShowProgramsModal(true); }}
-            >
-              📚 Ders Programı {programs.length > 0 && <span className="calendar-programs-badge">{programs.length}</span>}
-            </button>
-          )}
-          <button type="button" aria-label="Önceki ay" onClick={() => shiftMonth(-1)}>‹</button>
-          <button type="button" onClick={() => { const now = new Date(); onAnchor(now); setSelected(dateKey(now)); }}>Bu ay</button>
-          <button type="button" aria-label="Sonraki ay" onClick={() => shiftMonth(1)}>›</button>
+
+        <div className="calendar-subbar-row">
+          <div className="calendar-legend" aria-label="Takvim renkleri">
+            <span className="study">Ders / Çalışma</span>
+            <span className="exam">🎓 Sınav</span>
+            <span className="tasks">Görev</span>
+            <span className="subscriptions">Ödeme</span>
+          </div>
+          <div className="calendar-action-buttons">
+            {onSaveExam && (
+              <button
+                type="button"
+                className="calendar-exam-btn"
+                title="Sınav tarihi ekle (Vize, Final, Büt)"
+                onClick={() => setShowExamModal(true)}
+              >
+                🎓 Sınav Ekle
+              </button>
+            )}
+            {onSaveProgram && (
+              <button
+                type="button"
+                className="calendar-programs-btn"
+                title="Ders programlarını yönet"
+                onClick={() => { setSelectedProgramId(null); setShowProgramsModal(true); }}
+              >
+                📚 Ders Programı {programs.length > 0 && <span className="calendar-programs-badge">{programs.length}</span>}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
