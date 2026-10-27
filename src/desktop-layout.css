@@ -2280,13 +2280,66 @@
   width: 100vw;
   overflow: hidden;
   background: var(--app-bg, #090a0f);
+  display: flex;
+  flex-direction: column;
 }
 
 .desktop-window-container .app-shell {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
-  height: calc(100vh - 36px);
+  height: 100vh;
+  max-height: 100vh;
+  display: flex;
   overflow: hidden;
+  box-sizing: border-box;
+}
+
+.desktop-window-container .sidebar {
+  height: 100vh;
+  max-height: 100vh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--ui-unit) * 34) calc(var(--ui-unit) * 18) calc(var(--ui-unit) * 20);
+  box-sizing: border-box;
+}
+
+.desktop-window-container .sidebar-nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.desktop-window-container .sidebar-bottom {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-top: calc(var(--ui-unit) * 10);
+  box-sizing: border-box;
+}
+
+.desktop-window-container .main-column {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100vh;
+  max-height: 100vh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.desktop-window-container .main-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.desktop-window-container .app-footer {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: calc(var(--ui-unit) * 10) calc(var(--ui-unit) * 24);
 }
 
 
