@@ -286,10 +286,10 @@ function App() {
   return (
     <>
       <div className="desktop-window-container">
-        <TitleBar />
         <div className="app-shell" inert={restoring}>
           <Sidebar activePage={activeSidebarPage} onNavigate={setPage} />
           <div className="main-column">
+            <TitleBar />
             <UpdateNotice blocked={restoring || aiBusy} hidden={page === "settings"} />
             <main className={"main-content " + (page === "home" ? "dashboard-main" : "")}>
               {(desktopInitialized.current || desktop.visible) && (

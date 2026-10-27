@@ -50,7 +50,7 @@ const navigationGroups: { label: string; items: { id: Page; label: string; icon:
 export function Sidebar({ activePage, onNavigate }: { activePage: Page; onNavigate: (page: Page) => void }) {
   return (
     <aside className="sidebar">
-      <div className="brand" aria-label="ACKDeck">
+      <div className="brand" aria-label="ACKDeck" data-tauri-drag-region="deep">
         <img className="brand-mark" src="/ack-mark.svg" alt="ACK" />
         <div className="brand-copy">
           <strong>ACKDeck</strong>

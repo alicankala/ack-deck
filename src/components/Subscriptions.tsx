@@ -13,7 +13,60 @@ export function Subscriptions({compact=false,onOpen,initialId}:{compact?:boolean
   const active=loaded.entries.filter(s=>s.status==="active"),upcoming=active.filter(s=>paymentOccurrence(s)).sort((a,b)=>paymentOccurrence(a)!.at-paymentOccurrence(b)!.at),totals=monthlyTotals(loaded.entries);
   function commit(entries:Subscription[]){if(!saveSubscriptions(entries))throw Error("Abonelikler kaydedilemedi.");setLoaded(loadSubscriptions());}
   const total=<div className="subscription-totals"><span>Aylık karşılık:</span>{totals.map(([currency,amount])=><strong key={currency}>{money(amount,currency)}</strong>)}{!totals.length&&<span>—</span>}</div>;
-  if(compact)return <details open className="dashboard-pc dashboard-subscriptions" aria-label="Abonelikler"><summary className="dashboard-subscriptions-summary"><span className="dashboard-pc-title"><Icon name="archive" size={15} /> <strong>Abonelikler</strong></span><span className="subscriptions-summary-badge">{active.length} aktif</span><span className="subscriptions-summary-upcoming">{upcoming[0] ? `${upcoming[0].name} · ${paymentLabel(upcoming[0])}` : "Yaklaşan ödeme yok"}</span><small className="subscriptions-summary-arrow">Ayrıntılar ›</small></summary><div className="dashboard-subscription-body"><div className="dashboard-section-top"><h2>Yaklaşan ödemeler</h2><button type="button" className="dashboard-more" onClick={onOpen}>Tümünü Gör</button></div>{loaded.warning?<p role="status">{loaded.warning}</p>:<>{upcoming.slice(0,3).map(s=><div className="subscription-compact" key={s.id}><span>{s.name}</span><small>{paymentLabel(s)} · {money(s.amount,s.currency)}</small></div>)}{!upcoming.length&&<p className="dashboard-empty">Yaklaşan ödeme yok.</p>}{total}</>}</div></details>;
+  if (compact) {
+    const monthlyText = totals.length > 0
+      ? `${totals.map(([currency, amount]) => money(amount, currency)).join(" + ")} / ay`
+      : active.length > 0
+      ? `${active.length} aktif`
+      : "Aktif yok";
+    const nextText = upcoming[0]
+      ? `Sıradaki: ${upcoming[0].name} · ${paymentLabel(upcoming[0])}`
+      : active[0]
+      ? active.slice(0, 2).map(s => s.name).join(", ")
+      : "Yaklaşan ödeme yok";
+
+    return (
+      <details className="dashboard-pc dashboard-subscriptions" aria-label="Abonelikler">
+        <summary className="dashboard-pc-summary dashboard-subscriptions-summary">
+          <div className="dashboard-pc-header-line">
+            <span className="dashboard-pc-title">
+              <Icon name="archive" size={15} />
+              <strong>Abonelikler</strong>
+            </span>
+            <span className={`sub-net-pill ${active.length > 0 ? "active" : "empty"}`}>
+              <span className="dashboard-network-dot" />
+              {monthlyText}
+            </span>
+          </div>
+          <div className="dashboard-pc-metrics-line sub-metrics-line">
+            <span className="pc-metric-tag sub-count-tag">{active.length} aktif</span>
+            <span className="pc-metric-tag sub-upcoming-tag">{nextText}</span>
+            <small className="pc-metric-details">Ayrıntılar ›</small>
+          </div>
+        </summary>
+        <div className="dashboard-subscription-body">
+          <div className="dashboard-section-top">
+            <h2>Yaklaşan ödemeler</h2>
+            <button type="button" className="dashboard-more" onClick={onOpen}>Tümünü Gör</button>
+          </div>
+          {loaded.warning ? (
+            <p role="status">{loaded.warning}</p>
+          ) : (
+            <>
+              {upcoming.slice(0, 3).map(s => (
+                <div className="subscription-compact" key={s.id}>
+                  <span>{s.name}</span>
+                  <small>{paymentLabel(s)} · {money(s.amount, s.currency)}</small>
+                </div>
+              ))}
+              {!upcoming.length && <p className="dashboard-empty">Yaklaşan ödeme yok.</p>}
+              {total}
+            </>
+          )}
+        </div>
+      </details>
+    );
+  }
   return <section className="subscriptions-page hub-page"><div className="section-heading"><h1>Abonelikler</h1><button type="button" className="button button-primary" disabled={loaded.locked} onClick={()=>setDraft(newSubscription())}>+ Abonelik</button></div>{(loaded.warning||error)&&<p className="tool-feedback error" role="alert">{loaded.warning||error}</p>}<div className="subscription-summary surface"><span>{active.length} aktif abonelik</span>{upcoming[0]&&<span>Yaklaşan: {upcoming[0].name} · {paymentLabel(upcoming[0])}</span>}{total}<small>Yıllık, haftalık ve özel dönem tutarları aylık ortalamadır. Para birimleri ayrı tutulur.</small></div>
     {draft&&<EditorDialog title={draft.name ? "Aboneliği düzenle" : "Yeni abonelik"} onClose={() => setDraft(null)}><SubscriptionForm showHeading={false} key={draft.id} initial={draft} onCancel={()=>setDraft(null)} onSave={s=>{commit([...loadSubscriptions().entries.filter(v=>v.id!==s.id),s]);setDraft(null);}}/></EditorDialog>}
     <div className="subscription-list">{loaded.entries.map(s=><article id={"subscription-"+s.id} className={"surface subscription-row "+(initialId===s.id?"record-highlight":"")} key={s.id}><div className="subscription-initial" aria-hidden="true">{s.icon||s.name.slice(0,1).toLocaleUpperCase("tr")}</div><button type="button" className="subscription-info record-open" disabled={loaded.locked} onClick={()=>setDraft(s)}><h2>{s.name}</h2><p>{money(s.amount,s.currency)} / {cycleLabel(s)}</p><small>{s.status==="paused"?"Duraklatıldı":s.status==="cancelled"?"İptal edildi":`${paymentLabel(s)} · ${s.autoRenew?"Yenileniyor":"Otomatik yenileme kapalı"}`}</small></button><ActionMenu label={`${s.name} işlemleri`}><button type="button" disabled={loaded.locked} onClick={()=>setDraft(s)}>Düzenle</button><button type="button" disabled={loaded.locked} onClick={()=>{try{commit(loadSubscriptions().entries.map(v=>v.id===s.id?{...v,status:s.status==="active"?"paused":"active",updatedAt:Date.now()}:v));}catch{setError("Durum kaydedilemedi.");}}}>{s.status==="active"?"Duraklat":"Etkinleştir"}</button><button type="button" className="danger-action" disabled={loaded.locked} onClick={()=>{if(window.confirm("Yalnızca ACKDeck abonelik kaydı silinsin mi? Hizmet sağlayıcısındaki aboneliğiniz değişmez.")){try{commit(loadSubscriptions().entries.filter(v=>v.id!==s.id));offerUndo({source:"subscriptions",record:s});}catch{setError("Abonelik silinemedi.");}}}}>Kaydı sil</button></ActionMenu></article>)}</div>{!loaded.entries.length&&!draft&&<p className="dashboard-empty">Düzenli kullandığın bir hizmeti ekleyerek başla.</p>}
