@@ -3,20 +3,42 @@ import { dateKey, monthDates } from "./weeklyPlan";
 import { planAgenda, reminderText, type AgendaEvent } from "./planAgenda";
 import type { PlanEvent } from "./weeklyPlan";
 import { studyBlocks, studyConflicts, type StudyProgram } from "./studyPrograms";
+import { StudyProgramsModal } from "./StudyProgramPanel";
 import "./planner.css";
 
 const WEEKDAYS = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
 
-export function PlanCalendar({ anchor, onAnchor, events, programs, onEvent, onProgram, onNew, mobile = false }: {
+export function PlanCalendar({
+  anchor,
+  onAnchor,
+  events,
+  programs,
+  onEvent,
+  onProgram,
+  onNew,
+  mobile = false,
+  onSaveProgram,
+  onDeleteProgram,
+  getReminder,
+  onReminderChange,
+  disabled = false,
+}: {
   anchor: Date;
   onAnchor: (date: Date) => void;
   events: PlanEvent[];
   programs: StudyProgram[];
   onEvent: (event: AgendaEvent) => void;
-  onProgram: (id: string) => void;
+  onProgram?: (id: string) => void;
   onNew: (day: string) => void;
   mobile?: boolean;
+  onSaveProgram?: (program: StudyProgram) => Promise<void>;
+  onDeleteProgram?: (id: string) => Promise<void>;
+  getReminder?: (id: string) => number | null;
+  onReminderChange?: (id: string, lead: number | null) => void;
+  disabled?: boolean;
 }) {
+  const [showProgramsModal, setShowProgramsModal] = useState(false);
+  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const days = monthDates(anchor);
   const today = dateKey(new Date());
   const [selected, setSelected] = useState(today);
@@ -53,6 +75,16 @@ export function PlanCalendar({ anchor, onAnchor, events, programs, onEvent, onPr
           <span className="subscriptions">Ödeme</span>
         </div>
         <div className="calendar-navigation">
+          {onSaveProgram && (
+            <button
+              type="button"
+              className="calendar-programs-btn"
+              title="Ders programlarını yönet"
+              onClick={() => { setSelectedProgramId(null); setShowProgramsModal(true); }}
+            >
+              📚 Ders Programı {programs.length > 0 && <span className="calendar-programs-badge">{programs.length}</span>}
+            </button>
+          )}
           <button type="button" aria-label="Önceki ay" onClick={() => shiftMonth(-1)}>‹</button>
           <button type="button" onClick={() => { const now = new Date(); onAnchor(now); setSelected(dateKey(now)); }}>Bu ay</button>
           <button type="button" aria-label="Sonraki ay" onClick={() => shiftMonth(1)}>›</button>
@@ -85,14 +117,16 @@ export function PlanCalendar({ anchor, onAnchor, events, programs, onEvent, onPr
             >
               <div className="month-day-top">
                 <span className="month-day-num">{dayNum}</span>
-                <button
-                  type="button"
-                  className="month-day-add-btn"
-                  title={`${day} için görev ekle`}
-                  onClick={(e) => { e.stopPropagation(); onNew(day); }}
-                >
-                  +
-                </button>
+                {!mobile && (
+                  <button
+                    type="button"
+                    className="month-day-add-btn"
+                    title={`${day} için görev ekle`}
+                    onClick={(e) => { e.stopPropagation(); onNew(day); }}
+                  >
+                    +
+                  </button>
+                )}
               </div>
 
               {/* Event previews inside the day cell */}
@@ -103,7 +137,15 @@ export function PlanCalendar({ anchor, onAnchor, events, programs, onEvent, onPr
                     key={b.id}
                     className="month-event-pill study"
                     title={`${b.time} ${b.label} (${b.programName})`}
-                    onClick={(e) => { e.stopPropagation(); onProgram(b.programId); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onSaveProgram) {
+                        setSelectedProgramId(b.programId);
+                        setShowProgramsModal(true);
+                      } else {
+                        onProgram?.(b.programId);
+                      }
+                    }}
                   >
                     <span className="event-pill-time">{b.time}</span>
                     <span className="event-pill-text">{b.label}</span>
@@ -156,7 +198,14 @@ export function PlanCalendar({ anchor, onAnchor, events, programs, onEvent, onPr
                 type="button"
                 className={`calendar-event study ${conflicts.has(b.id) ? "overlap" : ""}`}
                 key={b.id}
-                onClick={() => onProgram(b.programId)}
+                onClick={() => {
+                  if (onSaveProgram) {
+                    setSelectedProgramId(b.programId);
+                    setShowProgramsModal(true);
+                  } else {
+                    onProgram?.(b.programId);
+                  }
+                }}
               >
                 <div className="calendar-event-head">
                   <small className="calendar-event-time">{b.time} – {b.endTime}</small>
@@ -184,6 +233,19 @@ export function PlanCalendar({ anchor, onAnchor, events, programs, onEvent, onPr
           )}
         </div>
       </div>
+
+      {showProgramsModal && onSaveProgram && onDeleteProgram && (
+        <StudyProgramsModal
+          programs={programs}
+          selectedId={selectedProgramId}
+          disabled={disabled}
+          getReminder={getReminder}
+          onReminderChange={onReminderChange}
+          onSave={onSaveProgram}
+          onDelete={onDeleteProgram}
+          onClose={() => { setShowProgramsModal(false); setSelectedProgramId(null); }}
+        />
+      )}
     </section>
   );
 }

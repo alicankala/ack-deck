@@ -1,5 +1,4 @@
 import { PlanCalendar } from "../../shared/PlanCalendar";
-import { StudyPrograms } from "../../shared/StudyProgramPanel";
 import type { StudyProgram } from "../../shared/studyPrograms";
 import { useRef, useState } from "react";
 import type { CloudRecord, Mutation, PhoneTask, PhoneNote, PhoneProject } from "../../shared/phone";
@@ -53,12 +52,24 @@ export function MobileProjects({ records, onSave: _onSave, onOpen }: {
     onOpen: (row: CloudRecord) => void;
 }) { const [selected, setSelected] = useState(""); const rows = records.filter(r => r.kind === "projects" && !r.deleted); return <><div className="mobile-project-list">{rows.map(row => { const p = row.data as PhoneProject, tasks = records.filter(r => r.kind === "tasks" && !r.deleted && (r.data as PhoneTask).projectId === row.id), notes = records.filter(r => r.kind === "notes" && !r.deleted && (r.data as PhoneNote).projectId === row.id); return <article key={row.id}><button className="mobile-task-open" onClick={() => setSelected(selected === row.id ? "" : row.id)}><h3>{p.name}</h3><p>{p.description || "Açıklama yok"}</p><small>{tasks.filter(t => !(t.data as PhoneTask).completed).length} açık görev · {notes.length} not</small></button>{selected === row.id && <section className="mobile-project-detail">{tasks.filter(t => !(t.data as PhoneTask).completed).map(t => <button className="mobile-task-open" key={t.id} onClick={() => onOpen(t)}>{(t.data as PhoneTask).text}</button>)}{notes.slice(0, 5).map(n => <button className="mobile-task-open" key={n.id} onClick={() => onOpen(n)}>{(n.data as PhoneNote).title}</button>)}</section>}</article>; })}</div>{!rows.length && <p>Bilgisayardaki projeler eşitlenince burada görünecek.</p>}</>; }
 export function MobileWeek({ records, onOpen, onNew, onSave, disabled = false, getReminder, onReminderChange }: {
-    records: CloudRecord[]; onOpen: (row: CloudRecord) => void; onNew: (day: string) => void; onSave: (mutation: Mutation) => Promise<void>; onAskAi?: () => void; disabled?: boolean;
+    records: CloudRecord[]; onOpen: (row: CloudRecord) => void; onNew: (day: string) => void; onSave: (mutation: Mutation) => Promise<void>; disabled?: boolean;
     getReminder?: (id: string) => number | null; onReminderChange?: (id: string, lead: number | null) => void;
 }) {
-  const [anchor, setAnchor] = useState(new Date()), [selectedProgram, setSelectedProgram] = useState<string | null>(null);
+  const [anchor, setAnchor] = useState(new Date());
   const programs = records.filter(r=>r.kind==="studyPrograms"&&!r.deleted).map(r=>r.data as StudyProgram);
   const events = monthlyPlan(records.filter(r=>r.kind==="tasks"&&!r.deleted).map(r=>({id:r.id,...r.data as PhoneTask})), records.filter(r=>r.kind==="subscriptions"&&!r.deleted).map(r=>r.data as Subscription), anchor);
-  return <><PlanCalendar mobile anchor={anchor} onAnchor={setAnchor} events={events} programs={programs} onProgram={setSelectedProgram} onNew={onNew} onEvent={e=>{const row=records.find(r=>r.id===e.id&&r.kind===e.source);if(row)onOpen(row);}} />
-  <StudyPrograms programs={programs} disabled={disabled} selectedId={selectedProgram} onSelectionHandled={()=>setSelectedProgram(null)} getReminder={getReminder} onReminderChange={onReminderChange} onSave={async program=>{ const row=records.find(r=>r.kind==="studyPrograms"&&r.id===program.id);await onSave({mutationId:crypto.randomUUID(),kind:"studyPrograms",id:program.id,baseVersion:row?.version??0,data:program,deleted:false}); }} onDelete={async id=>{const row=records.find(r=>r.kind==="studyPrograms"&&r.id===id);if(row)await onSave({mutationId:crypto.randomUUID(),kind:"studyPrograms",id,baseVersion:row.version,data:null,deleted:true});}} /></>;
+  return <PlanCalendar
+    mobile
+    anchor={anchor}
+    onAnchor={setAnchor}
+    events={events}
+    programs={programs}
+    disabled={disabled}
+    onNew={onNew}
+    onEvent={e=>{const row=records.find(r=>r.id===e.id&&r.kind===e.source);if(row)onOpen(row);}}
+    getReminder={getReminder}
+    onReminderChange={onReminderChange}
+    onSaveProgram={async program=>{ const row=records.find(r=>r.kind==="studyPrograms"&&r.id===program.id);await onSave({mutationId:crypto.randomUUID(),kind:"studyPrograms",id:program.id,baseVersion:row?.version??0,data:program,deleted:false}); }}
+    onDeleteProgram={async id=>{const row=records.find(r=>r.kind==="studyPrograms"&&r.id===id);if(row)await onSave({mutationId:crypto.randomUUID(),kind:"studyPrograms",id,baseVersion:row.version,data:null,deleted:true});}}
+  />;
 }

@@ -929,12 +929,7 @@ function App() {
                     <Icon name="grid" size={20} />
                   </div>
                   <div>
-                    <h3 className="timeline-title-text">Günün Akışı & Haftalık Çizelge</h3>
-                    <p className="timeline-subtitle-text">
-                      {isSelectedMobileToday
-                        ? `Bugün için ${todayStudyBlocks.length} ders ve ${todayTasks.length} görev planlı`
-                        : `${selectedMobileDateLabel} için ${mobileTimelineItems.filter(i => i.kind === "study").length} ders ve ${mobileTimelineItems.filter(i => i.kind === "task" && !isOccurrenceCompleted(i.task)).length} görev planlı`}
-                    </p>
+                    <h3 className="timeline-title-text">Haftalık Çizelge</h3>
                   </div>
                 </div>
                 <div className="timeline-header-actions">

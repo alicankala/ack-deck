@@ -7,6 +7,7 @@ export function StudyPrograms({ programs, onSave, onDelete, disabled = false, se
   getReminder?: (id: string) => number | null; onReminderChange?: (id: string, lead: number | null) => void;
 }) {
   const [draft, setDraft] = useState<StudyProgram | null>(null), [error, setError] = useState(""), [busy, setBusy] = useState(false), running = useRef(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   useEffect(() => { if (selectedId) { const program = programs.find(p => p.id === selectedId); if (program) { setDraft(structuredClone(program)); setError(""); } onSelectionHandled?.(); } }, [selectedId, programs, onSelectionHandled]);
   async function action(run: () => Promise<void>, close = false) {
     if (running.current) return; running.current = true; setBusy(true); setError("");
@@ -33,27 +34,18 @@ export function StudyPrograms({ programs, onSave, onDelete, disabled = false, se
           <p>{[...new Set(p.sessions.map(s => s.subject))].join(" · ")}</p>
         </button>
         <div className="study-program-card-actions">
-          {onReminderChange && (
-            <label className="study-inline-reminder" title="Ders hatırlatması">
-              <span className="study-reminder-icon" aria-hidden="true">🔔</span>
-              <select
-                disabled={disabled || busy}
-                value={getReminder ? (getReminder(p.id) ?? "off") : "off"}
-                onChange={e => onReminderChange(p.id, e.target.value === "off" ? null : Number(e.target.value))}
-                aria-label={`${p.name} ders hatırlatması`}
-              >
-                <option value="off">Bildirim yok</option>
-                <option value="0">Ders vaktinde</option>
-                <option value="15">15 dk önce</option>
-                <option value="30">30 dk önce</option>
-                <option value="60">1 saat önce</option>
-              </select>
-            </label>
-          )}
+          <button type="button" className="planner-secondary study-pause" disabled={disabled || busy} onClick={() => void action(() => onSave({ ...p, active: !p.active, updatedAt: Date.now() }))}>{p.active ? "Duraklat" : "Başlat"}</button>
           <button type="button" className="planner-secondary" disabled={disabled || busy} onClick={() => { setDraft(structuredClone(p)); setError(""); }}>Düzenle</button>
-          <button type="button" className="planner-secondary study-pause" disabled={disabled || busy} onClick={() => void action(() => onSave({ ...p, active: !p.active, updatedAt: Date.now() }))}>{p.active ? "Duraklat" : "Devam et"}</button>
+          <button type="button" className="planner-secondary study-delete-btn" disabled={disabled || busy} onClick={() => setDeleteConfirmId(deleteConfirmId === p.id ? null : p.id)}>Sil / Bitir</button>
         </div>
       </div>
+      {deleteConfirmId === p.id && (
+        <div className="study-delete-confirm-inline" role="alert">
+          <span>"{p.name}" programı silinsin mi?</span>
+          <button type="button" className="danger-btn" disabled={disabled || busy} onClick={() => { setDeleteConfirmId(null); void action(() => onDelete(p.id)); }}>Evet, Sil</button>
+          <button type="button" disabled={disabled || busy} onClick={() => setDeleteConfirmId(null)}>Vazgeç</button>
+        </div>
+      )}
       <div className="study-timetable" aria-label={`${p.name} haftalık ders çizelgesi`}>{weekdays.map((dayName, idx) => {
         const daySessions = p.sessions.filter(s => s.weekdays.includes(idx + 1)).sort((a, b) => a.time.localeCompare(b.time));
         return <div className={`study-timetable-day ${daySessions.length ? "has-sessions" : ""}`} key={dayName}>
@@ -69,6 +61,60 @@ export function StudyPrograms({ programs, onSave, onDelete, disabled = false, se
     {error && !draft && <p role="alert" className="planner-error">{error}</p>}
     {draft && <StudyProgramDialog key={draft.id} initial={draft} programs={programs} busy={busy || disabled} error={error} initialReminder={getReminder ? getReminder(draft.id) : null} onClose={() => setDraft(null)} onSave={(p, lead) => void action(async () => { await onSave(p); onReminderChange?.(p.id, lead); }, true)} onDelete={programs.some(p => p.id === draft.id) ? () => void action(() => onDelete(draft.id), true) : undefined} />}
   </section>;
+}
+
+export function StudyProgramsModal({
+  programs,
+  onSave,
+  onDelete,
+  disabled = false,
+  selectedId,
+  getReminder,
+  onReminderChange,
+  onClose,
+}: {
+  programs: StudyProgram[];
+  onSave: (program: StudyProgram) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  disabled?: boolean;
+  selectedId?: string | null;
+  getReminder?: (id: string) => number | null;
+  onReminderChange?: (id: string, lead: number | null) => void;
+  onClose: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const el = dialog.current;
+    el?.showModal();
+    return () => { if (el?.open) el.close(); };
+  }, []);
+
+  return (
+    <dialog
+      ref={dialog}
+      className="study-dialog study-programs-modal-dialog"
+      onCancel={e => { e.preventDefault(); onClose(); }}
+    >
+      <header className="study-dialog-heading">
+        <div>
+          <h2>Ders Programları</h2>
+          <p>Derslerini gün ve saatleriyle çizelge olarak düzenle; aylık takvimine otomatik yerleşsin.</p>
+        </div>
+        <button type="button" aria-label="Kapat" onClick={onClose}>×</button>
+      </header>
+      <div className="study-modal-body">
+        <StudyPrograms
+          programs={programs}
+          disabled={disabled}
+          selectedId={selectedId}
+          getReminder={getReminder}
+          onReminderChange={onReminderChange}
+          onSave={onSave}
+          onDelete={onDelete}
+        />
+      </div>
+    </dialog>
+  );
 }
 function StudyProgramDialog({ initial, programs, busy, error, initialReminder = null, onClose, onSave, onDelete }: { initial: StudyProgram; programs: StudyProgram[]; busy: boolean; error: string; initialReminder?: number | null; onClose: () => void; onSave: (p: StudyProgram, reminderLead: number | null) => void; onDelete?: () => void }) {
   const [value, setValue] = useState(initial), [reminderLead, setReminderLead] = useState<number | null>(initialReminder), [validation, setValidation] = useState(""), [confirmDelete, setConfirmDelete] = useState(false);

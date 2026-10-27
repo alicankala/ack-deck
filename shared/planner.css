@@ -165,3 +165,83 @@
 @container (max-width: 54rem) { .desktop-calendar .calendar-grid, .study-timetable { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ai-program-meta, .ai-program-session-top { grid-template-columns: minmax(0, 1fr); } }
 @container (max-width: 32rem) { .desktop-calendar .calendar-grid, .study-timetable { grid-template-columns: repeat(2, minmax(0, 1fr)); } .study-timetable-day:not(.has-sessions) { display: none; } .study-section-heading { flex-direction: column; align-items: start; } .study-section-actions { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); } }
 @media (max-width: 480px) { .study-dialog { width: calc(100vw - 1rem); max-width: calc(100vw - 1rem); max-height: calc(100dvh - 1rem); } .study-fields, .study-dialog-heading { padding: 1rem; } .study-session { padding: .75rem; } .study-weekdays { grid-template-columns: repeat(4,minmax(0,1fr)); } .study-weekdays button { font-size: .68rem; } .study-dialog-actions { padding: .8rem 1rem calc(.8rem + env(safe-area-inset-bottom)); } .study-dialog-actions .planner-primary { flex: 1; } .calendar-toolbar { flex-wrap: wrap; } .calendar-navigation { margin-left: auto; } }
+
+.calendar-programs-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  background: var(--app-control, #1b2c40);
+  border: 1px solid var(--app-border, #3a506c);
+  color: var(--app-text, #e7edf3);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.calendar-programs-btn:hover {
+  background: var(--app-hover, #233b57);
+  border-color: var(--app-accent, #6fd1ab);
+}
+.calendar-programs-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: 1rem;
+  background: #2b5144;
+  color: #8ce1bf;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.study-programs-modal-dialog {
+  width: min(54rem, calc(100vw - 2rem));
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100dvh - 3rem);
+  border-radius: 1.2rem;
+}
+.study-modal-body {
+  padding: 1.25rem;
+  max-height: calc(100dvh - 10rem);
+  overflow-y: auto;
+}
+.study-modal-body .study-programs {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.study-delete-btn {
+  color: #fca5a5 !important;
+  border-color: #7f1d1d !important;
+}
+.study-delete-btn:hover {
+  background: #450a0a !important;
+}
+.study-delete-confirm-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.5rem;
+  background: #3f1a21;
+  border: 1px solid #7c2d3a;
+  color: #fecdd3;
+  font-size: 0.8rem;
+  margin-top: 0.4rem;
+}
+.study-delete-confirm-inline button {
+  padding: 0.25rem 0.6rem;
+  border-radius: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.study-delete-confirm-inline .danger-btn {
+  background: #e11d48;
+  color: #fff;
+  border: 0;
+}

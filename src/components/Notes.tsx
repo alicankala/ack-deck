@@ -111,17 +111,7 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
       <section className="notes-editor" aria-label="Not düzenleyici">
         {selected ? <>
           <div className="notes-editor-top">
-            <div className="notes-editor-top-left">
-              <span className="note-save-status">{error ? "Kaydedilemedi" : "Kaydedildi"}</span>
-              <div className="notes-editor-reorder" role="group" aria-label="Not sırası">
-                <button type="button" className="button button-ghost button-xs notes-reorder-action" title="Öne taşı" aria-label="Notu öne taşı" disabled={notes.findIndex(n => n.id === selected.id) <= 0} onClick={() => reorder(selected.id, -1)}>
-                  <Icon name="arrowUp" size={13} /> Öne taşı
-                </button>
-                <button type="button" className="button button-ghost button-xs notes-reorder-action" title="Arkaya taşı" aria-label="Notu arkaya taşı" disabled={notes.findIndex(n => n.id === selected.id) === -1 || notes.findIndex(n => n.id === selected.id) >= notes.length - 1} onClick={() => reorder(selected.id, 1)}>
-                  <Icon name="arrowDown" size={13} /> Arkaya taşı
-                </button>
-              </div>
-            </div>
+            <span className="note-save-status">{error ? "Kaydedilemedi" : "Kaydedildi"}</span>
             <button className="notes-delete" type="button" onClick={() => setConfirmDelete(true)} disabled={!!initial.error}><Icon name="trash" size={16} /> Notu sil</button>
           </div>
           {confirmDelete && <div className="notes-delete-confirm" role="group" aria-label="Notu silme onayı"><span>Bu not silinsin mi?</span><button type="button" onClick={remove}>Evet, sil</button><button type="button" onClick={() => setConfirmDelete(false)}>Vazgeç</button></div>}

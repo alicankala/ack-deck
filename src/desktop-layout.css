@@ -242,25 +242,22 @@
 .ai-privacy p { line-height:1.6; }
 .conversation-history { border-radius:1rem; background:var(--app-surface); border-color:var(--app-border); }
 .notes-page .notes-layout { grid-template-columns:minmax(18rem,25rem) minmax(0,1fr); min-height:max(40rem,calc(100dvh - 14rem)); border-radius:1.2rem; }
-.notes-page .notes-sidebar { background:var(--app-field); }
-.notes-page .notes-list { display:grid; gap:.7rem; padding:.9rem; }
+.notes-page .notes-sidebar { background:var(--app-field); display:flex; flex-direction:column; min-width:0; height:100%; }
+.notes-page .notes-list { display:grid; gap:.7rem; padding:.9rem; flex:1 1 0%; max-height:none !important; height:auto; overflow-y:auto; min-height:0; }
 .notes-page .note-list-item { background:var(--app-surface); border:1px solid var(--app-border); border-radius:.9rem; padding:1.2rem; min-height:8rem; }
 .notes-page .note-list-item.active { background:var(--app-accent-soft); border-color:var(--app-accent-border); }
 .notes-page .note-list-item strong { font-size:1.05rem; }
 .notes-page .note-list-item span { line-height:1.7; }
 .notes-page .note-list-item time { color:var(--app-muted); font-size:.75rem; }
 .notes-page .note-list-row { position:relative; display:flex; align-items:stretch; width:100%; border-radius:.9rem; }
-.notes-page .note-list-row .note-list-item { flex:1; width:100%; min-width:0; }
+.notes-page .note-list-row .note-list-item { flex:1; width:100%; min-width:0; padding-right:2.4rem; }
 .notes-page .note-list-item-reorder { position:absolute; top:.6rem; right:.6rem; display:flex; flex-direction:column; gap:.25rem; opacity:0; transition:opacity .15s ease; z-index:2; }
 .notes-page .note-list-row:hover .note-list-item-reorder,
 .notes-page .note-list-row:focus-within .note-list-item-reorder { opacity:1; }
-.notes-page .note-order-btn { background:var(--app-field); border:1px solid var(--app-border); border-radius:.35rem; color:var(--app-text); padding:.2rem .35rem; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:all .15s ease; }
+.notes-page .note-order-btn { background:var(--app-field); border:1px solid var(--app-border); border-radius:.35rem; color:var(--app-muted); width:1.35rem; height:1.35rem; padding:0; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:all .15s ease; }
 .notes-page .note-order-btn:hover:not(:disabled) { background:var(--app-accent); color:#fff; border-color:transparent; }
-.notes-page .note-order-btn:disabled { opacity:.3; cursor:not-allowed; }
+.notes-page .note-order-btn:disabled { opacity:.25; cursor:not-allowed; }
 .notes-editor-top { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; }
-.notes-editor-top-left { display:flex; align-items:center; gap:.85rem; }
-.notes-editor-reorder { display:inline-flex; align-items:center; gap:.35rem; }
-.notes-reorder-action { display:inline-flex; align-items:center; gap:.3rem; font-size:.78rem; padding:.25rem .55rem; border-radius:.45rem; }
 .notes-page .notes-editor { padding:1.8rem 2.5rem; }
 .notes-page .notes-editor .notes-title { font-size:2rem; padding:1.5rem 0 .8rem; }
 .notes-page .notes-editor .notes-content { font-size:1.1rem; min-height:30rem; line-height:1.9; }
@@ -323,7 +320,7 @@
 .main-content .notes-page { width:100%; max-width:100%; margin-inline:0; }
 .main-content .notes-page .notes-layout { grid-template-columns:minmax(18rem,23rem) minmax(0,1fr); min-height:calc(100dvh - 12rem); border:1px solid var(--app-border); border-radius:1rem; overflow:hidden; }
 .main-content .notes-page .notes-sidebar-top { padding:1rem; gap:.75rem; flex-wrap:wrap; }
-.main-content .notes-page .notes-list { max-height:min(36rem,calc(100dvh - 20rem)); padding:.7rem; gap:.5rem; }
+.main-content .notes-page .notes-list { flex:1 1 0%; max-height:none; height:auto; overflow-y:auto; min-height:0; padding:.7rem; gap:.5rem; }
 .main-content .notes-page .note-list-item { min-height:6.5rem; padding:1rem; }
 .main-content .notes-page .notes-editor { padding:1.25rem 1.6rem; }
 .main-content .notes-page .notes-editor .notes-title { font-size:1.7rem; padding:1.1rem 0 .65rem; }

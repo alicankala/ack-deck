@@ -149,18 +149,13 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, targetId }
             </button>
           </div>
 
-          {/* Günün Akışı & Haftalık Çizelge (Üstte) */}
+          {/* Haftalık Çizelge (Üstte) */}
           <section className="dashboard-weekly-preview surface" aria-labelledby="dashboard-weekly-heading">
             <div className="dashboard-section-top">
               <div className="weekly-preview-title">
                 <span className="overview-icon-small"><Icon name="grid" size={18} /></span>
                 <div>
-                  <h2 id="dashboard-weekly-heading">Günün Akışı & Haftalık Çizelge</h2>
-                  <small>
-                    {timelineItems.length > 0
-                      ? `${isSelectedToday ? "Bugün" : selectedDateLabel} için ${displayedStudyBlocks.length > 0 ? `${displayedStudyBlocks.length} ders` : ""}${displayedStudyBlocks.length > 0 && displayedTasks.length > 0 ? " ve " : ""}${displayedTasks.length > 0 ? `${displayedTasks.length} görev` : ""} planlı`
-                      : `${isSelectedToday ? "Bugün" : selectedDateLabel} için planlı ders veya görev yok`}
-                  </small>
+                  <h2 id="dashboard-weekly-heading">Haftalık Çizelge</h2>
                 </div>
               </div>
               <button type="button" className="dashboard-more" onClick={() => onNavigate({ page: "calendar" })}>
