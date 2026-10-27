@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { loadNotes, saveNotes, type Note } from "../notesStore";
 import { Icon } from "./Icon";
 import { recordRecent } from "../recentStore";
+import { moveBy } from "../reorder";
 
 const dateFormatter = new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
@@ -13,7 +14,7 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
   useEffect(() => () => { if (editedNote.current) recordRecent("notes", editedNote.current.id, undefined, editedNote.current.usedAt); }, []);
   const [initial] = useState(loadNotes);
   const [notes, setNotes] = useState<Note[]>(initial.notes);
-  const [selectedId, setSelectedId] = useState<string | null>(initialId ?? [...initial.notes].sort((a, b) => b.updatedAt - a.updatedAt)[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialId ?? initial.notes[0]?.id ?? null);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(initial.error);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -22,8 +23,7 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
   useEffect(() => { const refresh = () => { const loaded = loadNotes(); if (!loaded.error) setNotes(loaded.notes); }; window.addEventListener("ack-data-changed", refresh); return () => window.removeEventListener("ack-data-changed", refresh); }, []);
   const selected = notes.find((note) => note.id === selectedId) ?? null;
   const search = query.trim().toLocaleLowerCase("tr-TR");
-  const visible = notes.filter((note) => (note.title + " " + note.content).toLocaleLowerCase("tr-TR").includes(search))
-    .sort((a, b) => b.updatedAt - a.updatedAt);
+  const visible = notes.filter((note) => (note.title + " " + note.content).toLocaleLowerCase("tr-TR").includes(search));
 
   function commit(next: Note[]) {
     if (initial.error) return false;
@@ -34,6 +34,13 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
     setNotes(next);
     setError(null);
     return true;
+  }
+
+  function reorder(id: string, direction: number) {
+    const current = loadNotes();
+    if (current.error) return;
+    const next = moveBy(current.notes, id, direction);
+    commit(next);
   }
 
   function createNote() {
@@ -82,13 +89,41 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
         <div className="notes-sidebar-top"><strong>{notes.length} not</strong><button className="button button-primary" type="button" onClick={createNote} disabled={!!initial.error}><Icon name="plus" size={16} /> Yeni not</button></div>
         <label className="sr-only" htmlFor="notes-search">Notlarda ara</label>
         <input id="notes-search" className="notes-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Notlarda ara..." />
-        <div className="notes-list">{visible.length ? visible.map((note) => <button className={"note-list-item " + (selectedId === note.id ? "active" : "")} key={note.id} type="button" onClick={() => { setSelectedId(note.id); setConfirmDelete(false); }}>
-          <strong>{note.title.trim() || "Başlıksız not"}</strong><span>{note.content.trim() || "İçerik yok"}</span><time dateTime={new Date(note.updatedAt).toISOString()}>{dateFormatter.format(note.updatedAt)}</time>
-        </button>) : <p className="notes-empty-list">{search ? "Aramayla eşleşen not yok." : "Henüz not yok."}</p>}</div>
+        <div className="notes-list">{visible.length ? visible.map((note) => {
+          const index = notes.findIndex(n => n.id === note.id);
+          return (
+            <div className={"note-list-row " + (selectedId === note.id ? "active" : "")} key={note.id}>
+              <button className={"note-list-item " + (selectedId === note.id ? "active" : "")} type="button" onClick={() => { setSelectedId(note.id); setConfirmDelete(false); }}>
+                <strong>{note.title.trim() || "Başlıksız not"}</strong><span>{note.content.trim() || "İçerik yok"}</span><time dateTime={new Date(note.updatedAt).toISOString()}>{dateFormatter.format(note.updatedAt)}</time>
+              </button>
+              <div className="note-list-item-reorder" role="group" aria-label="Not sırası">
+                <button type="button" className="note-order-btn" title="Öne taşı" aria-label={`${note.title.trim() || "Notu"} öne taşı`} disabled={index <= 0} onClick={() => reorder(note.id, -1)}>
+                  <Icon name="arrowUp" size={12} />
+                </button>
+                <button type="button" className="note-order-btn" title="Arkaya taşı" aria-label={`${note.title.trim() || "Notu"} arkaya taşı`} disabled={index < 0 || index >= notes.length - 1} onClick={() => reorder(note.id, 1)}>
+                  <Icon name="arrowDown" size={12} />
+                </button>
+              </div>
+            </div>
+          );
+        }) : <p className="notes-empty-list">{search ? "Aramayla eşleşen not yok." : "Henüz not yok."}</p>}</div>
       </aside>
       <section className="notes-editor" aria-label="Not düzenleyici">
         {selected ? <>
-          <div className="notes-editor-top"><span className="note-save-status">{error ? "Kaydedilemedi" : "Kaydedildi"}</span><button className="notes-delete" type="button" onClick={() => setConfirmDelete(true)} disabled={!!initial.error}><Icon name="trash" size={16} /> Notu sil</button></div>
+          <div className="notes-editor-top">
+            <div className="notes-editor-top-left">
+              <span className="note-save-status">{error ? "Kaydedilemedi" : "Kaydedildi"}</span>
+              <div className="notes-editor-reorder" role="group" aria-label="Not sırası">
+                <button type="button" className="button button-ghost button-xs notes-reorder-action" title="Öne taşı" aria-label="Notu öne taşı" disabled={notes.findIndex(n => n.id === selected.id) <= 0} onClick={() => reorder(selected.id, -1)}>
+                  <Icon name="arrowUp" size={13} /> Öne taşı
+                </button>
+                <button type="button" className="button button-ghost button-xs notes-reorder-action" title="Arkaya taşı" aria-label="Notu arkaya taşı" disabled={notes.findIndex(n => n.id === selected.id) === -1 || notes.findIndex(n => n.id === selected.id) >= notes.length - 1} onClick={() => reorder(selected.id, 1)}>
+                  <Icon name="arrowDown" size={13} /> Arkaya taşı
+                </button>
+              </div>
+            </div>
+            <button className="notes-delete" type="button" onClick={() => setConfirmDelete(true)} disabled={!!initial.error}><Icon name="trash" size={16} /> Notu sil</button>
+          </div>
           {confirmDelete && <div className="notes-delete-confirm" role="group" aria-label="Notu silme onayı"><span>Bu not silinsin mi?</span><button type="button" onClick={remove}>Evet, sil</button><button type="button" onClick={() => setConfirmDelete(false)}>Vazgeç</button></div>}
           <label className="sr-only" htmlFor="note-title">Not başlığı</label><input id="note-title" className="notes-title" value={selected.title} onChange={(event) => edit({ title: event.target.value })} maxLength={160} placeholder="Not başlığı" disabled={!!initial.error} />
           <div className="note-writing-area"><label className="sr-only" htmlFor="note-content">Not içeriği</label><textarea id="note-content" className="notes-content" value={selected.content} onChange={(event) => edit({ content: event.target.value })} maxLength={30000} placeholder="Notunu buraya yaz..." disabled={!!initial.error} /></div>

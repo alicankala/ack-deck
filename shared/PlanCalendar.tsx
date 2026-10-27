@@ -1,53 +1,189 @@
 import { useState } from "react";
-import { dateKey, weekDates } from "./weeklyPlan";
+import { dateKey, monthDates } from "./weeklyPlan";
 import { planAgenda, reminderText, type AgendaEvent } from "./planAgenda";
 import type { PlanEvent } from "./weeklyPlan";
 import { studyBlocks, studyConflicts, type StudyProgram } from "./studyPrograms";
 import "./planner.css";
 
+const WEEKDAYS = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+
 export function PlanCalendar({ anchor, onAnchor, events, programs, onEvent, onProgram, onNew, mobile = false }: {
-  anchor: Date; onAnchor: (date: Date) => void; events: PlanEvent[]; programs: StudyProgram[]; onEvent: (event: AgendaEvent) => void; onProgram: (id: string) => void; onNew: (day: string) => void; mobile?: boolean;
+  anchor: Date;
+  onAnchor: (date: Date) => void;
+  events: PlanEvent[];
+  programs: StudyProgram[];
+  onEvent: (event: AgendaEvent) => void;
+  onProgram: (id: string) => void;
+  onNew: (day: string) => void;
+  mobile?: boolean;
 }) {
-  const days = weekDates(anchor), [selected, setSelected] = useState(dateKey(new Date())), today = dateKey(new Date());
-  const agenda = planAgenda(events), blocks = studyBlocks(programs, anchor), conflicts = new Set(studyConflicts(programs, anchor));
-  const activeDay = days.includes(selected) ? selected : days[0];
-  const dateLabel = (day: string) => new Date(day + "T12:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
-  const shift = (n: number) => onAnchor(new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() + n));
-  return <section className={`plan-calendar ${mobile ? "mobile-calendar" : "desktop-calendar"}`} aria-label="Haftalık takvim">
-    <div className="calendar-toolbar">
-      <div className="calendar-range">
-        <strong>{dateLabel(days[0])} – {dateLabel(days[6])}</strong>
-        <span>{blocks.length} ders bloğu · {agenda.filter(e => !e.reminder).length} kayıt</span>
-      </div>
-      <div className="calendar-legend" aria-label="Takvim renkleri"><span className="study">Ders / Çalışma</span><span className="tasks">Görev</span><span className="subscriptions">Ödeme</span></div>
-      <div className="calendar-navigation"><button type="button" aria-label="Önceki hafta" onClick={() => shift(-7)}>‹</button><button type="button" onClick={() => { const now = new Date(); onAnchor(now); setSelected(dateKey(now)); }}>Bu hafta</button><button type="button" aria-label="Sonraki hafta" onClick={() => shift(7)}>›</button></div>
-    </div>
-    {mobile && <div className="calendar-days" aria-label="Gün seçimi">{days.map(day => <button type="button" key={day} aria-pressed={day === activeDay} className={day === today ? "is-today" : ""} onClick={() => setSelected(day)}><small>{new Date(day + "T12:00:00").toLocaleDateString("tr-TR", { weekday: "short" })}</small><strong>{Number(day.slice(-2))}</strong><span aria-label={`${agenda.filter(e => e.date === day).length + blocks.filter(b => b.date === day).length} kayıt`}>{agenda.some(e => e.date === day) || blocks.some(b => b.date === day) ? "•" : "·"}</span></button>)}</div>}
-    <div className="calendar-grid">{(mobile ? [activeDay] : days).map(day => {
-      const rows = [...agenda.filter(e => e.date === day).map(e => ({ time: e.time ?? "99:99", event: e, block: null })), ...blocks.filter(b => b.date === day).map(b => ({ time: b.time, event: null, block: b }))].sort((a, b) => a.time.localeCompare(b.time));
-      return <section className={`calendar-day ${day === today ? "is-today" : ""}`} key={day}>
-        <header>
-          <div>
-            <strong>{new Date(day + "T12:00:00").toLocaleDateString("tr-TR", { weekday: "long" })}</strong>
-            <small>{dateLabel(day)}{day === today ? " · Bugün" : ""}</small>
-          </div>
-          <button type="button" className="calendar-add" aria-label={`${dateLabel(day)} için görev ekle`} onClick={() => onNew(day)}>+</button>
-        </header>
-        <div className="calendar-day-body">
-          {!rows.length && <p className="calendar-empty">Planın açık.</p>}
-          {rows.map(({ event: e, block: b }) => b ? <button type="button" className={`calendar-event study ${conflicts.has(b.id) ? "overlap" : ""}`} key={b.id} onClick={() => onProgram(b.programId)}>
-            <div className="calendar-event-head"><small className="calendar-event-time">{b.time}–{b.endTime}</small><small className="calendar-event-dur">{b.minutes} dk</small></div>
-            <strong>{b.label}</strong>
-            {b.topic && <span>{b.topic}</span>}
-            <small className="calendar-event-program">{b.programName}</small>
-            {conflicts.has(b.id) && <small className="calendar-conflict">Saatler çakışıyor</small>}
-          </button> : e && <button type="button" className={`calendar-event ${e.source} ${e.reminder ? "reminder" : ""}`} key={`${e.source}:${e.id}:${e.occurrenceKey ?? day}:${e.reminder ? "reminder" : "event"}`} onClick={() => onEvent(e)}>
-            <small className="calendar-event-time">{e.time ?? "Gün içinde"} · {e.reminder ? "Hatırlatma" : e.source === "tasks" ? "Görev" : "Ödeme"}</small>
-            <strong>{e.label.replace(/ · Hatırlatma$/, "")}</strong>
-            {reminderText(e) && <small className="calendar-reminder">◷ {reminderText(e)}</small>}
-          </button>)}
+  const days = monthDates(anchor);
+  const today = dateKey(new Date());
+  const [selected, setSelected] = useState(today);
+  const activeDay = days.includes(selected) ? selected : today;
+
+  const currentMonthNum = anchor.getMonth();
+  const currentYearNum = anchor.getFullYear();
+  const currentMonthKey = `${currentYearNum}-${String(currentMonthNum + 1).padStart(2, "0")}`;
+
+  const monthName = anchor.toLocaleDateString("tr-TR", { month: "long", year: "numeric" });
+  const agenda = planAgenda(events);
+  const blocks = studyBlocks(programs, anchor, days);
+  const conflicts = new Set(studyConflicts(programs, anchor));
+
+  const shiftMonth = (delta: number) => {
+    onAnchor(new Date(anchor.getFullYear(), anchor.getMonth() + delta, 1));
+  };
+
+  const activeDayRows = [
+    ...agenda.filter(e => e.date === activeDay).map(e => ({ time: e.time ?? "99:99", event: e, block: null })),
+    ...blocks.filter(b => b.date === activeDay).map(b => ({ time: b.time, event: null, block: b }))
+  ].sort((a, b) => a.time.localeCompare(b.time));
+
+  return (
+    <section className={`plan-calendar month-calendar-view ${mobile ? "mobile-calendar" : "desktop-calendar"}`} aria-label="Aylık takvim">
+      <div className="calendar-toolbar">
+        <div className="calendar-range">
+          <strong>{monthName.charAt(0).toLocaleUpperCase("tr-TR") + monthName.slice(1)}</strong>
+          <span>{blocks.length} ders bloğu · {agenda.filter(e => !e.reminder).length} kayıt</span>
         </div>
-      </section>;
-    })}</div>
-  </section>;
+        <div className="calendar-legend" aria-label="Takvim renkleri">
+          <span className="study">Ders / Çalışma</span>
+          <span className="tasks">Görev</span>
+          <span className="subscriptions">Ödeme</span>
+        </div>
+        <div className="calendar-navigation">
+          <button type="button" aria-label="Önceki ay" onClick={() => shiftMonth(-1)}>‹</button>
+          <button type="button" onClick={() => { const now = new Date(); onAnchor(now); setSelected(dateKey(now)); }}>Bu ay</button>
+          <button type="button" aria-label="Sonraki ay" onClick={() => shiftMonth(1)}>›</button>
+        </div>
+      </div>
+
+      {/* Weekday headers row */}
+      <div className="month-weekday-header">
+        {WEEKDAYS.map(w => (
+          <div key={w} className="month-weekday-cell">{w}</div>
+        ))}
+      </div>
+
+      {/* Monthly Grid */}
+      <div className="month-grid">
+        {days.map(day => {
+          const isCurrentMonth = day.startsWith(currentMonthKey);
+          const isToday = day === today;
+          const isSelected = day === activeDay;
+          const dayNum = Number(day.slice(-2));
+          const dayAgenda = agenda.filter(e => e.date === day);
+          const dayBlocks = blocks.filter(b => b.date === day);
+          const totalItems = dayAgenda.length + dayBlocks.length;
+
+          return (
+            <div
+              key={day}
+              className={`month-day-cell ${isCurrentMonth ? "in-month" : "other-month"} ${isToday ? "is-today" : ""} ${isSelected ? "is-selected" : ""}`}
+              onClick={() => setSelected(day)}
+            >
+              <div className="month-day-top">
+                <span className="month-day-num">{dayNum}</span>
+                <button
+                  type="button"
+                  className="month-day-add-btn"
+                  title={`${day} için görev ekle`}
+                  onClick={(e) => { e.stopPropagation(); onNew(day); }}
+                >
+                  +
+                </button>
+              </div>
+
+              {/* Event previews inside the day cell */}
+              <div className="month-day-events">
+                {dayBlocks.slice(0, 2).map(b => (
+                  <button
+                    type="button"
+                    key={b.id}
+                    className="month-event-pill study"
+                    title={`${b.time} ${b.label} (${b.programName})`}
+                    onClick={(e) => { e.stopPropagation(); onProgram(b.programId); }}
+                  >
+                    <span className="event-pill-time">{b.time}</span>
+                    <span className="event-pill-text">{b.label}</span>
+                  </button>
+                ))}
+                {dayAgenda.slice(0, 2).map(ev => (
+                  <button
+                    type="button"
+                    key={`${ev.source}:${ev.id}:${ev.occurrenceKey ?? day}`}
+                    className={`month-event-pill ${ev.source}`}
+                    title={ev.label}
+                    onClick={(e) => { e.stopPropagation(); onEvent(ev); }}
+                  >
+                    <span className="event-pill-time">{ev.time || "•"}</span>
+                    <span className="event-pill-text">{ev.label.replace(/ · Hatırlatma$/, "")}</span>
+                  </button>
+                ))}
+                {totalItems > 4 && (
+                  <span className="month-more-badge">+{totalItems - 4} daha</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Selected Day Agenda Detail Box */}
+      <div className="selected-day-agenda-box surface">
+        <div className="agenda-box-header">
+          <div>
+            <h3>{new Date(activeDay + "T12:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long", weekday: "long" })}{activeDay === today ? " · Bugün" : ""}</h3>
+            <small>{activeDayRows.length > 0 ? `${activeDayRows.length} planlı oturum ve iş` : "Bu gün için planlı kayıt yok."}</small>
+          </div>
+          <button
+            type="button"
+            className="planner-primary"
+            style={{ fontSize: "0.82rem", padding: "0.4rem 0.85rem" }}
+            onClick={() => onNew(activeDay)}
+          >
+            + Bu Güne Görev Ekle
+          </button>
+        </div>
+
+        <div className="agenda-box-list">
+          {activeDayRows.length === 0 ? (
+            <p className="calendar-empty">Bu gün için herhangi bir ders veya görev bulunmuyor.</p>
+          ) : (
+            activeDayRows.map(({ event: e, block: b }) => b ? (
+              <button
+                type="button"
+                className={`calendar-event study ${conflicts.has(b.id) ? "overlap" : ""}`}
+                key={b.id}
+                onClick={() => onProgram(b.programId)}
+              >
+                <div className="calendar-event-head">
+                  <small className="calendar-event-time">{b.time} – {b.endTime}</small>
+                  <small className="calendar-event-dur">{b.minutes} dk</small>
+                </div>
+                <strong>{b.label}</strong>
+                {b.topic && <span>{b.topic}</span>}
+                <small className="calendar-event-program">{b.programName}</small>
+                {conflicts.has(b.id) && <small className="calendar-conflict">Saatler çakışıyor</small>}
+              </button>
+            ) : e && (
+              <button
+                type="button"
+                className={`calendar-event ${e.source} ${e.reminder ? "reminder" : ""}`}
+                key={`${e.source}:${e.id}:${e.occurrenceKey ?? activeDay}:${e.reminder ? "reminder" : "event"}`}
+                onClick={() => onEvent(e)}
+              >
+                <small className="calendar-event-time">
+                  {e.time ?? "Gün içinde"} · {e.reminder ? "Hatırlatma" : e.source === "tasks" ? "Görev" : "Ödeme"}
+                </small>
+                <strong>{e.label.replace(/ · Hatırlatma$/, "")}</strong>
+                {reminderText(e) && <small className="calendar-reminder">◷ {reminderText(e)}</small>}
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    </section>
+  );
 }

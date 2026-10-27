@@ -182,9 +182,6 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, targetId }
                     >
                       <span className="mini-cell-day">{day.shortLabel}</span>
                       <span className="mini-cell-num">{day.dayNum}</span>
-                      <span className="mini-cell-indicator">
-                        {day.count > 0 ? <span className="mini-count-dot">{day.count}</span> : <span className="mini-empty-dash">—</span>}
-                      </span>
                     </button>
                   ))}
                 </div>

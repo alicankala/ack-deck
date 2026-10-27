@@ -19,9 +19,10 @@ export function validStudyProgram(v: unknown): v is StudyProgram {
 }
 export const newStudySession = (): StudySession => ({ id: crypto.randomUUID(), subject: "", topic: "", weekdays: [1], time: "19:00", minutes: 50 });
 export const newStudyProgram = (): StudyProgram => ({ id: crypto.randomUUID(), name: "", startDate: dateKey(new Date()), endDate: null, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, active: true, sessions: [newStudySession()], updatedAt: Date.now() });
-export function studyBlocks(programs: StudyProgram[], anchor = new Date()): StudyBlock[] {
+export function studyBlocks(programs: StudyProgram[], anchor = new Date(), customDates?: string[]): StudyBlock[] {
   const result: StudyBlock[] = [];
-  for (const p of programs.filter(p => p.active)) for (const day of weekDates(anchor)) {
+  const days = customDates ?? weekDates(anchor);
+  for (const p of programs.filter(p => p.active)) for (const day of days) {
     if (day < p.startDate || (p.endDate && day > p.endDate)) continue;
     const weekday = (new Date(day + "T12:00:00").getDay() + 6) % 7 + 1;
     for (const s of p.sessions.filter(s => s.weekdays.includes(weekday))) {

@@ -803,6 +803,26 @@ function App() {
     }
   }
 
+  async function reorderNote(id: string, direction: number) {
+    const rawNotes = state.records.filter(r => r.kind === "notes" && !r.deleted && r.data);
+    const sorted = state.noteOrder ? [...rawNotes].sort((a, b) => {
+      const ai = state.noteOrder!.indexOf(a.id), bi = state.noteOrder!.indexOf(b.id);
+      if (ai >= 0 && bi >= 0) return ai - bi;
+      if (ai >= 0) return -1;
+      if (bi >= 0) return 1;
+      return 0;
+    }) : rawNotes;
+    const ordered = moveBy(sorted, id, direction).map(row => row.id);
+    try {
+      const latest = await readState();
+      const next = { ...latest, noteOrder: ordered };
+      await saveState(next);
+      setState(next);
+    } catch {
+      setError("Not sırası kaydedilemedi.");
+    }
+  }
+
   if (!state.token) {
     return (
       <main className="pairing-page">
@@ -883,8 +903,8 @@ function App() {
             {/* Quick Metrics Bar at Top */}
             <div className="mobile-metrics-bar">
               <button type="button" className="metric-chip" onClick={() => setSelectedMobileDate(today)}>
-                <strong>{todayTasks.length}</strong>
-                <span>Bugün</span>
+                <strong>{todayStudyBlocks.length > 0 ? todayStudyBlocks.length : todayTasks.length}</strong>
+                <span>{todayStudyBlocks.length > 0 ? (todayStudyBlocks.length === 1 ? "1 Ders" : `${todayStudyBlocks.length} Ders`) : "Bugün"}</span>
               </button>
               <button type="button" className="metric-chip" onClick={() => { changePage("plan"); setPlanTab("calendar"); }}>
                 <strong>{unfinished.length}</strong>
@@ -928,14 +948,6 @@ function App() {
                     </button>
                   )}
                   <button
-                    className="primary-action-round"
-                    type="button"
-                    onClick={() => { openForm("task"); if (!isSelectedMobileToday) setDate(selectedMobileDate); }}
-                    title="Görev Ekle"
-                  >
-                    +
-                  </button>
-                  <button
                     type="button"
                     className="text-action"
                     onClick={() => { changePage("plan"); setPlanTab("calendar"); }}
@@ -973,14 +985,6 @@ function App() {
                   <div className="mobile-empty-card">
                     <div className="empty-badge"><Icon name="checkCircle" size={32} /></div>
                     <strong>{isSelectedMobileToday ? "Harika, bugün bekleyen ders veya görev yok!" : `${selectedMobileDateLabel} için ders veya görev yok.`}</strong>
-                    <button
-                      type="button"
-                      className="primary-action"
-                      style={{ marginTop: "12px", alignSelf: "center" }}
-                      onClick={() => { openForm("task"); if (!isSelectedMobileToday) setDate(selectedMobileDate); }}
-                    >
-                      + Görev Ekle
-                    </button>
                   </div>
                 ) : (
                   mobileTimelineItems.map(item => {
@@ -999,30 +1003,20 @@ function App() {
                       );
                     }
 
-                    const { task, row, index } = item;
-                    const isTaskDone = isOccurrenceCompleted(task);
+                    const { task, row } = item;
                     const hasEarlyReminder = Boolean(task.reminder && task.reminderLeadMinutes && task.reminderLeadMinutes > 0);
                     const hasMeta = hasEarlyReminder || task.recurrence;
                     return (
-                      <article className={`mobile-timeline-card task-card ${isTaskDone ? "completed" : ""}`} key={row.id}>
+                      <article
+                        className="mobile-timeline-card session-card task-session-row clickable"
+                        key={row.id}
+                        onClick={() => openForm("task", row)}
+                      >
                         <span className="timeline-time-col">
                           {task.dueTime || "—"}
                           {task.reminder && <span className="timeline-alarm-bell" title="Alarm açık"> 🔔</span>}
                         </span>
-                        <button
-                          type="button"
-                          className="mobile-task-toggle"
-                          disabled={busy}
-                          onClick={() => void complete(row)}
-                          aria-label="Tamamlandı olarak işaretle"
-                        >
-                          {isTaskDone && <Icon name="check" size={12} />}
-                        </button>
-                        <button
-                          type="button"
-                          className="timeline-content-col clickable"
-                          onClick={() => openForm("task", row)}
-                        >
+                        <div className="timeline-content-col">
                           <strong className="timeline-item-title">{task.text}</strong>
                           {hasMeta && (
                             <div className="timeline-item-chips">
@@ -1038,9 +1032,89 @@ function App() {
                               )}
                             </div>
                           )}
-                        </button>
+                        </div>
                         <div className="timeline-end-col">
                           <span className="timeline-badge task-badge">Görev</span>
+                        </div>
+                      </article>
+                    );
+                  })
+                )}
+              </div>
+            </section>
+
+            {/* Dedicated Görevler Card */}
+            <section className="mobile-tasks-card surface" aria-label="Görevler">
+              <div className="mobile-tasks-header">
+                <div className="mobile-tasks-title-group">
+                  <div className="mobile-tasks-icon-box">
+                    <Icon name="checkCircle" size={18} />
+                  </div>
+                  <div>
+                    <h3 className="mobile-tasks-title">Görevler</h3>
+                    <p className="mobile-tasks-subtitle">
+                      {displayedMobileTasks.filter(r => !isOccurrenceCompleted(r.data as PhoneTask)).length} bekleyen görev
+                    </p>
+                  </div>
+                </div>
+                <div className="mobile-tasks-actions">
+                  <button
+                    className="primary-action-round"
+                    type="button"
+                    onClick={() => { openForm("task"); if (!isSelectedMobileToday) setDate(selectedMobileDate); }}
+                    title="Görev Ekle"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Tasks List for today or selected day */}
+              <div className="mobile-tasks-list">
+                {tasks.filter(row => {
+                  const t = row.data as PhoneTask;
+                  if (isOccurrenceCompleted(t)) return false;
+                  return t.dueDate === selectedMobileDate || (!t.dueDate && isSelectedMobileToday);
+                }).length === 0 ? (
+                  <div className="mobile-tasks-empty">
+                    <p>Bu gün için bekleyen görev bulunmuyor.</p>
+                  </div>
+                ) : (
+                  tasks
+                    .filter(row => {
+                      const t = row.data as PhoneTask;
+                      if (isOccurrenceCompleted(t)) return false;
+                      return t.dueDate === selectedMobileDate || (!t.dueDate && isSelectedMobileToday);
+                    })
+                    .map(row => {
+                      const task = row.data as PhoneTask;
+                      const isTaskDone = isOccurrenceCompleted(task);
+                      const hasEarlyReminder = Boolean(task.reminder && task.reminderLeadMinutes && task.reminderLeadMinutes > 0);
+                      const hasMeta = hasEarlyReminder || task.recurrence;
+                      return (
+                        <article className={`mobile-task-item ${isTaskDone ? "completed" : ""}`} key={row.id}>
+                          <button
+                            type="button"
+                            className="mobile-task-toggle"
+                            disabled={busy}
+                            onClick={() => void complete(row)}
+                            aria-label="Tamamlandı olarak işaretle"
+                          >
+                            {isTaskDone && <Icon name="check" size={12} />}
+                          </button>
+                          <button
+                            type="button"
+                            className="mobile-task-content"
+                            onClick={() => openForm("task", row)}
+                          >
+                            <strong>{task.text}</strong>
+                            <small>
+                              {task.dueTime || (task.dueDate ? task.dueDate.split("-").reverse().join(".") : "Tarihsiz")}
+                              {task.reminder && " · 🔔"}
+                              {hasEarlyReminder && ` · ${task.reminderLeadMinutes} dk önce`}
+                              {task.recurrence && ` · 🔁 ${recurrenceLabel(task.recurrence)}`}
+                            </small>
+                          </button>
                           <ActionMenu label={task.text + " işlemleri"}>
                             <button disabled={busy} onClick={() => void snooze(row, 15)}>15 dk ertele</button>
                             <button disabled={busy} onClick={() => void snooze(row, 60)}>1 saat ertele</button>
@@ -1058,16 +1132,15 @@ function App() {
                               Görevi sil
                             </button>
                           </ActionMenu>
-                        </div>
-                      </article>
-                    );
-                  })
+                        </article>
+                      );
+                    })
                 )}
               </div>
 
-              {/* Completed Tasks (Inside the unified card) */}
+              {/* Completed Tasks Accordion */}
               {tasks.filter(row => isOccurrenceCompleted(row.data as PhoneTask)).length > 0 && (
-                <details className="mobile-completed-accordion" style={{ marginTop: "1rem" }}>
+                <details className="mobile-completed-accordion" style={{ marginTop: "0.85rem" }}>
                   <summary>Tamamlananlar ({tasks.filter(row => isOccurrenceCompleted(row.data as PhoneTask)).length})</summary>
                   <div className="mobile-completed-list">
                     {tasks
@@ -1094,17 +1167,19 @@ function App() {
           <NotesList
             syncLabel={busy ? "Eşitleniyor…" : state.queue.length ? "Eşitleme bekliyor" : "Güncel"}
             records={state.records}
+            noteOrder={state.noteOrder}
+            onReorder={reorderNote}
             onNew={() => openForm("note")}
             onOpen={row => openForm("note", row)}
           />
         )}
 
-        {/* 3. PLAN TAB (Haftalık Ders Planı & Abonelikler) */}
+        {/* 3. PLAN TAB (Aylık Ders Planı & Abonelikler) */}
         {page === "plan" && (
           <>
             <div className="mobile-segmented-bar plan-toggle-bar">
               <button className={`segment-btn ${planTab === "calendar" ? "is-active" : ""}`} onClick={() => setPlanTab("calendar")}>
-                Haftalık Plan & Dersler
+                Aylık Plan & Dersler
               </button>
               <button className={`segment-btn ${planTab === "subscriptions" ? "is-active" : ""}`} onClick={() => setPlanTab("subscriptions")}>
                 Abonelikler ({state.records.filter(r => r.kind === "subscriptions" && !r.deleted).length})
@@ -1121,11 +1196,6 @@ function App() {
                   onNew={day => { openForm("task"); setDate(day); }}
                   getReminder={id => studyReminders.find(r => r.id === id)?.leadMinutes ?? null}
                   onReminderChange={(id, lead) => updateStudyReminder(id, lead)}
-                  onAskAi={() => {
-                    openForm("ai_prompt");
-                    setTitle("Haftalık ders programı çizelgesi");
-                    setContent("Şu dersler için haftalık ders programı çizelgesi hazırla ve haftalık plana ekle: ");
-                  }}
                 />
               </>
             ) : (

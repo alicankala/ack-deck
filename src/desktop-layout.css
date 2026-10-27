@@ -249,6 +249,18 @@
 .notes-page .note-list-item strong { font-size:1.05rem; }
 .notes-page .note-list-item span { line-height:1.7; }
 .notes-page .note-list-item time { color:var(--app-muted); font-size:.75rem; }
+.notes-page .note-list-row { position:relative; display:flex; align-items:stretch; width:100%; border-radius:.9rem; }
+.notes-page .note-list-row .note-list-item { flex:1; width:100%; min-width:0; }
+.notes-page .note-list-item-reorder { position:absolute; top:.6rem; right:.6rem; display:flex; flex-direction:column; gap:.25rem; opacity:0; transition:opacity .15s ease; z-index:2; }
+.notes-page .note-list-row:hover .note-list-item-reorder,
+.notes-page .note-list-row:focus-within .note-list-item-reorder { opacity:1; }
+.notes-page .note-order-btn { background:var(--app-field); border:1px solid var(--app-border); border-radius:.35rem; color:var(--app-text); padding:.2rem .35rem; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:all .15s ease; }
+.notes-page .note-order-btn:hover:not(:disabled) { background:var(--app-accent); color:#fff; border-color:transparent; }
+.notes-page .note-order-btn:disabled { opacity:.3; cursor:not-allowed; }
+.notes-editor-top { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; }
+.notes-editor-top-left { display:flex; align-items:center; gap:.85rem; }
+.notes-editor-reorder { display:inline-flex; align-items:center; gap:.35rem; }
+.notes-reorder-action { display:inline-flex; align-items:center; gap:.3rem; font-size:.78rem; padding:.25rem .55rem; border-radius:.45rem; }
 .notes-page .notes-editor { padding:1.8rem 2.5rem; }
 .notes-page .notes-editor .notes-title { font-size:2rem; padding:1.5rem 0 .8rem; }
 .notes-page .notes-editor .notes-content { font-size:1.1rem; min-height:30rem; line-height:1.9; }
@@ -1508,7 +1520,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.45rem 0.2rem;
+  justify-content: center;
+  padding: 0.55rem 0.3rem;
   border-radius: 0.55rem;
   border: 1px solid var(--app-border);
   background: var(--app-control);

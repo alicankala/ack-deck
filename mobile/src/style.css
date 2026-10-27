@@ -3132,6 +3132,121 @@ body:has(.editor) nav { visibility: hidden; }
   color: var(--app-text);
 }
 
+/* Mobile Tasks Card */
+.mobile-tasks-card {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 18px;
+  padding: 16px 14px;
+  margin-bottom: 16px;
+}
+
+.mobile-tasks-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.mobile-tasks-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mobile-tasks-icon-box {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--app-accent-soft);
+  color: var(--app-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-tasks-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--app-text);
+}
+
+.mobile-tasks-subtitle {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--app-secondary);
+}
+
+.mobile-tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobile-tasks-empty {
+  padding: 14px 10px;
+  text-align: center;
+  color: var(--app-muted);
+  font-size: 13px;
+}
+
+.mobile-task-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--app-field);
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  transition: all 0.15s ease;
+}
+
+.mobile-task-item.completed {
+  opacity: 0.6;
+}
+
+.mobile-task-item.completed strong {
+  text-decoration: line-through;
+  color: var(--app-muted);
+}
+
+.mobile-task-content {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.mobile-task-content strong {
+  font-size: 14px;
+  color: var(--app-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-task-content small {
+  font-size: 11px;
+  color: var(--app-secondary);
+}
+
+:root[data-theme="light"] .mobile-tasks-card {
+  background: #ffffff;
+  border-color: var(--app-border);
+}
+
+:root[data-theme="light"] .mobile-task-item {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
 
 
 

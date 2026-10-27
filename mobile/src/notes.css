@@ -26,6 +26,11 @@ body:has(.notes-page) { background: var(--app-bg); }
 .notebook-row:active { background: var(--app-hover); border-color: var(--app-accent-border); }
 .notebook-card-top { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 13px; }
 .notebook-page-icon { display: inline-flex; color: var(--app-accent); }
+.notebook-card-top-right { display: flex; align-items: center; gap: 8px; }
+.notebook-reorder-group { display: inline-flex; align-items: center; gap: 4px; }
+.notebook-reorder-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border-radius: 8px; background: var(--app-surface); border: 1px solid var(--app-border); color: var(--app-text); font-size: 13px; font-weight: bold; line-height: 1; }
+.notebook-reorder-btn:active { background: var(--app-accent); color: #fff; border-color: transparent; }
+.notebook-reorder-btn:disabled { opacity: 0.25; pointer-events: none; }
 .notebook-open-arrow { color: var(--app-muted); font-size: 18px; }
 .notebook-row > strong { font-size: 19px; font-weight: 600; line-height: 1.4; letter-spacing: -.025em; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
 .notebook-preview { margin-top: 8px; margin-bottom: 18px; font-size: 14px; line-height: 1.65; color: var(--app-secondary); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; }
