@@ -2868,3 +2868,144 @@ dialog,
   text-decoration: line-through;
   opacity: 0.85;
 }
+
+/* Live Status Overview Cards (Desktop Home Top Row) */
+.live-status-overview button.live-overview-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 0.95rem 1.05rem;
+  min-width: 0;
+  border-radius: 1rem;
+  cursor: pointer;
+}
+.live-status-overview .overview-icon {
+  width: 2.55rem;
+  height: 2.55rem;
+  border-radius: 0.8rem;
+  margin-top: 0.1rem;
+}
+.live-status-overview .tone-live .overview-icon {
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+}
+.live-status-overview .tone-live {
+  border-color: rgba(16, 185, 129, 0.32);
+}
+.live-status-overview .tone-warn .overview-icon {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fbbf24;
+}
+.live-status-overview .tone-progress .overview-icon {
+  background: rgba(99, 102, 241, 0.16);
+  color: #818cf8;
+}
+.live-status-overview .tone-recent .overview-icon {
+  background: rgba(236, 72, 153, 0.14);
+  color: #f472b6;
+}
+:root[data-theme="light"] .live-status-overview .tone-live .overview-icon {
+  background: rgba(5, 150, 105, 0.12);
+  color: #059669;
+}
+:root[data-theme="light"] .live-status-overview .tone-warn .overview-icon {
+  background: rgba(217, 119, 6, 0.12);
+  color: #d97706;
+}
+:root[data-theme="light"] .live-status-overview .tone-progress .overview-icon {
+  background: rgba(79, 70, 229, 0.12);
+  color: #4f46e5;
+}
+:root[data-theme="light"] .live-status-overview .tone-recent .overview-icon {
+  background: rgba(219, 39, 119, 0.11);
+  color: #db2777;
+}
+.live-status-overview .live-overview-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  flex: 1;
+  min-width: 0;
+}
+.live-status-overview .live-overview-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.live-status-overview .live-overview-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--app-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.live-status-overview .live-overview-badge {
+  font-size: 0.69rem;
+  font-weight: 650;
+  padding: 0.1rem 0.48rem;
+  border-radius: 999px;
+  background: var(--app-control);
+  border: 1px solid var(--app-border);
+  color: var(--app-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.live-status-overview .tone-live .live-overview-badge {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+:root[data-theme="light"] .live-status-overview .tone-live .live-overview-badge {
+  color: #059669;
+}
+.live-status-overview strong.live-overview-title {
+  font-size: 0.96rem;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--app-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+.live-status-overview small.live-overview-meta {
+  font-size: 0.77rem;
+  color: var(--app-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+.live-status-overview .live-progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  min-width: 0;
+}
+.live-status-overview .live-progress-track {
+  display: flex;
+  width: 100%;
+  height: 0.34rem;
+  border-radius: 999px;
+  background: var(--app-control);
+  overflow: hidden;
+}
+.live-status-overview .live-progress-fill.is-attended {
+  background: #34d399;
+  height: 100%;
+  transition: width 0.25s ease;
+}
+.live-status-overview .live-progress-fill.is-skipped {
+  background: rgba(248, 113, 113, 0.75);
+  height: 100%;
+  transition: width 0.25s ease;
+}
+@container (max-width: 52rem) {
+  .live-status-overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

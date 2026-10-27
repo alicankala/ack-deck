@@ -4,6 +4,7 @@ import type { Project } from "./projectStore";
 import { loadWorkspaces, loadShortcuts } from "./workHubStore";
 import { usageFor, rankMatch } from "./usageStore";
 import { loadNotes } from "./notesStore";
+import { loadMedia } from "./mediaStore";
 import { scheduleDate } from "../shared/recurrence";
 export function todayTasks(tasks: Task[], now = new Date()): { task: Task; label: string }[] {
   const today = localDateKey(now), incomplete = tasks.filter(task => !task.completed && task.dueDate);
@@ -22,7 +23,17 @@ export function loadDashboardData() {
   const workspaces = loadWorkspaces().entries.slice().sort((a, b) => rankMatch("", b.name, "", usageFor("workspaces", b.id)) - rankMatch("", a.name, "", usageFor("workspaces", a.id))).slice(0, 3);
   const pinnedShortcuts = loadShortcuts().entries.filter(v => usageFor("shortcuts", v.id).pinned).slice(0, 4 - workspaces.length);
   const notes = loadNotes();
-  return { tasks: loadTasks(), notesCount: notes.error ? null : notes.notes.length, recents: resolveRecents(), recentLocked: loadRecents().locked, workspaces, pinnedShortcuts };
+  const media = loadMedia();
+  return {
+    tasks: loadTasks(),
+    notesCount: notes.error ? null : notes.notes.length,
+    notes: notes.error ? [] : notes.notes,
+    media: media.locked ? [] : media.entries,
+    recents: resolveRecents(),
+    recentLocked: loadRecents().locked,
+    workspaces,
+    pinnedShortcuts,
+  };
 }
 export function relativeUseTime(timestamp: number, now = Date.now()): string {
   const minutes = Math.max(0, Math.floor((now - timestamp) / 60000));

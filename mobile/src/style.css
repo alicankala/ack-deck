@@ -1906,8 +1906,8 @@ body:has(.editor) nav { visibility: hidden; }
 
 .mobile-metrics-bar {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
   margin-bottom: 16px;
 }
 .metric-chip {

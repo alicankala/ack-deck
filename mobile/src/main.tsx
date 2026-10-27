@@ -1034,13 +1034,9 @@ function App() {
 
             {/* Quick Metrics Bar at Top */}
             <div className="mobile-metrics-bar">
-              <button type="button" className="metric-chip" onClick={() => setSelectedMobileDate(today)}>
-                <strong>{todayTasks.length}</strong>
-                <span>Bugün</span>
-              </button>
               <button type="button" className="metric-chip" onClick={() => { changePage("plan"); setPlanTab("calendar"); }}>
                 <strong>{unfinished.length}</strong>
-                <span>Aktif Görev</span>
+                <span>Görev</span>
               </button>
               <button type="button" className="metric-chip" onClick={() => { changePage("plan"); setPlanTab("calendar"); }}>
                 <strong>{todayStudyBlocks.length}</strong>

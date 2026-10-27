@@ -8,14 +8,31 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Header } from "./Header";
 import { PcStatus } from "./PcStatus";
 import { PomodoroTimer } from "./PomodoroTimer";
-import { Icon } from "./Icon";
-import { loadDashboardData, todayTasks } from "../dashboardData";
+import { Icon, type IconName } from "./Icon";
+import { loadDashboardData, relativeUseTime, todayTasks } from "../dashboardData";
 import { loadTasks, saveTasks, localDateKey } from "../taskStore";
 import { loadStudyPrograms } from "../studyProgramStore";
 import { studyBlocks, WEEKDAY_SHORT } from "../../shared/studyPrograms";
 import { weekDates } from "../../shared/weeklyPlan";
+import { MEDIA_STATUS_LABELS, MEDIA_TYPE_ICONS, MEDIA_TYPE_LABELS } from "../../shared/media";
 import type { Project } from "../projectStore";
 import type { NavigationTarget } from "../navigation";
+
+function parseTimeMinutes(hhmm?: string | null): number | null {
+  if (!hhmm || !/^\d{2}:\d{2}$/.test(hhmm)) return null;
+  const [h, m] = hhmm.split(":").map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  return h * 60 + m;
+}
+
+function formatCountdown(mins: number): string {
+  const safe = Math.max(1, mins);
+  const h = Math.floor(safe / 60);
+  const m = safe % 60;
+  if (h > 0 && m > 0) return `${h} sa ${m} dk`;
+  if (h > 0) return `${h} sa`;
+  return `${m} dk`;
+}
 
 type Props = { projects: Project[]; refreshMs: number; onNavigate: (target: NavigationTarget) => void; onAskAi: (text: string) => void; targetId?: string; };
 function AiStart({ onAskAi }: Pick<Props, "onAskAi">) {
@@ -28,7 +45,7 @@ function AiStart({ onAskAi }: Pick<Props, "onAskAi">) {
     <form onSubmit={submit}><label className="sr-only" htmlFor="dashboard-ai-prompt">ACK AI mesajı</label><textarea id="dashboard-ai-prompt" value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} rows={3} maxLength={8000} placeholder="Bana ne yapmak istediğini yaz..." /><div className="dashboard-ai-send"><small>Enter ile gönder · İşlemler için onayın istenir.</small><button className="button button-primary" type="submit" disabled={!draft.trim()}>Gönder <Icon name="arrowRight" size={16} /></button></div></form>
   </section>;
 }
-export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, targetId }: Props) {
+export function Dashboard({ refreshMs, onNavigate, onAskAi, targetId }: Props) {
   const [data, setData] = useState(loadDashboardData), [now, setNow] = useState(() => new Date());
   const [studyData, setStudyData] = useState(loadStudyPrograms);
   const [feedback, setFeedback] = useState("");
@@ -55,11 +72,13 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, targetId }
       });
     };
     window.addEventListener("ack-data-changed", refresh);
+    window.addEventListener("ack-media-changed", refresh);
     window.addEventListener("ack-recents-changed", refresh);
     const timer = window.setInterval(() => setNow(new Date()), 60000);
     return () => {
       if (frameId !== null) cancelAnimationFrame(frameId);
       window.removeEventListener("ack-data-changed", refresh);
+      window.removeEventListener("ack-media-changed", refresh);
       window.removeEventListener("ack-recents-changed", refresh);
       window.clearInterval(timer);
     };
@@ -143,26 +162,270 @@ export function Dashboard({ projects, refreshMs, onNavigate, onAskAi, targetId }
     })),
   ].sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
 
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const nextSessionCard = ((): {
+    eyebrow: string;
+    badge: string;
+    title: string;
+    meta: string;
+    tone: "live" | "accent" | "warn";
+    icon: IconName;
+    target: NavigationTarget;
+  } => {
+    const activeBlock = todayStudyBlocks.find(b => {
+      if (attendance[b.id]?.status) return false;
+      const start = parseTimeMinutes(b.time);
+      const end = parseTimeMinutes(b.endTime);
+      return start !== null && end !== null && start <= nowMinutes && end > nowMinutes;
+    });
+    if (activeBlock) {
+      const end = parseTimeMinutes(activeBlock.endTime)!;
+      return {
+        eyebrow: "Şu an derstesin",
+        badge: `${formatCountdown(end - nowMinutes)} kaldı`,
+        title: `${activeBlock.label}${activeBlock.topic ? ` · ${activeBlock.topic}` : ""}`,
+        meta: `${activeBlock.time} – ${activeBlock.endTime} · İşaretlemek için tıkla`,
+        tone: "live",
+        icon: "spark",
+        target: { page: "tasks" },
+      };
+    }
+
+    const upcomingToday: {
+      startMins: number;
+      eyebrow: string;
+      title: string;
+      meta: string;
+      target: NavigationTarget;
+    }[] = [];
+
+    for (const b of todayStudyBlocks) {
+      if (attendance[b.id]?.status) continue;
+      const start = parseTimeMinutes(b.time);
+      if (start !== null && start > nowMinutes) {
+        upcomingToday.push({
+          startMins: start,
+          eyebrow: "Sıradaki ders",
+          title: `${b.label}${b.topic ? ` · ${b.topic}` : ""}`,
+          meta: `Bugün · ${b.time} – ${b.endTime}`,
+          target: { page: "tasks" },
+        });
+      }
+    }
+
+    for (const t of getTasksForDate(todayDateStr)) {
+      const start = parseTimeMinutes(t.dueTime);
+      if (start !== null && start > nowMinutes) {
+        upcomingToday.push({
+          startMins: start,
+          eyebrow: "Sıradaki görev",
+          title: t.text,
+          meta: `Bugün · Saat ${t.dueTime}`,
+          target: { page: "tasks", id: t.id },
+        });
+      }
+    }
+
+    upcomingToday.sort((a, b) => a.startMins - b.startMins);
+    if (upcomingToday.length > 0) {
+      const first = upcomingToday[0];
+      return {
+        eyebrow: first.eyebrow,
+        badge: `${formatCountdown(first.startMins - nowMinutes)} sonra`,
+        title: first.title,
+        meta: first.meta,
+        tone: "accent",
+        icon: "check",
+        target: first.target,
+      };
+    }
+
+    const unmarkedEarlierBlock = todayStudyBlocks.find(b => !attendance[b.id]?.status);
+    if (unmarkedEarlierBlock) {
+      return {
+        eyebrow: "Bekleyen ders kaydı",
+        badge: `Bugün ${unmarkedEarlierBlock.time}`,
+        title: `${unmarkedEarlierBlock.label}${unmarkedEarlierBlock.topic ? ` · ${unmarkedEarlierBlock.topic}` : ""}`,
+        meta: "Çalışıldı (✓) veya çalışılmadı (✕) işaretle",
+        tone: "warn",
+        icon: "check",
+        target: { page: "tasks" },
+      };
+    }
+
+    if (daily.length > 0) {
+      const firstTask = daily[0];
+      const isOverdue = firstTask.label === "Zamanı geçti";
+      return {
+        eyebrow: isOverdue ? "Geciken görev" : firstTask.label === "Bugün" ? "Bugünkü görev" : "Yaklaşan görev",
+        badge: firstTask.task.dueTime || (firstTask.label.startsWith("Sıradaki · ") ? firstTask.label.slice(11) : "Bugün"),
+        title: firstTask.task.text,
+        meta: isOverdue ? "Tamamlanmayı bekliyor" : "Görev detayını aç",
+        tone: isOverdue ? "warn" : "accent",
+        icon: "check",
+        target: { page: "tasks", id: firstTask.task.id },
+      };
+    }
+
+    const nextWeekStudyBlocks = studyBlocks(studyData.entries, new Date(now.getTime() + 7 * 86400000));
+    const futureBlocks = [...allBlocks, ...nextWeekStudyBlocks]
+      .filter(b => b.date > todayDateStr && !attendance[b.id]?.status)
+      .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+
+    if (futureBlocks.length > 0) {
+      const nextBlock = futureBlocks[0];
+      const dayIdx = (new Date(nextBlock.date + "T12:00:00").getDay() + 6) % 7;
+      return {
+        eyebrow: "Sıradaki ders",
+        badge: `${WEEKDAY_SHORT[dayIdx]} ${nextBlock.time}`,
+        title: `${nextBlock.label}${nextBlock.topic ? ` · ${nextBlock.topic}` : ""}`,
+        meta: `${nextBlock.time} – ${nextBlock.endTime} oturumu`,
+        tone: "accent",
+        icon: "grid",
+        target: { page: "calendar" },
+      };
+    }
+
+    return {
+      eyebrow: "Sıradaki plan",
+      badge: "Açık",
+      title: "Bekleyen ders veya görev yok",
+      meta: "+ Yeni görev eklemek için tıkla",
+      tone: "accent",
+      icon: "plus",
+      target: { page: "tasks", intent: "new-task" },
+    };
+  })();
+
+  const totalWeekLessons = allBlocks.length;
+  const attendedWeekLessons = allBlocks.filter(b => attendance[b.id]?.status === "attended").length;
+  const skippedWeekLessons = allBlocks.filter(b => attendance[b.id]?.status === "skipped").length;
+  const pendingWeekLessons = Math.max(0, totalWeekLessons - attendedWeekLessons - skippedWeekLessons);
+  const weekProgressPct = totalWeekLessons > 0 ? Math.round((attendedWeekLessons / totalWeekLessons) * 100) : 0;
+  const weekSkippedPct = totalWeekLessons > 0 ? Math.min(100 - weekProgressPct, Math.round((skippedWeekLessons / totalWeekLessons) * 100)) : 0;
+
+  const recentContentCard = ((): {
+    eyebrow: string;
+    badge: string;
+    title: string;
+    meta: string;
+    icon: IconName;
+    target: NavigationTarget;
+  } => {
+    const latestNote = data.notes.slice().sort((a, b) => b.updatedAt - a.updatedAt)[0];
+    const latestMedia = data.media.slice().sort((a, b) => b.updatedAt - a.updatedAt)[0];
+
+    if (latestMedia && (!latestNote || latestMedia.updatedAt >= latestNote.updatedAt)) {
+      const detailParts = [MEDIA_STATUS_LABELS[latestMedia.status]];
+      if (latestMedia.progress?.trim()) detailParts.push(latestMedia.progress.trim());
+      if (latestMedia.rating) detailParts.push(`★ ${latestMedia.rating}/10`);
+      return {
+        eyebrow: `Son Günlük · ${MEDIA_TYPE_LABELS[latestMedia.type]}`,
+        badge: relativeUseTime(latestMedia.updatedAt, now.getTime()),
+        title: `${MEDIA_TYPE_ICONS[latestMedia.type]} ${latestMedia.title}`,
+        meta: detailParts.join(" · "),
+        icon: "archive",
+        target: { page: "media" },
+      };
+    }
+
+    if (latestNote) {
+      const snippet = latestNote.content.replace(/\s+/g, " ").trim().slice(0, 68);
+      return {
+        eyebrow: "Son düzenlenen not",
+        badge: relativeUseTime(latestNote.updatedAt, now.getTime()),
+        title: latestNote.title.trim() || "Başlıksız not",
+        meta: snippet || "Notu açmak için tıkla",
+        icon: "note",
+        target: { page: "notes", id: latestNote.id },
+      };
+    }
+
+    return {
+      eyebrow: "Not & Günlük",
+      badge: "Yeni",
+      title: "İlk notunu veya günlüğünü ekle",
+      meta: "Notlar sekmesini açmak için tıkla",
+      icon: "note",
+      target: { page: "notes", intent: "new-note" },
+    };
+  })();
+
   return (
     <div className="dashboard work-dashboard">
       <Header />
       <div className="dashboard-workbench">
         <div className="dashboard-primary-column">
-          <div className="dashboard-overview" aria-label="Çalışma alanı özeti">
-            <button type="button" onClick={() => onNavigate({ page: "tasks" })}>
-              <span className="overview-icon"><Icon name="check" size={21} /></span>
-              <span><strong>{data.tasks.locked ? "—" : data.tasks.entries.filter(task => !task.completed).length}</strong><small>Aktif görev</small></span>
-              <Icon name="arrowRight" size={16} />
+          <div className="dashboard-overview live-status-overview" aria-label="Canlı durum özeti">
+            <button
+              type="button"
+              className={`live-overview-card tone-${nextSessionCard.tone}`}
+              onClick={() => onNavigate(nextSessionCard.target)}
+            >
+              <span className="overview-icon"><Icon name={nextSessionCard.icon} size={20} /></span>
+              <span className="live-overview-body">
+                <span className="live-overview-top">
+                  <span className="live-overview-eyebrow">{nextSessionCard.eyebrow}</span>
+                  <span className="live-overview-badge">{nextSessionCard.badge}</span>
+                </span>
+                <strong className="live-overview-title" title={nextSessionCard.title}>{nextSessionCard.title}</strong>
+                <small className="live-overview-meta">{nextSessionCard.meta}</small>
+              </span>
             </button>
-            <button type="button" onClick={() => onNavigate({ page: "projects" })}>
-              <span className="overview-icon"><Icon name="folder" size={21} /></span>
-              <span><strong>{projects.length}</strong><small>Proje</small></span>
-              <Icon name="arrowRight" size={16} />
+
+            <button
+              type="button"
+              className="live-overview-card tone-progress"
+              onClick={() => onNavigate({ page: "calendar" })}
+            >
+              <span className="overview-icon"><Icon name="layers" size={20} /></span>
+              <span className="live-overview-body">
+                <span className="live-overview-top">
+                  <span className="live-overview-eyebrow">
+                    {totalWeekLessons > 0 ? "Haftalık ders ilerlemesi" : "Haftalık ders planı"}
+                  </span>
+                  <span className="live-overview-badge">
+                    {totalWeekLessons > 0 ? `%${weekProgressPct}` : "Planla"}
+                  </span>
+                </span>
+                <strong className="live-overview-title">
+                  {totalWeekLessons > 0 ? `${attendedWeekLessons} / ${totalWeekLessons} ders çalışıldı` : "Ders programı eklenmedi"}
+                </strong>
+                {totalWeekLessons > 0 ? (
+                  <span className="live-progress-wrap">
+                    <span className="live-progress-track" aria-hidden="true">
+                      <span className="live-progress-fill is-attended" style={{ width: `${weekProgressPct}%` }} />
+                      {weekSkippedPct > 0 && (
+                        <span className="live-progress-fill is-skipped" style={{ width: `${weekSkippedPct}%` }} />
+                      )}
+                    </span>
+                    <small className="live-overview-meta">
+                      {pendingWeekLessons === 0 && skippedWeekLessons === 0
+                        ? "Haftanın tüm dersleri tamamlandı ✓"
+                        : `${pendingWeekLessons} bekliyor${skippedWeekLessons > 0 ? ` · ${skippedWeekLessons} çalışılmadı` : ""}`}
+                    </small>
+                  </span>
+                ) : (
+                  <small className="live-overview-meta">Aylık Plan'dan ders çizelgesi ekle</small>
+                )}
+              </span>
             </button>
-            <button type="button" onClick={() => onNavigate({ page: "notes" })}>
-              <span className="overview-icon"><Icon name="note" size={21} /></span>
-              <span><strong>{data.notesCount ?? "—"}</strong><small>Not</small></span>
-              <Icon name="arrowRight" size={16} />
+
+            <button
+              type="button"
+              className="live-overview-card tone-recent"
+              onClick={() => onNavigate(recentContentCard.target)}
+            >
+              <span className="overview-icon"><Icon name={recentContentCard.icon} size={20} /></span>
+              <span className="live-overview-body">
+                <span className="live-overview-top">
+                  <span className="live-overview-eyebrow">{recentContentCard.eyebrow}</span>
+                  <span className="live-overview-badge">{recentContentCard.badge}</span>
+                </span>
+                <strong className="live-overview-title" title={recentContentCard.title}>{recentContentCard.title}</strong>
+                <small className="live-overview-meta">{recentContentCard.meta}</small>
+              </span>
             </button>
           </div>
 
