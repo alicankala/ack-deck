@@ -25,6 +25,23 @@ async function rate(env: Env, bucket: string, limit: number, seconds = 60) {
 async function handle(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url), path = url.pathname, now = Date.now();
   if (url.protocol !== "https:" && !["localhost","127.0.0.1"].includes(url.hostname)) throw new ApiError(400,"Güvenli bağlantı gereklidir.");
+  if (path === "/api/dorm-menu" && request.method === "GET") {
+    try {
+      const res = await fetch("https://altinkalemkarabuk.com/icerik/icerik.json", {
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+      });
+      if (res.ok) {
+        const json = await res.json() as any;
+        const records = json?.menu?.kayitlar ?? [];
+        const resp = reply({ ok: true, records });
+        resp.headers.set("Access-Control-Allow-Origin", "*");
+        return resp;
+      }
+    } catch {}
+    const resp = reply({ ok: false, records: [] });
+    resp.headers.set("Access-Control-Allow-Origin", "*");
+    return resp;
+  }
   const origin = request.headers.get("Origin");
   if (origin && origin !== url.origin) throw new ApiError(403,"Bu kaynaktan erişime izin verilmiyor.");
   if (!path.startsWith("/api/")) return secure(await env.ASSETS.fetch(request),false);
@@ -72,19 +89,6 @@ async function handle(request: Request, env: Env): Promise<Response> {
       desc: "Az bulutlu",
       symbol: "🌤️",
     });
-  }
-  if (path === "/api/dorm-menu" && request.method === "GET") {
-    try {
-      const res = await fetch("https://altinkalemkarabuk.com/icerik/icerik.json", {
-        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
-      });
-      if (res.ok) {
-        const json = await res.json() as any;
-        const records = json?.menu?.kayitlar ?? [];
-        return reply({ ok: true, records });
-      }
-    } catch {}
-    return reply({ ok: false, records: [] });
   }
   if (!env.OWNER_SECRET || env.OWNER_SECRET.length < 32) throw new ApiError(503,"Telefon sunucusu henüz yapılandırılmamış.");
   if (request.method === "OPTIONS") throw new ApiError(403,"Çapraz kaynak erişimi desteklenmiyor.");

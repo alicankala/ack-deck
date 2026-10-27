@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
@@ -8,13 +9,13 @@ export function TitleBar() {
   useEffect(() => {
     if (!inTauri) return;
     let unlisten: (() => void) | undefined;
-    import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
+    try {
       const win = getCurrentWindow();
       win.isMaximized().then(setIsMaximized).catch(() => {});
       win.onResized(() => {
         win.isMaximized().then(setIsMaximized).catch(() => {});
       }).then((u) => { unlisten = u; }).catch(() => {});
-    }).catch(() => {});
+    } catch {}
     return () => {
       if (unlisten) unlisten();
     };
@@ -25,7 +26,11 @@ export function TitleBar() {
     if (!inTauri) return;
     try {
       await invoke("window_minimize");
-    } catch {}
+    } catch {
+      try {
+        await getCurrentWindow().minimize();
+      } catch {}
+    }
   };
 
   const handleToggleMaximize = async (e?: React.MouseEvent) => {
@@ -34,7 +39,13 @@ export function TitleBar() {
     try {
       const max = await invoke<boolean>("window_toggle_maximize");
       setIsMaximized(max);
-    } catch {}
+    } catch {
+      try {
+        const win = getCurrentWindow();
+        await win.toggleMaximize();
+        setIsMaximized(await win.isMaximized());
+      } catch {}
+    }
   };
 
   const handleClose = async (e: React.MouseEvent) => {
@@ -42,27 +53,29 @@ export function TitleBar() {
     if (!inTauri) return;
     try {
       await invoke("window_close");
-    } catch {}
+    } catch {
+      try {
+        await getCurrentWindow().close();
+      } catch {}
+    }
   };
 
   const handleStartDragging = (e: React.MouseEvent) => {
     if (!inTauri) return;
-    if (e.button === 0 && !(e.target as HTMLElement).closest("button")) {
-      void invoke("window_start_dragging");
+    if ((e.target as HTMLElement).closest("button")) return;
+    if (e.button === 0 && e.detail === 1) {
+      void invoke("window_start_dragging").catch(() => {
+        void getCurrentWindow().startDragging().catch(() => {});
+      });
+    } else if (e.button === 0 && e.detail === 2) {
+      void handleToggleMaximize();
     }
   };
 
   if (!inTauri) return null;
 
   return (
-    <div
-      className="desktop-window-bar"
-      onDoubleClick={(e) => {
-        if (!(e.target as HTMLElement).closest("button")) {
-          void handleToggleMaximize();
-        }
-      }}
-    >
+    <div className="desktop-window-bar">
       <div
         className="window-drag-region"
         data-tauri-drag-region

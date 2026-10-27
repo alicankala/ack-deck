@@ -2206,9 +2206,17 @@
 
 
 
+html, body, #root {
+  height: 100vh;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 /* Integrated Sleek TitleBar */
 .desktop-window-bar {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
@@ -2323,6 +2331,7 @@
   height: 100vh;
   max-height: 100vh;
   min-height: 0;
+  padding-top: 38px;
   display: flex;
   flex-direction: column;
   overflow: hidden;

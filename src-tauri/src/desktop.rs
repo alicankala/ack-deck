@@ -311,12 +311,12 @@ pub fn save_desktop_preferences(
 }
 
 #[tauri::command]
-pub async fn window_minimize(window: tauri::Window) -> Result<(), String> {
+pub fn window_minimize(window: tauri::WebviewWindow) -> Result<(), String> {
     window.minimize().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn window_toggle_maximize(window: tauri::Window) -> Result<bool, String> {
+pub fn window_toggle_maximize(window: tauri::WebviewWindow) -> Result<bool, String> {
     let is_max = window.is_maximized().map_err(|e| e.to_string())?;
     if is_max {
         window.unmaximize().map_err(|e| e.to_string())?;
@@ -328,15 +328,28 @@ pub async fn window_toggle_maximize(window: tauri::Window) -> Result<bool, Strin
 }
 
 #[tauri::command]
-pub async fn window_close(window: tauri::Window) -> Result<(), String> {
-    window.close().map_err(|e| e.to_string())
+pub fn window_close(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<(), String> {
+    if state.tray_ready
+        && state
+            .preferences
+            .lock()
+            .map(|prefs| prefs.close_to_tray)
+            .unwrap_or(false)
+    {
+        if window.hide().is_ok() {
+            let _ = window.emit("ack-visibility", false);
+            return Ok(());
+        }
+    }
+    window.app_handle().exit(0);
+    Ok(())
 }
 
 #[tauri::command]
 pub fn window_start_dragging(window: tauri::WebviewWindow) -> Result<(), String> {
-    if window.is_maximized().unwrap_or(false) {
-        let _ = window.unmaximize();
-    }
     window.start_dragging().map_err(|e| e.to_string())
 }
 

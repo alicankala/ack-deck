@@ -86,7 +86,7 @@ export function MediaTracker() {
     <section className="media-tracker-page" aria-label="Medya ve Kültür Günlüğü">
       <header className="feature-heading page-header">
         <div>
-          <h1>Medya & Kültür Günlüğü</h1>
+          <h1>Günlük</h1>
           <p>İzlediğin filmler, diziler, okuduğun kitaplar ve bitirdiğin oyunların kişisel kütüphanesi.</p>
         </div>
         <button
