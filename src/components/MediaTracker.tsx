@@ -269,10 +269,24 @@ export function MediaTracker() {
                     className={`type-choice-btn ${editor.type === t ? "is-selected" : ""}`}
                     onClick={() => setEditor({ ...editor, type: t })}
                   >
-                    {MEDIA_TYPE_ICONS[t]} {MEDIA_TYPE_LABELS[t]}
+                    <span className="type-icon">{MEDIA_TYPE_ICONS[t]}</span>
+                    <span className="type-text">{MEDIA_TYPE_LABELS[t]}</span>
                   </button>
                 ))}
               </div>
+
+              <label className="editor-field">
+                <span>Tür (veya listeden seç)</span>
+                <select
+                  value={editor.type}
+                  onChange={(e) => setEditor({ ...editor, type: e.target.value as MediaType })}
+                >
+                  <option value="movie">🎬 Film</option>
+                  <option value="series">📺 Dizi</option>
+                  <option value="book">📚 Kitap</option>
+                  <option value="game">🎮 Oyun</option>
+                </select>
+              </label>
 
               <label className="editor-field">
                 <span>Başlık *</span>

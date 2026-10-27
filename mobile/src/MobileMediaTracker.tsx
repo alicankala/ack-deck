@@ -206,9 +206,9 @@ export function MobileMediaTracker({
       {/* Edit / Add Modal */}
       {editor && (
         <div className="mobile-modal-overlay" onClick={() => setEditor(null)} role="dialog" aria-modal="true">
-          <div className="mobile-weather-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "420px" }}>
+          <div className="mobile-media-editor-modal" onClick={(e) => e.stopPropagation()}>
             <div className="mobile-weather-top">
-              <strong style={{ fontSize: "16px" }}>
+              <strong style={{ fontSize: "17px", fontWeight: 700 }}>
                 {items.some((i) => i.id === editor.id) ? "Kaydı Düzenle" : "Yeni Medya Kaydı"}
               </strong>
               <button type="button" className="mobile-modal-close" onClick={() => setEditor(null)}>
@@ -216,19 +216,34 @@ export function MobileMediaTracker({
               </button>
             </div>
 
-            <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "12px" }}>
-              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+            <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "14px" }}>
+              <div className="mobile-media-type-choice">
                 {(["movie", "series", "book", "game"] as const).map((t) => (
                   <button
                     type="button"
                     key={t}
-                    className={`pill-btn ${editor.type === t ? "is-selected" : ""}`}
+                    className={`mobile-type-btn ${editor.type === t ? "is-selected" : ""}`}
                     onClick={() => setEditor({ ...editor, type: t })}
                   >
-                    {MEDIA_TYPE_ICONS[t]} {MEDIA_TYPE_LABELS[t]}
+                    <span className="mobile-type-icon">{MEDIA_TYPE_ICONS[t]}</span>
+                    <span className="mobile-type-label">{MEDIA_TYPE_LABELS[t]}</span>
                   </button>
                 ))}
               </div>
+
+              <label className="mobile-field" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                <span style={{ fontSize: "12px", color: "var(--app-text-muted)" }}>Tür (veya listeden seç)</span>
+                <select
+                  value={editor.type}
+                  onChange={(e) => setEditor({ ...editor, type: e.target.value as MediaType })}
+                  style={{ padding: "8px 10px", borderRadius: "8px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff" }}
+                >
+                  <option value="movie">🎬 Film</option>
+                  <option value="series">📺 Dizi</option>
+                  <option value="book">📚 Kitap</option>
+                  <option value="game">🎮 Oyun</option>
+                </select>
+              </label>
 
               <label className="mobile-field" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                 <span style={{ fontSize: "12px", color: "var(--app-text-muted)" }}>Başlık *</span>

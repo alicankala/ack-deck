@@ -168,7 +168,54 @@
 .ai-program-actions { display: flex; flex-wrap: wrap; gap: .55rem; align-items: center; }
 @container (max-width: 54rem) { .desktop-calendar .calendar-grid, .study-timetable { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ai-program-meta, .ai-program-session-top { grid-template-columns: minmax(0, 1fr); } }
 @container (max-width: 32rem) { .desktop-calendar .calendar-grid, .study-timetable { grid-template-columns: repeat(2, minmax(0, 1fr)); } .study-timetable-day:not(.has-sessions) { display: none; } .study-section-heading { flex-direction: column; align-items: start; } .study-section-actions { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); } }
-@media (max-width: 480px) { .study-dialog { width: calc(100vw - 1rem); max-width: calc(100vw - 1rem); max-height: calc(100dvh - 1rem); } .study-fields, .study-dialog-heading { padding: 1rem; } .study-session { padding: .75rem; } .study-weekdays { grid-template-columns: repeat(4,minmax(0,1fr)); } .study-weekdays button { font-size: .68rem; } .study-dialog-actions { padding: .8rem 1rem calc(.8rem + env(safe-area-inset-bottom)); } .study-dialog-actions .planner-primary { flex: 1; } .calendar-toolbar { flex-wrap: wrap; } .calendar-navigation { margin-left: auto; } }
+@media (max-width: 600px) {
+  .calendar-toolbar {
+    padding: 0.75rem 0.85rem;
+    gap: 0.65rem;
+  }
+  .calendar-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 0.5rem;
+  }
+  .calendar-range strong {
+    font-size: 0.98rem;
+  }
+  .calendar-range span {
+    font-size: 0.72rem;
+  }
+  .calendar-nav-group button {
+    min-height: 2.1rem;
+    padding: 0.25rem 0.55rem;
+    font-size: 0.78rem;
+  }
+  .calendar-subbar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .calendar-action-buttons {
+    display: flex;
+    gap: 0.4rem;
+    width: 100%;
+  }
+  .calendar-action-buttons button {
+    flex: 1;
+    min-height: 2.2rem;
+    font-size: 0.78rem;
+    justify-content: center;
+  }
+  .calendar-legend {
+    font-size: 0.72rem;
+    gap: 0.6rem;
+  }
+}
+@media (max-width: 480px) { .study-dialog { width: calc(100vw - 1rem); max-width: calc(100vw - 1rem); max-height: calc(100dvh - 1rem); } .study-fields, .study-dialog-heading { padding: 1rem; } .study-session { padding: .75rem; } .study-weekdays { grid-template-columns: repeat(4,minmax(0,1fr)); } .study-weekdays button { font-size: .68rem; } .study-dialog-actions { padding: .8rem 1rem calc(.8rem + env(safe-area-inset-bottom)); } .study-dialog-actions .planner-primary { flex: 1; } }
 
 .calendar-programs-btn {
   display: inline-flex;

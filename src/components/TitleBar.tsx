@@ -1,14 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
 export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
   const inTauri = isTauri();
-
-  useEffect(() => {
-    if (!inTauri) return;
-    // Window state change listener if available
-  }, [inTauri]);
 
   const handleMinimize = async () => {
     if (!inTauri) return;
@@ -39,9 +34,11 @@ export function TitleBar() {
     }
   };
 
+  if (!inTauri) return null;
+
   return (
-    <header
-      className="desktop-titlebar"
+    <div
+      className="desktop-window-bar"
       data-tauri-drag-region
       onMouseDown={handleStartDragging}
       onDoubleClick={(e) => {
@@ -50,45 +47,36 @@ export function TitleBar() {
         }
       }}
     >
-      <div className="titlebar-brand" data-tauri-drag-region onMouseDown={handleStartDragging}>
-        <span className="titlebar-logo-icon" aria-hidden="true">⚡</span>
-        <strong className="titlebar-title">ACKDeck</strong>
-        <span className="titlebar-version-badge">v1.7.0</span>
+      <div className="window-drag-region" data-tauri-drag-region onMouseDown={handleStartDragging} />
+      <div className="window-controls-cluster" aria-label="Pencere Kontrolleri">
+        <button
+          type="button"
+          className="window-ctrl-btn btn-min"
+          onClick={handleMinimize}
+          title="Simge Durumuna Küçült"
+          aria-label="Küçült"
+        >
+          <span aria-hidden="true">—</span>
+        </button>
+        <button
+          type="button"
+          className="window-ctrl-btn btn-max"
+          onClick={handleToggleMaximize}
+          title={isMaximized ? "Önceki Boyut" : "Ekranı Kapla"}
+          aria-label={isMaximized ? "Küçült" : "Kapla"}
+        >
+          <span aria-hidden="true">{isMaximized ? "❐" : "◻"}</span>
+        </button>
+        <button
+          type="button"
+          className="window-ctrl-btn btn-close"
+          onClick={handleClose}
+          title="Kapat"
+          aria-label="Kapat"
+        >
+          <span aria-hidden="true">✕</span>
+        </button>
       </div>
-
-      <div className="titlebar-drag-spacer" data-tauri-drag-region onMouseDown={handleStartDragging} />
-
-      {inTauri && (
-        <div className="titlebar-controls" aria-label="Pencere Kontrolleri">
-          <button
-            type="button"
-            className="titlebar-btn btn-minimize"
-            onClick={handleMinimize}
-            title="Simge Durumuna Küçült"
-            aria-label="Küçült"
-          >
-            <span aria-hidden="true">—</span>
-          </button>
-          <button
-            type="button"
-            className="titlebar-btn btn-maximize"
-            onClick={handleToggleMaximize}
-            title={isMaximized ? "Önceki Boyut" : "Ekranı Kapla"}
-            aria-label={isMaximized ? "Küçült" : "Kapla"}
-          >
-            <span aria-hidden="true">{isMaximized ? "❐" : "◻"}</span>
-          </button>
-          <button
-            type="button"
-            className="titlebar-btn btn-close"
-            onClick={handleClose}
-            title="Kapat"
-            aria-label="Kapat"
-          >
-            <span aria-hidden="true">✕</span>
-          </button>
-        </div>
-      )}
-    </header>
+    </div>
   );
 }

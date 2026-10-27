@@ -3585,6 +3585,71 @@ body:has(.editor) nav { visibility: hidden; }
   overflow-x: auto;
   padding-bottom: 2px;
 }
+
+/* Pill buttons for mobile filters */
+.pill-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--app-text-muted, #a1a1aa);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.pill-btn:active {
+  transform: scale(0.97);
+}
+.pill-btn.is-selected {
+  background: var(--app-accent, #60a5fa);
+  color: #000;
+  border-color: var(--app-accent, #60a5fa);
+  font-weight: 700;
+}
+
+.mobile-media-type-choice {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  width: 100%;
+}
+.mobile-type-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 8px 2px;
+  min-height: 54px;
+  cursor: pointer;
+  color: var(--app-text, #fff);
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.15s ease;
+}
+.mobile-type-btn:active {
+  transform: scale(0.96);
+}
+.mobile-type-btn.is-selected {
+  background: rgba(96, 165, 250, 0.18);
+  border-color: var(--app-accent, #60a5fa);
+  color: var(--app-accent, #60a5fa);
+  font-weight: 700;
+  box-shadow: 0 0 10px rgba(96, 165, 250, 0.3);
+}
+.mobile-type-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+.mobile-type-label {
+  font-size: 11px;
+  font-weight: 600;
+}
 .mobile-search-input {
   padding: 8px 12px;
   border-radius: 10px;
@@ -3599,6 +3664,19 @@ body:has(.editor) nav { visibility: hidden; }
   flex-direction: column;
   gap: 10px;
 }
+.mobile-media-editor-modal {
+  width: 100%;
+  max-width: 440px;
+  background: var(--app-surface-elevated, #1c1c1f);
+  border: 1px solid var(--app-border-strong, rgba(255, 255, 255, 0.15));
+  border-radius: 22px;
+  padding: 18px 20px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+  animation: scaleUp 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+}
+
 .mobile-media-card {
   background: var(--app-surface-elevated, #1c1c1f);
   border: 1px solid var(--app-border-strong, rgba(255, 255, 255, 0.1));
