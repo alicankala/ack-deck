@@ -718,7 +718,7 @@ kbd { font-size: calc(var(--ui-unit) * 11); color: #bbd6ee; border: 1px solid #5
 :root { --form-max: 54rem; --section-gap: 1.2rem; }
 .section-heading, .settings-card-heading { flex-wrap: wrap; gap: 1rem; }
 .section-heading > div, .settings-card-heading > div { min-width: 0; }
-.tasks-page, .subscriptions-page, .settings-page { max-width: 76rem; margin-inline: auto; }
+.tasks-page, .subscriptions-page, .settings-page { width: 100%; max-width: 100%; margin-inline: 0; }
 .task-editor, .subscription-form, .hub-editor, .archive-editor, .project-editor { width: 100%; max-width: var(--form-max); }
 .task-editor { display: grid; gap: 1rem; }
 .task-item { flex-wrap: wrap; align-items: flex-start; }

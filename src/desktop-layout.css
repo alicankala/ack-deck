@@ -295,8 +295,10 @@
 .main-content .task-item { padding:.75rem 1rem; gap:.85rem; align-items:center; }
 .main-content .task-item .task-meta { display:block; margin-top:.35rem; line-height:1.6; }
 .main-content .task-filters { padding:.9rem; gap:.4rem; }
-.main-content .subscription-summary { padding:1.25rem; gap:.85rem; }
-.main-content .subscription-row { padding:1.1rem 1.25rem; gap:1rem; }
+.main-content .subscriptions-page { width: 100% !important; max-width: 100% !important; margin: 0 !important; }
+.main-content .subscription-summary { width: 100% !important; max-width: 100% !important; padding:1.25rem; gap:.85rem; }
+.main-content .subscription-list { width: 100% !important; max-width: 100% !important; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr)); gap: 1rem; }
+.main-content .subscription-row { padding:1.1rem 1.25rem; gap:1rem; height: 100%; align-items: center; }
 .main-content .subscription-info h2 { margin:0 0 .4rem; }
 .main-content .subscription-info p { margin:.25rem 0; }
 .main-content .ai-history-layout { max-width:100%; width:100%; margin-inline:0; grid-template-columns:minmax(18rem,22%) minmax(0,1fr); gap:1.25rem; align-items:stretch; }
@@ -332,7 +334,8 @@
 .main-content .inbox-grid .hub-card :is(h2,p) { margin:0; line-height:1.6; }
 .main-content .inbox-grid .hub-actions { margin-top:auto; padding-top:.4rem; }
 .main-content .phone-inbox-content { max-height:16rem; overflow:auto; white-space:pre-wrap; }
-.main-content .settings-page { max-width:78rem; margin-inline:auto; }
+.main-content .settings-page { width: 100% !important; max-width: 100% !important; margin: 0 !important; }
+.main-content .tasks-page { width: 100% !important; max-width: 100% !important; margin: 0 !important; }
 .main-content .settings-layout { grid-template-columns:15rem minmax(0,1fr); gap:1.25rem; }
 .main-content .settings-section-panel:not([hidden]) { gap:1.1rem; }
 .main-content .settings-section-panel .settings-card { padding:1.35rem; display:grid; gap:1rem; min-width:0; }
