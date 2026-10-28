@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, useRef, type FormEvent } from "react";
 import {
   type MediaItem,
   type MediaType,
@@ -8,6 +8,7 @@ import {
   MEDIA_STATUS_LABELS,
   newMediaItem,
 } from "../../shared/media";
+import { searchMediaCatalog, type MediaSearchCandidate } from "../../shared/mediaSearch";
 import type { CloudRecord, Mutation } from "../../shared/phone";
 
 export function MobileMediaTracker({
@@ -27,6 +28,56 @@ export function MobileMediaTracker({
   const [statusFilter, setStatusFilter] = useState<MediaStatus | "all">("all");
   const [search, setSearch] = useState("");
   const [editor, setEditor] = useState<MediaItem | null>(null);
+  const [suggestions, setSuggestions] = useState<MediaSearchCandidate[]>([]);
+  const [searchingMeta, setSearchingMeta] = useState(false);
+  const suppressNextLookupRef = useRef(false);
+
+  useEffect(() => {
+    if (!editor) {
+      setSuggestions([]);
+      setSearchingMeta(false);
+      return;
+    }
+    if (suppressNextLookupRef.current) {
+      suppressNextLookupRef.current = false;
+      return;
+    }
+    const q = editor.title.trim();
+    if (q.length < 2) {
+      setSuggestions([]);
+      setSearchingMeta(false);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setSearchingMeta(true);
+      void searchMediaCatalog(editor.type, q, controller.signal)
+        .then((res) => {
+          if (!controller.signal.aborted) setSuggestions(res);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setSearchingMeta(false);
+        });
+    }, 340);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [editor?.type, editor?.title]);
+
+  const applyCandidate = (cand: MediaSearchCandidate) => {
+    if (!editor) return;
+    suppressNextLookupRef.current = true;
+    setEditor({
+      ...editor,
+      title: cand.title.slice(0, 160),
+      posterUrl: cand.posterUrl || editor.posterUrl || "",
+      year: cand.year || editor.year || "",
+      creator: cand.creator || editor.creator || "",
+      progress: editor.progress?.trim() ? editor.progress : (cand.progressHint ?? ""),
+    });
+    setSuggestions([]);
+  };
 
   const items = records
     .filter((r) => r.kind === "mediaItems" && !r.deleted && r.data)
@@ -48,7 +99,8 @@ export function MobileMediaTracker({
       const matchTitle = item.title.toLowerCase().includes(q);
       const matchReview = item.review?.toLowerCase().includes(q);
       const matchProgress = item.progress?.toLowerCase().includes(q);
-      if (!matchTitle && !matchReview && !matchProgress) return false;
+      const matchCreator = item.creator?.toLowerCase().includes(q);
+      if (!matchTitle && !matchReview && !matchProgress && !matchCreator) return false;
     }
     return true;
   });
@@ -59,6 +111,9 @@ export function MobileMediaTracker({
     const cleanItem: MediaItem = {
       ...editor,
       title: editor.title.trim(),
+      posterUrl: editor.posterUrl?.trim() || undefined,
+      year: editor.year?.trim() || undefined,
+      creator: editor.creator?.trim() || undefined,
       updatedAt: Date.now(),
     };
     const existingRow = records.find((r) => r.kind === "mediaItems" && r.id === cleanItem.id);
@@ -112,7 +167,10 @@ export function MobileMediaTracker({
           type="button"
           className="mobile-button-primary"
           style={{ padding: "0.4rem 0.85rem", fontSize: "0.85rem", borderRadius: "10px" }}
-          onClick={() => setEditor(newMediaItem(typeFilter === "all" ? "movie" : typeFilter))}
+          onClick={() => {
+            suppressNextLookupRef.current = false;
+            setEditor(newMediaItem(typeFilter === "all" ? "movie" : typeFilter));
+          }}
         >
           + Ekle
         </button>
@@ -185,29 +243,52 @@ export function MobileMediaTracker({
             <article
               key={item.id}
               className="mobile-media-card"
-              onClick={() => setEditor({ ...item })}
+              onClick={() => {
+                suppressNextLookupRef.current = true;
+                setEditor({ ...item });
+              }}
             >
-              <div className="mobile-media-card-top">
-                <span className="type-badge">
-                  {MEDIA_TYPE_ICONS[item.type]} {MEDIA_TYPE_LABELS[item.type]}
-                </span>
-                <span className={`status-badge is-${item.status}`}>
-                  {MEDIA_STATUS_LABELS[item.status]}
-                </span>
-              </div>
+              <div className="mobile-media-card-row">
+                {item.posterUrl && (
+                  <img
+                    src={item.posterUrl}
+                    alt={item.title}
+                    className="mobile-media-poster"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                )}
+                <div className="mobile-media-card-main">
+                  <div className="mobile-media-card-top">
+                    <span className="type-badge">
+                      {MEDIA_TYPE_ICONS[item.type]} {MEDIA_TYPE_LABELS[item.type]}
+                    </span>
+                    <span className={`status-badge is-${item.status}`}>
+                      {MEDIA_STATUS_LABELS[item.status]}
+                    </span>
+                  </div>
 
-              <strong className="mobile-media-title">{item.title}</strong>
+                  <strong className="mobile-media-title">
+                    {item.title}
+                    {item.year && <span className="mobile-media-year"> ({item.year})</span>}
+                  </strong>
 
-              <div className="mobile-media-meta">
-                {item.rating !== undefined && (
-                  <span className="rating-tag">⭐ {item.rating}/10</span>
-                )}
-                {item.progress && (
-                  <span className="progress-tag">📌 {item.progress}</span>
-                )}
-                {item.completedDate && (
-                  <span className="date-tag">🗓️ {item.completedDate.split("-").reverse().join(".")}</span>
-                )}
+                  {item.creator && <span className="mobile-media-creator">{item.creator}</span>}
+
+                  <div className="mobile-media-meta">
+                    {item.rating !== undefined && (
+                      <span className="rating-tag">⭐ {item.rating}/10</span>
+                    )}
+                    {item.progress && (
+                      <span className="progress-tag">📌 {item.progress}</span>
+                    )}
+                    {item.completedDate && (
+                      <span className="date-tag">🗓️ {item.completedDate.split("-").reverse().join(".")}</span>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {item.review && (
@@ -224,7 +305,7 @@ export function MobileMediaTracker({
           <div className="mobile-media-editor-modal" onClick={(e) => e.stopPropagation()}>
             <div className="mobile-weather-top">
               <strong style={{ fontSize: "17px", fontWeight: 700 }}>
-                {items.some((i) => i.id === editor.id) ? "Kaydı Düzenle" : "Yeni Medya Kaydı"}
+                {items.some((i) => i.id === editor.id) ? "Kaydı Düzenle" : "Yeni Koleksiyon Kaydı"}
               </strong>
               <button type="button" className="mobile-modal-close" onClick={() => setEditor(null)}>
                 ✕
@@ -246,33 +327,82 @@ export function MobileMediaTracker({
                 ))}
               </div>
 
-              <label className="mobile-field" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                <span style={{ fontSize: "12px", color: "var(--app-text-muted)" }}>Tür (veya listeden seç)</span>
-                <select
-                  value={editor.type}
-                  onChange={(e) => setEditor({ ...editor, type: e.target.value as MediaType })}
-                  style={{ padding: "8px 10px", borderRadius: "8px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff" }}
-                >
-                  <option value="movie">🎬 Film</option>
-                  <option value="series">📺 Dizi</option>
-                  <option value="book">📚 Kitap</option>
-                  <option value="game">🎮 Oyun</option>
-                </select>
-              </label>
-
-              <label className="mobile-field" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                <span style={{ fontSize: "12px", color: "var(--app-text-muted)" }}>Başlık *</span>
+              <div className="mobile-field" style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }}>
+                <span style={{ fontSize: "12px", color: "var(--app-text-muted)" }}>
+                  Başlık * {searchingMeta && <small style={{ color: "#60a5fa" }}>· Aranıyor…</small>}
+                </span>
                 <input
                   type="text"
                   required
                   autoFocus
                   value={editor.title}
                   onChange={(e) => setEditor({ ...editor, title: e.target.value })}
-                  placeholder="Başlık girin…"
+                  placeholder="İsim yazın (otomatik afiş & bilgi)…"
                   maxLength={160}
                   style={{ padding: "8px 10px", borderRadius: "8px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff" }}
                 />
-              </label>
+                {suggestions.length > 0 && (
+                  <div className="mobile-media-suggestions">
+                    {suggestions.map((cand, idx) => (
+                      <button
+                        type="button"
+                        key={`${cand.title}-${cand.year ?? idx}`}
+                        className="mobile-media-suggestion-item"
+                        onClick={() => applyCandidate(cand)}
+                      >
+                        {cand.posterUrl ? (
+                          <img src={cand.posterUrl} alt="" className="mobile-media-suggestion-thumb" />
+                        ) : (
+                          <span className="mobile-media-suggestion-placeholder">{MEDIA_TYPE_ICONS[editor.type]}</span>
+                        )}
+                        <div className="mobile-media-suggestion-info">
+                          <strong>{cand.title}</strong>
+                          <small>
+                            {[cand.year, cand.creator, cand.progressHint].filter(Boolean).join(" · ") || MEDIA_TYPE_LABELS[editor.type]}
+                          </small>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {(editor.posterUrl || editor.year || editor.creator) && (
+                <div className="mobile-media-preview-box">
+                  {editor.posterUrl && (
+                    <img src={editor.posterUrl} alt="" className="mobile-media-preview-poster" />
+                  )}
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: "6px" }}>
+                      <input
+                        type="text"
+                        value={editor.year ?? ""}
+                        onChange={(e) => setEditor({ ...editor, year: e.target.value })}
+                        placeholder="Yıl"
+                        maxLength={24}
+                        style={{ padding: "6px 8px", borderRadius: "7px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff", fontSize: "12px" }}
+                      />
+                      <input
+                        type="text"
+                        value={editor.creator ?? ""}
+                        onChange={(e) => setEditor({ ...editor, creator: e.target.value })}
+                        placeholder="Yönetmen / Yazar / Stüdyo"
+                        maxLength={160}
+                        style={{ padding: "6px 8px", borderRadius: "7px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff", fontSize: "12px" }}
+                      />
+                    </div>
+                    {editor.posterUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setEditor({ ...editor, posterUrl: "" })}
+                        style={{ background: "none", border: "none", color: "#94a3b8", fontSize: "11px", textAlign: "left", padding: 0 }}
+                      >
+                        Afişi kaldır
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                 <label className="mobile-field" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -304,12 +434,12 @@ export function MobileMediaTracker({
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                 <label className="mobile-field" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  <span style={{ fontSize: "12px", color: "var(--app-text-muted)" }}>İlerleme</span>
+                  <span style={{ fontSize: "12px", color: "var(--app-text-muted)" }}>İlerleme / Sayfa</span>
                   <input
                     type="text"
                     value={editor.progress ?? ""}
                     onChange={(e) => setEditor({ ...editor, progress: e.target.value })}
-                    placeholder="örn. S3 B2"
+                    placeholder="örn. S3 B2, 352 sayfa"
                     maxLength={60}
                     style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff" }}
                   />

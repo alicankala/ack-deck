@@ -58,6 +58,9 @@ export function loadDormMenuCache(): DormMenuRecord[] {
 export function saveDormMenuCache(records: DormMenuRecord[]): void {
   try {
     localStorage.setItem(DORM_MENU_CACHE_KEY, JSON.stringify(records));
+    if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
+      window.dispatchEvent(new Event("ack-dorm-menu-updated"));
+    }
   } catch {}
 }
 

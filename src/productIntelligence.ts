@@ -6,6 +6,7 @@ import { loadWorkspaces } from "./workHubStore";
 import { loadActivity, type Activity } from "./activityStore";
 import { loadStudyPrograms } from "./studyProgramStore";
 import { studyBlocks, type StudyProgram } from "../shared/studyPrograms";
+import { loadStudyAttendance } from "../shared/studyAttendance";
 import { todaySummary, weeklyPlan, weekDates } from "../shared/weeklyPlan";
 import type { Subscription } from "../shared/subscriptions";
 import { redactSecrets } from "./privacy";
@@ -78,6 +79,8 @@ export function buildIntelligenceContext(query: string, data = intelligenceData(
     }[];
 } | null {
     const q = normalize(query), matches = data.projects.filter(p => q.includes(normalize(p.name))), project = matches.length === 1 ? matches[0] : undefined;
+    if (/koleksiyon|medya|\bfilm|\bdizi|\bkitap|\boyun|izledi|okudu|oynadi/.test(q))
+        return null;
     if (!/ner(?:e|ede|de).*kal|bu hafta|hafta.*toparla|gun.*planla|yarin.*(?:dolu|var)|siradaki|proj.*(?:kaldi|ne var|toparla)|bugun.*(?:saat|plan)/.test(q))
         return null;
     const records: {
@@ -93,7 +96,10 @@ export function buildIntelligenceContext(query: string, data = intelligenceData(
     }
     else if (/bu hafta ne yapt|hafta.*toparla/.test(q)) {
         const review = weeklyReview(data, now);
-        context = { ...review, staleProjects: review.staleProjects.map(p => ({ id: p.id, name: p.name, nextStep: p.nextStep })), unknownProjects: review.unknownProjects.map(p => ({ id: p.id, name: p.name })), completedCount: review.completed.length, historyCoverage: "Yalnız kaydedilmiş son 90 gün / 1000 olay; geçmiş olaylar tahmin edilmez." };
+        const programs = data.studyPrograms ?? loadStudyPrograms().entries;
+        const attendance = loadStudyAttendance();
+        const studyThisWeek = studyBlocks(programs, now).map(b => ({ date: b.date, time: b.time, subject: b.label, status: attendance[b.id]?.status ?? "pending" }));
+        context = { ...review, studyThisWeek, staleProjects: review.staleProjects.map(p => ({ id: p.id, name: p.name, nextStep: p.nextStep })), unknownProjects: review.unknownProjects.map(p => ({ id: p.id, name: p.name })), completedCount: review.completed.length, historyCoverage: "Yalnız kaydedilmiş son 90 gün / 1000 olay; geçmiş olaylar tahmin edilmez." };
         records.push(...review.completed.slice(0, 8).map(a => ({ source: a.source, id: a.recordId, label: a.label })));
     }
     else if (/ner(?:e|ede|de).*kal/.test(q)) {
@@ -106,7 +112,8 @@ export function buildIntelligenceContext(query: string, data = intelligenceData(
             anchor.setDate(anchor.getDate() + 1);
         const plan = weeklyPlan(data.tasks.map(t => ({ ...t, dueAt: taskDueAt(t) })), data.subscriptions, anchor);
         const programs = data.studyPrograms ?? loadStudyPrograms().entries;
-        const blocks = studyBlocks(programs, anchor);
+        const attendance = loadStudyAttendance();
+        const blocks = studyBlocks(programs, anchor).map(b => ({ ...b, attendance: attendance[b.id]?.status ?? "pending" }));
         context = { today: dailySummary(data, now), days: weekDates(anchor), plan: plan.slice(0, 40), studyBlocks: blocks.slice(0, 30), studyPrograms: programs.filter(p => p.active).map(p => ({ id: p.id, name: p.name, startDate: p.startDate, endDate: p.endDate })), openUndated: data.tasks.filter(t => !t.completed && !t.dueDate).slice(0, 8).map(t => ({ id: t.id, text: t.text })), durationUnknown: "Görevlerin süre tahmini kayıtlı değil; iki saate sığacağı kesin söylenemez." };
         records.push(...plan.slice(0, 8).map(p => ({ source: p.source, id: p.id, label: p.label })), ...programs.filter(p => p.active).slice(0, 4).map(p => ({ source: "calendar", id: p.id, label: p.name })));
     }

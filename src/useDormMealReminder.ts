@@ -23,7 +23,7 @@ export function useDormMealReminder(setNotice: (text: string) => void) {
         const records = await fetchDormMenu();
         if (!active) return;
         const todayMenu = findMenuForDate(records, todayKey);
-        if (todayMenu && todayMenu.dinnerDishes.length > 0) {
+        if (todayMenu && !todayMenu.isFallback && todayMenu.isToday && todayMenu.dinnerDishes.length > 0) {
           const dishesText = todayMenu.dinnerDishes.join(", ");
           if (isTauri()) {
             await notifyDesktop("🍽️ Bugünün Yemek Menüsü", dishesText.slice(0, 300)).catch(() => {});

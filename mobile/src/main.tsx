@@ -4,6 +4,7 @@ import { MobilePrayerCard } from "./MobilePrayerCard";
 import { MobileDormMenuCard } from "./MobileDormMenuCard";
 import { MobileMediaTracker } from "./MobileMediaTracker";
 import { MobileWeatherModal } from "./MobileWeatherModal";
+import { MobileAiChat } from "./MobileAiChat";
 import { productMetadata } from "../../shared/productivity";
 import { moveBy } from "../../src/reorder";
 import { NoteAttachments } from "./NoteAttachments";
@@ -101,6 +102,7 @@ function App() {
   // Sub-tabs
   const [taskFilter, setTaskFilter] = useState<"today" | "all">("today");
   const [planTab, setPlanTab] = useState<"calendar" | "subscriptions">("calendar");
+  const [sendTab, setSendTab] = useState<"ai" | "send">("ai");
 
   // Mobile Subscriptions Ordering & Visibility
   const [hiddenSubs, setHiddenSubs] = useState<string[]>(() => {
@@ -140,6 +142,9 @@ function App() {
     setStudyReminders(prev => {
       const next = [...prev.filter(x => x.id !== programId), { id: programId, leadMinutes }];
       try { localStorage.setItem("ack-deck.study-reminders.v1", JSON.stringify(next)); } catch {}
+      if (ref.current.token) {
+        void api(ref.current, "study-reminders", json({ studyReminders: next })).catch(() => {});
+      }
       return next;
     });
   }
@@ -247,7 +252,7 @@ function App() {
       ref.current = next;
       setState(next);
       const [status, list, spaces] = await Promise.all([
-        api<{ online: boolean; notifications: boolean; prayerConfig?: PrayerTimesConfig }>(next, "status"),
+        api<{ online: boolean; notifications: boolean; prayerConfig?: PrayerTimesConfig; studyReminders?: { id: string; leadMinutes: number | null }[] }>(next, "status"),
         api<{ items: Inbox[] }>(next, "inbox"),
         api<{ workspaces: Workspace[] }>(next, "workspaces"),
       ]);
@@ -258,6 +263,10 @@ function App() {
       setWorkspaces(spaces.workspaces);
       if (status.prayerConfig && typeof status.prayerConfig === "object" && status.prayerConfig.city) {
         savePrayerConfig(status.prayerConfig);
+      }
+      if (Array.isArray(status.studyReminders)) {
+        setStudyReminders(status.studyReminders);
+        try { localStorage.setItem("ack-deck.study-reminders.v1", JSON.stringify(status.studyReminders)); } catch {}
       }
       setNotice(next.conflicts.length ? "Eşitleme çakışması var; iki sürüm de korundu." : "Eşitlendi.");
     } catch (e) {
@@ -342,11 +351,11 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (page !== "send" && page !== "inbox" && recorder.current && recorder.current.state !== "inactive") {
+    if ((page !== "send" || sendTab !== "send") && page !== "inbox" && recorder.current && recorder.current.state !== "inactive") {
       recorder.current.stop();
       stream.current?.getTracks().forEach(track => track.stop());
     }
-  }, [page]);
+  }, [page, sendTab]);
 
   async function pair(event: FormEvent) {
     event.preventDefault();
@@ -547,6 +556,11 @@ function App() {
       setPage("today");
     } else if (p === "send") {
       setPage("send");
+    } else if (p === "ai") {
+      setPage("send");
+      setSendTab("ai");
+    } else if (p === "media") {
+      setPage("media");
     } else if (p === "settings") {
       setPage("settings");
     }
@@ -989,6 +1003,14 @@ function App() {
             </div>
           </div>
           <div className="mobile-header-tools">
+            <button
+              type="button"
+              className="mobile-ai-header-pill"
+              onClick={() => { setSendTab("ai"); changePage("send"); }}
+              title="ACK AI Sohbeti"
+            >
+              ✨ AI
+            </button>
             <div className={`mobile-connection-pill ${online ? "online" : ""}`}>
               <span className="pill-dot" />
               <span>{online ? "PC Açık" : "Çevrimdışı"}</span>
@@ -1532,13 +1554,17 @@ function App() {
           />
         )}
 
-        {/* 4. GÖNDER SEKMESİ (Masaüstüne Gönder) */}
+        {/* 4. GÖNDER & ACK AI SEKMESİ */}
         {page === "send" && (
           <div className="more-sections-container">
             <div className="send-tab-header">
               <div>
-                <h2>Masaüstüne Gönder</h2>
-                <p className="mobile-work-hint">Not, bağlantı, ses veya dosyanı bilgisayarına anında ilet.</p>
+                <h2>{sendTab === "ai" ? "ACK AI Sohbeti" : "Masaüstüne Gönder"}</h2>
+                <p className="mobile-work-hint">
+                  {sendTab === "ai"
+                    ? "Kayıtlarınla doğrudan telefondan konuş; PC kapalıyken de çalışır."
+                    : "Not, bağlantı, ses veya dosyanı bilgisayarına anında ilet."}
+                </p>
               </div>
               <button
                 type="button"
@@ -1551,6 +1577,31 @@ function App() {
               </button>
             </div>
 
+            <div className="mobile-segmented-bar plan-toggle-bar">
+              <button
+                type="button"
+                className={`segment-btn ${sendTab === "ai" ? "is-active" : ""}`}
+                onClick={() => setSendTab("ai")}
+              >
+                💬 ACK AI Sohbet
+              </button>
+              <button
+                type="button"
+                className={`segment-btn ${sendTab === "send" ? "is-active" : ""}`}
+                onClick={() => setSendTab("send")}
+              >
+                📤 PC'ye Gönder
+              </button>
+            </div>
+
+            {sendTab === "ai" ? (
+              <MobileAiChat
+                state={state}
+                online={online}
+                onNotice={setNotice}
+                onError={setError}
+              />
+            ) : (
             <section className="more-section-card">
               <SendCard
                 busy={busy || sending.current}
@@ -1677,6 +1728,7 @@ function App() {
                 </details>
               )}
             </section>
+            )}
           </div>
         )}
 

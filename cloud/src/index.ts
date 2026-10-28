@@ -5,6 +5,13 @@ import { ApiError, boundedBytes, equalSecret, hash, jsonBody, pushEndpoint, rand
 import { mutate, ensureSyncTables } from "./sync";
 import { recordView, type Actor, type Env, type RecordRow } from "./types";
 import { runReminders, sendNotification, PushFailure } from "./reminders";
+import { searchPublicMedia } from "./mediaSearch";
+import {
+  saveEncryptedGeminiKey,
+  clearEncryptedGeminiKey,
+  hasEncryptedGeminiKey,
+  runCloudMobileAiChat,
+} from "./mobileAi";
 
 async function authenticate(request: Request, env: Env): Promise<Actor> {
   const token = request.headers.get("Authorization")?.match(/^Bearer ([\w.-]{32,256})$/)?.[1];
@@ -41,6 +48,27 @@ async function handle(request: Request, env: Env): Promise<Response> {
     const resp = reply({ ok: false, records: [] });
     resp.headers.set("Access-Control-Allow-Origin", "*");
     return resp;
+  }
+  if (path === "/api/media-search" && request.method === "GET") {
+    const type = url.searchParams.get("type") || "movie";
+    const q = url.searchParams.get("q") || "";
+    if (!["movie", "series", "book", "game"].includes(type) || q.trim().length < 2) {
+      const empty = reply({ ok: true, results: [] });
+      empty.headers.set("Access-Control-Allow-Origin", "*");
+      return empty;
+    }
+    try {
+      await rate(env, `media-search:${await hash((request.headers.get("CF-Connecting-IP") ?? "local") + (env.OWNER_SECRET ?? ""))}`, 40, 60);
+      const results = await searchPublicMedia(type, q);
+      const resp = reply({ ok: true, results });
+      resp.headers.set("Access-Control-Allow-Origin", "*");
+      return resp;
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) throw err;
+      const resp = reply({ ok: false, results: [] });
+      resp.headers.set("Access-Control-Allow-Origin", "*");
+      return resp;
+    }
   }
   const origin = request.headers.get("Origin");
   if (origin && origin !== url.origin) throw new ApiError(403,"Bu kaynaktan erişime izin verilmiyor.");
@@ -111,13 +139,23 @@ async function handle(request: Request, env: Env): Promise<Response> {
   const actor = await authenticate(request,env);
   await rate(env,`api:${actor.id}`,120);
   if (path === "/api/status" && request.method === "GET") {
-    const pc = await env.DB.prepare("SELECT last_seen, prayer_config FROM desktop_state WHERE id=1").first<{last_seen:number;prayer_config?:string|null}>();
+    let pc: { last_seen: number; prayer_config?: string | null; study_reminders?: string | null } | null = null;
+    try {
+      pc = await env.DB.prepare("SELECT last_seen, prayer_config, study_reminders FROM desktop_state WHERE id=1").first();
+    } catch {
+      pc = await env.DB.prepare("SELECT last_seen, prayer_config FROM desktop_state WHERE id=1").first();
+    }
     const notification = actor.owner ? null : await env.DB.prepare("SELECT active FROM push_subscriptions WHERE device_id=?").bind(actor.id).first<{active:number}>();
     let prayerConfig = null;
     if (pc?.prayer_config) {
       try { prayerConfig = JSON.parse(pc.prayer_config); } catch {}
     }
-    return reply({ online:now-(pc?.last_seen ?? 0)<150000, notifications:!!notification?.active, vapidPublicKey:env.VAPID_PUBLIC_KEY ?? "", prayerConfig, now });
+    let studyReminders = null;
+    if (pc?.study_reminders) {
+      try { studyReminders = JSON.parse(pc.study_reminders); } catch {}
+    }
+    const aiConfigured = await hasEncryptedGeminiKey(env);
+    return reply({ online:now-(pc?.last_seen ?? 0)<150000, notifications:!!notification?.active, vapidPublicKey:env.VAPID_PUBLIC_KEY ?? "", prayerConfig, studyReminders, aiConfigured, now });
   }
   if (path === "/api/pair" && request.method === "POST") {
     owner(actor); const code = randomToken();
@@ -175,13 +213,123 @@ async function handle(request: Request, env: Env): Promise<Response> {
   if (path === "/api/heartbeat" && request.method === "POST") {
     owner(actor);
     const body = await jsonBody(request).catch(() => null);
-    const prayerConfig = body && typeof body === "object" && body.prayerConfig && typeof body.prayerConfig === "object" ? JSON.stringify(body.prayerConfig) : null;
-    if (prayerConfig) {
-      await env.DB.prepare("UPDATE desktop_state SET last_seen=?, prayer_config=? WHERE id=1").bind(now, prayerConfig).run();
-    } else {
-      await env.DB.prepare("UPDATE desktop_state SET last_seen=? WHERE id=1").bind(now).run();
+    const prayerConfig = body && typeof body === "object" && (body as Record<string, unknown>).prayerConfig && typeof (body as Record<string, unknown>).prayerConfig === "object" ? JSON.stringify((body as Record<string, unknown>).prayerConfig) : null;
+    const rawStudy = body && typeof body === "object" && Array.isArray((body as Record<string, unknown>).studyReminders) ? (body as { studyReminders: unknown[] }).studyReminders : null;
+    const studyReminders = rawStudy && rawStudy.length <= 200 ? JSON.stringify(rawStudy) : null;
+    try {
+      if (prayerConfig && studyReminders) {
+        await env.DB.prepare("UPDATE desktop_state SET last_seen=?, prayer_config=?, study_reminders=? WHERE id=1").bind(now, prayerConfig, studyReminders).run();
+      } else if (prayerConfig) {
+        await env.DB.prepare("UPDATE desktop_state SET last_seen=?, prayer_config=? WHERE id=1").bind(now, prayerConfig).run();
+      } else if (studyReminders) {
+        await env.DB.prepare("UPDATE desktop_state SET last_seen=?, study_reminders=? WHERE id=1").bind(now, studyReminders).run();
+      } else {
+        await env.DB.prepare("UPDATE desktop_state SET last_seen=? WHERE id=1").bind(now).run();
+      }
+    } catch {
+      if (prayerConfig) await env.DB.prepare("UPDATE desktop_state SET last_seen=?, prayer_config=? WHERE id=1").bind(now, prayerConfig).run();
+      else await env.DB.prepare("UPDATE desktop_state SET last_seen=? WHERE id=1").bind(now).run();
     }
     return reply({ok:true});
+  }
+  if (path === "/api/study-reminders" && request.method === "POST") {
+    const body = await jsonBody(request);
+    if (!object(body) || !exact(body, ["studyReminders"]) || !Array.isArray(body.studyReminders) || body.studyReminders.length > 200) {
+      throw new ApiError(400, "Ders hatırlatma ayarları geçersiz.");
+    }
+    const valid = body.studyReminders.every(
+      (r: unknown) => object(r) && id(r.id) && (r.leadMinutes === null || [0, 15, 30, 60].includes(Number(r.leadMinutes))),
+    );
+    if (!valid) throw new ApiError(400, "Ders hatırlatma ayarları geçersiz.");
+    await env.DB.prepare("UPDATE desktop_state SET study_reminders=? WHERE id=1").bind(JSON.stringify(body.studyReminders)).run();
+    return reply({ ok: true });
+  }
+  if (path === "/api/ai/status" && request.method === "GET") {
+    await ensureSyncTables(env);
+    const pc = await env.DB.prepare("SELECT last_seen FROM desktop_state WHERE id=1").first<{ last_seen: number }>();
+    const configured = await hasEncryptedGeminiKey(env);
+    return reply({ configured, desktopOnline: now - (pc?.last_seen ?? 0) < 150000 });
+  }
+  if (path === "/api/ai/key" && (request.method === "POST" || request.method === "DELETE")) {
+    await ensureSyncTables(env);
+    await rate(env, `ai-key:${actor.id}`, 10, 60);
+    if (request.method === "DELETE") {
+      await clearEncryptedGeminiKey(env);
+      return reply({ ok: true, configured: false });
+    }
+    const body = await jsonBody(request);
+    if (!object(body)) throw new ApiError(400, "İstek geçersiz.");
+    if (body.clear === true) {
+      await clearEncryptedGeminiKey(env);
+      return reply({ ok: true, configured: false });
+    }
+    if (typeof body.apiKey !== "string") throw new ApiError(400, "Gemini API anahtarı girilmedi.");
+    await saveEncryptedGeminiKey(env, body.apiKey);
+    return reply({ ok: true, configured: true });
+  }
+  if (path === "/api/ai/chat" && request.method === "POST") {
+    if (actor.owner) throw new ApiError(403, "Bu özellik mobil sohbet içindir.");
+    await ensureSyncTables(env);
+    await rate(env, `ai-chat:${actor.id}`, 20, 60);
+    const body = await jsonBody(request);
+    if (!object(body) || typeof body.prompt !== "string" || !body.prompt.trim() || body.prompt.length > 4000) {
+      throw new ApiError(400, "Mesaj metni geçersiz.");
+    }
+    const modelChoice: "fast" | "powerful" = body.model === "powerful" ? "powerful" : "fast";
+    const rawHistory = Array.isArray(body.history) ? body.history : [];
+    const history = rawHistory
+      .filter((m): m is { role: "user" | "model"; text: string } => object(m) && (m.role === "user" || m.role === "model") && typeof m.text === "string")
+      .slice(-10);
+
+    const direct = await runCloudMobileAiChat(env, body.prompt.trim(), history, modelChoice);
+    if (direct) {
+      return reply({ ok: true, mode: "cloud", reply: direct.reply, modelUsed: direct.modelUsed });
+    }
+
+    const pc = await env.DB.prepare("SELECT last_seen FROM desktop_state WHERE id=1").first<{ last_seen: number }>();
+    const desktopOnline = now - (pc?.last_seen ?? 0) < 150000;
+    if (!desktopOnline) {
+      throw new ApiError(
+        400,
+        "PC şu an kapalı ve bulut AI anahtarı kayıtlı değil. PC kapalıyken de 7/24 sohbet etmek için sağ üstteki Anahtar düğmesinden Gemini API anahtarınızı bir kez kaydedin.",
+      );
+    }
+
+    const queryId = crypto.randomUUID();
+    await env.DB.prepare(
+      "INSERT INTO ai_queries(id, device_id, prompt, history, model, state, created_at, expires_at) VALUES(?, ?, ?, ?, ?, 'pending', ?, ?)",
+    )
+      .bind(queryId, actor.id, body.prompt.trim(), JSON.stringify(history), modelChoice, now, now + 90_000)
+      .run();
+    return reply({ ok: true, mode: "relay", queryId });
+  }
+  const aiQueryMatch = path.match(/^\/api\/ai\/query\/([\w.-]{1,128})$/);
+  if (aiQueryMatch && request.method === "GET") {
+    await ensureSyncTables(env);
+    const row = await env.DB.prepare("SELECT state, reply, device_id FROM ai_queries WHERE id=?").bind(aiQueryMatch[1]).first<{ state: string; reply: string | null; device_id: string }>();
+    if (!row || (!actor.owner && row.device_id !== actor.id)) throw new ApiError(404, "Sorgu bulunamadı.");
+    return reply({ state: row.state, reply: row.reply });
+  }
+  if (path === "/api/ai/pending" && request.method === "GET") {
+    owner(actor);
+    await ensureSyncTables(env);
+    const rows = await env.DB.prepare(
+      "SELECT id, prompt, history, model FROM ai_queries WHERE state='pending' AND expires_at>? ORDER BY created_at ASC LIMIT 3",
+    )
+      .bind(now)
+      .all<{ id: string; prompt: string; history: string; model: string }>();
+    return reply({ queries: rows.results });
+  }
+  if (path === "/api/ai/reply" && request.method === "POST") {
+    owner(actor);
+    await ensureSyncTables(env);
+    const body = await jsonBody(request);
+    if (!object(body) || !id(body.id) || typeof body.reply !== "string" || body.reply.length > 20000) {
+      throw new ApiError(400, "Yanıt bilgileri geçersiz.");
+    }
+    const nextState = body.failed === true ? "failed" : "done";
+    await env.DB.prepare("UPDATE ai_queries SET state=?, reply=? WHERE id=?").bind(nextState, body.reply, body.id).run();
+    return reply({ ok: true });
   }
   if (path === "/api/prayer-config" && request.method === "POST") {
     const body = await jsonBody(request);

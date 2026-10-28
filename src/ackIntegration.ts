@@ -20,20 +20,23 @@ import { loadWorkspaces, loadShortcuts } from "./workHubStore";
 import { resolveRecents } from "./recentStore";
 import { loadUsage, rankMatch } from "./usageStore";
 import { loadStudyPrograms } from "./studyProgramStore";
+import { studyBlocks } from "../shared/studyPrograms";
+import { loadStudyAttendanceSnapshot } from "../shared/studyAttendance";
+import { loadMedia } from "./mediaStore";
 
-export type AckSource = "tasks" | "projects" | "notes" | "archive" | "files" | "speed" | "pc" | "ip" | "settings" | "workspaces" | "shortcuts" | "recent" | "pinned" | "inbox" | "subscriptions" | "activity" | "studyprograms";
+export type AckSource = "tasks" | "projects" | "notes" | "archive" | "files" | "speed" | "pc" | "ip" | "settings" | "workspaces" | "shortcuts" | "recent" | "pinned" | "inbox" | "subscriptions" | "activity" | "studyprograms" | "media";
 export type AckContext = { source: AckSource; data: string };
 export function contextReferences(context: AckContext[]): { source: string; id: string; label: string }[] {
   const result: { source: string; id: string; label: string }[] = [];
   for (const item of context) {
-    if (!["tasks", "projects", "notes", "archive", "files", "shortcuts", "workspaces", "recent", "pinned", "inbox", "subscriptions", "studyprograms"].includes(item.source)) continue;
+    if (!["tasks", "projects", "notes", "archive", "files", "shortcuts", "workspaces", "recent", "pinned", "inbox", "subscriptions", "studyprograms", "media"].includes(item.source)) continue;
     try {
       const value: unknown = JSON.parse(item.data);
       if (!Array.isArray(value)) continue;
       for (const row of value) {
         const source = ["recent", "pinned"].includes(item.source) ? row.source : item.source;
         const page = source === "shortcuts" ? "files" : source === "studyprograms" ? "calendar" : source;
-        if (!["tasks", "projects", "notes", "archive", "files", "workspaces", "inbox", "subscriptions", "calendar"].includes(page) || typeof row.id !== "string" || !/^[a-zA-Z0-9_.-]{1,128}$/.test(row.id)) continue;
+        if (!["tasks", "projects", "notes", "archive", "files", "workspaces", "inbox", "subscriptions", "calendar", "media"].includes(page) || typeof row.id !== "string" || !/^[a-zA-Z0-9_.-]{1,128}$/.test(row.id)) continue;
         const label = row.title ?? row.text ?? row.name;
         if (typeof label !== "string" || result.some(r => r.source === page && r.id === row.id)) continue;
         result.push({ source: page, id: row.id, label: redactSecrets(label).slice(0,200) });
@@ -43,13 +46,14 @@ export function contextReferences(context: AckContext[]): { source: string; id: 
   }
   return result;
 }
-export const SOURCE_LABELS: Record<AckSource, string> = { tasks: "Görevler", projects: "Projeler", notes: "Notlar", archive: "Arşiv", files: "Dosya bilgileri", speed: "Son hız testi", pc: "PC Durumu", ip: "IP bilgileri", settings: "Yerel tercihler", workspaces: "Çalışma Alanları", shortcuts: "Kısayollar", recent: "Son Kullanılanlar", pinned: "Sabitlenenler", inbox:"Gelenler",subscriptions:"Abonelikler",activity:"Çalışma geçmişi ve plan",studyprograms:"Ders Programları" };
+export const SOURCE_LABELS: Record<AckSource, string> = { tasks: "Görevler", projects: "Projeler", notes: "Notlar", archive: "Arşiv", files: "Dosya bilgileri", speed: "Son hız testi", pc: "PC Durumu", ip: "IP bilgileri", settings: "Yerel tercihler", workspaces: "Çalışma Alanları", shortcuts: "Kısayollar", recent: "Son Kullanılanlar", pinned: "Sabitlenenler", inbox:"Gelenler",subscriptions:"Abonelikler",activity:"Çalışma geçmişi ve plan",studyprograms:"Ders Programları",media:"Koleksiyon" };
 export const normalizeAckText = (text: string) => text.toLocaleLowerCase("tr-TR").normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/ı/g, "i");
 
 export function planAckSources(text: string): AckSource[] {
   const value = normalizeAckText(text);
   const sources: AckSource[] = [];
-  if (/ders program|calisma program|calisma plan|haftalik plan|cizelge|\bders(?:ler|im|i)?\b|\bvize\b|\bfinal\b/.test(value)) sources.push("studyprograms");
+  if (/ders program|calisma program|calisma plan|haftalik plan|cizelge|\bders(?:ler|im|i|lere|te|de)?\b|\bvize\b|\bfinal\b|calismadim|calistim/.test(value)) sources.push("studyprograms");
+  if (/koleksiyon|medya|\bfilm|\bdizi|\bkitap|\boyun|izledi|okudu|oynadi|afis/.test(value)) sources.push("media");
   if (/\bgorev|yapilacak|\bbugun (?:ne yapmam gerekiyor|ne var)/.test(value)) sources.push("tasks");
   if (/\bproje/.test(value)) sources.push("projects");
   if (/\bnot(?:lar|um|un|u|a|ta|larda|$)|notlarim/.test(value)) sources.push("notes");
@@ -68,7 +72,7 @@ export function planAckSources(text: string): AckSource[] {
   return sources;
 }
 
-const stopWords = new Set("ben benim bana ne neler nasil hakkinda ilgili kaydetmisim var mi bir bu su o bugun bugunku yarin yarinki kayit kayitlar arsiv arsivim not notlar notlarim proje projesi projeler gorev gorevler gorevlerim aciklama goster listele soyle bilgisi bilgi ve ile icin hangi dosya dosyalar lutfen kaydetmis kaydettim oncelik onemli tarih saat hatirlatma tamamlanmis".split(" "));
+const stopWords = new Set("ben benim bana ne neler nasil hakkinda ilgili kaydetmisim var mi bir bu su o bugun bugunku yarin yarinki kayit kayitlar arsiv arsivim not notlar notlarim proje projesi projeler gorev gorevler gorevlerim aciklama goster listele soyle bilgisi bilgi ve ile icin hangi dosya dosyalar lutfen kaydetmis kaydettim oncelik onemli tarih saat hatirlatma tamamlanmis film filmler filmlerim izledigim dizi diziler dizilerim kitap kitaplar kitaplarim okudugum oyun oyunlar oyunlarim oynadigim koleksiyon koleksiyonum medya oneri oner".split(" "));
 function searchTerms(text: string): string[] {
   return normalizeAckText(text).split(/[^a-z0-9]+/).filter((word) => word.length > 2 && !stopWords.has(word) &&
     !/^(?:notlar|projeler|gorevler|dosyalar|kayitlar|arsiv)(?:im|imi|imda|imde|imdeki|imdan|lar|larim|larimi|de|deki)?$/.test(word) &&
@@ -83,7 +87,49 @@ function requireReadable<T>(loaded: { locked?: boolean; error?: string | null; e
 }
 
 export const ackReadTools = {
-  get_study_programs: (query = "") => { const loaded = loadStudyPrograms(); requireReadable(loaded); const matches = loaded.entries.filter(p => normalizeAckText(query).includes(normalizeAckText(p.name)) || p.sessions.some(s => normalizeAckText(query).includes(normalizeAckText(s.subject)))); return (matches.length ? matches : loaded.entries).slice(0, 8).map(p => ({ id: p.id, name: p.name, startDate: p.startDate, endDate: p.endDate, active: p.active, sessions: p.sessions })); },
+  get_study_programs: (query = "") => {
+    const loaded = loadStudyPrograms();
+    requireReadable(loaded);
+    const attendance = loadStudyAttendanceSnapshot();
+    const blocks = studyBlocks(loaded.entries, new Date());
+    const matches = loaded.entries.filter(p => normalizeAckText(query).includes(normalizeAckText(p.name)) || p.sessions.some(s => normalizeAckText(query).includes(normalizeAckText(s.subject))));
+    return (matches.length ? matches : loaded.entries).slice(0, 8).map(p => ({
+      id: p.id,
+      name: p.name,
+      startDate: p.startDate,
+      endDate: p.endDate,
+      active: p.active,
+      sessions: p.sessions,
+      thisWeekAttendance: blocks.filter(b => b.programId === p.id).slice(0, 30).map(b => ({
+        date: b.date,
+        time: b.time,
+        subject: b.label,
+        topic: b.topic,
+        status: attendance.map[b.id]?.status ?? "pending",
+      })),
+    }));
+  },
+  get_media_items: (query = "") => {
+    const loaded = loadMedia();
+    requireReadable(loaded);
+    const norm = normalizeAckText(query);
+    const typeFilter = /\bfilm/.test(norm) ? "movie" : /\bdizi/.test(norm) ? "series" : /\bkitap/.test(norm) ? "book" : /\boyun/.test(norm) ? "game" : null;
+    const pool = typeFilter ? loaded.entries.filter(m => m.type === typeFilter) : loaded.entries;
+    const matched = matching(pool, query, m => `${m.title} ${m.creator ?? ""} ${m.review ?? ""}`);
+    const list = matched.length ? matched : pool;
+    return list.slice(0, 20).map(m => ({
+      id: m.id,
+      type: m.type,
+      title: m.title,
+      status: m.status,
+      rating: m.rating,
+      year: m.year,
+      creator: m.creator,
+      progress: m.progress,
+      completedDate: m.completedDate,
+      ...(m.review ? { review: m.review.slice(0, 300) } : {}),
+    }));
+  },
   get_subscriptions: (query:string) => {const loaded=loadSubscriptions();requireReadable(loaded);const matches=loaded.entries.filter(s=>normalizeAckText(query).includes(normalizeAckText(s.name)));return (matches.length?matches:loaded.entries).slice(0,8).map(s=>({id:s.id,name:s.name,nextPayment:paymentOccurrence(s,Date.now()-1)?.date??s.nextPayment,status:s.status,amount:s.amount,currency:s.currency,cycle:s.cycle,reminderDays:s.reminderDays}));},
   get_inbox: () => {const entries=loadInboxIndex();if(entries===null)throw new Error("Inbox metadata not loaded");return entries.slice(0,12);},
   get_activity: () => {const loaded=loadActivity();requireReadable(loaded);return loaded.entries.slice(0,20);},
@@ -132,6 +178,7 @@ export async function collectAckContext(text: string, tools: ReadTools = ackRead
       let data: unknown;
       switch (source) {
         case "studyprograms": data = await tools.get_study_programs(text); break;
+        case "media": data = await (tools.get_media_items ?? ackReadTools.get_media_items)(text); break;
         case "subscriptions": data=await tools.get_subscriptions(text);break;
         case "inbox": data=await tools.get_inbox();break;
         case "activity": data=await tools.get_activity();break;

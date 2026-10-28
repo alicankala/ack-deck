@@ -74,6 +74,7 @@ before(async()=>{
   await db.exec(readFileSync(new URL('migrations/0006_prayer_config.sql',root),'utf8').replace(/^--.*$/gm,''));
   await db.exec(readFileSync(new URL('migrations/0007_prayer_logs.sql',root),'utf8').replace(/^--.*$/gm,''));
   await db.exec(readFileSync(new URL('migrations/0008_media_and_attendance.sql',root),'utf8').replace(/^--.*$/gm,''));
+  await db.exec(readFileSync(new URL('migrations/0009_study_reminders_and_mobile_ai.sql',root),'utf8').replace(/^--.*$/gm,''));
   assert.equal((await db.prepare("SELECT data FROM records WHERE id='migration-preserved'").first()).data,JSON.stringify({title:'Migration fixture',content:'Preserve',updatedAt:1}));
   assert.equal((await db.prepare("SELECT state FROM reminder_deliveries WHERE generation='migration-fixture'").first()).state,'sent');
   env={...bindings,DB:db,ATTACHMENTS:kv};worker=await module('src/index.ts');reminders=await module('src/reminders.ts');security=await module('src/security.ts');shared=await module('../shared/phone.ts');
@@ -81,7 +82,7 @@ before(async()=>{
 });
 after(async()=>{await mf?.dispose();});
 // Each isolated scenario has a fresh request budget; production throttling is unchanged.
-beforeEach(async()=>{await db.exec('DELETE FROM rate_limits');await db.prepare('UPDATE desktop_state SET last_seen=0, prayer_config=NULL').run();});
+beforeEach(async()=>{await db.exec('DELETE FROM rate_limits');await db.prepare('UPDATE desktop_state SET last_seen=0, prayer_config=NULL, study_reminders=NULL').run();});
 test('recurring series and subscriptions round-trip, offline retries and tombstones; same Cron continues with PC off',async()=>{
   const rec=await module('../shared/recurrence.ts'),subscriptions=await module('../shared/subscriptions.ts');
   const pair=await call('pair',{}),token=(await call('pair/exchange',{code:pair.data.code,name:'Recurrence test'},null)).data.token;
@@ -326,3 +327,57 @@ test('real desktop and mobile sync engines round-trip tasks, notes, completion, 
   state=await mobile.synchronize(state,phoneRequest,persist);await desktop.synchronizePhone(desktopRequest);
   assert.equal(load('shared/studyAttendance').loadStudyAttendance()['prog1:sess1:2026-10-28'].status,'skipped');
 });
+
+test('cron delivers study program push when PC is off, skips attended blocks, and mobile AI stores key AES-GCM encrypted',async()=>{
+  await db.prepare('UPDATE devices SET revoked_at=NULL WHERE id=?').bind(deviceId).run();
+  const keys=await webcrypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},true,['deriveBits']);
+  const sub={endpoint:'https://web.push.apple.com/test-fixture',expirationTime:null,keys:{p256dh:Buffer.from(await webcrypto.subtle.exportKey('raw',keys.publicKey)).toString('base64url'),auth:Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString('base64url')}};
+  await db.prepare('INSERT OR REPLACE INTO push_subscriptions(device_id,subscription,active,updated_at) VALUES(?,?,1,?)').bind(deviceId,JSON.stringify(sub),Date.now()).run();
+
+  const headers={'X-ACKDeck-Schema':'5'};
+  // Monday 2026-11-02 18:46 Europe/Istanbul -> 14 min before 19:00 session (within 15-min default lead)
+  const prog={id:'cloud-study-1',name:'Vize Planı',startDate:'2026-11-01',endDate:null,timezone:'Europe/Istanbul',active:true,updatedAt:1,sessions:[{id:'s1',subject:'Devre 1',topic:'Thevenin',weekdays:[1],time:'19:00',minutes:50}]};
+  assert.equal((await call('mutations',mutation('studyPrograms',prog.id,prog),phone,'POST',headers)).response.status,200);
+
+  const rec=await module('../shared/recurrence.ts');
+  const sessionAt=rec.zonedAt('2026-11-02','19:00','Europe/Istanbul');
+  const triggerAt=sessionAt - 14 * 60000;
+  const sent=[];
+  await reminders.runReminders(env,async(_e,_s,p)=>{sent.push(p);return new Response('',{status:201});},triggerAt);
+  const studyPush=sent.find(p=>p.tag&&p.tag.startsWith('study:cloud-study-1:s1:2026-11-02'));
+  assert.ok(studyPush);
+  assert.match(studyPush.body,/Devre 1/);
+  assert.equal(studyPush.url,'/#page=today');
+
+  // If block is marked attended, another lesson on the same day is skipped from push
+  await call('mutations',mutation('studyAttendance','2026-11-09',{id:'2026-11-09',date:'2026-11-09',entries:{'cloud-study-1:s1:2026-11-09':{status:'attended',at:1}},updatedAt:1}),phone,'POST',headers);
+  const nextWeekTrigger=rec.zonedAt('2026-11-09','19:00','Europe/Istanbul') - 14 * 60000;
+  const skippedSent=[];
+  await reminders.runReminders(env,async(_e,_s,p)=>{skippedSent.push(p);return new Response('',{status:201});},nextWeekTrigger);
+  assert.equal(skippedSent.some(p=>p.tag&&p.tag.startsWith('study:cloud-study-1:s1:2026-11-09')),false);
+
+  // 12:30 Dorm Menu push when PC is off (skips fallback, sends real menu once)
+  await db.prepare('UPDATE desktop_state SET prayer_config=? WHERE id=1').bind(JSON.stringify({city:'Karabük',latitude:41.20488,longitude:32.62768,notifyAtTime:false,notifyBeforeMinutes:0})).run();
+  const noonAt=rec.zonedAt('2026-11-02','12:35','Europe/Istanbul');
+  const fallbackSent=[];
+  await reminders.runReminders(env,async(_e,_s,p)=>{fallbackSent.push(p);return new Response('',{status:201});},noonAt,async()=>new Response(JSON.stringify({records:[{id:'1',tarih:'2026-11-01',kahvalti:'',aksam:'Eski Menü',yayinda:true}]}),{status:200}));
+  assert.equal(fallbackSent.some(p=>p.tag==='dorm-menu:2026-11-02'),false);
+
+  const realMenuSent=[];
+  await reminders.runReminders(env,async(_e,_s,p)=>{realMenuSent.push(p);return new Response('',{status:201});},noonAt,async()=>new Response(JSON.stringify({records:[{id:'2',tarih:'2026-11-02',kahvalti:'',aksam:'Mercimek Çorbası\nTavuk Sote\nPirinç Pilavı',yayinda:true}]}),{status:200}));
+  const dormPush=realMenuSent.find(p=>p.tag==='dorm-menu:2026-11-02');
+  assert.ok(dormPush);
+  assert.match(dormPush.body,/Mercimek Çorbası/);
+
+  // Encrypted Mobile AI key provisioning & relay queue
+  const fakeKey='test-gemini-cloud-secret-value-123456';
+  assert.equal((await call('ai/status',undefined,phone,'GET',headers)).data.configured,false);
+  assert.equal((await call('ai/key',{apiKey:fakeKey},phone,'POST',headers)).response.status,200);
+  assert.equal((await call('ai/status',undefined,phone,'GET',headers)).data.configured,true);
+  const cipherRow=await db.prepare('SELECT cipher FROM ai_secrets WHERE id=1').first();
+  assert.ok(cipherRow&&!cipherRow.cipher.includes(fakeKey));
+  assert.ok(!JSON.stringify((await call('status',undefined,phone,'GET',headers)).data).includes(fakeKey));
+  assert.equal((await call('ai/key',undefined,phone,'DELETE',headers)).response.status,200);
+  assert.equal((await call('ai/status',undefined,phone,'GET',headers)).data.configured,false);
+});
+

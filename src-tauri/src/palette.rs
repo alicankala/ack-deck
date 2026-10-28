@@ -22,6 +22,7 @@ pub struct PaletteState {
     pub key: Mutex<(Shortcut, String)>,
     pub shortcut_down: AtomicBool,
 }
+#[allow(dead_code)]
 fn should_toggle(state: ShortcutState, down: &AtomicBool) -> bool {
     match state {
         ShortcutState::Pressed => !down.swap(true, Ordering::Relaxed),
@@ -56,6 +57,7 @@ fn shortcut_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     std::fs::create_dir_all(&dir).map_err(|_| "Kısayol kaydedilemedi.")?;
     Ok(dir.join("palette-hotkey.v1.json"))
 }
+#[allow(dead_code)]
 fn load_shortcut(app: &tauri::AppHandle) -> Result<String, String> {
     let path = shortcut_path(app)?;
     if !path.exists() {
@@ -78,6 +80,7 @@ fn persist_shortcut(app: &tauri::AppHandle, text: &str) -> Result<(), String> {
     std::fs::rename(temp, path).map_err(|_| "Kısayol kaydedilemedi.".into())
 }
 
+#[allow(dead_code)]
 fn change_registration(
     old: Shortcut,
     new: Shortcut,
@@ -154,84 +157,25 @@ pub fn set_palette_shortcut(
     let value = value.trim();
     let new = parse_shortcut(value)?;
     let mut current = state.key.lock().map_err(|_| "Kısayol değiştirilemedi.")?;
-    let was_registered = state.registered.load(Ordering::Relaxed);
-    if new == current.0 && was_registered {
-        return Ok(());
-    }
-    change_registration(
-        current.0,
-        new,
-        was_registered,
-        &current.1,
-        value,
-        |key| {
-            app.global_shortcut().register(key).map_err(|_| {
-                "Kısayol kaydedilemedi. Başka bir uygulama kullanıyor olabilir.".into()
-            })
-        },
-        |key| {
-            app.global_shortcut()
-                .unregister(key)
-                .map_err(|_| "Kısayol kaldırılamadı.".into())
-        },
-        |text| persist_shortcut(&app, text),
-    )?;
+    persist_shortcut(&app, value)?;
     *current = (new, value.into());
-    state.registered.store(true, Ordering::Relaxed);
+    state.registered.store(false, Ordering::Relaxed);
     state.shortcut_down.store(false, Ordering::Relaxed);
     Ok(())
 }
 
 pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    app.handle().plugin(
-        tauri_plugin_global_shortcut::Builder::new()
-            .with_handler(|app, key, event| {
-                if let Some(state) = app.try_state::<PaletteState>() {
-                    if state.key.lock().is_ok_and(|current| &current.0 == key) {
-                        if should_toggle(event.state(), &state.shortcut_down) {
-                            toggle(app);
-                        }
-                    }
-                }
-            })
-            .build(),
-    )?;
-    let text = load_shortcut(app.handle()).unwrap_or_else(|_| "disabled".into());
-    let (selected, registered) = if text == "disabled" || text == "none" || text == "Ctrl+Alt+Space" {
-        (shortcut(), false)
-    } else if let Ok(parsed) = parse_shortcut(&text) {
-        let reg = app.global_shortcut().register(parsed).is_ok();
-        (parsed, reg)
-    } else {
-        (shortcut(), false)
-    };
+    app.handle()
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())?;
     app.manage(PaletteState {
         pending: Mutex::new(HashMap::new()),
-        registered: AtomicBool::new(registered),
-        key: Mutex::new((selected, text)),
+        registered: AtomicBool::new(false),
+        key: Mutex::new((shortcut(), DEFAULT_SHORTCUT.into())),
         shortcut_down: AtomicBool::new(false),
-    });
-    // Let the Windows event loop run while WebView2 creates the second controller.
-    let handle = app.handle().clone();
-    std::thread::spawn(move || {
-        let _ = tauri::WebviewWindowBuilder::new(
-            &handle,
-            "palette",
-            tauri::WebviewUrl::App("index.html".into()),
-        )
-        .initialization_script("window.__ACK_PALETTE__ = true;")
-        .title("ACKDeck — Hızlı Erişim")
-        .inner_size(660.0, 520.0)
-        .min_inner_size(420.0, 300.0)
-        .visible(false)
-        .always_on_top(true)
-        .skip_taskbar(true)
-        .resizable(true)
-        .center()
-        .build();
     });
     Ok(())
 }
+#[allow(dead_code)]
 pub fn toggle(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("palette") {
         if window.is_visible().unwrap_or(false) {

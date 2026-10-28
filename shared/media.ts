@@ -12,6 +12,9 @@ export type MediaItem = {
   review?: string;
   progress?: string;
   completedDate?: string; // YYYY-MM-DD
+  posterUrl?: string;
+  year?: string;
+  creator?: string;
   createdAt: number;
   updatedAt: number;
 };
@@ -45,9 +48,23 @@ const MEDIA_ALLOWED_KEYS = new Set([
   "review",
   "progress",
   "completedDate",
+  "posterUrl",
+  "year",
+  "creator",
   "createdAt",
   "updatedAt",
 ]);
+
+function safeHttpsPoster(value: unknown): boolean {
+  if (value === undefined || value === "") return true;
+  if (typeof value !== "string" || value.length > 600 || hasCredentials(value)) return false;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" && !parsed.username && !parsed.password;
+  } catch {
+    return false;
+  }
+}
 
 const safeMediaText = (value: unknown, max: number, required = false): value is string =>
   typeof value === "string" &&
@@ -71,6 +88,9 @@ export function validMediaItem(v: unknown): v is MediaItem {
   if (item.review !== undefined && !safeMediaText(item.review, 5000)) return false;
   if (item.progress !== undefined && !safeMediaText(item.progress, 200)) return false;
   if (item.completedDate !== undefined && item.completedDate !== "" && (typeof item.completedDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(item.completedDate))) return false;
+  if (!safeHttpsPoster(item.posterUrl)) return false;
+  if (item.year !== undefined && !safeMediaText(item.year, 24)) return false;
+  if (item.creator !== undefined && !safeMediaText(item.creator, 160)) return false;
   if (!safeTimestamp(item.createdAt) || !safeTimestamp(item.updatedAt)) return false;
   return true;
 }

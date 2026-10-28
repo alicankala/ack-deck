@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, useEffect, useRef, type FormEvent } from "react";
 import {
   type MediaItem,
   type MediaType,
@@ -8,6 +8,7 @@ import {
   MEDIA_STATUS_LABELS,
   newMediaItem,
 } from "../../shared/media";
+import { searchMediaCatalog, type MediaSearchCandidate } from "../../shared/mediaSearch";
 import { loadMedia, saveMedia } from "../mediaStore";
 
 export function MediaTracker() {
@@ -18,6 +19,9 @@ export function MediaTracker() {
   const [search, setSearch] = useState("");
   const [editor, setEditor] = useState<MediaItem | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<MediaSearchCandidate[]>([]);
+  const [searchingMeta, setSearchingMeta] = useState(false);
+  const suppressNextLookupRef = useRef(false);
 
   useEffect(() => {
     const refresh = () => {
@@ -32,6 +36,53 @@ export function MediaTracker() {
       window.removeEventListener("ack-data-changed", refresh);
     };
   }, []);
+
+  useEffect(() => {
+    if (!editor) {
+      setSuggestions([]);
+      setSearchingMeta(false);
+      return;
+    }
+    if (suppressNextLookupRef.current) {
+      suppressNextLookupRef.current = false;
+      return;
+    }
+    const q = editor.title.trim();
+    if (q.length < 2) {
+      setSuggestions([]);
+      setSearchingMeta(false);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setSearchingMeta(true);
+      void searchMediaCatalog(editor.type, q, controller.signal)
+        .then((res) => {
+          if (!controller.signal.aborted) setSuggestions(res);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setSearchingMeta(false);
+        });
+    }, 340);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [editor?.type, editor?.title]);
+
+  const applyCandidate = (cand: MediaSearchCandidate) => {
+    if (!editor) return;
+    suppressNextLookupRef.current = true;
+    setEditor({
+      ...editor,
+      title: cand.title.slice(0, 160),
+      posterUrl: cand.posterUrl || editor.posterUrl || "",
+      year: cand.year || editor.year || "",
+      creator: cand.creator || editor.creator || "",
+      progress: editor.progress?.trim() ? editor.progress : (cand.progressHint ?? ""),
+    });
+    setSuggestions([]);
+  };
 
   const commit = (next: MediaItem[]) => {
     if (saveMedia(next, mediaData)) {
@@ -56,7 +107,8 @@ export function MediaTracker() {
       const matchTitle = item.title.toLowerCase().includes(q);
       const matchReview = item.review?.toLowerCase().includes(q);
       const matchProgress = item.progress?.toLowerCase().includes(q);
-      if (!matchTitle && !matchReview && !matchProgress) return false;
+      const matchCreator = item.creator?.toLowerCase().includes(q);
+      if (!matchTitle && !matchReview && !matchProgress && !matchCreator) return false;
     }
     return true;
   });
@@ -64,9 +116,12 @@ export function MediaTracker() {
   const handleSaveItem = (e: FormEvent) => {
     e.preventDefault();
     if (!editor || !editor.title.trim()) return;
-    const cleanItem = {
+    const cleanItem: MediaItem = {
       ...editor,
       title: editor.title.trim(),
+      posterUrl: editor.posterUrl?.trim() || undefined,
+      year: editor.year?.trim() || undefined,
+      creator: editor.creator?.trim() || undefined,
       updatedAt: Date.now(),
     };
     const exists = items.some((i) => i.id === cleanItem.id);
@@ -92,7 +147,10 @@ export function MediaTracker() {
         <button
           type="button"
           className="button button-primary"
-          onClick={() => setEditor(newMediaItem(typeFilter === "all" ? "movie" : typeFilter))}
+          onClick={() => {
+            suppressNextLookupRef.current = false;
+            setEditor(newMediaItem(typeFilter === "all" ? "movie" : typeFilter));
+          }}
         >
           + Yeni Kayıt Ekle
         </button>
@@ -155,7 +213,7 @@ export function MediaTracker() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Başlık, not veya içerik ara…"
+            placeholder="Başlık, yönetmen/yazar veya not ara…"
             className="media-search-input"
           />
         </div>
@@ -169,14 +227,17 @@ export function MediaTracker() {
             <h3>{items.length === 0 ? "Koleksiyonun Henüz Boş" : "Eşleşen Kayıt Bulunamadı"}</h3>
             <p>
               {items.length === 0
-                ? "İzlediğin filmleri, dizileri, okuduğun kitapları ve bitirdiğin oyunları ekleyip puanlayabilir, kişisel notlarını tutabilirsin."
+                ? "İzlediğin filmleri, dizileri, okuduğun kitapları ve bitirdiğin oyunları ekleyip puanlayabilir, afiş ve kişisel notlarını tutabilirsin."
                 : "Seçili filtrelere uygun film, dizi, kitap veya oyun bulunamadı."}
             </p>
             {items.length === 0 && (
               <button
                 type="button"
                 className="button button-primary"
-                onClick={() => setEditor(newMediaItem(typeFilter === "all" ? "movie" : typeFilter))}
+                onClick={() => {
+                  suppressNextLookupRef.current = false;
+                  setEditor(newMediaItem(typeFilter === "all" ? "movie" : typeFilter));
+                }}
               >
                 + İlk Kaydını Ekle
               </button>
@@ -185,33 +246,53 @@ export function MediaTracker() {
         ) : (
           filtered.map((item) => (
             <article key={item.id} className="surface media-card">
-              <div className="media-card-top">
-                <span className="media-card-type-chip">
-                  {MEDIA_TYPE_ICONS[item.type]} {MEDIA_TYPE_LABELS[item.type]}
-                </span>
-                <span className={`media-status-chip is-${item.status}`}>
-                  {MEDIA_STATUS_LABELS[item.status]}
-                </span>
-              </div>
+              <div className="media-card-body-row">
+                {item.posterUrl && (
+                  <img
+                    src={item.posterUrl}
+                    alt={item.title}
+                    className="media-card-poster"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                )}
+                <div className="media-card-info">
+                  <div className="media-card-top">
+                    <span className="media-card-type-chip">
+                      {MEDIA_TYPE_ICONS[item.type]} {MEDIA_TYPE_LABELS[item.type]}
+                    </span>
+                    <span className={`media-status-chip is-${item.status}`}>
+                      {MEDIA_STATUS_LABELS[item.status]}
+                    </span>
+                  </div>
 
-              <h3 className="media-card-title">{item.title}</h3>
+                  <h3 className="media-card-title">
+                    {item.title}
+                    {item.year && <span className="media-card-year"> ({item.year})</span>}
+                  </h3>
 
-              <div className="media-card-meta">
-                {item.rating !== undefined && (
-                  <span className="media-rating-tag" title={`${item.rating}/10`}>
-                    ⭐ {item.rating}/10
-                  </span>
-                )}
-                {item.progress && (
-                  <span className="media-progress-tag">
-                    📌 {item.progress}
-                  </span>
-                )}
-                {item.completedDate && (
-                  <span className="media-date-tag">
-                    🗓️ {item.completedDate.split("-").reverse().join(".")}
-                  </span>
-                )}
+                  {item.creator && <p className="media-card-creator">{item.creator}</p>}
+
+                  <div className="media-card-meta">
+                    {item.rating !== undefined && (
+                      <span className="media-rating-tag" title={`${item.rating}/10`}>
+                        ⭐ {item.rating}/10
+                      </span>
+                    )}
+                    {item.progress && (
+                      <span className="media-progress-tag">
+                        📌 {item.progress}
+                      </span>
+                    )}
+                    {item.completedDate && (
+                      <span className="media-date-tag">
+                        🗓️ {item.completedDate.split("-").reverse().join(".")}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {item.review && (
@@ -223,7 +304,10 @@ export function MediaTracker() {
                   type="button"
                   className="button button-secondary"
                   style={{ padding: "0.25rem 0.6rem", fontSize: "0.78rem" }}
-                  onClick={() => setEditor({ ...item })}
+                  onClick={() => {
+                    suppressNextLookupRef.current = true;
+                    setEditor({ ...item });
+                  }}
                 >
                   Düzenle
                 </button>
@@ -254,7 +338,7 @@ export function MediaTracker() {
         <div className="media-modal-overlay" onClick={() => setEditor(null)} role="dialog" aria-modal="true">
           <div className="surface media-editor-modal" onClick={(e) => e.stopPropagation()}>
             <div className="media-editor-header">
-              <h3>{items.some((i) => i.id === editor.id) ? "Kaydı Düzenle" : "Yeni Medya Kaydı Ekle"}</h3>
+              <h3>{items.some((i) => i.id === editor.id) ? "Kaydı Düzenle" : "Yeni Koleksiyon Kaydı Ekle"}</h3>
               <button type="button" className="mobile-modal-close" onClick={() => setEditor(null)}>
                 ✕
               </button>
@@ -275,31 +359,84 @@ export function MediaTracker() {
                 ))}
               </div>
 
-              <label className="editor-field">
-                <span>Tür (veya listeden seç)</span>
-                <select
-                  value={editor.type}
-                  onChange={(e) => setEditor({ ...editor, type: e.target.value as MediaType })}
-                >
-                  <option value="movie">🎬 Film</option>
-                  <option value="series">📺 Dizi</option>
-                  <option value="book">📚 Kitap</option>
-                  <option value="game">🎮 Oyun</option>
-                </select>
-              </label>
-
-              <label className="editor-field">
-                <span>Başlık *</span>
+              <div className="editor-field media-lookup-wrap">
+                <span>Başlık * {searchingMeta && <small className="media-lookup-status">· Afiş ve bilgi aranıyor…</small>}</span>
                 <input
                   type="text"
                   required
                   autoFocus
                   value={editor.title}
                   onChange={(e) => setEditor({ ...editor, title: e.target.value })}
-                  placeholder="örn. Interstellar, Breaking Bad, Suç ve Ceza, Elden Ring..."
+                  placeholder="İsim yazın (örn. Interstellar, Breaking Bad, Suç ve Ceza, Elden Ring)..."
                   maxLength={160}
                 />
-              </label>
+                {suggestions.length > 0 && (
+                  <div className="media-suggestions-list" role="listbox" aria-label="Otomatik bulunan sonuçlar">
+                    {suggestions.map((cand, idx) => (
+                      <button
+                        type="button"
+                        key={`${cand.title}-${cand.year ?? idx}`}
+                        className="media-suggestion-item"
+                        onClick={() => applyCandidate(cand)}
+                      >
+                        {cand.posterUrl ? (
+                          <img src={cand.posterUrl} alt="" className="media-suggestion-thumb" />
+                        ) : (
+                          <span className="media-suggestion-placeholder">{MEDIA_TYPE_ICONS[editor.type]}</span>
+                        )}
+                        <div className="media-suggestion-meta">
+                          <strong>{cand.title}</strong>
+                          <small>
+                            {[cand.year, cand.creator, cand.progressHint].filter(Boolean).join(" · ") || MEDIA_TYPE_LABELS[editor.type]}
+                          </small>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {(editor.posterUrl || editor.year || editor.creator) && (
+                <div className="media-selected-meta-preview">
+                  {editor.posterUrl && (
+                    <img src={editor.posterUrl} alt="" className="media-preview-poster" />
+                  )}
+                  <div className="media-preview-fields">
+                    <div className="editor-row">
+                      <label className="editor-field">
+                        <span>Yıl</span>
+                        <input
+                          type="text"
+                          value={editor.year ?? ""}
+                          onChange={(e) => setEditor({ ...editor, year: e.target.value })}
+                          placeholder="örn. 2014"
+                          maxLength={24}
+                        />
+                      </label>
+                      <label className="editor-field">
+                        <span>Yönetmen / Yazar / Stüdyo</span>
+                        <input
+                          type="text"
+                          value={editor.creator ?? ""}
+                          onChange={(e) => setEditor({ ...editor, creator: e.target.value })}
+                          placeholder="örn. Christopher Nolan"
+                          maxLength={160}
+                        />
+                      </label>
+                    </div>
+                    {editor.posterUrl && (
+                      <button
+                        type="button"
+                        className="text-action"
+                        style={{ fontSize: "0.75rem", alignSelf: "flex-start" }}
+                        onClick={() => setEditor({ ...editor, posterUrl: "" })}
+                      >
+                        Afişi kaldır
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="editor-row">
                 <label className="editor-field">
@@ -329,12 +466,12 @@ export function MediaTracker() {
 
               <div className="editor-row">
                 <label className="editor-field">
-                  <span>İlerleme (opsiyonel)</span>
+                  <span>İlerleme / Bölüm / Sayfa (opsiyonel)</span>
                   <input
                     type="text"
                     value={editor.progress ?? ""}
                     onChange={(e) => setEditor({ ...editor, progress: e.target.value })}
-                    placeholder="örn. 3. Sezon, Sayfa 210, 40 saat..."
+                    placeholder="örn. 3. Sezon, 352 sayfa, 40 saat..."
                     maxLength={60}
                   />
                 </label>

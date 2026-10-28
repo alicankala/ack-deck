@@ -180,3 +180,91 @@ test('prayer times calculate daily schedule, kerahat status, and pending notific
   assert.ok(reminders.every(r => r.dueAt > morning.getTime()));
 });
 
+test('unlimited storage proxy bypasses 5MB localStorage quota, 3-way note merge resolves non-overlapping lines, and ACK AI reads Koleksiyon & study attendance', async () => {
+  const env = setupModules();
+  const { createUnlimitedStorageProxy } = env.load('unlimitedStorage');
+  const { mergeText3Way, tryMergeNoteRecords } = env.load('../shared/textMerge');
+  const mediaStore = env.load('mediaStore');
+  const studyStore = env.load('studyProgramStore');
+  const studyLib = env.load('../shared/studyPrograms');
+  const attendanceLib = env.load('../shared/studyAttendance');
+  const integration = env.load('ackIntegration');
+  const actions = env.load('ackActions');
+
+  // 1. Unlimited storage proxy handles >6MB writes even when raw localStorage throws QuotaExceededError
+  const persisted = new Map();
+  const quotaStorage = {
+    get length() { return 0; },
+    key: () => null,
+    getItem: () => null,
+    setItem: () => { throw new Error('QuotaExceededError'); },
+    removeItem: () => {},
+    clear: () => {},
+  };
+  const storage = createUnlimitedStorageProxy(
+    quotaStorage,
+    { 'ack-deck.seed': 'ok' },
+    (k, v) => { if (v === null) persisted.delete(k); else persisted.set(k, v); },
+  );
+  const sixMb = 'x'.repeat(6 * 1024 * 1024);
+  storage.setItem('ack-deck.notes.v1', sixMb);
+  assert.equal(storage.getItem('ack-deck.notes.v1').length, 6 * 1024 * 1024);
+  assert.equal(persisted.get('ack-deck.notes.v1').length, 6 * 1024 * 1024);
+  storage.removeItem('ack-deck.notes.v1');
+  assert.equal(storage.getItem('ack-deck.notes.v1'), null);
+
+  // 2. 3-way line merge merges independent offline edits and flags same-line conflicts
+  const cleanMerge = mergeText3Way('Başlık\nOrta satır\nAlt satır', 'Başlık (PC)\nOrta satır\nAlt satır', 'Başlık\nOrta satır\nAlt satır (Mobil)');
+  assert.equal(cleanMerge.conflict, false);
+  assert.equal(cleanMerge.merged, 'Başlık (PC)\nOrta satır\nAlt satır (Mobil)');
+
+  const clashMerge = mergeText3Way('Tek satır', 'PC değişikliği', 'Mobil değişikliği');
+  assert.equal(clashMerge.conflict, true);
+
+  const mergedNote = tryMergeNoteRecords(
+    { title: 'Not', content: 'A\nB\nC', updatedAt: 1 },
+    { title: 'Not', content: 'A-yerel\nB\nC', updatedAt: 2 },
+    { title: 'Not', content: 'A\nB\nC-bulut', updatedAt: 3 },
+  );
+  assert.ok(mergedNote);
+  assert.equal(mergedNote.content, 'A-yerel\nB\nC-bulut');
+
+  // 3. ACK AI sees Koleksiyon (mediaItems) + studyAttendance and proposes create_media_item
+  const activeProgram = { ...sampleProgram, startDate: '2020-01-01', endDate: null };
+  assert.equal(studyStore.saveStudyPrograms([activeProgram]), true);
+  const blocks = studyLib.studyBlocks([activeProgram], new Date());
+  assert.ok(blocks.length > 0);
+  attendanceLib.setStudyBlockStatus(blocks[0].id, 'skipped');
+
+  assert.equal(mediaStore.saveMedia([{
+    id: 'm1',
+    type: 'movie',
+    title: 'Inception',
+    status: 'completed',
+    rating: 9,
+    year: '2010',
+    creator: 'Christopher Nolan',
+    posterUrl: 'https://example.com/poster.jpg',
+    createdAt: 1,
+    updatedAt: 1,
+  }]), true);
+
+  const mediaCtx = await integration.collectAckContext('İzlediğim filmlere göre öneri yap');
+  assert.equal(mediaCtx.context.some(c => c.source === 'media' && c.data.includes('Inception')), true);
+  assert.equal(integration.contextReferences(mediaCtx.context)[0].source, 'media');
+
+  const studyCtx = await integration.collectAckContext('Hangi derslere çalışmadım?');
+  assert.equal(studyCtx.context.some(c => c.source === 'studyprograms' && c.data.includes('skipped')), true);
+
+  const mediaProp = actions.proposalFromTool(
+    { name: 'create_media_item', args: { mediaType: 'movie', title: 'Dune: Part Two', mediaStatus: 'planned', year: '2024' } },
+    'Dune Part Two filmini koleksiyonuma ekle',
+  );
+  assert.equal(mediaProp.action.type, 'create_media_item');
+  let targetPage = null;
+  await actions.executeAckAction(mediaProp.action, true, async () => {}, t => { targetPage = t; });
+  assert.deepEqual(plain(targetPage), { page: 'media' });
+  assert.equal(mediaStore.loadMedia().entries.some(m => m.title === 'Dune: Part Two'), true);
+});
+
+

@@ -55,7 +55,7 @@ function validData(data: unknown): boolean {
     ["fast", "powerful"].includes(data.aiModel as string) && validDesktop(data.desktop);
 }
 export function parseBackup(text: string): Backup {
-  if (typeof text !== "string" || text.length > 10 * 1024 * 1024 || (text.includes("AIza") || hasCredentials(text))) throw new Error("Yedek çok büyük veya gizli anahtar içeriyor.");
+  if (typeof text !== "string" || text.length > 100 * 1024 * 1024 || (text.includes("AIza") || hasCredentials(text))) throw new Error("Yedek çok büyük veya gizli anahtar içeriyor.");
   let value: unknown; try { value = JSON.parse(text); } catch { throw new Error("Yedek dosyası geçerli JSON değil."); }
   if (!fields(value, ["formatVersion", "appVersion", "createdAt", "data"]) || !object(value) || ![1, 2].includes(value.formatVersion as number) || typeof value.appVersion !== "string" || typeof value.createdAt !== "string" || !Number.isFinite(Date.parse(value.createdAt)) || !validData(value.data)) throw new Error("Yedek biçimi veya kayıtları geçersiz. Mevcut veriler değiştirilmedi.");
   return value as Backup;

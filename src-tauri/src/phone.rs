@@ -90,6 +90,8 @@ fn route(operation: &str, body: &Value) -> Result<(&'static str, String), String
         "commands" => ("GET", "commands".into()),
         "claim" => ("POST", "commands/claim".into()),
         "result" => ("POST", "commands/result".into()),
+        "ai_pending" => ("GET", "ai/pending".into()),
+        "ai_reply" => ("POST", "ai/reply".into()),
         "sync" => (
             "GET",
             format!(
@@ -286,6 +288,48 @@ pub async fn phone_download(
     })
     .await
     .map_err(|_| "Dosya kaydedilemedi.".to_string())?
+}
+#[tauri::command]
+pub async fn phone_provision_mobile_ai(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<(), String> {
+    if window.label() != "main" {
+        return Err("Bu işlem yalnızca ana pencereden yapılabilir.".into());
+    }
+    let config = read_config(&app)?;
+    if !config.enabled || !valid_url(&config.url) {
+        return Err("Önce telefon entegrasyonunu etkinleştirin.".into());
+    }
+    let owner_secret = credential()?
+        .get_password()
+        .map_err(|_| "Telefon sahibi anahtarı ayarlanmamış.")?;
+    if owner_secret.is_empty() {
+        return Err("Telefon sahibi anahtarı ayarlanmamış.".into());
+    }
+    let gemini_entry = Entry::new("com.alican.ackdeck", "gemini-api-key")
+        .map_err(|_| "Windows kimlik bilgilerine erişilemedi.")?;
+    let gemini_key = match gemini_entry.get_password() {
+        Ok(k) if !k.trim().is_empty() => k.trim().to_string(),
+        _ => return Err("Önce Ayarlar > ACK AI bölümünden Gemini API anahtarını kaydedin.".into()),
+    };
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(Duration::from_secs(25))
+        .build()
+        .map_err(|_| "Telefon bağlantısı hazırlanamadı.")?;
+    let response = client
+        .post(format!("{}/api/ai/key", config.url))
+        .header("X-ACKDeck-Schema", "5")
+        .bearer_auth(&owner_secret)
+        .json(&json!({ "apiKey": gemini_key }))
+        .send()
+        .await
+        .map_err(|_| "Telefon sunucusuna ulaşılamadı.")?;
+    if !response.status().is_success() {
+        return Err("Mobil ACK AI bulut anahtarı kaydedilemedi.".into());
+    }
+    Ok(())
 }
 #[cfg(test)]
 mod tests {

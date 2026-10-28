@@ -10,7 +10,6 @@ import { usePhoneCompanion } from "./usePhoneCompanion";
 import { useDormMealReminder } from "./useDormMealReminder";
 import { PhoneCommands } from "./components/PhoneCommands";
 import { useReminders } from "./useReminders";
-import { usePaletteBridge } from "./usePaletteBridge";
 import { useNavigationHistory } from "./useNavigationHistory";
 import { Dashboard } from "./components/Dashboard";
 import type { AiPromptHandoff } from "./aiPromptHandoff";
@@ -51,7 +50,6 @@ function App() {
   const { route, navigate } = useNavigationHistory({ page: preferences.startPage }, () => restoring || aiBusy || history.mutating);
   const page = route.target.page;
   const setPage = (page: Page) => navigate({ page });
-  usePaletteBridge(navigate);
   useAutoBackup();
 
   useEffect(() => {
@@ -229,27 +227,63 @@ function App() {
       }
     };
 
-    const refreshInboxNow = async () => {
+    let phoneOnline = false;
+    const processMobileRelayQueries = async () => {
+      if (!phoneOnline) return;
       try {
-        const res = await phoneRequest<{ items: InboxReference[] }>("inbox");
-        if (res?.items && Array.isArray(res.items)) {
-          saveInboxIndex(res.items);
-          checkIncomingItems(res.items);
+        const res = await phoneRequest<{ queries: { id: string; messages: AiMessage[]; model: "fast" | "powerful" }[] }>("ai_pending");
+        if (!res?.queries?.length) return;
+        const hasKey = await getGeminiKeyStatus().catch(() => false);
+        for (const q of res.queries) {
+          if (processingAiIds.current.has(q.id)) continue;
+          processingAiIds.current.add(q.id);
+          if (!hasKey) {
+            await phoneRequest("ai_reply", { id: q.id, error: "Masaüstünde Gemini API anahtarı ekli değil." }).catch(() => {});
+            continue;
+          }
+          void (async () => {
+            try {
+              const lastText = q.messages[q.messages.length - 1]?.text ?? "";
+              const { context } = await collectAckContext(lastText);
+              const reply = await sendGeminiMessage(q.messages, q.model, context, false, []);
+              await phoneRequest("ai_reply", { id: q.id, reply: redactSecrets(reply.text.trim()) });
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : "ACK AI yanıt üretemedi.";
+              await phoneRequest("ai_reply", { id: q.id, error: redactSecrets(msg).slice(0, 300) }).catch(() => {});
+            }
+          })();
         }
       } catch {}
     };
 
+    const refreshInboxNow = async () => {
+      try {
+        const res = await phoneRequest<{ items: InboxReference[] }>("inbox");
+        phoneOnline = true;
+        if (res?.items && Array.isArray(res.items)) {
+          saveInboxIndex(res.items);
+          checkIncomingItems(res.items);
+        }
+        void processMobileRelayQueries();
+      } catch {
+        phoneOnline = false;
+      }
+    };
+
+    const onChanged = () => checkIncomingItems();
     void refreshInboxNow();
-    window.addEventListener("ack-data-changed", () => checkIncomingItems());
-    window.addEventListener("ack-inbox-updated", () => checkIncomingItems());
+    window.addEventListener("ack-data-changed", onChanged);
+    window.addEventListener("ack-inbox-updated", onChanged);
     const initialTimer = window.setTimeout(refreshInboxNow, 2000);
     const pollInterval = window.setInterval(refreshInboxNow, 25000);
+    const relayInterval = window.setInterval(processMobileRelayQueries, 4000);
 
     return () => {
-      window.removeEventListener("ack-data-changed", () => checkIncomingItems());
-      window.removeEventListener("ack-inbox-updated", () => checkIncomingItems());
+      window.removeEventListener("ack-data-changed", onChanged);
+      window.removeEventListener("ack-inbox-updated", onChanged);
       window.clearTimeout(initialTimer);
       window.clearInterval(pollInterval);
+      window.clearInterval(relayInterval);
     };
   }, []);
 

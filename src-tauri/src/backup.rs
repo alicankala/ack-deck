@@ -1,6 +1,24 @@
 use std::io::Write;
 use tauri_plugin_dialog::DialogExt;
-const MAX_BACKUP_BYTES: usize = 10 * 1024 * 1024;
+const MAX_BACKUP_BYTES: usize = 100 * 1024 * 1024;
+pub(crate) fn valid_unlimited_store(content: &str) -> bool {
+    if content.len() > MAX_BACKUP_BYTES
+        || content.contains("AIza")
+        || crate::privacy::has_credentials(content)
+    {
+        return false;
+    }
+    let Ok(serde_json::Value::Object(map)) = serde_json::from_str::<serde_json::Value>(content)
+    else {
+        return false;
+    };
+    map.len() <= 500
+        && map.iter().all(|(key, val)| {
+            (key.starts_with("ack-deck.") || key.starts_with("kontrol-merkezi."))
+                && key.len() <= 160
+                && val.is_string()
+        })
+}
 pub(crate) fn valid_envelope(content: &str) -> bool {
     if content.len() > MAX_BACKUP_BYTES || (content.contains("AIza") || crate::privacy::has_credentials(content)) {
         return false;
@@ -157,6 +175,82 @@ pub async fn save_auto_backup(
 
     Ok(file_name)
 }
+
+#[tauri::command]
+pub fn load_unlimited_store(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<Option<String>, String> {
+    if window.label() != "main" {
+        return Err("Depolama erişimi reddedildi.".into());
+    }
+    use tauri::Manager;
+    let path = app
+        .path()
+        .app_data_dir()
+        .map_err(|_| "Uygulama veri dizinine erişilemedi.")?
+        .join("unlimited-storage.v1.json");
+    if !path.exists() {
+        return Ok(None);
+    }
+    let meta = std::fs::metadata(&path).map_err(|_| "Depolama dosyası okunamadı.")?;
+    if meta.len() > MAX_BACKUP_BYTES as u64 {
+        return Err("Depolama dosyası sınırın üzerinde.".into());
+    }
+    let content = std::fs::read_to_string(&path).map_err(|_| "Depolama dosyası okunamadı.")?;
+    if !valid_unlimited_store(&content) {
+        return Err("Depolama dosyası doğrulanamadı.".into());
+    }
+    Ok(Some(content))
+}
+
+#[tauri::command]
+pub fn save_unlimited_store(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    content: String,
+) -> Result<(), String> {
+    if window.label() != "main" || !valid_unlimited_store(&content) {
+        return Err("Depolama verileri doğrulanamadı.".into());
+    }
+    use tauri::Manager;
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|_| "Uygulama veri dizinine erişilemedi.")?;
+    std::fs::create_dir_all(&dir).map_err(|_| "Depolama dizini oluşturulamadı.")?;
+    let target = dir.join("unlimited-storage.v1.json");
+    let unique = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let temp = dir.join(format!(
+        ".unlimited-storage-{}-{}.tmp",
+        std::process::id(),
+        unique
+    ));
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temp)
+        .map_err(|_| "Depolama dosyası yazılamadı.")?;
+    if file
+        .write_all(content.as_bytes())
+        .and_then(|_| file.sync_all())
+        .is_err()
+    {
+        drop(file);
+        let _ = std::fs::remove_file(&temp);
+        return Err("Depolama dosyası yazılamadı.".into());
+    }
+    drop(file);
+    if std::fs::rename(&temp, &target).is_err() {
+        let _ = std::fs::remove_file(&temp);
+        return Err("Depolama dosyası güncellenemedi.".into());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -167,6 +261,12 @@ mod tests {
         assert!(!valid_envelope(r#"{"formatVersion":3,"data":{}}"#));
         assert!(!valid_envelope(&format!(
             r#"{{"formatVersion":1,"data":{{"x":"{}"}}}}"#,
+            ["AI", "za"].concat()
+        )));
+        assert!(valid_unlimited_store(r#"{"ack-deck.notes.v1":"[]"}"#));
+        assert!(!valid_unlimited_store(r#"{"other.key":"[]"}"#));
+        assert!(!valid_unlimited_store(&format!(
+            r#"{{"ack-deck.notes.v1":"{}"}}"#,
             ["AI", "za"].concat()
         )));
     }

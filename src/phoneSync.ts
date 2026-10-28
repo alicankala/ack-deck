@@ -10,6 +10,8 @@ import {
   type StudyAttendanceDay,
 } from "../shared/studyAttendance";
 import { loadStudyPrograms, saveStudyPrograms } from "./studyProgramStore";
+import { loadStudyReminders } from "./studyReminderStore";
+import { tryMergeNoteRecords } from "../shared/textMerge";
 import { type StudyProgram } from "../shared/studyPrograms";
 import { scrubSync } from "../shared/privacy";
 import { productMetadata } from "../shared/productivity";
@@ -113,7 +115,22 @@ async function sync(request:typeof phoneRequest):Promise<SyncState> {
   for(let count=0;state.queue.length&&count<40;count++){
     guard();const mutation=state.queue[0],response=await request<{conflict?:boolean;record:CloudRecord|null}>("mutate",mutation);guard();
     if(response.record!==null&&!validCloudRecord(response.record))throw new Error("Telefon eşitleme yanıtı geçersiz.");
-    if(response.conflict){state.conflicts.push({local:mutation,server:response.record});state.queue.shift();save(state);continue;}
+    if(response.conflict){
+      const ref=key(mutation.kind,mutation.id),baseline=state.base[ref];
+      if(mutation.kind==="notes"&&!mutation.deleted&&mutation.data&&response.record&&!response.record.deleted&&response.record.data&&baseline?.local){
+        try{
+          const merged=tryMergeNoteRecords(JSON.parse(baseline.local) as PhoneNote,mutation.data as PhoneNote,response.record.data as PhoneNote);
+          if(merged){
+            const cleanMerged=scrubSync(merged);
+            apply({...response.record,data:cleanMerged});
+            state.base[ref]={version:response.record.version,local:fingerprint(response.record)};
+            state.queue[0]={mutationId:crypto.randomUUID(),kind:"notes",id:mutation.id,baseVersion:response.record.version,data:cleanMerged,deleted:false};
+            save(state);continue;
+          }
+        }catch{}
+      }
+      state.conflicts.push({local:mutation,server:response.record});state.queue.shift();save(state);continue;
+    }
     if(!response.record)throw new Error("Telefon eşitleme yanıtı geçersiz.");
     state.base[key(mutation.kind,mutation.id)]={version:response.record.version,local:mutation.deleted?null:JSON.stringify(mutation.data)};
     state.queue.shift();save(state);
@@ -130,6 +147,18 @@ async function sync(request:typeof phoneRequest):Promise<SyncState> {
       if(state.queue.some(row=>key(row.kind,row.id)===reference))continue;
       if(previous&&record.version<=previous.version)continue;
       if((previous&&currentText!==previous.local)||(!previous&&current)){
+        if(record.kind==="notes"&&!record.deleted&&record.data&&previous?.local&&current?.data){
+          try{
+            const merged=tryMergeNoteRecords(JSON.parse(previous.local) as PhoneNote,current.data as PhoneNote,record.data as PhoneNote);
+            if(merged){
+              const cleanMerged=scrubSync(merged);
+              apply({...record,data:cleanMerged});
+              state.base[reference]={version:record.version,local:fingerprint(record)};
+              state.queue.push({mutationId:crypto.randomUUID(),kind:"notes",id:record.id,baseVersion:record.version,data:cleanMerged,deleted:false});
+              save(state);continue;
+            }
+          }catch{}
+        }
         state.conflicts.push({local:{mutationId:crypto.randomUUID(),kind:record.kind,id:record.id,baseVersion:previous?.version??0,data:current?.data??null,deleted:!current},server:record});save(state);continue;
       }
       // Journal the prior fingerprint before applying; interrupted writes are detected as
@@ -140,7 +169,8 @@ async function sync(request:typeof phoneRequest):Promise<SyncState> {
   }
   guard();const spaces=loadWorkspaces();
   if(!spaces.locked){const workspaces=spaces.entries.map(({id,name,icon,description})=>({id,name,icon,description:/[A-Za-z]:[\\/]/.test(description)?"":description}));const signature=JSON.stringify(workspaces);if(signature!==state.workspaceFingerprint){await request("workspaces",{workspaces:scrubSync(workspaces)});guard();state.workspaceFingerprint=signature;save(state);}}
-  await request("heartbeat", { prayerConfig: loadPrayerConfig() });guard();state.lastSync=Date.now();save(state);window.dispatchEvent(new Event("ack-phone-sync-status"));return state;
+  const studyRem=loadStudyReminders();
+  await request("heartbeat", { prayerConfig: loadPrayerConfig(), ...(!studyRem.locked ? { studyReminders: studyRem.entries } : {}) });guard();state.lastSync=Date.now();save(state);window.dispatchEvent(new Event("ack-phone-sync-status"));return state;
 }
 export async function resolvePhoneConflict(index:number,useCloud:boolean){if(running)throw new Error("Eşitleme sürüyor. Biraz sonra deneyin.");const state=readPhoneSync(),conflict=state.conflicts[index];if(!conflict)throw new Error("Çakışma bulunamadı.");const reference=key(conflict.local.kind,conflict.local.id);
   if(useCloud&&conflict.server){apply(conflict.server);state.base[reference]={version:conflict.server.version,local:fingerprint(conflict.server)};}

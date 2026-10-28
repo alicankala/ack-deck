@@ -74,6 +74,19 @@ fn fields(name: &str) -> Option<(&'static [&'static str], &'static [&'static str
             &["programId"],
         ),
         "delete_study_program" => (&["programId"], &["programId"]),
+        "create_media_item" => (
+            &[
+                "mediaType",
+                "title",
+                "mediaStatus",
+                "rating",
+                "progress",
+                "review",
+                "year",
+                "creator",
+            ],
+            &["mediaType", "title"],
+        ),
         "open_project" => (&["projectId", "mode"], &["projectId", "mode"]),
         "open_workspace" => (&["workspaceId"], &["workspaceId"]),
         "open_shortcut" => (&["shortcutId"], &["shortcutId"]),
@@ -148,6 +161,7 @@ pub fn valid_call(call: &PreparedCall) -> bool {
                         "create_archive",
                         "create_study_program",
                         "update_study_program",
+                        "create_media_item",
                     ]
                     .contains(&name)
                     {
@@ -245,8 +259,16 @@ pub fn valid_call(call: &PreparedCall) -> bool {
                     | "inbox"
                     | "subscriptions"
                     | "calendar"
+                    | "media"
             )
         ),
+        "mediaType" => matches!(value.as_str(), Some("movie" | "series" | "book" | "game")),
+        "mediaStatus" => matches!(value.as_str(), Some("completed" | "in_progress" | "planned")),
+        "rating" => value.as_f64().is_some_and(|v| (1.0..=10.0).contains(&v)),
+        "progress" => value.as_str().is_some_and(|text| text.chars().count() <= 200),
+        "review" => value.as_str().is_some_and(|text| text.chars().count() <= 5000),
+        "year" => value.as_str().is_some_and(|text| text.chars().count() <= 24),
+        "creator" => value.as_str().is_some_and(|text| text.chars().count() <= 160),
         "content" => value
             .as_str()
             .is_some_and(|text| text.chars().count() <= 30000),
@@ -255,7 +277,7 @@ pub fn valid_call(call: &PreparedCall) -> bool {
             .is_some_and(|text| text.chars().count() <= 20000),
         "title" | "text" | "name" => value
             .as_str()
-            .is_some_and(|text| !text.trim().is_empty() && text.chars().count() <= 160),
+            .is_some_and(|text| !text.trim().is_empty() && text.chars().count() <= 300),
         _ => value
             .as_str()
             .is_some_and(|text| !text.trim().is_empty() && text.chars().count() <= 512),
@@ -279,6 +301,7 @@ pub fn declarations() -> Value {
         "create_study_program",
         "update_study_program",
         "delete_study_program",
+        "create_media_item",
         "open_project",
         "open_workspace",
         "open_shortcut",
@@ -290,7 +313,7 @@ pub fn declarations() -> Value {
         let mut properties = serde_json::Map::new();
         for field in allowed {
             let schema = match *field {
-                "actions" => json!({"type":"ARRAY","maxItems":8,"items":{"type":"OBJECT","required":["name"],"properties":{"name":{"type":"STRING","enum":["create_task","update_task","complete_task","create_note","update_note","update_project","create_archive","create_study_program","update_study_program"]},"text":{"type":"STRING"},"taskId":{"type":"STRING"},"noteId":{"type":"STRING"},"projectId":{"type":"STRING"},"programId":{"type":"STRING"},"name":{"type":"STRING"},"title":{"type":"STRING"},"content":{"type":"STRING"},"nextStep":{"type":"STRING"},"description":{"type":"STRING"},"category":{"type":"STRING"},"dueDate":{"type":"STRING"},"dueTime":{"type":"STRING"},"startDate":{"type":"STRING"},"endDate":{"type":"STRING"}}}}),
+                "actions" => json!({"type":"ARRAY","maxItems":8,"items":{"type":"OBJECT","required":["name"],"properties":{"name":{"type":"STRING","enum":["create_task","update_task","complete_task","create_note","update_note","update_project","create_archive","create_study_program","update_study_program","create_media_item"]},"text":{"type":"STRING"},"taskId":{"type":"STRING"},"noteId":{"type":"STRING"},"projectId":{"type":"STRING"},"programId":{"type":"STRING"},"name":{"type":"STRING"},"title":{"type":"STRING"},"content":{"type":"STRING"},"nextStep":{"type":"STRING"},"description":{"type":"STRING"},"category":{"type":"STRING"},"dueDate":{"type":"STRING"},"dueTime":{"type":"STRING"},"startDate":{"type":"STRING"},"endDate":{"type":"STRING"},"mediaType":{"type":"STRING","enum":["movie","series","book","game"]},"mediaStatus":{"type":"STRING","enum":["completed","in_progress","planned"]},"rating":{"type":"NUMBER"}}}}),
                 "sessions" => json!({"type":"ARRAY","description":"Haftalık ders çalışma blokları (1..60 blok)","items":{"type":"OBJECT","required":["subject","weekdays","time","minutes"],"properties":{"subject":{"type":"STRING","description":"Ders adı (örn. Devre 1, Elektronik 2, EMD)"},"topic":{"type":"STRING","description":"Konu / çalışma hedefi"},"weekdays":{"type":"ARRAY","description":"Haftanın günleri: 1=Pazartesi, 2=Salı, 3=Çarşamba, 4=Perşembe, 5=Cuma, 6=Cumartesi, 7=Pazar","items":{"type":"INTEGER","minimum":1,"maximum":7}},"time":{"type":"STRING","description":"Başlangıç saati HH:mm (örn. 19:00)"},"minutes":{"type":"INTEGER","description":"Süre dakika (10-240)","minimum":10,"maximum":240}}}}),
                 "active" => json!({"type":"BOOLEAN"}),
                 "texts" => json!({"type":"ARRAY","maxItems":8,"items":{"type":"STRING"}}),
@@ -304,7 +327,10 @@ pub fn declarations() -> Value {
                 "priority" => json!({"type":"STRING", "enum":["normal","important"]}),
                 "category" => json!({"type":"STRING", "enum":["Cihaz","Belge","Fatura","Garanti","Lisans","Abonelik","Proje","Diğer"]}),
                 "mode" => json!({"type":"STRING", "enum":["folder","vscode"]}),
-                "page" => json!({"type":"STRING", "enum":["home","tasks","ai","projects","workspaces","notes","tools","qr","ip","files","speed","pc","archive","settings","inbox","subscriptions","calendar"]}),
+                "mediaType" => json!({"type":"STRING", "enum":["movie","series","book","game"], "description":"Koleksiyon türü: movie=Film, series=Dizi, book=Kitap, game=Oyun"}),
+                "mediaStatus" => json!({"type":"STRING", "enum":["completed","in_progress","planned"], "description":"Durum: completed=Bitirildi, in_progress=Devam Ediyor, planned=Listemde"}),
+                "rating" => json!({"type":"INTEGER", "minimum":1, "maximum":10, "description":"1-10 arası puan"}),
+                "page" => json!({"type":"STRING", "enum":["home","tasks","ai","projects","workspaces","notes","tools","qr","ip","files","speed","pc","archive","settings","inbox","subscriptions","calendar","media"]}),
                 _ => json!({"type":"STRING"}),
             };
             properties.insert((*field).into(), schema);
@@ -328,6 +354,10 @@ mod tests {
             name: "create_study_program".into(),
             args: json!({"name":"Vize Planı","endDate":"2026-11-07","sessions":[{"subject":"Devre 1","topic":"Düğüm gerilimleri","weekdays":[1,3,5],"time":"19:00","minutes":60}]})
         }));
+        assert!(valid_call(&PreparedCall {
+            name: "create_media_item".into(),
+            args: json!({"mediaType":"movie","title":"Interstellar","mediaStatus":"completed","rating":9,"year":"2014"})
+        }));
         assert!(!valid_call(&PreparedCall {
             name: "execute_command".into(),
             args: json!({"command":"anything"})
@@ -340,7 +370,7 @@ mod tests {
             name: "update_task".into(),
             args: json!({"taskId":"id","priority":"invalid"})
         }));
-        assert_eq!(declarations().as_array().unwrap().len(), 21);
+        assert_eq!(declarations().as_array().unwrap().len(), 22);
         assert!(valid_call(&PreparedCall {
             name: "plan_actions".into(),
             args: json!({"actions":[{"name":"create_task","text":"Test"},{"name":"update_project","projectId":"project-1","nextStep":"Telefon testi"}]})

@@ -125,10 +125,9 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let open = MenuItem::with_id(app, "open", "ACKDeck'i Aç", true, None::<&str>)?;
     let ai = MenuItem::with_id(app, "ai", "ACK AI", true, None::<&str>)?;
     let task = MenuItem::with_id(app, "tasks", "Yeni Görev", true, None::<&str>)?;
-    let palette = MenuItem::with_id(app, "palette", "Hızlı Erişim", true, None::<&str>)?;
     let note = MenuItem::with_id(app, "notes", "Hızlı Not Al", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Çıkış", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&open, &palette, &ai, &task, &note, &quit])?;
+    let menu = Menu::with_items(app, &[&open, &ai, &task, &note, &quit])?;
     let mut tray = TrayIconBuilder::with_id("ackdeck-tray")
         .tooltip("ACKDeck")
         .menu(&menu)
@@ -139,7 +138,6 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             "tasks" => show_window(app, Some("new-task")),
             "notes" => show_window(app, Some("new-note")),
             "open" => show_window(app, None),
-            "palette" => crate::palette::toggle(app),
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {

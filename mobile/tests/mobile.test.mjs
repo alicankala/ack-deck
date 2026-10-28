@@ -69,6 +69,24 @@ test('parallel edits retain local and server versions rather than losing text',a
   const server={kind:'notes',id:'n',version:2,data:{title:'Remote',content:'C',updatedAt:3},deleted:false,updatedAt:3};const result=await store.synchronize(state,async(_state,path)=>path==='mutations'?{conflict:true,record:server}:{records:[server],cursor:2,more:false},async()=>{});
   assert.equal(result.records[0].data.content,'B');assert.equal(result.conflicts[0].server.data.content,'C');assert.equal(result.queue.length,0);
 });
+test('offline edits on different lines of the same note merge automatically without conflict',async()=>{
+  const store=runtime().load('mobile/src/store');
+  let state={...store.emptyState(),token:'paired',records:[{kind:'notes',id:'n-merge',version:1,data:{title:'Ortak Not',content:'Satır 1\nSatır 2\nSatır 3',updatedAt:1},deleted:false,updatedAt:1}]};
+  state=store.enqueue(state,mutation('notes','n-merge',{title:'Ortak Not',content:'Satır 1 (Mobil)\nSatır 2\nSatır 3',updatedAt:2},1));
+  const server={kind:'notes',id:'n-merge',version:2,data:{title:'Ortak Not',content:'Satır 1\nSatır 2\nSatır 3 (PC)',updatedAt:3},deleted:false,updatedAt:3};
+  let pushedMerged=null;
+  const result=await store.synchronize(state,async(_state,path,options)=>{
+    if(path==='mutations'){
+      const body=JSON.parse(options.body);
+      if(body.baseVersion===1)return{conflict:true,record:server};
+      pushedMerged=body.data;
+      return{record:{kind:'notes',id:'n-merge',version:3,data:body.data,deleted:false,updatedAt:4}};
+    }
+    return{records:[{kind:'notes',id:'n-merge',version:3,data:pushedMerged,deleted:false,updatedAt:4}],cursor:3,more:false};
+  },async()=>{});
+  assert.equal(result.conflicts.length,0);
+  assert.equal(result.records[0].data.content,'Satır 1 (Mobil)\nSatır 2\nSatır 3 (PC)');
+});
 test('failed sync preserves a durable retry queue and chained edits use sequential versions',async()=>{
   const store=runtime().load('mobile/src/store');let state={...store.emptyState(),token:'paired'};state=store.enqueue(state,mutation('tasks','t',task));state=store.enqueue(state,mutation('tasks','t',{...task,text:'Updated'}));assert.deepEqual([...state.queue.map(row=>row.baseVersion)],[0,1]);await store.saveState(state);
   await assert.rejects(store.synchronize(state,async()=>{throw new Error('offline');}));assert.equal((await store.readState()).queue.length,2);

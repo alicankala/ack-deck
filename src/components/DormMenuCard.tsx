@@ -29,7 +29,32 @@ export function DormMenuCard() {
   };
 
   useEffect(() => {
+    let lastFetchedAt = Date.now();
     void refresh();
+    const syncFromCache = () => {
+      const current = findMenuForDate(loadDormMenuCache(), turkeyDateKey());
+      if (current) {
+        setMenu(current);
+        setError("");
+      }
+    };
+    const onFocus = () => {
+      if (Date.now() - lastFetchedAt > 5 * 60 * 1000) {
+        lastFetchedAt = Date.now();
+        void refresh();
+      }
+    };
+    const interval = window.setInterval(() => {
+      lastFetchedAt = Date.now();
+      void refresh();
+    }, 30 * 60 * 1000);
+    window.addEventListener("ack-dorm-menu-updated", syncFromCache);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("ack-dorm-menu-updated", syncFromCache);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [todayKey]);
 
   const dishIcons = ["🍲", "🥩", "🍚", "🥗", "🍮", "🍞", "🍎"];

@@ -18,6 +18,8 @@ import { loadWorkspaces, loadShortcuts } from "./workHubStore";
 import { launchWorkspace, launchShortcut } from "./hubLaunch";
 import { loadStudyPrograms, saveStudyPrograms } from "./studyProgramStore";
 import { validStudyProgram, normalizeStudySessions, formatStudySchedule, parseEndDateHint, type StudyProgram, type StudySession } from "../shared/studyPrograms";
+import { loadMedia, saveMedia } from "./mediaStore";
+import { MEDIA_STATUS_LABELS, MEDIA_TYPE_LABELS, validMediaItem, type MediaItem, type MediaStatus, type MediaType } from "../shared/media";
 type TaskPatch = Partial<Pick<Task, "text" | "dueDate" | "dueTime" | "priority" | "reminder" | "checklist" | "projectId" | "workspaceId" | "sourceInboxId" | "reminderLeadMinutes" | "recurrence" | "occurrenceAt" | "timezone">>;
 type ArchivePatch = { title?: string; category?: ArchiveCategory; description?: string; date?: string | null; tags?: string[] };
 type StudyProgramPatch = { name?: string; startDate?: string; endDate?: string | null; active?: boolean; sessions?: StudySession[] };
@@ -31,16 +33,18 @@ export type AckAction =
   | { type: "create_study_program"; name: string; startDate?: string; endDate?: string | null; sessions: StudySession[] }
   | ({ type: "update_study_program"; programId: string } & StudyProgramPatch)
   | { type: "delete_study_program"; programId: string }
+  | { type: "create_media_item"; mediaType: MediaType; title: string; mediaStatus?: MediaStatus; rating?: number; progress?: string; review?: string; year?: string; creator?: string }
   | {type:"update_project";projectId:string;nextStep?:string;workspaceId?:string|null;inboxIds?:string[];}
   | { type: "open_project"; projectId: string; mode: "folder" | "vscode" } | { type: "open_workspace"; workspaceId: string } | { type: "open_shortcut"; shortcutId: string } | { type: "navigate"; page: Page } | { type: "start_speed_test" };
 export type AckProposal = { action: AckAction; question: string; expected?: string };
-const pages: Page[] = ["home", "tasks", "ai", "projects", "workspaces", "notes", "tools", "qr", "ip", "files", "speed", "pc", "archive", "settings", "inbox", "subscriptions", "calendar"];
+const pages: Page[] = ["home", "tasks", "ai", "projects", "workspaces", "notes", "tools", "qr", "ip", "files", "speed", "pc", "archive", "settings", "inbox", "subscriptions", "calendar", "media"];
 const shapes: Record<AckAction["type"], string[]> = {
   batch:["actions"], create_tasks:["texts","projectId"],
   create_task: ["text", "dueDate", "dueTime", "priority", "reminder", "checklist", "projectId", "workspaceId", "sourceInboxId", "reminderLeadMinutes", "recurrence", "occurrenceAt", "timezone"], update_task: ["taskId", "text", "dueDate", "dueTime", "priority", "reminder", "checklist", "projectId", "workspaceId", "reminderLeadMinutes", "recurrence", "occurrenceAt", "timezone"], complete_task: ["taskId"], delete_task: ["taskId"],
   create_note: ["title", "content", "projectId", "workspaceId"], update_note: ["noteId", "title", "content", "projectId", "workspaceId"], delete_note: ["noteId"],
   create_archive: ["title", "category", "description", "date", "tags"], update_archive: ["archiveId", "title", "category", "description", "date", "tags"], delete_archive: ["archiveId"],
   create_study_program: ["name", "startDate", "endDate", "sessions"], update_study_program: ["programId", "name", "startDate", "endDate", "active", "sessions"], delete_study_program: ["programId"],
+  create_media_item: ["mediaType", "title", "mediaStatus", "rating", "progress", "review", "year", "creator"],
   update_project: ["projectId", "nextStep", "workspaceId", "inboxIds"], open_project: ["projectId", "mode"], navigate: ["page"], start_speed_test: [],
   open_workspace: ["workspaceId"], open_shortcut: ["shortcutId"],
 };
@@ -48,7 +52,7 @@ const invalid = () => { throw new Error("AI işlem bilgileri geçersiz. Hiçbir 
 export function validateAckAction(value: unknown): AckAction {
   if (!value || typeof value !== "object" || Array.isArray(value)) return invalid();
   const item = value as Record<string, unknown>, type = item.type as AckAction["type"];
-  if(type==="batch"){if(Object.keys(item).some(k=>!["type","actions"].includes(k))||!Array.isArray(item.actions)||item.actions.length<1||item.actions.length>8||item.actions.some(a=>!a||typeof a!=="object"||!["create_task","create_tasks","update_task","complete_task","create_note","update_note","update_project","create_archive","create_study_program","update_study_program"].includes(String(a.type))))return invalid();return {type:"batch",actions:item.actions.map(validateAckAction)};}
+  if(type==="batch"){if(Object.keys(item).some(k=>!["type","actions"].includes(k))||!Array.isArray(item.actions)||item.actions.length<1||item.actions.length>8||item.actions.some(a=>!a||typeof a!=="object"||!["create_task","create_tasks","update_task","complete_task","create_note","update_note","update_project","create_archive","create_study_program","update_study_program","create_media_item"].includes(String(a.type))))return invalid();return {type:"batch",actions:item.actions.map(validateAckAction)};}
   if (!Object.prototype.hasOwnProperty.call(shapes, type) || Object.keys(item).some((key) => key !== "type" && !shapes[type].includes(key))) return invalid();
   const string = (key: string, max: number, required = false, nonempty = false) => { const value = item[key]; if (value === undefined && !required) return; if (typeof value !== "string" || value.length > max || (nonempty && !value.trim()) || redactSecrets(value) !== value) invalid(); };
   for (const key of ["taskId", "noteId", "archiveId", "shortcutId", "programId"]) if (shapes[type].includes(key)) string(key, 512, true, true);
@@ -86,6 +90,30 @@ export function validateAckAction(value: unknown): AckAction {
       const endDate = item.endDate === undefined ? null : (item.endDate as string | null);
       if (!validStudyProgram({ id: "validation", name: typeof item.name === "string" ? item.name : "Program", startDate, endDate, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, active: true, sessions: item.sessions, updatedAt: 1 })) invalid();
     }
+  }
+  if (type === "create_media_item") {
+    string("title", 300, true, true);
+    if (!["movie", "series", "book", "game"].includes(String(item.mediaType))) invalid();
+    if (item.mediaStatus !== undefined && !["completed", "in_progress", "planned"].includes(String(item.mediaStatus))) invalid();
+    if (item.rating !== undefined && (typeof item.rating !== "number" || !Number.isFinite(item.rating) || item.rating < 1 || item.rating > 10)) invalid();
+    string("progress", 200);
+    string("review", 5000);
+    string("year", 24);
+    string("creator", 160);
+    const candidate: MediaItem = {
+      id: "validation",
+      type: item.mediaType as MediaType,
+      title: String(item.title).trim(),
+      status: (item.mediaStatus as MediaStatus | undefined) ?? "planned",
+      ...(item.rating !== undefined ? { rating: Math.round(Number(item.rating)) } : {}),
+      ...(item.progress ? { progress: String(item.progress) } : {}),
+      ...(item.review ? { review: String(item.review) } : {}),
+      ...(item.year ? { year: String(item.year) } : {}),
+      ...(item.creator ? { creator: String(item.creator) } : {}),
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    if (!validMediaItem(candidate)) invalid();
   }
   if (type.startsWith("update_") && Object.keys(item).length <= 2) invalid();
   if (type === "open_project" && item.mode !== "folder" && item.mode !== "vscode") invalid();
@@ -137,6 +165,10 @@ export function prepareAckProposal(input: unknown): AckProposal {
     question = (action.type === "create_study_program" ? "Bu ders programı Haftalık Plan'a eklensin mi?\n" : "Ders programı güncellensin mi?\n") + formatStudySchedule(candidate);
   }
   else if (action.type === "delete_study_program") question = String(current?.name) + " ders programı silinsin mi?";
+  else if (action.type === "create_media_item") {
+    const statusLabel = MEDIA_STATUS_LABELS[action.mediaStatus ?? "planned"];
+    question = `Koleksiyon'a yeni ${MEDIA_TYPE_LABELS[action.mediaType].toLocaleLowerCase("tr-TR")} eklensin mi?\n${action.title}${action.year ? ` (${action.year})` : ""} · ${statusLabel}${action.rating ? ` · ★ ${Math.round(action.rating)}/10` : ""}${action.creator ? `\n${action.creator}` : ""}${action.review ? `\n${action.review}` : ""}`;
+  }
   else if (action.type === "update_project") question = String(current?.name)+" projesi güncellensin mi?\nSıradaki adım: "+(action.nextStep??current?.nextStep??"Yok")+"\nÇalışma alanı: "+(action.workspaceId??current?.workspaceId??"Yok");
   else if (action.type === "open_project") question = String(current?.name) + " projesini " + (action.mode === "vscode" ? "VS Code'da" : "Explorer'da") + " açayım mı?";
   else if (action.type === "open_workspace") question = String(current?.name) + " çalışma alanı açılsın mı?\nAçılacaklar:\n" + (loadWorkspaces().entries.find(v => v.id === action.workspaceId)?.items.map(v => "• " + v.name).join("\n") || "Henüz öğe eklenmedi.");
@@ -187,7 +219,7 @@ export function proposeAckAction(text: string, now = new Date()): AckProposal | 
   const capture=parseSmartCapture(text,loadProjectSnapshot().entries,now);
   if(capture){const {kind,...fields}=capture;return prepareAckProposal(kind==="note"?{type:"create_note",...fields}:{type:"create_task",...fields});}
   const nextStep=text.match(/^(.+?)\s+projesinin\s+sıradaki\s+adımını\s*(?:değiştir|yap)\s*:\s*(.+)$/iu);if(nextStep){const matches=loadProjectSnapshot().entries.filter(p=>normalizeSearch(p.name)===normalizeSearch(nextStep[1]));if(matches.length===1)return prepareAckProposal({type:"update_project",projectId:matches[0].id,nextStep:nextStep[2]});}
-  const nav: [RegExp, Page][] = [[/\bqr\b.*(?:ac|git)/, "qr"], [/notlara git/, "notes"], [/ayarlari ac|ayarlara git/, "settings"], [/arsivi ac|arsive git/, "archive"], [/gorevlere git/, "tasks"], [/haftalik plan.*(?:ac|git)|takvim.*(?:ac|git)/, "calendar"], [/ana sayfa.*(?:ac|git)/, "home"]];
+  const nav: [RegExp, Page][] = [[/\bqr\b.*(?:ac|git)/, "qr"], [/notlara git/, "notes"], [/koleksiyon.*(?:ac|git)/, "media"], [/ayarlari ac|ayarlara git/, "settings"], [/arsivi ac|arsive git/, "archive"], [/gorevlere git/, "tasks"], [/haftalik plan.*(?:ac|git)|takvim.*(?:ac|git)/, "calendar"], [/ana sayfa.*(?:ac|git)/, "home"]];
   for (const [pattern, page] of nav) if (pattern.test(normalized)) return prepareAckProposal({ type: "navigate", page });
   if (/internetimi test et|hiz testini baslat|hiz testi baslat/.test(normalized)) return prepareAckProposal({ type: "start_speed_test" });
   if (/\bac\b|acar misin/.test(normalized)) {
@@ -242,6 +274,28 @@ export async function executeAckAction(input: AckAction, confirmed: boolean, nat
   if (action.type === "open_project") { await openRegisteredProject(action.projectId, action.mode, native); return "Kayıtlı proje " + (action.mode === "vscode" ? "VS Code'da" : "Explorer'da") + " açıldı."; }
   if (action.type === "open_workspace") { const snapshot = expected ?? JSON.stringify(current); const result = await launchWorkspace(action.workspaceId, native, () => { if (JSON.stringify(currentRecord(action)) !== snapshot) throw new Error("Onaylanan hedef değişti. Yeniden onay gerekli."); }); return result.errors.length ? `${result.opened} öğe açıldı. ${result.errors.join(" ")}` : result.opened ? "Çalışma alanı açıldı." : "Çalışma alanında açılacak öğe yok. Hiçbir öğe açılmadı."; }
   if (action.type === "open_shortcut") { await launchShortcut(action.shortcutId, native); return "Kayıtlı kısayol açıldı."; }
+  if (action.type === "create_media_item") {
+    const loaded = loadMedia(); if (loaded.locked) throw new Error("Koleksiyon kayıtlarına şu anda erişemedim.");
+    const now = Date.now();
+    const status = action.mediaStatus ?? "planned";
+    const entry: MediaItem = {
+      id: crypto.randomUUID(),
+      type: action.mediaType,
+      title: action.title.trim(),
+      status,
+      ...(action.rating !== undefined ? { rating: Math.round(action.rating) } : {}),
+      ...(action.progress ? { progress: action.progress } : {}),
+      ...(action.review ? { review: action.review } : {}),
+      ...(action.year ? { year: action.year } : {}),
+      ...(action.creator ? { creator: action.creator } : {}),
+      ...(status === "completed" ? { completedDate: localDateKey() } : {}),
+      createdAt: now,
+      updatedAt: now,
+    };
+    if (!saveMedia([entry, ...loaded.entries], loaded)) throw new Error("Koleksiyon kaydı kaydedilemedi.");
+    navigate?.({ page: "media" });
+    return "Kayıt Koleksiyon'a eklendi.";
+  }
   if (action.type.includes("study_program")) {
     const loaded = loadStudyPrograms(); if (loaded.locked) throw new Error("Ders programlarına şu anda erişemedim.");
     let entries = loaded.entries;
