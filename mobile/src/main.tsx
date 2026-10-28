@@ -851,7 +851,7 @@ function App() {
   const todayTasks = unfinished.filter(row => {
     const t = row.data as PhoneTask;
     const d = displayedDate(t);
-    return !!d && (d === today || (!t.recurrence && d < today));
+    return !d || d === today || (!t.recurrence && d < today);
   });
 
   // Study programs today
@@ -882,7 +882,9 @@ function App() {
     const dateObj = new Date(y, m - 1, d);
     const dayOfWeek = (dateObj.getDay() + 6) % 7;
     const studyCount = allWeekStudyBlocks.filter(b => b.date === dStr).length;
-    const taskCount = unfinished.filter(t => scheduleDate(t.data as PhoneTask) === dStr).length;
+    const taskCount = dStr === today
+      ? todayTasks.length
+      : unfinished.filter(t => scheduleDate(t.data as PhoneTask) === dStr).length;
     return {
       date: dStr,
       shortLabel: ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"][dayOfWeek],
