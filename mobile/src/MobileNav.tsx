@@ -5,7 +5,7 @@ export type MobileTabId = "today" | "plan" | "media" | "notes" | "send";
 const tabs: { id: MobileTabId; label: string; icon: IconName }[] = [
   { id: "today", label: "Bugün", icon: "checkCircle" },
   { id: "plan", label: "Plan", icon: "calendar" },
-  { id: "media", label: "Günlük", icon: "archive" },
+  { id: "media", label: "Koleksiyon", icon: "archive" },
   { id: "notes", label: "Notlar", icon: "note" },
   { id: "send", label: "Gönder", icon: "send" },
 ];

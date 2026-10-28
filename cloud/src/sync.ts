@@ -19,7 +19,7 @@ export async function mutate(env: Env, actor: Actor, input: unknown, schema = "3
   if(input.kind==="subscriptions"&&!input.deleted&&(input.data as Subscription).id!==input.id)throw new ApiError(400,"Abonelik kimliği geçersiz.");
   if(input.kind==="studyPrograms"&&!input.deleted&&(input.data as {id:string}).id!==input.id)throw new ApiError(400,"Program kimliği geçersiz.");
   if(input.kind==="prayerLogs"&&!input.deleted&&(input.data as {id:string}).id!==input.id)throw new ApiError(400,"Namaz takip kimliği geçersiz.");
-  if(input.kind==="mediaItems"&&!input.deleted&&(input.data as {id:string}).id!==input.id)throw new ApiError(400,"Günlük kimliği geçersiz.");
+  if(input.kind==="mediaItems"&&!input.deleted&&(input.data as {id:string}).id!==input.id)throw new ApiError(400,"Koleksiyon kimliği geçersiz.");
   if(input.kind==="studyAttendance"&&!input.deleted&&(input.data as {id:string}).id!==input.id)throw new ApiError(400,"Ders katılım kimliği geçersiz.");
   const mutation: Mutation = {...input}, requestHash = await hash(JSON.stringify(input));
   const prior = await env.DB.prepare("SELECT actor,request_hash,response FROM mutations WHERE id=?").bind(mutation.mutationId).first<{actor:string;request_hash:string;response:string}>();

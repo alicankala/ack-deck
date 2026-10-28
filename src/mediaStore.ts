@@ -43,10 +43,10 @@ export function loadMedia(): LoadedMedia {
       entries,
       preserved,
       locked: false,
-      ...(preserved.length ? { warning: "Bazı günlük kayıtları okunamadı; kayıtlar korunuyor." } : {}),
+      ...(preserved.length ? { warning: "Bazı koleksiyon kayıtları okunamadı; kayıtlar korunuyor." } : {}),
     };
   } catch {
-    return { entries: [], preserved: [], locked: true, warning: "Medya kayıtları yüklenemedi; mevcut kayıtlar korunuyor." };
+    return { entries: [], preserved: [], locked: true, warning: "Koleksiyon kayıtları yüklenemedi; mevcut kayıtlar korunuyor." };
   }
 }
 

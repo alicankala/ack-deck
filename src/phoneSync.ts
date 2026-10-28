@@ -60,7 +60,7 @@ function replaceRecord<T extends {id:string}>(entries:T[],id:string,next:T|null)
 function apply(record:CloudRecord) {
   if(record.kind==="mediaItems"){
     const loaded=loadMedia();
-    if(!saveMedia(replaceRecord(loaded.entries,record.id,record.deleted?null:record.data as MediaItem),loaded))throw new Error("Günlük kaydı eşitlenemedi; mevcut kayıtlar korunuyor.");
+    if(!saveMedia(replaceRecord(loaded.entries,record.id,record.deleted?null:record.data as MediaItem),loaded))throw new Error("Koleksiyon kaydı eşitlenemedi; mevcut kayıtlar korunuyor.");
   }else if(record.kind==="studyAttendance"){
     if(!applyStudyAttendanceDay(record.id,record.deleted?null:record.data as StudyAttendanceDay))throw new Error("Ders katılım kaydı eşitlenemedi; mevcut kayıtlar korunuyor.");
   }else if(record.kind==="prayerLogs"){

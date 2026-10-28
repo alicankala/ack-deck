@@ -105,7 +105,7 @@ export function MobileMediaTracker({
       {/* Header */}
       <div className="mobile-media-header">
         <div>
-          <h2>🎬 Günlük</h2>
+          <h2>🎬 Koleksiyon</h2>
           <span className="mobile-media-subtitle">Film, Dizi, Kitap, Oyun</span>
         </div>
         <button

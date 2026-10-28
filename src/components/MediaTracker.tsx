@@ -83,11 +83,11 @@ export function MediaTracker() {
   };
 
   return (
-    <section className="media-tracker-page" aria-label="Medya ve Kültür Günlüğü">
+    <section className="media-tracker-page" aria-label="Koleksiyon">
       <header className="feature-heading page-header">
         <div>
-          <h1>Günlük</h1>
-          <p>İzlediğin filmler, diziler, okuduğun kitaplar ve bitirdiğin oyunların kişisel kütüphanesi.</p>
+          <h1>Koleksiyon</h1>
+          <p>İzlediğin filmler, diziler, okuduğun kitaplar ve bitirdiğin oyunların kişisel koleksiyonu.</p>
         </div>
         <button
           type="button"
@@ -166,7 +166,7 @@ export function MediaTracker() {
         {filtered.length === 0 ? (
           <div className="media-empty surface">
             <span className="media-empty-icon" aria-hidden="true">🎬</span>
-            <h3>{items.length === 0 ? "Medya Kütüphanen Henüz Boş" : "Eşleşen Kayıt Bulunamadı"}</h3>
+            <h3>{items.length === 0 ? "Koleksiyonun Henüz Boş" : "Eşleşen Kayıt Bulunamadı"}</h3>
             <p>
               {items.length === 0
                 ? "İzlediğin filmleri, dizileri, okuduğun kitapları ve bitirdiğin oyunları ekleyip puanlayabilir, kişisel notlarını tutabilirsin."

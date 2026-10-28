@@ -321,7 +321,7 @@ export function Dashboard({ refreshMs, onNavigate, onAskAi, targetId }: Props) {
       if (latestMedia.progress?.trim()) detailParts.push(latestMedia.progress.trim());
       if (latestMedia.rating) detailParts.push(`★ ${latestMedia.rating}/10`);
       return {
-        eyebrow: `Son Günlük · ${MEDIA_TYPE_LABELS[latestMedia.type]}`,
+        eyebrow: `Son Koleksiyon · ${MEDIA_TYPE_LABELS[latestMedia.type]}`,
         badge: relativeUseTime(latestMedia.updatedAt, now.getTime()),
         title: `${MEDIA_TYPE_ICONS[latestMedia.type]} ${latestMedia.title}`,
         meta: detailParts.join(" · "),
@@ -343,9 +343,9 @@ export function Dashboard({ refreshMs, onNavigate, onAskAi, targetId }: Props) {
     }
 
     return {
-      eyebrow: "Not & Günlük",
+      eyebrow: "Not & Koleksiyon",
       badge: "Yeni",
-      title: "İlk notunu veya günlüğünü ekle",
+      title: "İlk notunu veya koleksiyonunu ekle",
       meta: "Notlar sekmesini açmak için tıkla",
       icon: "note",
       target: { page: "notes", intent: "new-note" },

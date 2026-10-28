@@ -1,6 +1,6 @@
 # ACKDeck
 
-**Güncel sürüm: 1.7.7** · Uygulama kimliği: `com.alican.ackdeck` · Görsel marka işareti: **ACK**
+**Güncel sürüm: 1.7.8** · Uygulama kimliği: `com.alican.ackdeck` · Görsel marka işareti: **ACK**
 
 **ACKDeck**, Windows masaüstü (**Tauri 2 + Rust + React + TypeScript**) ve mobil **PWA** (**Cloudflare Workers + D1 + Web Push**) olarak çalışan, yerel öncelikli kişisel çalışma ve yaşam merkezidir. Güncellemeler mevcut yerel kayıtları sıfırlamaz ve imzalı paketlerle (`latest.json` + `.sig`) doğrulanır.
 
@@ -13,7 +13,7 @@
 - **Görevler & 3 Durumlu Ders Takibi:** Tarih, saat, öncelik ve hatırlatma destekli görevler; planlanan derslerin doğrudan **Görevler** listesinde yuvarlak durum butonuyla takibi (**1. tık:** *Çalışıldı ✓*, **2. tık:** *Çalışılmadı ✕*, **3. tık:** *Bekliyor ○*).
 - **Aylık & Haftalık Plan:** Tekrarlanan ders programları, görevler ve hatırlatmalar için birleşik takvim görünümü.
 - **Notlar:** Zengin içerikli yerel notlar, sabitleme, ek dosyalar ve anlık arama.
-- **Günlük (Medya Takibi):** Film, dizi, kitap ve oyun takibi (durum, puan, değerlendirme notları) — masaüstü ve mobil arasında **iki yönlü bulut eşitlemeli**.
+- **Koleksiyon (Medya Takibi):** Film, dizi, kitap ve oyun takibi (durum, puan, değerlendirme notları) — masaüstü ve mobil arasında **iki yönlü bulut eşitlemeli**.
 - **Abonelikler:** Aylık/yıllık aboneliklerin ödeme günü ve tutar takibi, yaklaşan ödeme bildirimleri ve isteğe bağlı açılıp kapanabilen özet görünümü.
 - **Projeler, Çalışma Alanları & Araçlar:**
   - Kayıtlı proje klasörlerini doğrudan **File Explorer** veya **VS Code** içinde açma.
@@ -45,7 +45,7 @@
 
 İsteğe bağlı **ACKDeck Mobile**, iOS ve Android ana ekranına eklenebilen gerçek mobil uygulama düzeninde bir **PWA** eşlikçisidir (**Cloudflare Worker + D1 + Web Push**):
 
-- **Çift Yönlü Eşitleme (`Schema v5`):** Görevler, Notlar, Ders Programları, Ders Tamamlama Durumları (`studyAttendance`) ve Günlük (`mediaItems`) kayıtları masaüstü ile mobil arasında iki yönlü eşitlenir.
+- **Çift Yönlü Eşitleme (`Schema v5`):** Görevler, Notlar, Ders Programları, Ders Tamamlama Durumları (`studyAttendance`) ve Koleksiyon (`mediaItems`) kayıtları masaüstü ile mobil arasında iki yönlü eşitlenir.
 - **Gelenler (`Inbox`) & Komutlar:** Telefondan bilgisayara metin, bağlantı, dosya/görsel veya AI taslağı gönderme; kayıtlı çalışma alanlarını uzaktan tetikleme.
 - **Mobil Ana Sayfa Kartları:** Canlı Hava Durumu, Namaz Vakitleri, Yurt Yemek Listesi ve bilgisayar kapalıyken bile çalışan doğrudan **Web Push** hatırlatmaları.
 - Gemini API anahtarı, yerel sohbet geçmişi ve bilgisayar dosya yolları buluta gönderilmez. Kurulum ayrıntıları: [PHONE_SETUP.md](PHONE_SETUP.md).
