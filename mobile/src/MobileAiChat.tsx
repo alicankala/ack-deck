@@ -98,10 +98,10 @@ export function MobileAiChat({ state, online, onNotice, onError }: Props) {
     setSending(true);
 
     try {
-      const res = await api<{ mode: "cloud" | "relay"; reply?: string; queryId?: string }>(
+      const res = await api<{ ok?: boolean; mode: "cloud" | "relay"; reply?: string; queryId?: string }>(
         state,
         "ai/chat",
-        json({ messages: nextMessages, model })
+        json({ prompt: clean, history: messages.slice(-10), messages: nextMessages, model })
       );
 
       if (res.mode === "cloud" && typeof res.reply === "string") {

@@ -2737,6 +2737,8 @@ dialog,
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
   max-height: calc(100vh - 60px);
   overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 .media-editor-header {
   display: flex;
@@ -2800,6 +2802,7 @@ dialog,
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  min-width: 0;
 }
 .editor-field span {
   font-size: 0.8rem;
@@ -2813,11 +2816,15 @@ dialog,
   background: var(--app-surface, #11141b);
   color: #fff;
   font-size: 0.9rem;
+  box-sizing: border-box;
+  max-width: 100%;
 }
 .editor-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 .media-editor-actions {
   display: flex;
@@ -3209,6 +3216,9 @@ dialog,
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--app-border, rgba(255, 255, 255, 0.08));
+  box-sizing: border-box;
+  max-width: 100%;
+  width: 100%;
 }
 .media-preview-poster {
   width: 54px;
@@ -3220,7 +3230,23 @@ dialog,
 }
 .media-preview-fields {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+.media-preview-fields .editor-row {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  gap: 0.65rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+.media-preview-fields .editor-row .editor-field {
+  min-width: 0;
+}
+.media-preview-fields .editor-row input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }

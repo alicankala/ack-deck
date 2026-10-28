@@ -272,16 +272,32 @@ async function handle(request: Request, env: Env): Promise<Response> {
     await ensureSyncTables(env);
     await rate(env, `ai-chat:${actor.id}`, 20, 60);
     const body = await jsonBody(request);
-    if (!object(body) || typeof body.prompt !== "string" || !body.prompt.trim() || body.prompt.length > 4000) {
+    if (!object(body)) throw new ApiError(400, "İstek geçersiz.");
+
+    let prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
+    let history: Array<{ role: "user" | "model"; text: string }> = [];
+
+    if (Array.isArray(body.messages) && body.messages.length > 0) {
+      const msgs = body.messages.filter(
+        (m: any) => object(m) && (m.role === "user" || m.role === "model") && typeof m.text === "string" && m.text.trim(),
+      );
+      const lastUser = [...msgs].reverse().find((m: any) => m.role === "user");
+      if (lastUser && !prompt) prompt = lastUser.text.trim();
+      const lastIdx = msgs.lastIndexOf(lastUser);
+      history = (lastIdx >= 0 ? msgs.slice(0, lastIdx) : msgs).slice(-10);
+    } else if (Array.isArray(body.history)) {
+      history = body.history
+        .filter((m: any) => object(m) && (m.role === "user" || m.role === "model") && typeof m.text === "string")
+        .slice(-10);
+    }
+
+    if (!prompt || prompt.length > 4000) {
       throw new ApiError(400, "Mesaj metni geçersiz.");
     }
-    const modelChoice: "fast" | "powerful" = body.model === "powerful" ? "powerful" : "fast";
-    const rawHistory = Array.isArray(body.history) ? body.history : [];
-    const history = rawHistory
-      .filter((m): m is { role: "user" | "model"; text: string } => object(m) && (m.role === "user" || m.role === "model") && typeof m.text === "string")
-      .slice(-10);
 
-    const direct = await runCloudMobileAiChat(env, body.prompt.trim(), history, modelChoice);
+    const modelChoice: "fast" | "powerful" = body.model === "powerful" ? "powerful" : "fast";
+
+    const direct = await runCloudMobileAiChat(env, prompt, history, modelChoice);
     if (direct) {
       return reply({ ok: true, mode: "cloud", reply: direct.reply, modelUsed: direct.modelUsed });
     }
@@ -299,7 +315,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
     await env.DB.prepare(
       "INSERT INTO ai_queries(id, device_id, prompt, history, model, state, created_at, expires_at) VALUES(?, ?, ?, ?, ?, 'pending', ?, ?)",
     )
-      .bind(queryId, actor.id, body.prompt.trim(), JSON.stringify(history), modelChoice, now, now + 90_000)
+      .bind(queryId, actor.id, prompt, JSON.stringify(history), modelChoice, now, now + 90_000)
       .run();
     return reply({ ok: true, mode: "relay", queryId });
   }

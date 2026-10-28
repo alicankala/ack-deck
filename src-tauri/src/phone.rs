@@ -318,16 +318,18 @@ pub async fn phone_provision_mobile_ai(
         .timeout(Duration::from_secs(25))
         .build()
         .map_err(|_| "Telefon bağlantısı hazırlanamadı.")?;
+    let base_url = config.url.trim_end_matches('/');
     let response = client
-        .post(format!("{}/api/ai/key", config.url))
+        .post(format!("{base_url}/api/ai/key"))
         .header("X-ACKDeck-Schema", "5")
         .bearer_auth(&owner_secret)
         .json(&json!({ "apiKey": gemini_key }))
         .send()
         .await
-        .map_err(|_| "Telefon sunucusuna ulaşılamadı.")?;
+        .map_err(|e| format!("Telefon sunucusuna ulaşılamadı: {e}"))?;
     if !response.status().is_success() {
-        return Err("Mobil ACK AI bulut anahtarı kaydedilemedi.".into());
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!("Mobil ACK AI bulut anahtarı kaydedilemedi: {body}"));
     }
     Ok(())
 }
