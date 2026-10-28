@@ -21,6 +21,7 @@ export function MediaTracker() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<MediaSearchCandidate[]>([]);
   const [searchingMeta, setSearchingMeta] = useState(false);
+  const [searchHasQueried, setSearchHasQueried] = useState(false);
   const suppressNextLookupRef = useRef(false);
 
   useEffect(() => {
@@ -37,10 +38,28 @@ export function MediaTracker() {
     };
   }, []);
 
+  const triggerImmediateLookup = async (forcedQuery?: string) => {
+    if (!editor) return;
+    const q = (forcedQuery ?? editor.title).trim();
+    if (q.length < 2) return;
+    setSearchingMeta(true);
+    try {
+      const res = await searchMediaCatalog(editor.type, q);
+      setSuggestions(res);
+      setSearchHasQueried(true);
+    } catch {
+      setSuggestions([]);
+      setSearchHasQueried(true);
+    } finally {
+      setSearchingMeta(false);
+    }
+  };
+
   useEffect(() => {
     if (!editor) {
       setSuggestions([]);
       setSearchingMeta(false);
+      setSearchHasQueried(false);
       return;
     }
     if (suppressNextLookupRef.current) {
@@ -51,6 +70,7 @@ export function MediaTracker() {
     if (q.length < 2) {
       setSuggestions([]);
       setSearchingMeta(false);
+      setSearchHasQueried(false);
       return;
     }
     const controller = new AbortController();
@@ -58,12 +78,15 @@ export function MediaTracker() {
       setSearchingMeta(true);
       void searchMediaCatalog(editor.type, q, controller.signal)
         .then((res) => {
-          if (!controller.signal.aborted) setSuggestions(res);
+          if (!controller.signal.aborted) {
+            setSuggestions(res);
+            setSearchHasQueried(true);
+          }
         })
         .finally(() => {
           if (!controller.signal.aborted) setSearchingMeta(false);
         });
-    }, 340);
+    }, 380);
     return () => {
       window.clearTimeout(timer);
       controller.abort();
@@ -75,6 +98,7 @@ export function MediaTracker() {
     suppressNextLookupRef.current = true;
     setEditor({
       ...editor,
+      type: (cand.suggestedType as MediaType) || editor.type,
       title: cand.title.slice(0, 160),
       posterUrl: cand.posterUrl || editor.posterUrl || "",
       year: cand.year || editor.year || "",
@@ -82,6 +106,7 @@ export function MediaTracker() {
       progress: editor.progress?.trim() ? editor.progress : (cand.progressHint ?? ""),
     });
     setSuggestions([]);
+    setSearchHasQueried(false);
   };
 
   const commit = (next: MediaItem[]) => {
@@ -360,38 +385,87 @@ export function MediaTracker() {
               </div>
 
               <div className="editor-field media-lookup-wrap">
-                <span>Başlık * {searchingMeta && <small className="media-lookup-status">· Afiş ve bilgi aranıyor…</small>}</span>
-                <input
-                  type="text"
-                  required
-                  autoFocus
-                  value={editor.title}
-                  onChange={(e) => setEditor({ ...editor, title: e.target.value })}
-                  placeholder="İsim yazın (örn. Interstellar, Breaking Bad, Suç ve Ceza, Elden Ring)..."
-                  maxLength={160}
-                />
+                <div className="media-lookup-label-row">
+                  <span>Başlık *</span>
+                  {searchingMeta ? (
+                    <span className="media-lookup-badge is-searching">
+                      <span className="media-mini-spinner" /> Afiş ve bilgi aranıyor…
+                    </span>
+                  ) : suggestions.length > 0 ? (
+                    <span className="media-lookup-badge is-found">
+                      ✨ {suggestions.length} otomatik eşleşme bulundu
+                    </span>
+                  ) : null}
+                </div>
+                <div className="media-lookup-input-group">
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    value={editor.title}
+                    onChange={(e) => {
+                      setSearchHasQueried(false);
+                      setEditor({ ...editor, title: e.target.value });
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void triggerImmediateLookup();
+                      }
+                    }}
+                    placeholder="İsim yazın (örn. Interstellar, Breaking Bad, Suç ve Ceza, Elden Ring)..."
+                    maxLength={160}
+                  />
+                  <button
+                    type="button"
+                    className="media-lookup-btn"
+                    disabled={searchingMeta || editor.title.trim().length < 2}
+                    onClick={() => void triggerImmediateLookup()}
+                    title="Afiş ve bilgileri ara"
+                  >
+                    {searchingMeta ? <span className="media-mini-spinner" /> : "🔍 Ara"}
+                  </button>
+                </div>
+
                 {suggestions.length > 0 && (
                   <div className="media-suggestions-list" role="listbox" aria-label="Otomatik bulunan sonuçlar">
-                    {suggestions.map((cand, idx) => (
-                      <button
-                        type="button"
-                        key={`${cand.title}-${cand.year ?? idx}`}
-                        className="media-suggestion-item"
-                        onClick={() => applyCandidate(cand)}
-                      >
-                        {cand.posterUrl ? (
-                          <img src={cand.posterUrl} alt="" className="media-suggestion-thumb" />
-                        ) : (
-                          <span className="media-suggestion-placeholder">{MEDIA_TYPE_ICONS[editor.type]}</span>
-                        )}
-                        <div className="media-suggestion-meta">
-                          <strong>{cand.title}</strong>
-                          <small>
-                            {[cand.year, cand.creator, cand.progressHint].filter(Boolean).join(" · ") || MEDIA_TYPE_LABELS[editor.type]}
-                          </small>
-                        </div>
-                      </button>
-                    ))}
+                    {suggestions.map((cand, idx) => {
+                      const isCrossType = !!cand.suggestedType && cand.suggestedType !== editor.type;
+                      const displayType = cand.suggestedType || editor.type;
+                      return (
+                        <button
+                          type="button"
+                          key={`${cand.title}-${cand.year ?? idx}-${cand.suggestedType ?? ""}`}
+                          className="media-suggestion-item"
+                          onClick={() => applyCandidate(cand)}
+                        >
+                          {cand.posterUrl ? (
+                            <img src={cand.posterUrl} alt="" className="media-suggestion-thumb" />
+                          ) : (
+                            <span className="media-suggestion-placeholder">{MEDIA_TYPE_ICONS[displayType]}</span>
+                          )}
+                          <div className="media-suggestion-meta">
+                            <div className="media-suggestion-title-row">
+                              <strong>{cand.title}</strong>
+                              {isCrossType && (
+                                <span className="media-cross-tag">
+                                  {MEDIA_TYPE_ICONS[cand.suggestedType!]} {MEDIA_TYPE_LABELS[cand.suggestedType!]}
+                                </span>
+                              )}
+                            </div>
+                            <small>
+                              {[cand.year, cand.creator, cand.progressHint].filter(Boolean).join(" · ") || MEDIA_TYPE_LABELS[displayType]}
+                            </small>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {searchHasQueried && !searchingMeta && suggestions.length === 0 && editor.title.trim().length >= 2 && (
+                  <div className="media-lookup-empty-note">
+                    ℹ️ "{editor.title}" için otomatik afiş bulunamadı. Başlığı kontrol edebilir veya bilgileri aşağıdan elle girebilirsin.
                   </div>
                 )}
               </div>

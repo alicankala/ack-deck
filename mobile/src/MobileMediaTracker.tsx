@@ -30,12 +30,31 @@ export function MobileMediaTracker({
   const [editor, setEditor] = useState<MediaItem | null>(null);
   const [suggestions, setSuggestions] = useState<MediaSearchCandidate[]>([]);
   const [searchingMeta, setSearchingMeta] = useState(false);
+  const [searchHasQueried, setSearchHasQueried] = useState(false);
   const suppressNextLookupRef = useRef(false);
+
+  const triggerImmediateLookup = async (forcedQuery?: string) => {
+    if (!editor) return;
+    const q = (forcedQuery ?? editor.title).trim();
+    if (q.length < 2) return;
+    setSearchingMeta(true);
+    try {
+      const res = await searchMediaCatalog(editor.type, q);
+      setSuggestions(res);
+      setSearchHasQueried(true);
+    } catch {
+      setSuggestions([]);
+      setSearchHasQueried(true);
+    } finally {
+      setSearchingMeta(false);
+    }
+  };
 
   useEffect(() => {
     if (!editor) {
       setSuggestions([]);
       setSearchingMeta(false);
+      setSearchHasQueried(false);
       return;
     }
     if (suppressNextLookupRef.current) {
@@ -46,6 +65,7 @@ export function MobileMediaTracker({
     if (q.length < 2) {
       setSuggestions([]);
       setSearchingMeta(false);
+      setSearchHasQueried(false);
       return;
     }
     const controller = new AbortController();
@@ -53,12 +73,15 @@ export function MobileMediaTracker({
       setSearchingMeta(true);
       void searchMediaCatalog(editor.type, q, controller.signal)
         .then((res) => {
-          if (!controller.signal.aborted) setSuggestions(res);
+          if (!controller.signal.aborted) {
+            setSuggestions(res);
+            setSearchHasQueried(true);
+          }
         })
         .finally(() => {
           if (!controller.signal.aborted) setSearchingMeta(false);
         });
-    }, 340);
+    }, 380);
     return () => {
       window.clearTimeout(timer);
       controller.abort();
@@ -70,6 +93,7 @@ export function MobileMediaTracker({
     suppressNextLookupRef.current = true;
     setEditor({
       ...editor,
+      type: (cand.suggestedType as MediaType) || editor.type,
       title: cand.title.slice(0, 160),
       posterUrl: cand.posterUrl || editor.posterUrl || "",
       year: cand.year || editor.year || "",
@@ -77,6 +101,7 @@ export function MobileMediaTracker({
       progress: editor.progress?.trim() ? editor.progress : (cand.progressHint ?? ""),
     });
     setSuggestions([]);
+    setSearchHasQueried(false);
   };
 
   const items = records
@@ -328,41 +353,95 @@ export function MobileMediaTracker({
               </div>
 
               <div className="mobile-field" style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }}>
-                <span style={{ fontSize: "12px", color: "var(--app-text-muted)" }}>
-                  Başlık * {searchingMeta && <small style={{ color: "#60a5fa" }}>· Aranıyor…</small>}
-                </span>
-                <input
-                  type="text"
-                  required
-                  autoFocus
-                  value={editor.title}
-                  onChange={(e) => setEditor({ ...editor, title: e.target.value })}
-                  placeholder="İsim yazın (otomatik afiş & bilgi)…"
-                  maxLength={160}
-                  style={{ padding: "8px 10px", borderRadius: "8px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff" }}
-                />
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: "12px", color: "var(--app-text-muted)" }}>Başlık *</span>
+                  {searchingMeta ? (
+                    <span style={{ fontSize: "11px", color: "#60a5fa", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                      <span className="media-mini-spinner" style={{ width: 10, height: 10 }} /> Aranıyor…
+                    </span>
+                  ) : suggestions.length > 0 ? (
+                    <span style={{ fontSize: "11px", color: "#4ade80" }}>
+                      ✨ {suggestions.length} eşleşme
+                    </span>
+                  ) : null}
+                </div>
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    value={editor.title}
+                    onChange={(e) => {
+                      setSearchHasQueried(false);
+                      setEditor({ ...editor, title: e.target.value });
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void triggerImmediateLookup();
+                      }
+                    }}
+                    placeholder="İsim yazın (örn. Interstellar, Breaking Bad)..."
+                    maxLength={160}
+                    style={{ flex: 1, padding: "8px 10px", borderRadius: "8px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff" }}
+                  />
+                  <button
+                    type="button"
+                    disabled={searchingMeta || editor.title.trim().length < 2}
+                    onClick={() => void triggerImmediateLookup()}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      border: "1px solid rgba(96, 165, 250, 0.4)",
+                      background: "rgba(96, 165, 250, 0.16)",
+                      color: "#93c5fd",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {searchingMeta ? "⏳" : "🔍 Ara"}
+                  </button>
+                </div>
                 {suggestions.length > 0 && (
                   <div className="mobile-media-suggestions">
-                    {suggestions.map((cand, idx) => (
-                      <button
-                        type="button"
-                        key={`${cand.title}-${cand.year ?? idx}`}
-                        className="mobile-media-suggestion-item"
-                        onClick={() => applyCandidate(cand)}
-                      >
-                        {cand.posterUrl ? (
-                          <img src={cand.posterUrl} alt="" className="mobile-media-suggestion-thumb" />
-                        ) : (
-                          <span className="mobile-media-suggestion-placeholder">{MEDIA_TYPE_ICONS[editor.type]}</span>
-                        )}
-                        <div className="mobile-media-suggestion-info">
-                          <strong>{cand.title}</strong>
-                          <small>
-                            {[cand.year, cand.creator, cand.progressHint].filter(Boolean).join(" · ") || MEDIA_TYPE_LABELS[editor.type]}
-                          </small>
-                        </div>
-                      </button>
-                    ))}
+                    {suggestions.map((cand, idx) => {
+                      const isCrossType = !!cand.suggestedType && cand.suggestedType !== editor.type;
+                      const displayType = cand.suggestedType || editor.type;
+                      return (
+                        <button
+                          type="button"
+                          key={`${cand.title}-${cand.year ?? idx}-${cand.suggestedType ?? ""}`}
+                          className="mobile-media-suggestion-item"
+                          onClick={() => applyCandidate(cand)}
+                        >
+                          {cand.posterUrl ? (
+                            <img src={cand.posterUrl} alt="" className="mobile-media-suggestion-thumb" />
+                          ) : (
+                            <span className="mobile-media-suggestion-placeholder">{MEDIA_TYPE_ICONS[displayType]}</span>
+                          )}
+                          <div className="mobile-media-suggestion-info">
+                            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                              <strong>{cand.title}</strong>
+                              {isCrossType && (
+                                <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "4px", background: "rgba(245, 158, 11, 0.2)", color: "#fbbf24", fontWeight: 700 }}>
+                                  {MEDIA_TYPE_ICONS[cand.suggestedType!]} {MEDIA_TYPE_LABELS[cand.suggestedType!]}
+                                </span>
+                              )}
+                            </div>
+                            <small>
+                              {[cand.year, cand.creator, cand.progressHint].filter(Boolean).join(" · ") || MEDIA_TYPE_LABELS[displayType]}
+                            </small>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {searchHasQueried && !searchingMeta && suggestions.length === 0 && editor.title.trim().length >= 2 && (
+                  <div style={{ fontSize: "11px", color: "var(--app-text-muted)", padding: "4px 6px", background: "rgba(255, 255, 255, 0.04)", borderRadius: "6px" }}>
+                    ℹ️ "{editor.title}" için otomatik afiş bulunamadı. Başlığı kontrol edebilir veya bilgileri aşağıdan elle girebilirsin.
                   </div>
                 )}
               </div>

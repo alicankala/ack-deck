@@ -1,4 +1,5 @@
 import type { MediaSearchCandidate } from "../../shared/mediaSearch";
+import type { MediaType } from "../../shared/media";
 
 function toHttps(url: unknown): string | undefined {
   if (typeof url !== "string" || !url.trim()) return undefined;
@@ -12,64 +13,147 @@ function toHttps(url: unknown): string | undefined {
   }
 }
 
-export async function searchPublicMedia(type: string, query: string, fetcher: typeof fetch = fetch): Promise<MediaSearchCandidate[]> {
+async function searchImdb(
+  q: string,
+  fetcher: typeof fetch,
+): Promise<MediaSearchCandidate[]> {
+  const clean = encodeURIComponent(q.toLowerCase().trim());
+  const url = `https://v3.sg.media-imdb.com/suggestion/x/${clean}.json`;
+  try {
+    const res = await fetcher(url, { signal: AbortSignal.timeout(6000) });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { d?: Array<Record<string, unknown>> };
+    if (!Array.isArray(data?.d)) return [];
+    return data.d
+      .filter((entry) => typeof entry.l === "string")
+      .map((entry) => {
+        const qid = typeof entry.qid === "string" ? entry.qid : "";
+        const qDesc = typeof entry.q === "string" ? entry.q : "";
+        let suggestedType: MediaType | undefined;
+        if (qid === "movie" || qid === "tvMovie" || qid === "short" || qDesc.includes("feature")) {
+          suggestedType = "movie";
+        } else if (qid === "tvSeries" || qid === "tvMiniSeries" || qDesc.includes("series")) {
+          suggestedType = "series";
+        } else if (qid === "videoGame") {
+          suggestedType = "game";
+        }
+
+        const rawImg = (entry.i as { imageUrl?: string } | undefined)?.imageUrl;
+        const posterUrl = rawImg
+          ? toHttps(rawImg.replace(/\._V1_.*\./, "._V1_QL75_UX400."))
+          : undefined;
+
+        const year = typeof entry.yr === "string" && entry.yr
+          ? entry.yr
+          : typeof entry.y === "number" && entry.y > 1800
+          ? String(entry.y)
+          : undefined;
+
+        const creator = typeof entry.s === "string" ? entry.s.slice(0, 140) : undefined;
+
+        return {
+          title: String(entry.l).slice(0, 160),
+          year,
+          creator,
+          posterUrl,
+          suggestedType,
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
+export async function searchPublicMedia(
+  type: string,
+  query: string,
+  fetcher: typeof fetch = fetch,
+): Promise<MediaSearchCandidate[]> {
   const q = query.trim().slice(0, 100);
   if (q.length < 2) return [];
 
-  if (type === "movie") {
-    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=movie&country=tr&limit=6`;
-    const res = await fetcher(url, { signal: AbortSignal.timeout(7000) });
-    if (!res.ok) return [];
-    const data = (await res.json()) as { results?: Array<Record<string, unknown>> };
-    return (data.results ?? [])
-      .filter((r) => typeof r.trackName === "string")
-      .slice(0, 6)
-      .map((r) => {
-        const rawArt = typeof r.artworkUrl100 === "string" ? r.artworkUrl100.replace(/100x100bb/g, "400x400bb") : undefined;
-        const year = typeof r.releaseDate === "string" ? r.releaseDate.slice(0, 4) : undefined;
-        const mins = typeof r.trackTimeMillis === "number" && r.trackTimeMillis > 0 ? `${Math.round(r.trackTimeMillis / 60000)} dk` : undefined;
-        return {
-          title: String(r.trackName).slice(0, 160),
-          year: year && /^\d{4}$/.test(year) ? year : undefined,
-          creator: typeof r.artistName === "string" ? r.artistName.slice(0, 140) : undefined,
-          posterUrl: toHttps(rawArt),
-          progressHint: mins,
-        };
-      });
-  }
+  if (type === "movie" || type === "series") {
+    const imdbItems = await searchImdb(q, fetcher);
 
-  if (type === "series") {
-    const url = `https://api.tvmaze.com/search/shows?q=${encodeURIComponent(q)}`;
-    const res = await fetcher(url, { signal: AbortSignal.timeout(7000) });
-    if (!res.ok) return [];
-    const data = (await res.json()) as Array<{ show?: Record<string, unknown> }>;
-    return (Array.isArray(data) ? data : [])
-      .map((entry) => entry.show)
-      .filter((s): s is Record<string, unknown> => !!s && typeof s.name === "string")
-      .slice(0, 6)
-      .map((show) => {
-        const premiered = typeof show.premiered === "string" ? show.premiered.slice(0, 4) : "";
-        const ended = typeof show.ended === "string" ? show.ended.slice(0, 4) : "";
-        const year = premiered ? (ended && ended !== premiered ? `${premiered}-${ended}` : premiered) : undefined;
-        const imgObj = show.image as { medium?: string; original?: string } | null | undefined;
-        const networkObj = (show.network ?? show.webChannel) as { name?: string } | null | undefined;
-        const genres = Array.isArray(show.genres) ? show.genres.slice(0, 2).join(", ") : "";
-        const creator = [networkObj?.name, genres].filter(Boolean).join(" · ").slice(0, 140) || undefined;
-        const avgRuntime = typeof show.averageRuntime === "number" && show.averageRuntime > 0 ? `~${show.averageRuntime} dk/bölüm` : undefined;
-        return {
-          title: String(show.name).slice(0, 160),
-          year,
-          creator,
-          posterUrl: toHttps(imgObj?.medium ?? imgObj?.original),
-          progressHint: avgRuntime,
-        };
-      });
+    let tvMazeItems: MediaSearchCandidate[] = [];
+    if (type === "series" || imdbItems.length === 0) {
+      try {
+        const tmUrl = `https://api.tvmaze.com/search/shows?q=${encodeURIComponent(q)}`;
+        const res = await fetcher(tmUrl, { signal: AbortSignal.timeout(6000) });
+        if (res.ok) {
+          const data = (await res.json()) as Array<{ show?: Record<string, unknown> }>;
+          tvMazeItems = (Array.isArray(data) ? data : [])
+            .map((entry) => entry.show)
+            .filter((s): s is Record<string, unknown> => !!s && typeof s.name === "string")
+            .slice(0, 5)
+            .map((show) => {
+              const premiered = typeof show.premiered === "string" ? show.premiered.slice(0, 4) : "";
+              const ended = typeof show.ended === "string" ? show.ended.slice(0, 4) : "";
+              const year = premiered ? (ended && ended !== premiered ? `${premiered}-${ended}` : premiered) : undefined;
+              const imgObj = show.image as { medium?: string; original?: string } | null | undefined;
+              const networkObj = (show.network ?? show.webChannel) as { name?: string } | null | undefined;
+              const genres = Array.isArray(show.genres) ? show.genres.slice(0, 2).join(", ") : "";
+              const creator = [networkObj?.name, genres].filter(Boolean).join(" · ").slice(0, 140) || undefined;
+              const avgRuntime = typeof show.averageRuntime === "number" && show.averageRuntime > 0 ? `~${show.averageRuntime} dk/bölüm` : undefined;
+              return {
+                title: String(show.name).slice(0, 160),
+                year,
+                creator,
+                posterUrl: toHttps(imgObj?.original ?? imgObj?.medium),
+                progressHint: avgRuntime,
+                suggestedType: "series" as MediaType,
+              };
+            });
+        }
+      } catch {}
+    }
+
+    // Enrich IMDb items with TVMaze runtime if available
+    for (const item of imdbItems) {
+      if (item.suggestedType === "series" && !item.progressHint) {
+        const tmMatch = tvMazeItems.find((tm) => tm.title.toLowerCase() === item.title.toLowerCase());
+        if (tmMatch?.progressHint) item.progressHint = tmMatch.progressHint;
+      }
+    }
+
+    const combined: MediaSearchCandidate[] = [];
+    const seenTitles = new Set<string>();
+
+    const addCand = (c: MediaSearchCandidate) => {
+      const norm = `${c.title.toLowerCase().trim()}#${c.year ?? ""}`;
+      if (!seenTitles.has(norm)) {
+        seenTitles.add(norm);
+        combined.push(c);
+      }
+    };
+
+    // Pass 1: exact requested type
+    for (const item of imdbItems) {
+      if (item.suggestedType === type) addCand(item);
+    }
+    if (type === "series") {
+      for (const tm of tvMazeItems) addCand(tm);
+    }
+
+    // Pass 2: cross-type matches (e.g. user selected movie but searched Breaking Bad, or vice versa)
+    for (const item of imdbItems) {
+      if (item.suggestedType && item.suggestedType !== type) addCand(item);
+    }
+
+    // Pass 3: untyped franchise/general matches
+    for (const item of imdbItems) {
+      if (!item.suggestedType) addCand(item);
+    }
+
+    if (combined.length > 0) {
+      return combined.slice(0, 6);
+    }
   }
 
   if (type === "book") {
     const gUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=6&printType=books`;
     try {
-      const res = await fetcher(gUrl, { signal: AbortSignal.timeout(7000) });
+      const res = await fetcher(gUrl, { signal: AbortSignal.timeout(6000) });
       if (res.ok) {
         const data = (await res.json()) as { items?: Array<{ volumeInfo?: Record<string, unknown> }> };
         const items = (data.items ?? [])
@@ -87,15 +171,15 @@ export async function searchPublicMedia(type: string, query: string, fetcher: ty
               creator: authors?.slice(0, 140),
               posterUrl: toHttps(imgLinks?.thumbnail ?? imgLinks?.smallThumbnail),
               progressHint: pages,
+              suggestedType: "book" as MediaType,
             };
           });
         }
       }
     } catch {}
 
-    // Fallback to OpenLibrary if Google Books is rate-limited
     const olUrl = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=6`;
-    const olRes = await fetcher(olUrl, { signal: AbortSignal.timeout(7000) });
+    const olRes = await fetcher(olUrl, { signal: AbortSignal.timeout(6000) });
     if (!olRes.ok) return [];
     const olData = (await olRes.json()) as { docs?: Array<Record<string, unknown>> };
     return (olData.docs ?? [])
@@ -112,31 +196,42 @@ export async function searchPublicMedia(type: string, query: string, fetcher: ty
           creator: authors?.slice(0, 140),
           posterUrl: toHttps(coverId),
           progressHint: pages,
+          suggestedType: "book" as MediaType,
         };
       });
   }
 
   if (type === "game") {
-    const url = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(q)}&l=turkish&cc=TR`;
-    const res = await fetcher(url, { signal: AbortSignal.timeout(7000) });
-    if (!res.ok) return [];
-    const data = (await res.json()) as { items?: Array<Record<string, unknown>> };
-    return (data.items ?? [])
-      .filter((i) => typeof i.name === "string")
-      .slice(0, 6)
-      .map((i) => {
-        const appId = typeof i.id === "number" ? i.id : undefined;
-        const headerImg = appId
-          ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}/library_600x900.jpg`
-          : typeof i.tiny_image === "string"
-          ? i.tiny_image
-          : undefined;
-        return {
-          title: String(i.name).slice(0, 160),
-          creator: "Steam",
-          posterUrl: toHttps(headerImg),
-        };
-      });
+    // 1. Steam store search
+    try {
+      const url = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(q)}&l=turkish&cc=TR`;
+      const res = await fetcher(url, { signal: AbortSignal.timeout(6000) });
+      if (res.ok) {
+        const data = (await res.json()) as { items?: Array<Record<string, unknown>> };
+        const items = (data.items ?? []).filter((i) => typeof i.name === "string");
+        if (items.length > 0) {
+          return items.slice(0, 6).map((i) => {
+            const appId = typeof i.id === "number" ? i.id : undefined;
+            const headerImg = appId
+              ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}/library_600x900.jpg`
+              : typeof i.tiny_image === "string"
+              ? i.tiny_image
+              : undefined;
+            return {
+              title: String(i.name).slice(0, 160),
+              creator: "Steam",
+              posterUrl: toHttps(headerImg),
+              suggestedType: "game" as MediaType,
+            };
+          });
+        }
+      }
+    } catch {}
+
+    // 2. IMDb game fallback
+    const imdbItems = await searchImdb(q, fetcher);
+    const gameItems = imdbItems.filter((i) => i.suggestedType === "game");
+    if (gameItems.length > 0) return gameItems.slice(0, 6);
   }
 
   return [];

@@ -6,6 +6,7 @@ export type MediaSearchCandidate = {
   creator?: string;
   posterUrl?: string;
   progressHint?: string;
+  suggestedType?: MediaType;
 };
 
 export async function searchMediaCatalog(

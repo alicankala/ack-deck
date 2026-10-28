@@ -379,5 +379,30 @@ test('cron delivers study program push when PC is off, skips attended blocks, an
   assert.ok(!JSON.stringify((await call('status',undefined,phone,'GET',headers)).data).includes(fakeKey));
   assert.equal((await call('ai/key',undefined,phone,'DELETE',headers)).response.status,200);
   assert.equal((await call('ai/status',undefined,phone,'GET',headers)).data.configured,false);
+
+  // Public media search with IMDb suggestions and cross-type support
+  const mediaMod = await module('src/mediaSearch.ts');
+  const mockFetcher = async (url) => {
+    if (url.includes('breaking%20bad')) {
+      return new Response(JSON.stringify({
+        d: [{ l: 'Breaking Bad', qid: 'tvSeries', yr: '2008-2013', s: 'Bryan Cranston, Aaron Paul', i: { imageUrl: 'https://m.media-amazon.com/test.jpg' } }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (url.includes('interstellar')) {
+      return new Response(JSON.stringify({
+        d: [{ l: 'Interstellar', qid: 'movie', y: 2014, s: 'Matthew McConaughey, Anne Hathaway', i: { imageUrl: 'https://m.media-amazon.com/test2.jpg' } }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    return new Response(JSON.stringify({ d: [] }), { status: 200 });
+  };
+  const movieQueryForSeries = await mediaMod.searchPublicMedia('movie', 'breaking bad', mockFetcher);
+  assert.equal(movieQueryForSeries.length, 1);
+  assert.equal(movieQueryForSeries[0].title, 'Breaking Bad');
+  assert.equal(movieQueryForSeries[0].suggestedType, 'series');
+
+  const movieQuery = await mediaMod.searchPublicMedia('movie', 'interstellar', mockFetcher);
+  assert.equal(movieQuery.length, 1);
+  assert.equal(movieQuery[0].title, 'Interstellar');
+  assert.equal(movieQuery[0].suggestedType, 'movie');
 });
 
