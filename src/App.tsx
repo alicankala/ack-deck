@@ -90,7 +90,7 @@ function App() {
   useEffect(() => { const refresh = () => { const value = loadProjectSnapshot(); setProjectStorage(value); setProjects(value.entries); }; window.addEventListener("ack-data-changed", refresh); return () => window.removeEventListener("ack-data-changed", refresh); }, []);
   useReminders(setNotice);
   useDormMealReminder(setNotice);
-  usePhoneCompanion(restoring, setNotice);
+  usePhoneCompanion(restoring, setNotice, desktop.visible);
   useEffect(() => { const restored = (event: Event) => { const value = loadProjectSnapshot(); setProjectStorage(value); setProjects(value.entries); setPreferences(loadPreferences());  setAiPrompt(undefined); navigate({ page: "settings" }); void getDesktopStatus().then(desktop.setStatus).catch(() => {}); setNotice((event as CustomEvent).detail === "rollback" ? "Geri yükleme tamamlanamadı; önceki kayıtlar geri getirildi." : "Yedek başarıyla geri yüklendi."); }; window.addEventListener("ack-data-restored", restored); return () => window.removeEventListener("ack-data-restored", restored); }, [navigate, desktop.setStatus]);
   function changeProjects(next: Project[]) {
     if (!saveProjects(next, loadProjectSnapshot())) { setNotice("Projeler kaydedilemedi. Mevcut veriler korunuyor."); return false; }

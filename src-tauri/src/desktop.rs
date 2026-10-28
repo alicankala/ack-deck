@@ -133,7 +133,10 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
-            "quit" => app.exit(0),
+            "quit" => {
+                crate::phone::send_offline_beacon(app);
+                app.exit(0);
+            }
             "ai" => show_window(app, Some("ai")),
             "tasks" => show_window(app, Some("new-task")),
             "notes" => show_window(app, Some("new-note")),
@@ -205,6 +208,7 @@ pub fn window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
                 }
             }
             // The hidden palette must not keep the process alive after normal main-window close.
+            crate::phone::send_offline_beacon(&window.app_handle());
             window.app_handle().exit(0);
         }
         tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Focused(true) => {
@@ -342,6 +346,7 @@ pub fn window_close(
             return Ok(());
         }
     }
+    crate::phone::send_offline_beacon(&window.app_handle());
     window.app_handle().exit(0);
     Ok(())
 }

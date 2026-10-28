@@ -5,13 +5,17 @@ import { saveInboxIndex, type InboxReference } from "./productIntelligence";
 import { loadPrayerConfig } from "../shared/prayerTimes";
 import { loadStudyReminders } from "./studyReminderStore";
 
-export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void){
+export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void,visible=true){
   useEffect(()=>{
     let active=true,enabled=false,timer:ReturnType<typeof setInterval>|undefined,heartbeatTimer:ReturnType<typeof setInterval>|undefined,changeTimer:ReturnType<typeof setTimeout>|undefined;
     let inFlight=false,lastErrorAlert=0;
 
-    async function sendHeartbeat(){
-      if(!active||!enabled||paused)return;
+    async function sendHeartbeat(forceOffline=false){
+      if(!active||!enabled)return;
+      if(forceOffline||!visible||paused){
+        try{await phoneRequest("heartbeat",{offline:true});}catch{}
+        return;
+      }
       try{
         const studyRem=loadStudyReminders();
         await phoneRequest("heartbeat",{prayerConfig:loadPrayerConfig(),...(!studyRem.locked?{studyReminders:studyRem.entries}:{})});
@@ -54,7 +58,9 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void)
         pausePhoneSync(paused||!enabled);
         if(enabled&&!paused){
           void sendHeartbeat();
-          heartbeatTimer=setInterval(()=>void sendHeartbeat(),45000);
+          if(visible){
+            heartbeatTimer=setInterval(()=>void sendHeartbeat(),20000);
+          }
           void run();
           timer=setInterval(()=>void run(),30000);
         }
@@ -75,6 +81,14 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void)
     };
     const onWindowFocus=()=>{if(active&&enabled&&!paused){void sendHeartbeat();void run();}};
 
+    const onBeforeUnload = () => {
+      if (enabled) {
+        try {
+          void phoneRequest("heartbeat", { offline: true });
+        } catch {}
+      }
+    };
+
     window.addEventListener("ack-data-restored",restored);
     window.addEventListener("ack-restore-active",pauseForRestore);
     window.addEventListener("ack-phone-configured",configure);
@@ -82,6 +96,7 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void)
     window.addEventListener("ack-data-changed",onDataChanged);
     window.addEventListener("focus",onWindowFocus);
     window.addEventListener("online",run);
+    window.addEventListener("beforeunload",onBeforeUnload);
     void configure();
 
     return()=>{
@@ -97,6 +112,7 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void)
       window.removeEventListener("ack-data-changed",onDataChanged);
       window.removeEventListener("focus",onWindowFocus);
       window.removeEventListener("online",run);
+      window.removeEventListener("beforeunload",onBeforeUnload);
     };
-  },[paused,onError]);
+  },[paused,onError,visible]);
 }

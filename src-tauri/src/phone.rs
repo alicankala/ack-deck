@@ -333,6 +333,27 @@ pub async fn phone_provision_mobile_ai(
     }
     Ok(())
 }
+pub fn send_offline_beacon(app: &tauri::AppHandle) {
+    let Ok(config) = read_config(app) else { return; };
+    if !config.enabled || !valid_url(&config.url) { return; }
+    let Ok(entry) = credential() else { return; };
+    let Ok(secret) = entry.get_password() else { return; };
+    if secret.is_empty() { return; }
+    let base_url = config.url.trim_end_matches('/');
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_millis(1500))
+        .build();
+    if let Ok(client) = client {
+        let req = client
+            .post(format!("{base_url}/api/heartbeat"))
+            .header("X-ACKDeck-Schema", "5")
+            .bearer_auth(&secret)
+            .json(&json!({ "offline": true }));
+        tauri::async_runtime::block_on(async move {
+            let _ = req.send().await;
+        });
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

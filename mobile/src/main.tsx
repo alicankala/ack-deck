@@ -339,15 +339,34 @@ function App() {
     };
   }, []);
 
+  async function checkOnlineStatus() {
+    if (!ref.current.token || document.hidden || !navigator.onLine) return;
+    try {
+      const res = await api<{ online: boolean }>(ref.current, "status");
+      setOnline(res.online);
+    } catch {}
+  }
+
   useEffect(() => {
-    const stop = () => {
-      if (document.hidden && recorder.current && recorder.current.state !== "inactive") {
-        recorder.current.stop();
-        stream.current?.getTracks().forEach(track => track.stop());
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        if (recorder.current && recorder.current.state !== "inactive") {
+          recorder.current.stop();
+          stream.current?.getTracks().forEach(track => track.stop());
+        }
+      } else {
+        void checkOnlineStatus();
       }
     };
-    document.addEventListener("visibilitychange", stop);
-    return () => document.removeEventListener("visibilitychange", stop);
+    const onFocus = () => { void checkOnlineStatus(); };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", onFocus);
+    const poller = setInterval(() => { void checkOnlineStatus(); }, 15000);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", onFocus);
+      clearInterval(poller);
+    };
   }, []);
 
   useEffect(() => {

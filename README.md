@@ -1,6 +1,6 @@
 # ACKDeck
 
-**Güncel sürüm: 1.8.1** · Uygulama kimliği: `com.alican.ackdeck` · Görsel marka işareti: **ACK**
+**Güncel sürüm: 1.8.2** · Uygulama kimliği: `com.alican.ackdeck` · Görsel marka işareti: **ACK**
 
 **ACKDeck**, Windows masaüstü (**Tauri 2 + Rust + React + TypeScript**) ve mobil **PWA** (**Cloudflare Workers + D1 + Web Push**) olarak çalışan, yerel öncelikli kişisel çalışma ve yaşam merkezidir. Güncellemeler mevcut yerel kayıtları sıfırlamaz ve imzalı paketlerle (`latest.json` + `.sig`) doğrulanır.
 

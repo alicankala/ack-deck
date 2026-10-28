@@ -29,6 +29,8 @@ async function rate(env: Env, bucket: string, limit: number, seconds = 60) {
   const result = await env.DB.prepare("INSERT INTO rate_limits(bucket,count,reset_at) VALUES(?,1,?) ON CONFLICT(bucket) DO UPDATE SET count=CASE WHEN reset_at<? THEN 1 ELSE count+1 END,reset_at=CASE WHEN reset_at<? THEN excluded.reset_at ELSE reset_at END RETURNING count").bind(bucket,now+seconds*1000,now,now).first<{count:number}>();
   if (!result || result.count > limit) throw new ApiError(429,"Çok sık istek gönderildi. Biraz sonra tekrar deneyin.");
 }
+const DESKTOP_ONLINE_THRESHOLD_MS = 45_000;
+
 async function handle(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url), path = url.pathname, now = Date.now();
   if (url.protocol !== "https:" && !["localhost","127.0.0.1"].includes(url.hostname)) throw new ApiError(400,"Güvenli bağlantı gereklidir.");
@@ -155,7 +157,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
       try { studyReminders = JSON.parse(pc.study_reminders); } catch {}
     }
     const aiConfigured = await hasEncryptedGeminiKey(env);
-    return reply({ online:now-(pc?.last_seen ?? 0)<150000, notifications:!!notification?.active, vapidPublicKey:env.VAPID_PUBLIC_KEY ?? "", prayerConfig, studyReminders, aiConfigured, now });
+    return reply({ online:now-(pc?.last_seen ?? 0)<DESKTOP_ONLINE_THRESHOLD_MS, notifications:!!notification?.active, vapidPublicKey:env.VAPID_PUBLIC_KEY ?? "", prayerConfig, studyReminders, aiConfigured, now });
   }
   if (path === "/api/pair" && request.method === "POST") {
     owner(actor); const code = randomToken();
@@ -213,6 +215,10 @@ async function handle(request: Request, env: Env): Promise<Response> {
   if (path === "/api/heartbeat" && request.method === "POST") {
     owner(actor);
     const body = await jsonBody(request).catch(() => null);
+    if (body && typeof body === "object" && (body as Record<string, unknown>).offline === true) {
+      await env.DB.prepare("UPDATE desktop_state SET last_seen=0 WHERE id=1").run();
+      return reply({ ok: true });
+    }
     const prayerConfig = body && typeof body === "object" && (body as Record<string, unknown>).prayerConfig && typeof (body as Record<string, unknown>).prayerConfig === "object" ? JSON.stringify((body as Record<string, unknown>).prayerConfig) : null;
     const rawStudy = body && typeof body === "object" && Array.isArray((body as Record<string, unknown>).studyReminders) ? (body as { studyReminders: unknown[] }).studyReminders : null;
     const studyReminders = rawStudy && rawStudy.length <= 200 ? JSON.stringify(rawStudy) : null;
@@ -248,7 +254,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
     await ensureSyncTables(env);
     const pc = await env.DB.prepare("SELECT last_seen FROM desktop_state WHERE id=1").first<{ last_seen: number }>();
     const configured = await hasEncryptedGeminiKey(env);
-    return reply({ configured, desktopOnline: now - (pc?.last_seen ?? 0) < 150000 });
+    return reply({ configured, desktopOnline: now - (pc?.last_seen ?? 0) < DESKTOP_ONLINE_THRESHOLD_MS });
   }
   if (path === "/api/ai/key" && (request.method === "POST" || request.method === "DELETE")) {
     await ensureSyncTables(env);
@@ -303,7 +309,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
     }
 
     const pc = await env.DB.prepare("SELECT last_seen FROM desktop_state WHERE id=1").first<{ last_seen: number }>();
-    const desktopOnline = now - (pc?.last_seen ?? 0) < 150000;
+    const desktopOnline = now - (pc?.last_seen ?? 0) < DESKTOP_ONLINE_THRESHOLD_MS;
     if (!desktopOnline) {
       throw new ApiError(
         400,
@@ -367,7 +373,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
     if (!await env.DB.prepare("SELECT id FROM workspace_mirrors WHERE id=?").bind(body.workspaceId).first()) throw new ApiError(404,"Çalışma alanı bulunamadı.");
     const previous = await env.DB.prepare("SELECT workspace_id,device_id FROM remote_commands WHERE id=?").bind(body.requestId).first<{workspace_id:string;device_id:string}>();
     if(previous && (previous.workspace_id!==body.workspaceId || previous.device_id!==actor.id))throw new ApiError(409,"İstek kimliği daha önce kullanılmış.");
-    const pc = await env.DB.prepare("SELECT last_seen FROM desktop_state WHERE id=1").first<{last_seen:number}>(); const offline = now-(pc?.last_seen ?? 0)>=150000;
+    const pc = await env.DB.prepare("SELECT last_seen FROM desktop_state WHERE id=1").first<{last_seen:number}>(); const offline = now-(pc?.last_seen ?? 0)>=DESKTOP_ONLINE_THRESHOLD_MS;
     await env.DB.prepare("INSERT INTO remote_commands(id,kind,workspace_id,created_at,expires_at,queued_offline,device_id) VALUES(?,'launch_workspace',?,?,?,?,?) ON CONFLICT(id) DO NOTHING").bind(body.requestId,body.workspaceId,now,now+600000,Number(offline),actor.id).run();
     return reply({ ok:true,offline, expiresAt:now+600000 });
   }
