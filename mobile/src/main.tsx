@@ -242,16 +242,23 @@ function App() {
     setState(value);
   }
 
-  async function refresh(value = ref.current) {
+  const lastSyncTimeRef = useRef<number>(Date.now());
+  const resumeTimerRef = useRef<number | null>(null);
+  const RESUME_SYNC_THRESHOLD_MS = 30_000;
+
+  async function refresh(value = ref.current, silent = false) {
     if (!value.token || locked.current) return;
     locked.current = true;
-    setBusy(true);
-    setError("");
+    if (!silent) {
+      setBusy(true);
+      setError("");
+    }
     const startTime = Date.now();
     try {
       const next = await synchronize(value);
       ref.current = next;
       setState(next);
+      lastSyncTimeRef.current = Date.now();
       const [status, list, spaces] = await Promise.all([
         api<{ online: boolean; notifications: boolean; prayerConfig?: PrayerTimesConfig; studyReminders?: { id: string; leadMinutes: number | null }[] }>(next, "status"),
         api<{ items: Inbox[] }>(next, "inbox"),
@@ -269,18 +276,26 @@ function App() {
         setStudyReminders(status.studyReminders);
         try { localStorage.setItem("ack-deck.study-reminders.v1", JSON.stringify(status.studyReminders)); } catch {}
       }
-      const elapsed = Date.now() - startTime;
-      if (elapsed < 350) {
-        await new Promise(r => setTimeout(r, 350 - elapsed));
+      if (!silent) {
+        const elapsed = Date.now() - startTime;
+        if (elapsed < 350) {
+          await new Promise(r => setTimeout(r, 350 - elapsed));
+        }
+        const timeStr = new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        setNotice(next.conflicts.length ? "Eşitleme çakışması var; iki sürüm de korundu." : `Eşitlendi (${timeStr})`);
+      } else if (next.conflicts.length) {
+        setNotice("Eşitleme çakışması var; iki sürüm de korundu.");
       }
-      const timeStr = new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-      setNotice(next.conflicts.length ? "Eşitleme çakışması var; iki sürüm de korundu." : `Eşitlendi (${timeStr})`);
     } catch (e) {
-      setError(navigator.onLine ? e instanceof Error ? e.message : "Eşitleme tamamlanamadı." : "Çevrimdışı — bağlantı gelince eşitlenecek.");
+      if (!silent) {
+        setError(navigator.onLine ? e instanceof Error ? e.message : "Eşitleme tamamlanamadı." : "Çevrimdışı — bağlantı gelince eşitlenecek.");
+      }
       try { const saved = await readState(); ref.current = saved; setState(saved); } catch {}
     } finally {
       locked.current = false;
-      setBusy(false);
+      if (!silent) {
+        setBusy(false);
+      }
     }
   }
 
@@ -346,14 +361,31 @@ function App() {
   }, []);
 
   async function checkOnlineStatus() {
-    if (!ref.current.token || document.hidden || !navigator.onLine) return;
+    if (!ref.current.token || document.hidden || !navigator.onLine || locked.current) return;
     try {
       const res = await api<{ online: boolean }>(ref.current, "status");
       setOnline(res.online);
     } catch {}
   }
 
+  async function handleResumeSync() {
+    if (document.hidden || !ref.current.token || !navigator.onLine) return;
+    const now = Date.now();
+    if (now - lastSyncTimeRef.current >= RESUME_SYNC_THRESHOLD_MS) {
+      await refresh(ref.current, true);
+    } else {
+      await checkOnlineStatus();
+    }
+  }
+
   useEffect(() => {
+    const triggerResumeCheck = () => {
+      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+      resumeTimerRef.current = window.setTimeout(() => {
+        void handleResumeSync();
+      }, 120);
+    };
+
     const onVisibilityChange = () => {
       if (document.hidden) {
         if (recorder.current && recorder.current.state !== "inactive") {
@@ -361,14 +393,15 @@ function App() {
           stream.current?.getTracks().forEach(track => track.stop());
         }
       } else {
-        void checkOnlineStatus();
+        triggerResumeCheck();
       }
     };
-    const onFocus = () => { void checkOnlineStatus(); };
+    const onFocus = () => { triggerResumeCheck(); };
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("focus", onFocus);
     const poller = setInterval(() => { void checkOnlineStatus(); }, 15000);
     return () => {
+      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("focus", onFocus);
       clearInterval(poller);
