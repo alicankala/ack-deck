@@ -1003,14 +1003,6 @@ function App() {
             </div>
           </div>
           <div className="mobile-header-tools">
-            <button
-              type="button"
-              className="mobile-ai-header-pill"
-              onClick={() => { setSendTab("ai"); changePage("send"); }}
-              title="ACK AI Sohbeti"
-            >
-              ✨ AI
-            </button>
             <div className={`mobile-connection-pill ${online ? "online" : ""}`}>
               <span className="pill-dot" />
               <span>{online ? "PC Açık" : "Çevrimdışı"}</span>

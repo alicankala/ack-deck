@@ -2,11 +2,24 @@ import { useEffect } from "react";
 import { configurePhone, phoneRequest, phoneStatus } from "./phoneClient";
 import { synchronizePhone, pausePhoneSync, isPhoneSyncRunning } from "./phoneSync";
 import { saveInboxIndex, type InboxReference } from "./productIntelligence";
+import { loadPrayerConfig } from "../shared/prayerTimes";
+import { loadStudyReminders } from "./studyReminderStore";
 
 export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void){
   useEffect(()=>{
-    let active=true,enabled=false,timer:ReturnType<typeof setInterval>|undefined,changeTimer:ReturnType<typeof setTimeout>|undefined;
+    let active=true,enabled=false,timer:ReturnType<typeof setInterval>|undefined,heartbeatTimer:ReturnType<typeof setInterval>|undefined,changeTimer:ReturnType<typeof setTimeout>|undefined;
     let inFlight=false,lastErrorAlert=0;
+
+    async function sendHeartbeat(){
+      if(!active||!enabled||paused)return;
+      try{
+        const studyRem=loadStudyReminders();
+        await phoneRequest("heartbeat",{prayerConfig:loadPrayerConfig(),...(!studyRem.locked?{studyReminders:studyRem.entries}:{})});
+      }catch(err){
+        console.warn("[ACKDeck Heartbeat]",err);
+      }
+    }
+
     async function run(){
       if(!active||!enabled||paused||inFlight)return;
       inFlight=true;
@@ -37,26 +50,30 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void)
         if(!active)return;
         enabled=status.enabled&&status.configured&&window.localStorage.getItem("ack-deck.phone-restore-review.v1")===null;
         clearInterval(timer);
+        clearInterval(heartbeatTimer);
         pausePhoneSync(paused||!enabled);
         if(enabled&&!paused){
+          void sendHeartbeat();
+          heartbeatTimer=setInterval(()=>void sendHeartbeat(),45000);
           void run();
           timer=setInterval(()=>void run(),30000);
         }
       }catch{
         enabled=false;
         clearInterval(timer);
+        clearInterval(heartbeatTimer);
       }
     }
     const pauseForRestore=(event:Event)=>{if((event as CustomEvent).detail===true)pausePhoneSync(true);};
-    const restored=()=>{pausePhoneSync(true);enabled=false;clearInterval(timer);try{window.localStorage.setItem("ack-deck.phone-restore-review.v1","true");}catch{}void phoneStatus().then(status=>status.enabled?configurePhone(status.url,false):undefined).then(()=>window.dispatchEvent(new Event("ack-phone-configured"))).catch(()=>{});};
-    const onPrayerLogsChanged=()=>{if(active&&enabled&&!paused&&!isPhoneSyncRunning())void run();};
+    const restored=()=>{pausePhoneSync(true);enabled=false;clearInterval(timer);clearInterval(heartbeatTimer);try{window.localStorage.setItem("ack-deck.phone-restore-review.v1","true");}catch{}void phoneStatus().then(status=>status.enabled?configurePhone(status.url,false):undefined).then(()=>window.dispatchEvent(new Event("ack-phone-configured"))).catch(()=>{});};
+    const onPrayerLogsChanged=()=>{if(active&&enabled&&!paused&&!isPhoneSyncRunning()){void sendHeartbeat();void run();}};
     const onDataChanged=()=>{
       if(active&&enabled&&!paused&&!isPhoneSyncRunning()){
         clearTimeout(changeTimer);
         changeTimer=setTimeout(()=>void run(),400);
       }
     };
-    const onWindowFocus=()=>{if(active&&enabled&&!paused)void run();};
+    const onWindowFocus=()=>{if(active&&enabled&&!paused){void sendHeartbeat();void run();}};
 
     window.addEventListener("ack-data-restored",restored);
     window.addEventListener("ack-restore-active",pauseForRestore);
@@ -71,6 +88,7 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void)
       active=false;
       pausePhoneSync(true);
       clearInterval(timer);
+      clearInterval(heartbeatTimer);
       clearTimeout(changeTimer);
       window.removeEventListener("ack-data-restored",restored);
       window.removeEventListener("ack-restore-active",pauseForRestore);
