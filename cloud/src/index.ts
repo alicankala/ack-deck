@@ -72,6 +72,57 @@ async function handle(request: Request, env: Env): Promise<Response> {
       return resp;
     }
   }
+  if (path === "/api/image-proxy" && request.method === "GET") {
+    const rawUrl = url.searchParams.get("url") || "";
+    let parsed: URL;
+    try {
+      parsed = new URL(rawUrl);
+    } catch {
+      const err = reply({ ok: false, error: "Geçersiz URL" }, 400);
+      err.headers.set("Access-Control-Allow-Origin", "*");
+      return err;
+    }
+    const allowedHosts = [
+      "m.media-amazon.com",
+      "images-na.ssl-images-amazon.com",
+      "ia.media-imdb.com",
+      "static.tvmaze.com",
+      "image.tmdb.org",
+      "books.google.com",
+      "covers.openlibrary.org",
+      "images.igdb.com",
+    ];
+    const isAllowed = parsed.protocol === "https:" && allowedHosts.some(h => parsed.hostname === h || parsed.hostname.endsWith("." + h));
+    if (!isAllowed) {
+      const forbidden = reply({ ok: false, error: "İzin verilmeyen görsel kaynağı" }, 403);
+      forbidden.headers.set("Access-Control-Allow-Origin", "*");
+      return forbidden;
+    }
+    try {
+      const imgRes = await fetch(parsed.toString(), {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!imgRes.ok) {
+        const fail = reply({ ok: false, error: "Görsel indirilemedi" }, 502);
+        fail.headers.set("Access-Control-Allow-Origin", "*");
+        return fail;
+      }
+      const contentType = imgRes.headers.get("content-type") || "image/jpeg";
+      const headers = new Headers();
+      headers.set("Content-Type", contentType);
+      headers.set("Cache-Control", "public, max-age=604800, stale-while-revalidate=86400");
+      headers.set("Access-Control-Allow-Origin", "*");
+      return new Response(imgRes.body, { status: 200, headers });
+    } catch {
+      const fail = reply({ ok: false, error: "Görsele ulaşılamadı" }, 502);
+      fail.headers.set("Access-Control-Allow-Origin", "*");
+      return fail;
+    }
+  }
   const origin = request.headers.get("Origin");
   if (origin && origin !== url.origin) throw new ApiError(403,"Bu kaynaktan erişime izin verilmiyor.");
   if (!path.startsWith("/api/")) return secure(await env.ASSETS.fetch(request),false);

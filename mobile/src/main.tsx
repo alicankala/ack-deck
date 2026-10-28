@@ -247,6 +247,7 @@ function App() {
     locked.current = true;
     setBusy(true);
     setError("");
+    const startTime = Date.now();
     try {
       const next = await synchronize(value);
       ref.current = next;
@@ -268,7 +269,12 @@ function App() {
         setStudyReminders(status.studyReminders);
         try { localStorage.setItem("ack-deck.study-reminders.v1", JSON.stringify(status.studyReminders)); } catch {}
       }
-      setNotice(next.conflicts.length ? "Eşitleme çakışması var; iki sürüm de korundu." : "Eşitlendi.");
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 350) {
+        await new Promise(r => setTimeout(r, 350 - elapsed));
+      }
+      const timeStr = new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      setNotice(next.conflicts.length ? "Eşitleme çakışması var; iki sürüm de korundu." : `Eşitlendi (${timeStr})`);
     } catch (e) {
       setError(navigator.onLine ? e instanceof Error ? e.message : "Eşitleme tamamlanamadı." : "Çevrimdışı — bağlantı gelince eşitlenecek.");
       try { const saved = await readState(); ref.current = saved; setState(saved); } catch {}
@@ -935,12 +941,12 @@ function App() {
   const currentHour = new Date().getHours();
   const mobileGreeting =
     currentHour >= 5 && currentHour < 12
-      ? "☀️ Günaydın, Alican"
+      ? "Günaydın, Alican"
       : currentHour >= 12 && currentHour < 18
-      ? "☀️ İyi günler, Alican"
+      ? "İyi günler, Alican"
       : currentHour >= 18 && currentHour < 24
-      ? "🌆 İyi akşamlar, Alican"
-      : "🌙 İyi geceler, Alican";
+      ? "İyi akşamlar, Alican"
+      : "İyi geceler, Alican";
 
   const selectedMobileDateLabel = (() => {
     try {
@@ -1043,26 +1049,9 @@ function App() {
         {/* 1. TODAY TAB (Günün Akışı & Görevler) */}
         {(page === "today" || page === "tasks") && (
           <>
-            {/* Dynamic Greeting Strip with Weather */}
+            {/* Dynamic Greeting Strip */}
             <div className="mobile-greeting-strip">
               <span className="mobile-greeting-title">{mobileGreeting}</span>
-              {weather ? (
-                <button
-                  type="button"
-                  className="mobile-greeting-weather"
-                  onClick={() => setWeatherModalOpen(true)}
-                  title={`${weather.city} Hava Durumu: ${weather.temperature}°C, ${weather.desc} — Detaylar için tıkla`}
-                  style={{ background: "none", border: "none", padding: 0, font: "inherit", cursor: "pointer", textAlign: "right" }}
-                >
-                  <span className="weather-symbol">{weather.symbol}</span>
-                  <span className="weather-text">{weather.city} {weather.temperature}°C · {weather.desc}</span>
-                </button>
-              ) : (
-                <div className="mobile-greeting-weather" title="Hava durumu yükleniyor">
-                  <span className="weather-symbol">🌤️</span>
-                  <span className="weather-text">Karabük yükleniyor…</span>
-                </div>
-              )}
             </div>
 
             {/* Quick Metrics Bar at Top */}
@@ -1241,11 +1230,7 @@ function App() {
 
               {/* Study Blocks & Tasks List for today or selected day */}
               <div className="mobile-tasks-list">
-                {displayedMobileStudyBlocks.length === 0 && tasks.filter(row => {
-                  const t = row.data as PhoneTask;
-                  if (isOccurrenceCompleted(t)) return false;
-                  return t.dueDate === selectedMobileDate || (!t.dueDate && isSelectedMobileToday);
-                }).length === 0 ? (
+                {displayedMobileStudyBlocks.length === 0 && displayedMobileTasks.length === 0 ? (
                   <div className="mobile-tasks-empty">
                     <p>Bu gün için bekleyen görev veya ders bulunmuyor.</p>
                   </div>
@@ -1297,40 +1282,37 @@ function App() {
                         </article>
                       );
                     })}
-                    {tasks
-                      .filter(row => {
-                        const t = row.data as PhoneTask;
-                        if (isOccurrenceCompleted(t)) return false;
-                        return t.dueDate === selectedMobileDate || (!t.dueDate && isSelectedMobileToday);
-                      })
-                      .map(row => {
-                        const task = row.data as PhoneTask;
-                        const isTaskDone = isOccurrenceCompleted(task);
-                        const hasEarlyReminder = Boolean(task.reminder && task.reminderLeadMinutes && task.reminderLeadMinutes > 0);
-                        return (
-                          <article className={`mobile-task-item ${isTaskDone ? "completed" : ""}`} key={row.id}>
-                            <button
-                              type="button"
-                              className="mobile-task-toggle"
-                              disabled={busy}
-                              onClick={() => void complete(row)}
-                              aria-label="Tamamlandı olarak işaretle"
-                            >
-                              {isTaskDone && <Icon name="check" size={12} />}
-                            </button>
-                            <button
-                              type="button"
-                              className="mobile-task-content"
-                              onClick={() => openForm("task", row)}
-                            >
-                              <strong>{task.text}</strong>
-                              <small>
-                                {task.dueTime || (task.dueDate ? task.dueDate.split("-").reverse().join(".") : "Tarihsiz")}
-                                {task.reminder && " · 🔔"}
-                                {hasEarlyReminder && ` · ${task.reminderLeadMinutes} dk önce`}
-                                {task.recurrence && ` · 🔁 ${recurrenceLabel(task.recurrence)}`}
-                              </small>
-                            </button>
+                    {displayedMobileTasks.map(row => {
+                      const task = row.data as PhoneTask;
+                      const isTaskDone = isOccurrenceCompleted(task);
+                      const hasEarlyReminder = Boolean(task.reminder && task.reminderLeadMinutes && task.reminderLeadMinutes > 0);
+                      return (
+                        <article className={`mobile-task-item ${isTaskDone ? "completed" : ""}`} key={row.id}>
+                          <button
+                            type="button"
+                            className="mobile-task-toggle"
+                            disabled={busy}
+                            onClick={() => void complete(row)}
+                            aria-label="Tamamlandı olarak işaretle"
+                          >
+                            {isTaskDone && <Icon name="check" size={12} />}
+                          </button>
+                          <button
+                            type="button"
+                            className="mobile-task-content"
+                            onClick={() => openForm("task", row)}
+                          >
+                            <strong>{task.text}</strong>
+                            <small>
+                              {task.dueTime || (task.dueDate ? task.dueDate.split("-").reverse().join(".") : "Tarihsiz")}
+                              {task.dueDate && task.dueDate < today && (
+                                <span style={{ color: "#f87171", fontWeight: 600 }}> · Tarihi geçti</span>
+                              )}
+                              {task.reminder && " · 🔔"}
+                              {hasEarlyReminder && ` · ${task.reminderLeadMinutes} dk önce`}
+                              {task.recurrence && ` · 🔁 ${recurrenceLabel(task.recurrence)}`}
+                            </small>
+                          </button>
                             <ActionMenu label={task.text + " işlemleri"}>
                               <button disabled={busy} onClick={() => void snooze(row, 15)}>15 dk ertele</button>
                               <button disabled={busy} onClick={() => void snooze(row, 60)}>1 saat ertele</button>

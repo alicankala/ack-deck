@@ -6,6 +6,37 @@ type ChatMsg = {
   text: string;
 };
 
+export type MobileAiThread = {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: ChatMsg[];
+  model?: "fast" | "powerful";
+};
+
+const THREADS_STORAGE_KEY = "ack-deck.mobile-ai-threads.v1";
+
+function loadMobileThreads(): MobileAiThread[] {
+  try {
+    const raw = localStorage.getItem(THREADS_STORAGE_KEY);
+    if (!raw) return [];
+    const list = JSON.parse(raw);
+    if (Array.isArray(list)) {
+      return list.filter((t): t is MobileAiThread => !!t && typeof t.id === "string" && Array.isArray(t.messages));
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+function saveMobileThreads(threads: MobileAiThread[]) {
+  try {
+    localStorage.setItem(THREADS_STORAGE_KEY, JSON.stringify(threads.slice(0, 50)));
+  } catch {}
+}
+
 type Props = {
   state: MobileState;
   online: boolean;
@@ -21,7 +52,16 @@ const QUICK_STARTERS = [
 ];
 
 export function MobileAiChat({ state, online, onNotice, onError }: Props) {
-  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [threads, setThreads] = useState<MobileAiThread[]>(() => loadMobileThreads());
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(() => {
+    const initial = loadMobileThreads();
+    return initial[0]?.id || null;
+  });
+  const [messages, setMessages] = useState<ChatMsg[]>(() => {
+    const initial = loadMobileThreads();
+    return initial[0]?.messages || [];
+  });
+  const [showHistory, setShowHistory] = useState(false);
   const [draft, setDraft] = useState("");
   const [model, setModel] = useState<"fast" | "powerful">("fast");
   const [sending, setSending] = useState(false);
@@ -49,6 +89,37 @@ export function MobileAiChat({ state, online, onNotice, onError }: Props) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, sending]);
+
+  function startNewChat() {
+    setActiveThreadId(null);
+    setMessages([]);
+    setDraft("");
+    setShowHistory(false);
+  }
+
+  function selectThread(id: string) {
+    const thread = threads.find((t) => t.id === id);
+    if (thread) {
+      setActiveThreadId(thread.id);
+      setMessages(thread.messages);
+      if (thread.model) setModel(thread.model);
+      setShowHistory(false);
+    }
+  }
+
+  function deleteThread(id: string) {
+    if (!window.confirm("Bu sohbet silinsin mi?")) return;
+    setThreads((prev) => {
+      const next = prev.filter((t) => t.id !== id);
+      saveMobileThreads(next);
+      return next;
+    });
+    if (activeThreadId === id) {
+      setActiveThreadId(null);
+      setMessages([]);
+    }
+    onNotice("Sohbet silindi.");
+  }
 
   async function saveCloudKey(e: FormEvent) {
     e.preventDefault();
@@ -92,10 +163,57 @@ export function MobileAiChat({ state, online, onNotice, onError }: Props) {
       return;
     }
     onError("");
-    const nextMessages: ChatMsg[] = [...messages, { role: "user" as const, text: clean }].slice(-20);
+    const userMsg: ChatMsg = { role: "user" as const, text: clean };
+    const nextMessages: ChatMsg[] = [...messages, userMsg].slice(-20);
     setMessages(nextMessages);
     setDraft("");
     setSending(true);
+
+    let curThreadId = activeThreadId;
+    if (!curThreadId) {
+      curThreadId = crypto.randomUUID();
+      setActiveThreadId(curThreadId);
+      const newThread: MobileAiThread = {
+        id: curThreadId,
+        title: clean.slice(0, 45).replace(/\s+/g, " "),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        messages: nextMessages,
+        model,
+      };
+      setThreads((prev) => {
+        const next = [newThread, ...prev.filter((t) => t.id !== curThreadId)];
+        saveMobileThreads(next);
+        return next;
+      });
+    } else {
+      setThreads((prev) => {
+        const existing = prev.find((t) => t.id === curThreadId);
+        const updated: MobileAiThread = existing
+          ? { ...existing, updatedAt: Date.now(), messages: nextMessages, model }
+          : { id: curThreadId!, title: clean.slice(0, 45), createdAt: Date.now(), updatedAt: Date.now(), messages: nextMessages, model };
+        const next = [updated, ...prev.filter((t) => t.id !== curThreadId)];
+        saveMobileThreads(next);
+        return next;
+      });
+    }
+
+    const persistReply = (replyText: string) => {
+      const finalMessages: ChatMsg[] = [...nextMessages, { role: "model" as const, text: replyText }];
+      if (mountedRef.current) {
+        setMessages(finalMessages);
+      }
+      setThreads((prev) => {
+        const existing = prev.find((t) => t.id === curThreadId);
+        if (existing) {
+          const updated: MobileAiThread = { ...existing, updatedAt: Date.now(), messages: finalMessages };
+          const next = [updated, ...prev.filter((t) => t.id !== curThreadId)];
+          saveMobileThreads(next);
+          return next;
+        }
+        return prev;
+      });
+    };
 
     try {
       const res = await api<{ ok?: boolean; mode: "cloud" | "relay"; reply?: string; queryId?: string }>(
@@ -105,9 +223,7 @@ export function MobileAiChat({ state, online, onNotice, onError }: Props) {
       );
 
       if (res.mode === "cloud" && typeof res.reply === "string") {
-        if (mountedRef.current) {
-          setMessages((cur) => [...cur, { role: "model", text: res.reply! }]);
-        }
+        persistReply(res.reply);
         return;
       }
 
@@ -120,9 +236,7 @@ export function MobileAiChat({ state, online, onNotice, onError }: Props) {
             "ai/query/" + encodeURIComponent(res.queryId)
           );
           if (poll.status === "done" && poll.reply) {
-            if (mountedRef.current) {
-              setMessages((cur) => [...cur, { role: "model", text: poll.reply! }]);
-            }
+            persistReply(poll.reply);
             return;
           }
           if (poll.status === "error") {
@@ -141,25 +255,38 @@ export function MobileAiChat({ state, online, onNotice, onError }: Props) {
   }
 
   const readyModeLabel = cloudKeyConfigured
-    ? "☁️ 7/24 Bulut AI Hazır"
+    ? "☁️ 7/24 Bulut"
     : online
-      ? "💻 PC Üzerinden Canlı"
-      : "🔑 PC Kapalı — Anahtar Gerekli";
+      ? "💻 PC Canlı"
+      : "🔑 7/24 Aç";
 
   return (
     <section className="mobile-ai-chat-card" aria-label="Mobil ACK AI Sohbeti">
       <div className="mobile-ai-topbar">
         <div className="mobile-ai-status-row">
-          <span className={`mobile-ai-mode-badge ${cloudKeyConfigured || online ? "is-ready" : "is-warn"}`}>
-            {readyModeLabel}
-          </span>
           <button
             type="button"
-            className="mobile-ai-key-btn"
-            onClick={() => setShowKeySetup((v) => !v)}
+            className={`mobile-ai-mode-badge ${cloudKeyConfigured || online ? "is-ready" : "is-warn"}`}
+            onClick={() => {
+              setShowKeySetup((v) => !v);
+              setShowHistory(false);
+            }}
+            title={cloudKeyConfigured ? "7/24 Bulut Anahtarı Yönetimi için tıkla" : "7/24 Bulut Yapılandırması"}
           >
-            {cloudKeyConfigured ? "🔑 7/24 Ayarı" : "🔑 7/24 Aç"}
+            {readyModeLabel}
           </button>
+          {!cloudKeyConfigured && !online && (
+            <button
+              type="button"
+              className="mobile-ai-key-btn"
+              onClick={() => {
+                setShowKeySetup((v) => !v);
+                setShowHistory(false);
+              }}
+            >
+              🔑 7/24 Aç
+            </button>
+          )}
         </div>
         <div className="mobile-ai-controls">
           <select
@@ -172,18 +299,76 @@ export function MobileAiChat({ state, online, onNotice, onError }: Props) {
             <option value="fast">⚡ Hızlı</option>
             <option value="powerful">🧠 Güçlü</option>
           </select>
-          {messages.length > 0 && (
+          <button
+            type="button"
+            className={`mobile-ai-history-btn ${showHistory ? "is-active" : ""}`}
+            onClick={() => {
+              setShowHistory((v) => !v);
+              setShowKeySetup(false);
+            }}
+            title={`Geçmiş Sohbetler (${threads.length})`}
+          >
+            📜 Geçmiş
+          </button>
+          {(messages.length > 0 || activeThreadId) && (
             <button
               type="button"
               className="mobile-ai-clear-btn"
               disabled={sending}
-              onClick={() => setMessages([])}
+              onClick={startNewChat}
+              title="Yeni sohbet başlat"
             >
-              Yeni
+              + Yeni
             </button>
           )}
         </div>
       </div>
+
+      {showHistory && (
+        <div className="mobile-ai-history-drawer">
+          <div className="mobile-ai-history-header">
+            <strong>Geçmiş Sohbetler ({threads.length})</strong>
+            <button
+              type="button"
+              className="mobile-ai-new-thread-btn"
+              onClick={startNewChat}
+            >
+              + Yeni Sohbet
+            </button>
+          </div>
+          {threads.length === 0 ? (
+            <p className="mobile-ai-history-empty">Henüz kaydedilmiş sohbet yok.</p>
+          ) : (
+            <div className="mobile-ai-history-list">
+              {threads.map((t) => (
+                <div
+                  key={t.id}
+                  className={`mobile-ai-history-item ${t.id === activeThreadId ? "is-active" : ""}`}
+                >
+                  <button
+                    type="button"
+                    className="mobile-ai-history-item-main"
+                    onClick={() => selectThread(t.id)}
+                  >
+                    <span className="mobile-ai-history-item-title">{t.title || "İsimsiz Sohbet"}</span>
+                    <span className="mobile-ai-history-item-meta">
+                      {new Date(t.updatedAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {t.messages.length} mesaj
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="mobile-ai-history-item-del"
+                    aria-label="Sohbeti sil"
+                    onClick={() => deleteThread(t.id)}
+                  >
+                    🗑️
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {showKeySetup && (
         <div className="mobile-ai-key-drawer">

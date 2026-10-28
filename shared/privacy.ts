@@ -9,7 +9,7 @@ const credentialPatterns = () => [
 export function hasCredentials(text:string):boolean { return credentialPatterns().some(pattern=>pattern.test(text)); }
 export function redactSecrets(text:string):string { for(const pattern of credentialPatterns())text=text.replace(pattern,"[gizli anahtar]");return text; }
 export function scrubPrivateText(text:string):string {
-  return redactSecrets(text).replace(/(?:[A-Za-z]:[\\/]|\\\\[^\\/\s]+[\\/])[^\r\n<>"'|;,]*/g,"[yerel konum]");
+  return redactSecrets(text).replace(/(?:\b[A-Za-z]:[\\/]|\\\\[^\\/\s]+[\\/])[^\r\n<>"'|;,]*/g,"[yerel konum]");
 }
 export function scrubSync<T>(value:T):T {
   if(typeof value==="string")return scrubPrivateText(value) as T;

@@ -48,3 +48,24 @@ export async function searchMediaCatalog(
   }
   return [];
 }
+
+export function proxyPosterUrl(url?: string): string | undefined {
+  if (!url || typeof url !== "string") return undefined;
+  if (
+    url.startsWith("https://") &&
+    (url.includes("media-amazon.com") ||
+      url.includes("ssl-images-amazon.com") ||
+      url.includes("imdb.com") ||
+      url.includes("tvmaze.com") ||
+      url.includes("tmdb.org") ||
+      url.includes("books.google.com") ||
+      url.includes("openlibrary.org"))
+  ) {
+    const loc = (globalThis as { location?: { hostname?: string } }).location;
+    const isWorkersOrigin = Boolean(loc?.hostname?.endsWith(".workers.dev"));
+    return isWorkersOrigin
+      ? `/api/image-proxy?url=${encodeURIComponent(url)}`
+      : `https://ack-deck-phone.ack-deck-cloud.workers.dev/api/image-proxy?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+}

@@ -8,8 +8,40 @@ import {
   MEDIA_STATUS_LABELS,
   newMediaItem,
 } from "../../shared/media";
-import { searchMediaCatalog, type MediaSearchCandidate } from "../../shared/mediaSearch";
+import { searchMediaCatalog, proxyPosterUrl, type MediaSearchCandidate } from "../../shared/mediaSearch";
 import type { CloudRecord, Mutation } from "../../shared/phone";
+
+function MobileMediaPoster({
+  url,
+  title,
+  type,
+  className = "mobile-media-poster",
+}: {
+  url?: string;
+  title: string;
+  type: MediaType;
+  className?: string;
+}) {
+  const [loadFailed, setLoadFailed] = useState(false);
+  const src = !loadFailed && url ? proxyPosterUrl(url) : null;
+  if (!src) {
+    return (
+      <div className="mobile-media-poster-placeholder" aria-hidden="true">
+        <span>{MEDIA_TYPE_ICONS[type]}</span>
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={title}
+      className={className}
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setLoadFailed(true)}
+    />
+  );
+}
 
 export function MobileMediaTracker({
   records,
@@ -274,17 +306,7 @@ export function MobileMediaTracker({
               }}
             >
               <div className="mobile-media-card-row">
-                {item.posterUrl && (
-                  <img
-                    src={item.posterUrl}
-                    alt={item.title}
-                    className="mobile-media-poster"
-                    loading="lazy"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
-                )}
+                <MobileMediaPoster url={item.posterUrl} title={item.title} type={item.type} />
                 <div className="mobile-media-card-main">
                   <div className="mobile-media-card-top">
                     <span className="type-badge">
@@ -417,7 +439,7 @@ export function MobileMediaTracker({
                           onClick={() => applyCandidate(cand)}
                         >
                           {cand.posterUrl ? (
-                            <img src={cand.posterUrl} alt="" className="mobile-media-suggestion-thumb" />
+                            <img src={proxyPosterUrl(cand.posterUrl)} alt="" className="mobile-media-suggestion-thumb" referrerPolicy="no-referrer" />
                           ) : (
                             <span className="mobile-media-suggestion-placeholder">{MEDIA_TYPE_ICONS[displayType]}</span>
                           )}
@@ -449,17 +471,17 @@ export function MobileMediaTracker({
               {(editor.posterUrl || editor.year || editor.creator) && (
                 <div className="mobile-media-preview-box">
                   {editor.posterUrl && (
-                    <img src={editor.posterUrl} alt="" className="mobile-media-preview-poster" />
+                    <img src={proxyPosterUrl(editor.posterUrl)} alt="" className="mobile-media-preview-poster" referrerPolicy="no-referrer" />
                   )}
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: "6px" }}>
+                  <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "6px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "72px 1fr", gap: "6px" }}>
                       <input
                         type="text"
                         value={editor.year ?? ""}
                         onChange={(e) => setEditor({ ...editor, year: e.target.value })}
                         placeholder="Yıl"
                         maxLength={24}
-                        style={{ padding: "6px 8px", borderRadius: "7px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff", fontSize: "12px" }}
+                        style={{ width: "100%", boxSizing: "border-box", minWidth: 0, padding: "6px 8px", borderRadius: "7px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff", fontSize: "12px" }}
                       />
                       <input
                         type="text"
@@ -467,7 +489,7 @@ export function MobileMediaTracker({
                         onChange={(e) => setEditor({ ...editor, creator: e.target.value })}
                         placeholder="Yönetmen / Yazar / Stüdyo"
                         maxLength={160}
-                        style={{ padding: "6px 8px", borderRadius: "7px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff", fontSize: "12px" }}
+                        style={{ width: "100%", boxSizing: "border-box", minWidth: 0, padding: "6px 8px", borderRadius: "7px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff", fontSize: "12px" }}
                       />
                     </div>
                     {editor.posterUrl && (

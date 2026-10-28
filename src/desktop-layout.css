@@ -3032,6 +3032,18 @@ dialog,
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.04);
 }
+.media-card-poster-placeholder {
+  width: 64px;
+  height: 92px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.02);
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  user-select: none;
+}
 .media-card-info {
   flex: 1;
   min-width: 0;

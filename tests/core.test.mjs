@@ -114,6 +114,12 @@ test('tasks, notes, backups, and privacy boundaries keep local data safe and cre
 
   const secret = 'AIza' + 'X'.repeat(35);
   assert.equal(privacy.redactSecrets(`Key: ${secret}`).includes(secret), false);
+  const testUrl = 'https://m.media-amazon.com/images/M/MV5BMTcxNDI0NzUxMF5BMl5BanBnXkFtZTcwOTIzMjkyNw@@._V1_QL75_UX400.jpg';
+  assert.equal(privacy.scrubPrivateText(testUrl), testUrl);
+  assert.equal(privacy.scrubPrivateText('C:\\Users\\Alican\\test.txt'), '[yerel konum]');
+  assert.equal(privacy.scrubPrivateText('D:/Projects/ack-deck'), '[yerel konum]');
+  const mediaModule = env.load('../shared/media');
+  assert.equal(mediaModule.validMediaItem({ id: 'm1', type: 'movie', title: 'Safe', status: 'completed', posterUrl: testUrl, createdAt: 100, updatedAt: 100 }), true);
 
   // Test recurring completion, uncompletion and sorting in completed filter
   const rec = env.load('../shared/recurrence');

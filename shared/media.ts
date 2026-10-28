@@ -71,7 +71,7 @@ const safeMediaText = (value: unknown, max: number, required = false): value is 
   value.length <= max &&
   (!required || !!value.trim()) &&
   !hasCredentials(value) &&
-  !/[A-Za-z]:[\\/]|\\\\/.test(value);
+  !/(?:\b[A-Za-z]:[\\/]|\\\\)/.test(value);
 
 const safeTimestamp = (value: unknown): value is number =>
   typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= 8.64e15;

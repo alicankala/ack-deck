@@ -45,7 +45,7 @@ function localTask(record:CloudRecord):Task {
 }
 function snapshot():Map<string, {kind:Kind;id:string;data:PhoneTask|PhoneNote|Subscription|PhoneProject|StudyProgram|PrayerLogDay|MediaItem|StudyAttendanceDay}> {
   const tasks=loadTasks(),notes=loadNotes(),subscriptions=loadSubscriptions(),projects=loadProjectSnapshot(),programs=loadStudyPrograms(),prayerLogs=loadPrayerLogs(),media=loadMedia(),attendance=loadStudyAttendanceSnapshot();if(media.locked||attendance.locked||prayerLogs.locked||programs.locked||tasks.locked||notes.error||subscriptions.locked||projects.locked)throw new Error("Görev veya not kayıtları okunamadı; eşitleme durduruldu.");
-  const safeText=(s:string)=>/[A-Za-z]:[\\/]|\\\\/.test(s)?"":s;
+  const safeText=(s:string)=>/(?:\b[A-Za-z]:[\\/]|\\\\)/.test(s)?"":s;
   const attendanceDays=groupStudyAttendanceByDay(attendance.map);
   return new Map([...media.entries.map(data=>({kind:"mediaItems" as const,id:data.id,data})),...attendanceDays.map(data=>({kind:"studyAttendance" as const,id:data.id,data})),...prayerLogs.entries.map(data=>({kind:"prayerLogs" as const,id:data.id,data})),...programs.entries.map(data=>({kind:"studyPrograms" as const,id:data.id,data})),...projects.entries.map(p=>({kind:"projects" as const,id:p.id,data:{name:safeText(p.name)||"Proje",description:safeText(p.description),nextStep:safeText(p.nextStep??""),workspaceId:p.workspaceId??null,inboxIds:p.inboxIds??[]}})),...tasks.entries.map(task=>({kind:"tasks" as const,id:task.id,data:phoneTask(task)})),...subscriptions.entries.map(data=>({kind:"subscriptions" as const,id:data.id,data})),...notes.notes.map(note=>({kind:"notes" as const,id:note.id,data:{...productMetadata(note),...(note.attachments?{attachments:note.attachments}:{}),title:note.title,content:note.content,updatedAt:note.updatedAt}}))].map(item=>[key(item.kind,item.id),{...item,data:scrubSync(item.data)}]));
 }
@@ -74,7 +74,7 @@ function apply(record:CloudRecord) {
   }else if(record.kind==="projects"){
     if(!record.deleted&&!validProject(record.data))throw new Error("Bulut projesi geçersiz.");
     const loaded=loadProjectSnapshot(),previous=loaded.entries.find(p=>p.id===record.id),data=record.data as PhoneProject;
-    const localOnly=previous?Object.fromEntries(["name","description","nextStep"].filter(key=>/[A-Za-z]:[\\/]|\\\\/.test(String(previous[key as keyof typeof previous]??""))).map(key=>[key,previous[key as keyof typeof previous]])):{};
+    const localOnly=previous?Object.fromEntries(["name","description","nextStep"].filter(key=>/(?:\b[A-Za-z]:[\\/]|\\\\)/.test(String(previous[key as keyof typeof previous]??""))).map(key=>[key,previous[key as keyof typeof previous]])):{};
     const next=record.deleted?null:{...previous,id:record.id,folderPath:previous?.folderPath??"",...data,...localOnly};
     if(!saveProjects(replaceRecord(loaded.entries,record.id,next),loaded))throw new Error("Proje eşitlenemedi.");
   }else if(record.kind==="tasks"){

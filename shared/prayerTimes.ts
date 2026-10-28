@@ -1,4 +1,4 @@
-import { Coordinates, CalculationMethod, PrayerTimes, Madhab } from "adhan";
+import { Coordinates, CalculationMethod, PrayerTimes } from "adhan";
 
 export type PrayerTimesConfig = {
   city: string;
@@ -73,7 +73,9 @@ export function calculatePrayerTimes(
 ): PrayerDayInfo {
   const coords = new Coordinates(lat, lng);
   const params = CalculationMethod.Turkey();
-  params.madhab = Madhab.Hanafi;
+  // Diyanet İşleri Başkanlığı takvimlerinde ikindi için Asr-ı Evvel (gölge boyu 1:1, varsayılan)
+  // kullanılır; ikindi, akşam ve yatsı vakitlerine +1 dakika resmi temkin payı uygulanır.
+  params.adjustments = { fajr: 0, sunrise: 0, dhuhr: 0, asr: 1, maghrib: 1, isha: 1 };
   const pt = new PrayerTimes(coords, date, params);
 
   const items: PrayerItem[] = [

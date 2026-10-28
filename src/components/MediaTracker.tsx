@@ -8,7 +8,7 @@ import {
   MEDIA_STATUS_LABELS,
   newMediaItem,
 } from "../../shared/media";
-import { searchMediaCatalog, type MediaSearchCandidate } from "../../shared/mediaSearch";
+import { searchMediaCatalog, proxyPosterUrl, type MediaSearchCandidate } from "../../shared/mediaSearch";
 import { loadMedia, saveMedia } from "../mediaStore";
 
 export function MediaTracker() {
@@ -272,16 +272,21 @@ export function MediaTracker() {
           filtered.map((item) => (
             <article key={item.id} className="surface media-card">
               <div className="media-card-body-row">
-                {item.posterUrl && (
+                {item.posterUrl ? (
                   <img
-                    src={item.posterUrl}
+                    src={proxyPosterUrl(item.posterUrl)}
                     alt={item.title}
                     className="media-card-poster"
                     loading="lazy"
+                    referrerPolicy="no-referrer"
                     onError={(e) => {
                       e.currentTarget.style.display = "none";
                     }}
                   />
+                ) : (
+                  <div className="media-card-poster-placeholder" aria-hidden="true">
+                    <span>{MEDIA_TYPE_ICONS[item.type]}</span>
+                  </div>
                 )}
                 <div className="media-card-info">
                   <div className="media-card-top">
@@ -440,7 +445,7 @@ export function MediaTracker() {
                           onClick={() => applyCandidate(cand)}
                         >
                           {cand.posterUrl ? (
-                            <img src={cand.posterUrl} alt="" className="media-suggestion-thumb" />
+                            <img src={proxyPosterUrl(cand.posterUrl)} alt="" className="media-suggestion-thumb" referrerPolicy="no-referrer" />
                           ) : (
                             <span className="media-suggestion-placeholder">{MEDIA_TYPE_ICONS[displayType]}</span>
                           )}
@@ -473,7 +478,7 @@ export function MediaTracker() {
               {(editor.posterUrl || editor.year || editor.creator) && (
                 <div className="media-selected-meta-preview">
                   {editor.posterUrl && (
-                    <img src={editor.posterUrl} alt="" className="media-preview-poster" />
+                    <img src={proxyPosterUrl(editor.posterUrl)} alt="" className="media-preview-poster" referrerPolicy="no-referrer" />
                   )}
                   <div className="media-preview-fields">
                     <div className="editor-row">

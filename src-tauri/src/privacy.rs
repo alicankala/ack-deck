@@ -10,7 +10,7 @@ pub(crate) fn has_credentials(text: &str) -> bool { patterns().iter().any(|patte
 pub(crate) fn scrub(text: &str) -> String {
     let mut value = text.to_string();
     for pattern in patterns() { value=pattern.replace_all(&value,"[gizli anahtar]").into_owned(); }
-    regex::Regex::new(r#"(?:[A-Za-z]:[\\/]|\\\\[^\\/\s]+[\\/])[^\r\n<>"'|;,]*"#).unwrap().replace_all(&value,"[yerel konum]").into_owned()
+    regex::Regex::new(r#"(?:\b[A-Za-z]:[\\/]|\\\\[^\\/\s]+[\\/])[^\r\n<>"'|;,]*"#).unwrap().replace_all(&value,"[yerel konum]").into_owned()
 }
 fn context_value(value: &mut Value) {
     match value {
@@ -33,6 +33,9 @@ pub(crate) fn unsafe_sync(value: &Value) -> bool {
         assert!(has_credentials("Bearer abcdefghijklmnop"));
         assert!(has_credentials("-----BEGIN PRIVATE KEY-----\nfixture\n-----END PRIVATE KEY-----"));
         assert!(!has_credentials("Normal Türkçe görev"));
+        let poster_url = "https://m.media-amazon.com/images/M/MV5BMTcxNDI0NzUxMF5BMl5BanBnXkFtZTcwOTIzMjkyNw@@._V1_QL75_UX400.jpg";
+        assert_eq!(scrub(poster_url), poster_url);
+        assert!(!unsafe_sync(&serde_json::json!({"posterUrl": poster_url})));
         assert!(!context(&serde_json::json!({"name":"Örnek","folderPath":r"C:\private","target":r"\\server\private"}).to_string()).contains("private"));
     }
 }
