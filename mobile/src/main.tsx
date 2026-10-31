@@ -948,6 +948,62 @@ function App() {
     ? todayTasks
     : unfinished.filter(r => scheduleDate(r.data as PhoneTask) === selectedMobileDate);
 
+  type TaskFilter = "all" | "today" | "upcoming" | "undated" | "completed";
+  const mobileTaskFilters: [TaskFilter, string][] = [
+    ["all", "Aktif"],
+    ["today", "Bugün"],
+    ["upcoming", "Yaklaşan"],
+    ["undated", "Tarihsiz"],
+    ["completed", "Tamamlanan"],
+  ];
+  const [mobileTaskFilter, setMobileTaskFilter] = useState<TaskFilter>("all");
+
+  const filteredCardTasks = tasks.filter(row => {
+    const task = row.data as PhoneTask;
+    const isDone = isOccurrenceCompleted(task);
+    if (mobileTaskFilter === "completed") return isDone;
+    if (isDone) return false;
+    const taskDate = task.recurrence
+      ? scheduleDate(task, new Date(today + "T12:00:00").getTime())
+      : task.dueDate;
+    if (mobileTaskFilter === "all") return true;
+    if (mobileTaskFilter === "today") return !!taskDate && taskDate <= today;
+    if (mobileTaskFilter === "upcoming") return !!taskDate && taskDate > today;
+    if (mobileTaskFilter === "undated") return !taskDate;
+    return true;
+  });
+
+  const sortedCardTasks = [...filteredCardTasks].sort((aRow, bRow) => {
+    const a = aRow.data as PhoneTask;
+    const b = bRow.data as PhoneTask;
+    if (mobileTaskFilter === "completed") {
+      return completedTaskSortTime(b) - completedTaskSortTime(a);
+    }
+    const aDate = (a.recurrence ? scheduleDate(a) : a.dueDate) || "9999-99-99";
+    const bDate = (b.recurrence ? scheduleDate(b) : b.dueDate) || "9999-99-99";
+    const dateDiff = aDate.localeCompare(bDate);
+    if (dateDiff !== 0) return dateDiff;
+    const aTime = a.dueTime || "99:99";
+    const bTime = b.dueTime || "99:99";
+    const timeDiff = aTime.localeCompare(bTime);
+    if (timeDiff !== 0) return timeDiff;
+    return a.text.localeCompare(b.text, "tr");
+  });
+
+  const shownCardLessons = mobileTaskFilter === "all" || mobileTaskFilter === "today"
+    ? todayStudyBlocks
+    : mobileTaskFilter === "upcoming"
+    ? allWeekStudyBlocks.filter(b => b.date > today)
+    : mobileTaskFilter === "completed"
+    ? allWeekStudyBlocks.filter(b => Boolean(attendance[b.id]?.status)).sort((a, b) => (attendance[b.id]?.at ?? 0) - (attendance[a.id]?.at ?? 0))
+    : [];
+
+  const remainingTasksCount = tasks.filter(row => !isOccurrenceCompleted(row.data as PhoneTask)).length;
+  const remainingLessonsCount = todayStudyBlocks.filter(b => !attendance[b.id]?.status).length;
+  const totalRemainingCount = remainingTasksCount + remainingLessonsCount;
+  const totalCompletedTasksCount = tasks.filter(row => isOccurrenceCompleted(row.data as PhoneTask)).length;
+  const todayAttendedLessonsCount = todayStudyBlocks.filter(b => attendance[b.id]?.status === "attended").length;
+
   type MobileTimelineItem =
     | {
         kind: "study";
@@ -1251,7 +1307,7 @@ function App() {
               </div>
             </section>
 
-            {/* Dedicated Görevler Card */}
+            {/* Dedicated Görevler Card matching desktop logic */}
             <section className="mobile-tasks-card surface" aria-label="Görevler">
               <div className="mobile-tasks-header">
                 <div className="mobile-tasks-title-group">
@@ -1261,16 +1317,16 @@ function App() {
                   <div>
                     <h3 className="mobile-tasks-title">Görevler</h3>
                     <p className="mobile-tasks-subtitle">
-                      {displayedMobileTasks.filter(r => !isOccurrenceCompleted(r.data as PhoneTask)).length} bekleyen görev
-                      {displayedMobileStudyBlocks.length > 0 && ` · ${displayedMobileStudyBlocks.filter(b => !attendance[b.id]?.status).length}/${displayedMobileStudyBlocks.length} ders`}
+                      Yapılacaklarını ve derslerini tek yerden takip et.
                     </p>
                   </div>
                 </div>
                 <div className="mobile-tasks-actions">
+                  <span className="mobile-remaining-pill">{totalRemainingCount} KALDI</span>
                   <button
                     className="primary-action-round"
                     type="button"
-                    onClick={() => { openForm("task"); if (!isSelectedMobileToday) setDate(selectedMobileDate); }}
+                    onClick={() => { openForm("task"); if (mobileTaskFilter === "today") setDate(today); }}
                     title="Görev Ekle"
                   >
                     +
@@ -1278,15 +1334,30 @@ function App() {
                 </div>
               </div>
 
-              {/* Study Blocks & Tasks List for today or selected day */}
+              {/* Filter Tabs matching desktop [Aktif | Bugün | Yaklaşan | Tarihsiz | Tamamlanan] */}
+              <div className="mobile-task-filters" role="group" aria-label="Görev filtresi">
+                {mobileTaskFilters.map(([key, label]) => (
+                  <button
+                    type="button"
+                    key={key}
+                    className={`mobile-task-filter-btn ${mobileTaskFilter === key ? "is-active" : ""}`}
+                    aria-pressed={mobileTaskFilter === key}
+                    onClick={() => setMobileTaskFilter(key)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Study Blocks & Tasks List */}
               <div className="mobile-tasks-list">
-                {displayedMobileStudyBlocks.length === 0 && displayedMobileTasks.length === 0 ? (
+                {shownCardLessons.length === 0 && sortedCardTasks.length === 0 ? (
                   <div className="mobile-tasks-empty">
-                    <p>Bu gün için bekleyen görev veya ders bulunmuyor.</p>
+                    <p>{tasks.length === 0 ? "Henüz kayıtlı görev bulunmuyor." : "Bu filtrede görev veya ders bulunmuyor."}</p>
                   </div>
                 ) : (
                   <>
-                    {displayedMobileStudyBlocks.map(block => {
+                    {shownCardLessons.map(block => {
                       const att = attendance[block.id];
                       const status = att?.status;
                       return (
@@ -1314,7 +1385,7 @@ function App() {
                           >
                             <strong>{block.label}{block.topic ? ` · ${block.topic}` : ""}</strong>
                             <small>
-                              {block.time} – {block.endTime}
+                              📚 Ders · {block.date === today ? "Bugün" : block.date.split("-").reverse().join(".")} · {block.time} – {block.endTime}
                               {status === "attended" ? (
                                 <span className="study-att-inline is-attended">
                                   {" · ✓ Çalışıldı"}{formatCompletedTime(att?.at) ? ` (${formatCompletedTime(att?.at)})` : ""}
@@ -1332,7 +1403,7 @@ function App() {
                         </article>
                       );
                     })}
-                    {displayedMobileTasks.map(row => {
+                    {sortedCardTasks.map(row => {
                       const task = row.data as PhoneTask;
                       const isTaskDone = isOccurrenceCompleted(task);
                       const hasEarlyReminder = Boolean(task.reminder && task.reminderLeadMinutes && task.reminderLeadMinutes > 0);
@@ -1354,43 +1425,62 @@ function App() {
                           >
                             <strong>{task.text}</strong>
                             <small>
-                              {task.dueTime || (task.dueDate ? task.dueDate.split("-").reverse().join(".") : "Tarihsiz")}
-                              {task.dueDate && task.dueDate < today && (
+                              {isTaskDone && (
+                                <span style={{ color: "var(--app-accent, #38bdf8)", fontWeight: 600 }}>
+                                  {formatCompletedTime(task.lastCompletedAt) ? `✓ ${formatCompletedTime(task.lastCompletedAt)} · ` : "✓ Tamamlandı · "}
+                                </span>
+                              )}
+                              {task.recurrence
+                                ? recurrenceLabel(task.recurrence)
+                                : task.dueDate
+                                ? (task.dueDate === today ? "Bugün" : task.dueDate.split("-").reverse().join("."))
+                                : "Tarihsiz"}
+                              {task.dueTime && " · " + task.dueTime}
+                              {!isTaskDone && !task.recurrence && task.dueDate && task.dueDate < today && (
                                 <span style={{ color: "#f87171", fontWeight: 600 }}> · Tarihi geçti</span>
                               )}
+                              {task.recurrence && " · " + (scheduleDate(task)?.split("-").reverse().join(".") ?? "")}
                               {task.reminder && " · 🔔"}
                               {hasEarlyReminder && ` · ${task.reminderLeadMinutes} dk önce`}
-                              {task.recurrence && ` · 🔁 ${recurrenceLabel(task.recurrence)}`}
+                              {task.snoozedUntil && " · Ertelendi"}
                             </small>
                           </button>
-                            <ActionMenu label={task.text + " işlemleri"}>
-                              <button disabled={busy} onClick={() => void snooze(row, 15)}>15 dk ertele</button>
-                              <button disabled={busy} onClick={() => void snooze(row, 60)}>1 saat ertele</button>
-                              <button
-                                disabled={busy}
-                                className="danger-action"
-                                onClick={() => {
-                                  if (confirm("Bu görev silinsin mi?")) {
-                                    void saveMutation({ mutationId: crypto.randomUUID(), kind: "tasks", id: row.id, baseVersion: row.version, data: null, deleted: true })
-                                      .then(() => setUndo({ row, expires: Date.now() + 10000 }))
-                                      .catch(e => setError(e.message));
-                                  }
-                                }}
-                              >
-                                Görevi sil
-                              </button>
-                            </ActionMenu>
-                          </article>
-                        );
-                      })}
+                          <ActionMenu label={task.text + " işlemleri"}>
+                            <button disabled={busy} onClick={() => void snooze(row, 15)}>15 dk ertele</button>
+                            <button disabled={busy} onClick={() => void snooze(row, 60)}>1 saat ertele</button>
+                            <button
+                              disabled={busy}
+                              className="danger-action"
+                              onClick={() => {
+                                if (confirm("Bu görev silinsin mi?")) {
+                                  void saveMutation({ mutationId: crypto.randomUUID(), kind: "tasks", id: row.id, baseVersion: row.version, data: null, deleted: true })
+                                    .then(() => setUndo({ row, expires: Date.now() + 10000 }))
+                                    .catch(e => setError(e.message));
+                                }
+                              }}
+                            >
+                              Görevi sil
+                            </button>
+                          </ActionMenu>
+                        </article>
+                      );
+                    })}
                   </>
                 )}
               </div>
 
-              {/* Completed Tasks Accordion */}
-              {tasks.filter(row => isOccurrenceCompleted(row.data as PhoneTask)).length > 0 && (
+              {/* Bottom statistics matching desktop */}
+              <div className="mobile-tasks-footer-stats">
+                <span>
+                  • {tasks.length} görevden {totalCompletedTasksCount} tanesi tamamlandı
+                  {todayStudyBlocks.length > 0 && ` · Bugün ${todayAttendedLessonsCount}/${todayStudyBlocks.length} ders işlendi`}
+                </span>
+              </div>
+
+              {/* Completed Tasks Quick Accordion (only if not on 'completed' filter) */}
+              {mobileTaskFilter !== "completed" && totalCompletedTasksCount > 0 && (
                 <details className="mobile-completed-accordion" style={{ marginTop: "0.85rem" }}>
-                  <summary>Tamamlananlar ({tasks.filter(row => isOccurrenceCompleted(row.data as PhoneTask)).length})</summary>
+                  <summary>Tamamlananlar ({totalCompletedTasksCount})</summary>
                   <div className="mobile-completed-list">
                     {tasks
                       .filter(row => isOccurrenceCompleted(row.data as PhoneTask))
