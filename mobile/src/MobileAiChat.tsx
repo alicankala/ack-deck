@@ -53,14 +53,8 @@ const QUICK_STARTERS = [
 
 export function MobileAiChat({ state, online, onNotice, onError }: Props) {
   const [threads, setThreads] = useState<MobileAiThread[]>(() => loadMobileThreads());
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(() => {
-    const initial = loadMobileThreads();
-    return initial[0]?.id || null;
-  });
-  const [messages, setMessages] = useState<ChatMsg[]>(() => {
-    const initial = loadMobileThreads();
-    return initial[0]?.messages || [];
-  });
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [draft, setDraft] = useState("");
   const [model, setModel] = useState<"fast" | "powerful">("fast");

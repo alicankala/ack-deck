@@ -218,6 +218,11 @@ function App() {
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     };
     const resize = () => {
+      if (dialog.classList.contains("note-editor")) {
+        dialog.style.height = "100dvh";
+        dialog.style.top = "0px";
+        return;
+      }
       const vh = window.visualViewport?.height ?? window.innerHeight;
       const vt = window.visualViewport?.offsetTop ?? 0;
       dialog.style.height = `${vh}px`;
@@ -1414,7 +1419,7 @@ function App() {
                             className="mobile-task-toggle"
                             disabled={busy}
                             onClick={() => void complete(row)}
-                            aria-label="Tamamlandı olarak işaretle"
+                            aria-label={isTaskDone ? "Görevi yeniden aç" : "Tamamlandı olarak işaretle"}
                           >
                             {isTaskDone && <Icon name="check" size={12} />}
                           </button>
@@ -1445,9 +1450,25 @@ function App() {
                               {task.snoozedUntil && " · Ertelendi"}
                             </small>
                           </button>
+                          {isTaskDone && (
+                            <button
+                              type="button"
+                              className="mobile-task-reopen-btn"
+                              disabled={busy}
+                              onClick={() => void complete(row)}
+                            >
+                              Yeniden Aç
+                            </button>
+                          )}
                           <ActionMenu label={task.text + " işlemleri"}>
-                            <button disabled={busy} onClick={() => void snooze(row, 15)}>15 dk ertele</button>
-                            <button disabled={busy} onClick={() => void snooze(row, 60)}>1 saat ertele</button>
+                            {isTaskDone ? (
+                              <button disabled={busy} onClick={() => void complete(row)}>Yeniden Aç</button>
+                            ) : (
+                              <>
+                                <button disabled={busy} onClick={() => void snooze(row, 15)}>15 dk ertele</button>
+                                <button disabled={busy} onClick={() => void snooze(row, 60)}>1 saat ertele</button>
+                              </>
+                            )}
                             <button
                               disabled={busy}
                               className="danger-action"
@@ -1476,31 +1497,6 @@ function App() {
                   {todayStudyBlocks.length > 0 && ` · Bugün ${todayAttendedLessonsCount}/${todayStudyBlocks.length} ders işlendi`}
                 </span>
               </div>
-
-              {/* Completed Tasks Quick Accordion (only if not on 'completed' filter) */}
-              {mobileTaskFilter !== "completed" && totalCompletedTasksCount > 0 && (
-                <details className="mobile-completed-accordion" style={{ marginTop: "0.85rem" }}>
-                  <summary>Tamamlananlar ({totalCompletedTasksCount})</summary>
-                  <div className="mobile-completed-list">
-                    {tasks
-                      .filter(row => isOccurrenceCompleted(row.data as PhoneTask))
-                      .sort((a, b) => completedTaskSortTime(b.data as PhoneTask) - completedTaskSortTime(a.data as PhoneTask))
-                      .map(row => (
-                        <article key={row.id} className="mobile-completed-item">
-                          <div style={{ flex: 1 }}>
-                            <p style={{ margin: 0 }}>{(row.data as PhoneTask).text}</p>
-                            {formatCompletedTime((row.data as PhoneTask).lastCompletedAt) && (
-                              <small style={{ color: "var(--app-accent, #60a5fa)", fontSize: "11px", display: "block", marginTop: "2px", fontWeight: 550 }}>
-                                ✓ {formatCompletedTime((row.data as PhoneTask).lastCompletedAt)}
-                              </small>
-                            )}
-                          </div>
-                          <button disabled={busy} onClick={() => void complete(row)}>Yeniden Aç</button>
-                        </article>
-                      ))}
-                  </div>
-                </details>
-              )}
             </section>
 
             {/* Namaz Vakitleri Kartı */}
