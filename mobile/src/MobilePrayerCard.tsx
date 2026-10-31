@@ -12,6 +12,7 @@ import {
   type TrackedPrayerName,
   type PrayerStatus,
 } from "../../shared/prayerTimes";
+import { PrayerGuideModal } from "../../src/components/PrayerGuideModal";
 import type { CloudRecord, Mutation } from "../../shared/phone";
 
 const dateKey = (date = new Date()) =>
@@ -44,6 +45,7 @@ export function MobilePrayerCard({
   const [noteDraft, setNoteDraft] = useState("");
   const [showStats, setShowStats] = useState(false);
   const [showCompletedNotes, setShowCompletedNotes] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   useEffect(() => {
     function handleConfigChange() {
@@ -191,6 +193,14 @@ export function MobilePrayerCard({
               {info.nextPrayer.label}: <strong>{formatRemainingTime(info.timeToNextMs)}</strong>
             </span>
           ) : null}
+          <button
+            type="button"
+            className="mobile-prayer-guide-btn"
+            onClick={() => setShowGuide(true)}
+            title="Namaz Kılavuzu: Kamet, Ayet-el Kürsi, rekatlar ve zamm-ı sureler"
+          >
+            📖 Rehber
+          </button>
           <button
             type="button"
             className="mobile-prayer-stats-btn"
@@ -390,6 +400,8 @@ export function MobilePrayerCard({
           </form>
         </div>
       </div>
+
+      {showGuide && <PrayerGuideModal onClose={() => setShowGuide(false)} />}
     </article>
   );
 }

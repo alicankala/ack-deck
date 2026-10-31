@@ -184,6 +184,26 @@ test('prayer times calculate daily schedule, kerahat status, and pending notific
   assert.ok(reminders.some(r => r.id.startsWith('prayer:fajr:')));
   assert.ok(reminders.some(r => r.id.startsWith('prayer-lead:15:fajr:')));
   assert.ok(reminders.every(r => r.dueAt > morning.getTime()));
+
+  // Test prayer guide catalog data (kamet, ayetel kursi, rakats, and surahs)
+  const guide = env.load('../shared/prayerGuideData');
+  assert.equal(guide.PRAYER_GUIDE_ITEMS.length, 5);
+  const fajr = guide.PRAYER_GUIDE_ITEMS.find(p => p.id === 'fajr');
+  assert.equal(fajr.totalRakats, 4);
+  assert.equal(fajr.sections[1].hasKametBefore, true);
+
+  assert.ok(guide.KAMET_INFO.turkishReading.includes('Kad kâmeti\'s-Salâh'));
+  const ayatelKursi = guide.TESBIHAT_INFO.steps.find(s => s.isAyatelKursi);
+  assert.ok(ayatelKursi);
+  assert.ok(ayatelKursi.turkishReading.includes('Allâhü lâ ilâhe illâ hüve\'l-hayyü\'l-kayyûm'));
+
+  assert.ok(guide.ZAMMI_SURELER.length >= 10);
+  assert.ok(guide.ZAMMI_SURELER.some(s => s.id === 'fil'));
+  assert.ok(guide.ZAMMI_SURELER.some(s => s.id === 'kevser'));
+  assert.ok(guide.ZAMMI_SURELER.some(s => s.id === 'ihlas'));
+
+  assert.ok(guide.NAMAZ_DUALARI.some(d => d.id === 'subhaneke'));
+  assert.ok(guide.NAMAZ_DUALARI.some(d => d.id === 'kunut_1'));
 });
 
 test('unlimited storage proxy bypasses 5MB localStorage quota, 3-way note merge resolves non-overlapping lines, and ACK AI reads Koleksiyon & study attendance', async () => {

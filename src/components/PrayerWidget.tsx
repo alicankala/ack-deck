@@ -12,6 +12,7 @@ import {
   type TrackedPrayerName,
   type PrayerStatus,
 } from "../../shared/prayerTimes";
+import { PrayerGuideModal } from "./PrayerGuideModal";
 import "./prayerTimes.css";
 
 function shiftDate(dateStr: string, deltaDays: number): string {
@@ -36,6 +37,7 @@ export function PrayerWidget() {
   const [noteDraft, setNoteDraft] = useState("");
   const [showStats, setShowStats] = useState(false);
   const [showCompletedNotes, setShowCompletedNotes] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [, setTick] = useState(0);
 
   useEffect(() => {
@@ -175,14 +177,24 @@ export function PrayerWidget() {
             <small className="prayer-city-label">{info.city}</small>
           </div>
         </div>
-        <button
-          type="button"
-          className="prayer-stats-toggle"
-          onClick={() => setShowStats(v => !v)}
-          title="Namaz takip geçmişi ve istatistikler"
-        >
-          {prayedTodayCount}/5 Kılındı {showStats ? "▴" : "▾"}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <button
+            type="button"
+            className="prayer-guide-btn"
+            onClick={() => setShowGuide(true)}
+            title="Namaz kılavuzu: Kamet, Ayet-el Kürsi, rekatlar ve zamm-ı sureler"
+          >
+            📖 Namaz Rehberi
+          </button>
+          <button
+            type="button"
+            className="prayer-stats-toggle"
+            onClick={() => setShowStats(v => !v)}
+            title="Namaz takip geçmişi ve istatistikler"
+          >
+            {prayedTodayCount}/5 Kılındı {showStats ? "▴" : "▾"}
+          </button>
+        </div>
       </div>
 
       {/* Kerahat Alert Bar */}
@@ -392,6 +404,8 @@ export function PrayerWidget() {
           </form>
         </div>
       </div>
+
+      {showGuide && <PrayerGuideModal onClose={() => setShowGuide(false)} />}
     </section>
   );
 }

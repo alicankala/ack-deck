@@ -462,6 +462,25 @@ body:has(.editor) nav { visibility: hidden; }
   font-size: 11px;
   color: var(--app-muted);
 }
+.mobile-prayer-guide-btn {
+  min-height: 28px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+.mobile-prayer-guide-btn:active {
+  background: rgba(245, 158, 11, 0.25);
+  transform: scale(0.96);
+}
 .mobile-prayer-stats-btn {
   min-height: 28px;
   padding: 3px 8px;
@@ -4309,3 +4328,648 @@ body:has(.editor) nav { visibility: hidden; }
   color: var(--app-on-accent, #fff);
   border: none;
 }
+
+/* ==========================================================================
+   Mobil Namaz Rehberi & Kılavuzu (PrayerGuideModal)
+   ========================================================================== */
+
+.prayer-guide-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  animation: mobilePrayerFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes mobilePrayerFadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.prayer-guide-modal {
+  width: 100%;
+  max-width: 600px;
+  max-height: 92dvh;
+  background: var(--app-surface-elevated, #161e27);
+  border-top: 1px solid var(--app-border-strong, #2c4257);
+  border-radius: 22px 22px 0 0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+  color: var(--app-text, #f1f5f9);
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+.prayer-guide-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--app-border, #243547);
+  background: rgba(15, 23, 42, 0.5);
+  flex-shrink: 0;
+}
+
+.prayer-guide-title-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.prayer-guide-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.prayer-guide-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.prayer-guide-subtitle {
+  margin: 1px 0 0;
+  font-size: 11px;
+  color: var(--app-muted, #94a3b8);
+}
+
+.prayer-guide-close {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--app-border, #243547);
+  color: var(--app-muted, #94a3b8);
+  font-size: 14px;
+  width: 32px;
+  height: 32px;
+  min-height: 32px !important;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.prayer-guide-search-wrap {
+  position: relative;
+  padding: 10px 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid var(--app-border, #243547);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.prayer-guide-search-icon {
+  position: absolute;
+  left: 28px;
+  font-size: 13px;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.prayer-guide-search-input {
+  width: 100%;
+  background: var(--app-field, rgba(13, 19, 28, 0.8));
+  border: 1px solid var(--app-border, #243547);
+  border-radius: 10px;
+  padding: 8px 30px 8px 34px !important;
+  font-size: 13px;
+  color: #fff;
+  min-height: 38px !important;
+  box-sizing: border-box;
+}
+
+.prayer-guide-search-clear {
+  position: absolute;
+  right: 26px;
+  background: none;
+  border: none;
+  color: var(--app-muted, #94a3b8);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.prayer-guide-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(15, 23, 42, 0.35);
+  border-bottom: 1px solid var(--app-border, #243547);
+  overflow-x: auto;
+  white-space: nowrap;
+  flex-shrink: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.prayer-tab-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--app-border, #243547);
+  border-radius: 999px;
+  color: var(--app-muted, #94a3b8);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px !important;
+  min-height: 30px !important;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.prayer-tab-btn.is-active {
+  background: var(--app-accent-soft, rgba(56, 189, 248, 0.16));
+  border-color: var(--app-accent, #38bdf8);
+  color: var(--app-accent, #38bdf8);
+}
+
+.prayer-guide-content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Banner */
+.prayer-rule-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-left: 3px solid var(--app-accent, #38bdf8);
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #e2e8f0;
+}
+
+.prayer-rule-banner .banner-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.prayer-rule-banner p {
+  margin: 3px 0 0;
+  color: var(--app-secondary, #cbd5e1);
+}
+
+/* Prayer Selection Bar */
+.prayer-choice-bar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.prayer-choice-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 2px !important;
+  min-height: 44px !important;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--app-border, #243547);
+  color: var(--app-muted, #94a3b8);
+  cursor: pointer;
+}
+
+.prayer-choice-pill strong {
+  font-size: 12px;
+  color: #fff;
+}
+
+.prayer-choice-pill small {
+  font-size: 10.5px;
+}
+
+.prayer-choice-pill.is-selected {
+  background: rgba(56, 189, 248, 0.14);
+  border-color: var(--app-accent, #38bdf8);
+}
+
+.prayer-choice-pill.is-selected strong {
+  color: var(--app-accent, #38bdf8);
+}
+
+/* Selected Prayer Card */
+.selected-prayer-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--app-border, #243547);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.selected-prayer-title {
+  margin: 0;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.total-rakat-tag {
+  background: var(--app-accent-soft, rgba(56, 189, 248, 0.14));
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: var(--app-accent, #38bdf8);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.selected-prayer-time {
+  font-size: 11.5px;
+  color: var(--app-muted, #94a3b8);
+}
+
+.selected-prayer-desc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--app-secondary, #cbd5e1);
+}
+
+.sub-heading {
+  margin: 0 0 5px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.prayer-breakdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.prayer-section-row {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--app-border, #243547);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.section-main-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.section-main-info strong {
+  font-size: 13px;
+}
+
+.type-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.type-badge.is-sunnah,
+.type-badge.is-last_sunnah {
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.3);
+}
+
+.type-badge.is-fard {
+  background: rgba(52, 211, 153, 0.18);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+}
+
+.type-badge.is-wajib {
+  background: rgba(251, 191, 36, 0.18);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.kamet-alert-inline {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.section-note {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--app-muted, #94a3b8);
+  line-height: 1.4;
+}
+
+/* Steps Box */
+.prayer-steps-box {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--app-border, #243547);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.steps-ordered-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--app-secondary, #cbd5e1);
+  line-height: 1.45;
+}
+
+.steps-ordered-list li.step-highlight-kamet {
+  color: #fde047;
+  font-weight: 700;
+  background: rgba(245, 158, 11, 0.12);
+  padding: 2px 5px;
+  border-radius: 5px;
+}
+
+/* Guide Cards (Kamet & Tesbihat) */
+.guide-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--app-border, #243547);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.guide-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.guide-card-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.guide-card-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.guide-card-badge {
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.guide-rule-box {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--app-border, #243547);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.guide-rule-box p {
+  margin: 2px 0 0;
+  color: var(--app-secondary, #cbd5e1);
+}
+
+.timing-hint {
+  margin-top: 4px !important;
+  color: var(--app-accent, #38bdf8) !important;
+}
+
+/* Dual Reading Grid */
+.dual-reading-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.text-column {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--app-border, #243547);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.column-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--app-accent, #38bdf8);
+  text-transform: uppercase;
+}
+
+.meaning-col .column-label {
+  color: #34d399;
+}
+
+.reading-text,
+.meaning-text {
+  margin: 0;
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #f1f5f9;
+}
+
+.meaning-text {
+  color: #cbd5e1;
+}
+
+.arabic-text {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--app-border, #243547);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 1.2rem;
+  line-height: 1.9;
+  text-align: right;
+  color: #f8fafc;
+  font-family: "Amiri", "Traditional Arabic", serif;
+}
+
+/* Tesbihat step card */
+.tesbihat-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tesbihat-step-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--app-border, #243547);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tesbihat-step-card.is-ayatel-kursi {
+  background: rgba(245, 158, 11, 0.05);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.08);
+}
+
+.ayatel-kursi-badge {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 11.5px;
+  color: #fde047;
+}
+
+.ayatel-kursi-badge p {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: #fef08a;
+  line-height: 1.4;
+}
+
+.step-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.step-card-title {
+  font-size: 13px;
+  color: #fff;
+}
+
+.step-card-timing {
+  font-size: 11px;
+  color: var(--app-muted, #94a3b8);
+}
+
+/* Surah & Dua Card (Accordion) */
+.surahs-list,
+.duas-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.surah-card {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--app-border, #243547);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.surah-card-summary {
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 9px 12px !important;
+  min-height: 40px !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+}
+
+.surah-title-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.surah-title-meta strong {
+  font-size: 13px;
+}
+
+.surah-badge {
+  font-size: 10px;
+  font-weight: 650;
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--app-accent, #38bdf8);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.surah-toggle-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.expand-chevron {
+  font-size: 12px;
+  color: var(--app-muted, #94a3b8);
+}
+
+.surah-card-details {
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  padding-top: 8px;
+}
+
+.search-results-info {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--app-accent, #38bdf8);
+  margin-bottom: 6px;
+}
+
+.search-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.search-group-title {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #94a3b8;
+  border-bottom: 1px solid var(--app-border, #243547);
+  padding-bottom: 3px;
+}
+
+.prayer-empty-search {
+  text-align: center;
+  padding: 24px 10px;
+  color: var(--app-muted, #94a3b8);
+  font-size: 13px;
+}
+
