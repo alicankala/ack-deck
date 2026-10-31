@@ -219,8 +219,11 @@ function App() {
     };
     const resize = () => {
       if (dialog.classList.contains("note-editor")) {
-        dialog.style.height = "100dvh";
         dialog.style.top = "0px";
+        dialog.style.bottom = "0px";
+        dialog.style.left = "0px";
+        dialog.style.right = "0px";
+        dialog.style.height = "100%";
         return;
       }
       const vh = window.visualViewport?.height ?? window.innerHeight;

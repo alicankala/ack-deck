@@ -217,7 +217,7 @@ nav button.is-active svg {
   transform: scale(1.1);
   filter: drop-shadow(0 2px 6px rgba(56, 189, 248, 0.45));
 }
-body:has(.editor) nav { visibility: hidden; }
+body:has(.editor) nav { display: none !important; visibility: hidden; }
 
 /* Mobile App Header */
 .mobile-header {
