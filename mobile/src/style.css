@@ -30,7 +30,14 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; background: var(--app-bg); color: var(--app-text); }
+html, body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--app-bg);
+  color: var(--app-text);
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
 
 main {
   max-width: 460px;
@@ -417,7 +424,7 @@ body:has(.editor) nav { visibility: hidden; }
 .mobile-next-step small { font-size: 11px; font-weight: 600; color: var(--app-accent); }
 .mobile-next-step strong { font-size: 13px; font-weight: 600; color: var(--app-text); line-height: 1.4; }
 
-/* Mobile Prayer Card */
+/* Mobile Prayer Card (iPhone 11 Optimized) */
 .mobile-prayer-card {
   background: linear-gradient(135deg, #131c26 0%, #0d141e 100%);
   border: 1px solid rgba(56, 189, 248, 0.18);
@@ -428,45 +435,53 @@ body:has(.editor) nav { visibility: hidden; }
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 .mobile-prayer-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-}
-.mobile-prayer-head-right {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  min-height: 32px;
 }
 .mobile-prayer-title {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  flex-shrink: 1;
 }
 .mobile-prayer-icon {
   font-size: 18px;
   line-height: 1;
+  flex-shrink: 0;
 }
 .mobile-prayer-title strong {
   display: block;
   font-size: 14px;
   font-weight: 700;
   color: #f8fafc;
+  white-space: nowrap;
 }
 .mobile-prayer-title small {
   display: block;
   font-size: 11px;
   color: var(--app-muted);
+  white-space: nowrap;
+}
+.mobile-prayer-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 .mobile-prayer-guide-btn {
-  min-height: 28px;
-  padding: 3px 9px;
+  min-height: 30px;
+  padding: 4px 10px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 650;
   background: rgba(245, 158, 11, 0.14);
   border: 1px solid rgba(245, 158, 11, 0.35);
@@ -474,22 +489,69 @@ body:has(.editor) nav { visibility: hidden; }
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
 }
 .mobile-prayer-guide-btn:active {
   background: rgba(245, 158, 11, 0.25);
   transform: scale(0.96);
 }
 .mobile-prayer-stats-btn {
-  min-height: 28px;
-  padding: 3px 8px;
+  min-height: 30px;
+  padding: 4px 10px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 650;
   background: rgba(52, 211, 153, 0.12);
   border: 1px solid rgba(52, 211, 153, 0.35);
   color: #6ee7b7;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-prayer-stats-btn:active {
+  background: rgba(52, 211, 153, 0.22);
+  transform: scale(0.96);
+}
+/* Full-width Status Banner for iPhone 11 */
+.mobile-prayer-status-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 10px;
+  font-size: 11.5px;
+  color: var(--app-secondary, #cbd5e1);
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+.mobile-prayer-status-banner strong {
+  color: #38bdf8;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.mobile-prayer-status-banner.warning {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+}
+.mobile-prayer-status-banner.warning strong {
+  color: #fde047;
+}
+.mobile-prayer-head-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .mobile-prayer-chip {
   font-size: 11px;
@@ -4354,17 +4416,19 @@ body:has(.editor) nav { visibility: hidden; }
 
 .prayer-guide-modal {
   width: 100%;
-  max-width: 600px;
-  max-height: 92dvh;
+  max-width: 460px;
+  max-height: calc(100dvh - env(safe-area-inset-top) - 16px);
   background: var(--app-surface-elevated, #161e27);
   border-top: 1px solid var(--app-border-strong, #2c4257);
-  border-radius: 22px 22px 0 0;
+  border-radius: 20px 20px 0 0;
   display: flex;
   flex-direction: column;
   box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.8);
   overflow: hidden;
   color: var(--app-text, #f1f5f9);
-  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .prayer-guide-header {
@@ -4439,9 +4503,9 @@ body:has(.editor) nav { visibility: hidden; }
   border: 1px solid var(--app-border, #243547);
   border-radius: 10px;
   padding: 8px 30px 8px 34px !important;
-  font-size: 13px;
+  font-size: 16px !important; /* CRITICAL for iPhone 11: prevents iOS auto-zoom on focus */
   color: #fff;
-  min-height: 38px !important;
+  min-height: 42px !important;
   box-sizing: border-box;
 }
 
@@ -4521,18 +4585,19 @@ body:has(.editor) nav { visibility: hidden; }
   color: var(--app-secondary, #cbd5e1);
 }
 
-/* Prayer Selection Bar */
+/* Prayer Selection Bar (5 prayers in 1 balanced row on iPhone 11) */
 .prayer-choice-bar {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
 }
 
 .prayer-choice-pill {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  justify-content: center;
+  gap: 1px;
   padding: 6px 2px !important;
   min-height: 44px !important;
   border-radius: 10px;
@@ -4540,15 +4605,18 @@ body:has(.editor) nav { visibility: hidden; }
   border: 1px solid var(--app-border, #243547);
   color: var(--app-muted, #94a3b8);
   cursor: pointer;
+  min-width: 0;
 }
 
 .prayer-choice-pill strong {
-  font-size: 12px;
+  font-size: 11px;
   color: #fff;
+  white-space: nowrap;
 }
 
 .prayer-choice-pill small {
-  font-size: 10.5px;
+  font-size: 9.5px;
+  white-space: nowrap;
 }
 
 .prayer-choice-pill.is-selected {
@@ -4971,5 +5039,103 @@ body:has(.editor) nav { visibility: hidden; }
   padding: 24px 10px;
   color: var(--app-muted, #94a3b8);
   font-size: 13px;
+}
+
+.prayer-card-summary {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--app-border, #243547);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.prayer-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.prayer-card-desc {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--app-secondary, #cbd5e1);
+  line-height: 1.4;
+}
+
+.rakat-badge {
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--app-accent, #38bdf8);
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.prayer-sections-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.section-pill {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--app-border, #243547);
+  color: var(--app-muted, #94a3b8);
+}
+
+.section-pill.is-fard {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.3);
+}
+
+.section-pill.is-sunnah,
+.section-pill.is-last_sunnah {
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
+  border-color: rgba(96, 165, 250, 0.3);
+}
+
+.section-pill.is-wajib {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+.section-pill.has-kamet {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.highlight-card {
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.prayer-reading-box {
+  margin: 4px 0 0;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--app-border, #243547);
+  border-radius: 8px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #f1f5f9;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
 }
 

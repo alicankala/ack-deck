@@ -434,6 +434,33 @@ Keep keyboard operation and accessibility labels functional.
 
 Use native-looking behavior where practical.
 
+### 9.1. Mobile Layout & iPhone 11 Viewport Scaling Constraints - DO NOT BREAK
+
+The primary mobile target device is **iPhone 11** (logical viewport: **414px × 896px**, physical: 828px × 1792px @2x; safe-area-inset-top: ~48px [notch], safe-area-inset-bottom: ~34px [home indicator bar]).
+
+All future agents modifying `mobile/src/`, `shared/`, or components shared between desktop and mobile MUST strictly adhere to these mobile constraints:
+
+1. **Card Headers & The 350px Usable Width Rule**:
+   - On iPhone 11, the `main` container padding is 16px left + 16px right (382px usable width). Inside standard cards (`.mobile-prayer-card`, `.mobile-dorm-menu-card`, etc.) with 16px horizontal padding, the total usable width is **350px**.
+   - NEVER pack title, countdown chips, and multiple action buttons into a single flex row. When items exceed 350px, flex-wrapping causes buttons to drop onto a second row while vertically centering/shifting the title, creating broken, misaligned ("kaymış") headers.
+   - **Mandatory 2-Row Layout Structure**:
+     - **Top row (Header):** Title + Icon on the left; compact primary actions (e.g. `📖 Rehber` + `{prayedCount}/5 ▾` stats toggle) neatly grouped on the right. Both fit comfortably within ~275px, leaving ample room.
+     - **Second row (Status Banner):** Full-width countdown, status chips, or warning banners (e.g., `mobile-prayer-status-banner`, kerahat alerts) must span 100% width on their own line beneath the header, never squeezed beside the title.
+
+2. **Zero Viewport Zooming (`font-size >= 16px` on Inputs)**:
+   - On iOS Safari / WebKit, any `<input>` or `<textarea>` with a CSS `font-size < 16px` (e.g., 12px or 13px) causes iOS to **automatically zoom into the field on focus**, permanently scaling and shifting the entire viewport sideways until manual pinch-zoom out.
+   - All mobile inputs (modals, search bars, quick-capture, note inputs) MUST have `font-size: 16px !important` (or `font-size: max(16px, 1rem)`).
+   - NEVER place `autoFocus` on inputs inside mobile bottom-sheets or modals. `autoFocus` immediately pulls up the virtual keyboard on mount, covering half the screen and scrolling/shifting the sheet under the notch.
+
+3. **Safe Area Insets & Bottom Sheet Modals**:
+   - Bottom-sheet modals (`.prayer-guide-modal`, etc.) must use `max-width: 460px` (or 100%), `margin: 0 auto`, `max-height: calc(100dvh - env(safe-area-inset-top) - 16px)`, and `padding-bottom: max(20px, env(safe-area-inset-bottom))`.
+   - Prevent horizontal document overflow: `html, body { overflow-x: hidden; -webkit-text-size-adjust: 100%; }` must be preserved.
+   - Touch targets must adhere to iOS minimum guidelines (min 30-44px tap targets) with `-webkit-tap-highlight-color: transparent`.
+
+4. **Balanced Grid Columns**:
+   - 5-item grids (e.g., 5 daily prayer check buttons, 5 prayer selection pills) on iPhone 11 use `repeat(5, minmax(0, 1fr))` with `gap: 4px` and text truncation/wrapping protection so they form a single balanced row without blank trailing columns.
+   - 6-item grids (the 6 prayer times: İmsak, Güneş, Öğle, İkindi, Akşam, Yatsı) use `repeat(6, minmax(0, 1fr))` with `min-width: 0`, tabular nums, and 10-11px typography to fit neatly inside 350px.
+
 ---
 
 ## 10. Dependency policy

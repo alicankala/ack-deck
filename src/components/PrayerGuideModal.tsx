@@ -116,7 +116,6 @@ export function PrayerGuideModal({ onClose }: { onClose: () => void }) {
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Sure, dua, kamet veya namaz ara (örn. Ayetel Kürsi, Kamet, İkindi, Kevser)..."
             className="prayer-guide-search-input"
-            autoFocus
           />
           {search && (
             <button

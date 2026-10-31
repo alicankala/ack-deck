@@ -183,16 +183,7 @@ export function MobilePrayerCard({
             <small>{info.city}</small>
           </div>
         </div>
-        <div className="mobile-prayer-head-right">
-          {kerahat.inKerahat ? (
-            <span className="mobile-kerahat-chip warning">
-              ⚠️ {kerahat.label} ({formatRemainingTime(kerahat.remainingMs ?? 0)})
-            </span>
-          ) : info.nextPrayer ? (
-            <span className="mobile-prayer-chip">
-              {info.nextPrayer.label}: <strong>{formatRemainingTime(info.timeToNextMs)}</strong>
-            </span>
-          ) : null}
+        <div className="mobile-prayer-head-actions">
           <button
             type="button"
             className="mobile-prayer-guide-btn"
@@ -205,11 +196,27 @@ export function MobilePrayerCard({
             type="button"
             className="mobile-prayer-stats-btn"
             onClick={() => setShowStats(v => !v)}
+            title="Namaz takip ve istatistikleri"
           >
             {prayedCount}/5 {showStats ? "▴" : "▾"}
           </button>
         </div>
       </div>
+
+      {/* Full-width Status Banner (iPhone 11 optimized) */}
+      {kerahat.inKerahat ? (
+        <div className="mobile-prayer-status-banner warning" role="status">
+          <span aria-hidden="true">⚠️</span>
+          <span>{kerahat.label}</span>
+          <strong>({formatRemainingTime(kerahat.remainingMs ?? 0)} kaldı)</strong>
+        </div>
+      ) : info.nextPrayer ? (
+        <div className="mobile-prayer-status-banner" role="status">
+          <span>{info.nextPrayer.label} vaktine</span>
+          <strong>{formatRemainingTime(info.timeToNextMs)}</strong>
+          <span>kaldı</span>
+        </div>
+      ) : null}
 
       {/* 6 Times Row */}
       <div className="mobile-prayer-row">
