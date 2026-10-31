@@ -15,7 +15,7 @@ export function NoteEditor({ title, content, onTitle, onContent, onClose, onSubm
       {linkControl}<div className="note-paper-meta"><span>{updatedAt ? new Date(updatedAt).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" }) : "Aklındakiler için yeni bir sayfa"}</span><Icon name="note" size={17} /></div>
       <label className="sr-only" htmlFor="mobile-note-title">Not başlığı</label><textarea ref={titleField} rows={1} id="mobile-note-title" className="note-title-input" value={title} onChange={event => onTitle(event.target.value)} maxLength={200} placeholder="Başlık" autoComplete="off" />
       <div className="note-paper-rule" aria-hidden="true" />
-      <label className="sr-only" htmlFor="mobile-note-content">Not içeriği</label><textarea ref={bodyField} rows={6} id="mobile-note-content" className="note-body-input" value={content} onChange={event => onContent(event.target.value)} maxLength={20000} placeholder="Bir şeyler yaz…" />
+      <label className="sr-only" htmlFor="mobile-note-content">Not içeriği</label><textarea ref={bodyField} rows={2} id="mobile-note-content" className="note-body-input" value={content} onChange={event => onContent(event.target.value)} maxLength={20000} placeholder="Bir şeyler yaz…" />
       {error && <p className="error" role="alert">{error}</p>}
     </form>
     <footer className="note-bottom-bar"><span>{words} kelime <span aria-hidden="true">·</span> {content.length.toLocaleString("tr-TR")} karakter</span>{onDelete && <button type="button" disabled={busy} onClick={onDelete}><Icon name="trash" size={17} /> Notu sil</button>}</footer>

@@ -203,10 +203,19 @@ function App() {
   useEffect(() => {
     const dialog = editorRef.current ?? subscriptionEditorRef.current;
     if (!dialog) {
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
       document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
       return;
     }
+    const scrollY = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
     document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
     const previous = document.activeElement as HTMLElement | null;
     const controls = () => Array.from(dialog.querySelectorAll<HTMLElement>("button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),summary")).filter(el => el.getClientRects().length);
     if (!dialog.contains(document.activeElement)) controls()[0]?.focus();
@@ -236,7 +245,12 @@ function App() {
     window.visualViewport?.addEventListener("scroll", resize);
     window.addEventListener("keydown", key);
     return () => {
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
       document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+      window.scrollTo(0, scrollY);
       window.removeEventListener("keydown", key);
       window.visualViewport?.removeEventListener("resize", resize);
       window.visualViewport?.removeEventListener("scroll", resize);
