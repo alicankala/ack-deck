@@ -37,15 +37,15 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
     }
   }, [config, onUnlock]);
 
-  // Attempt Face ID automatically once on mount
+  // Attempt Face ID automatically once on mount ONLY if autoPromptBiometrics is explicitly enabled
   useEffect(() => {
-    if (config.biometricsEnabled) {
+    if (config.biometricsEnabled && config.autoPromptBiometrics) {
       const timer = setTimeout(() => {
         void triggerFaceId();
       }, 350);
       return () => clearTimeout(timer);
     }
-  }, [config.biometricsEnabled, triggerFaceId]);
+  }, [config.biometricsEnabled, config.autoPromptBiometrics, triggerFaceId]);
 
   const handleNumberPress = async (digit: string) => {
     if (pin.length >= 8) return;

@@ -4466,17 +4466,30 @@ body:has(.editor) nav { visibility: hidden; }
 }
 
 .prayer-guide-close {
+  box-sizing: border-box;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid var(--app-border, #243547);
   color: var(--app-muted, #94a3b8);
-  font-size: 14px;
   width: 32px;
   height: 32px;
+  min-width: 32px !important;
   min-height: 32px !important;
+  max-width: 32px !important;
+  max-height: 32px !important;
+  padding: 0 !important;
+  margin: 0 !important;
   border-radius: 50%;
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
   cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.prayer-guide-close svg {
+  display: block;
 }
 
 .prayer-guide-search-wrap {

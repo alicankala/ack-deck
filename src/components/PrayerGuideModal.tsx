@@ -101,7 +101,10 @@ export function PrayerGuideModal({ onClose }: { onClose: () => void }) {
             onClick={onClose}
             aria-label="Kapat"
           >
-            ✕
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
+              <line x1="2.5" y1="2.5" x2="9.5" y2="9.5" />
+              <line x1="9.5" y1="2.5" x2="2.5" y2="9.5" />
+            </svg>
           </button>
         </div>
 

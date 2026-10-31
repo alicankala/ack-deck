@@ -4,6 +4,7 @@ export interface MobileSecurityConfig {
   passcodeHash: string;
   biometricsEnabled: boolean;
   biometricsCredentialId?: string;
+  autoPromptBiometrics?: boolean; // false = wait for user tap, true = auto-prompt
   autoLockTimeoutSeconds: number; // 0 = immediately, 60 = 1 min, 300 = 5 min
 }
 
@@ -20,6 +21,7 @@ export function loadSecurityConfig(): MobileSecurityConfig {
         salt: "",
         passcodeHash: "",
         biometricsEnabled: false,
+        autoPromptBiometrics: false,
         autoLockTimeoutSeconds: 0,
       };
     }
@@ -30,6 +32,7 @@ export function loadSecurityConfig(): MobileSecurityConfig {
       passcodeHash: String(parsed.passcodeHash || ""),
       biometricsEnabled: Boolean(parsed.biometricsEnabled),
       biometricsCredentialId: parsed.biometricsCredentialId,
+      autoPromptBiometrics: Boolean(parsed.autoPromptBiometrics),
       autoLockTimeoutSeconds: Number.isFinite(parsed.autoLockTimeoutSeconds)
         ? Number(parsed.autoLockTimeoutSeconds)
         : 0,
@@ -40,6 +43,7 @@ export function loadSecurityConfig(): MobileSecurityConfig {
       salt: "",
       passcodeHash: "",
       biometricsEnabled: false,
+      autoPromptBiometrics: false,
       autoLockTimeoutSeconds: 0,
     };
   }
@@ -179,6 +183,7 @@ export async function setSecurityPasscode(
     passcodeHash,
     biometricsEnabled: Boolean(biometricsCredentialId),
     biometricsCredentialId,
+    autoPromptBiometrics: existing.autoPromptBiometrics ?? false,
     autoLockTimeoutSeconds: existing.autoLockTimeoutSeconds,
   };
 

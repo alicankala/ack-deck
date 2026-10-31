@@ -405,6 +405,34 @@ export function MobileSettings({
               </button>
             </div>
 
+            {securityConfig.biometricsEnabled && (
+              <div className="settings-row" style={{ paddingTop: "8px", borderTop: "1px dashed rgba(255, 255, 255, 0.08)" }}>
+                <div>
+                  <strong style={{ fontSize: "13px" }}>Açılışta Otomatik Face ID</strong>
+                  <p className="settings-hint">
+                    {securityConfig.autoPromptBiometrics
+                      ? "Açık: Kilit ekranında Apple onay penceresi hemen açılır."
+                      : "Kapalı: Önce temiz PIN ekranı gelir; isterseniz butona basarak Face ID yapabilirsiniz."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={securityConfig.autoPromptBiometrics ? "primary-action-sm" : "secondary-action-sm"}
+                  onClick={() => {
+                    const nextVal = !securityConfig.autoPromptBiometrics;
+                    saveSecurityConfig({ ...securityConfig, autoPromptBiometrics: nextVal });
+                    onNotice(
+                      nextVal
+                        ? "Açılışta otomatik Face ID açıldı."
+                        : "Açılışta otomatik Face ID kapatıldı (Doğrudan PIN veya butonla açılır)."
+                    );
+                  }}
+                >
+                  {securityConfig.autoPromptBiometrics ? "Açık" : "Kapalı"}
+                </button>
+              </div>
+            )}
+
             <div className="settings-select-group">
               <label htmlFor="autolock-select">Otomatik Kilitleme Zamanı</label>
               <select
@@ -450,7 +478,10 @@ export function MobileSettings({
                 onClick={() => setShowPinModal(false)}
                 aria-label="Kapat"
               >
-                ✕
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
+                  <line x1="2.5" y1="2.5" x2="9.5" y2="9.5" />
+                  <line x1="9.5" y1="2.5" x2="2.5" y2="9.5" />
+                </svg>
               </button>
             </div>
 
