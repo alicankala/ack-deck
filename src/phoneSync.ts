@@ -94,13 +94,19 @@ function apply(record:CloudRecord) {
   }
 }
 let running:Promise<SyncState>|null=null;
-let paused=false, epoch=0;
+let paused=false, epoch=0, runningEpoch=-1;
 export function pausePhoneSync(value:boolean){paused=value;epoch++;}
 export function phoneSyncPaused(){return paused;}
 export function isPhoneSyncRunning(){return running!==null;}
 export function synchronizePhone(request=phoneRequest):Promise<SyncState> {
-  if(running)return running;
-  running=sync(request).finally(()=>{running=null;});return running;
+  // Reuse only a sync started in the current epoch. A sync from an older epoch is being
+  // cancelled by its pause guard; returning it would surface a false "tamamlanamadı" error.
+  if(running&&runningEpoch===epoch)return running;
+  const previous=running,startEpoch=epoch;
+  const next:Promise<SyncState>=(previous?previous.then(()=>undefined,()=>undefined):Promise.resolve()).then(()=>sync(request));
+  const clear=()=>{if(running===next)running=null;};
+  next.then(clear,clear);
+  running=next;runningEpoch=startEpoch;return next;
 }
 async function sync(request:typeof phoneRequest):Promise<SyncState> {
   const initialEpoch=epoch;

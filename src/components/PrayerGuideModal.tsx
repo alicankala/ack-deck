@@ -545,6 +545,9 @@ function SurahOrDuaCard({
 
       {expanded && (
         <div className="surah-card-details">
+          {item.whenRead && (
+            <p className="when-read-detail">📌 {item.whenRead}</p>
+          )}
           {item.arabic && (
             <div className="arabic-text" dir="rtl">
               {item.arabic}

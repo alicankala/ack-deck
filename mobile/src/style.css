@@ -4976,10 +4976,34 @@ body:has(.editor) nav { visibility: hidden; }
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: 1;
+  min-width: 0;
 }
 
 .surah-title-meta strong {
   font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* iPhone 11: the long "when read" hint squeezes the title inside the 350px card.
+   Hide it in the summary row; it is shown inside the expanded details instead. */
+.surah-toggle-actions .when-read-hint {
+  display: none;
+}
+
+.when-read-detail {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--app-accent, #38bdf8);
+}
+
+/* Global mobile buttons use overflow-wrap:anywhere; never split words inside the guide. */
+.prayer-guide-modal button {
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .surah-badge {
@@ -4989,6 +5013,8 @@ body:has(.editor) nav { visibility: hidden; }
   color: var(--app-accent, #38bdf8);
   padding: 1px 5px;
   border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .surah-toggle-actions {

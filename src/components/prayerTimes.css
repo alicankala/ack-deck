@@ -1079,6 +1079,13 @@
   border-radius: 4px;
 }
 
+.when-read-detail {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--app-accent, #38bdf8);
+}
+
 .surah-toggle-actions {
   display: flex;
   align-items: center;

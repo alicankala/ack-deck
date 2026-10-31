@@ -294,3 +294,27 @@ test('unlimited storage proxy bypasses 5MB localStorage quota, 3-way note merge 
 });
 
 
+
+test('Bugün card only peeks at upcoming tasks due within 2 days; far exams stay out', () => {
+  const env = setupModules();
+  const { todayTasks } = env.load('dashboardData');
+  const now = new Date('2026-10-31T17:00:00');
+  const task = (id, dueDate, dueTime = '13:00') => ({ id, text: id, completed: false, dueDate, dueTime, priority: 'normal', reminder: false });
+
+  // Exam 10 days later must NOT appear in today's list.
+  assert.deepEqual(plain(todayTasks([task('vize', '2026-11-10')], now)), []);
+
+  // Tomorrow's task is shown with a clear "Yarın" label.
+  const tomorrow = todayTasks([task('vize', '2026-11-10'), task('yarin', '2026-11-01')], now);
+  assert.equal(tomorrow.length, 1);
+  assert.equal(tomorrow[0].task.id, 'yarin');
+  assert.equal(tomorrow[0].label, 'Yarın');
+
+  // Day after tomorrow is still within the lookahead.
+  const dayAfter = todayTasks([task('ertesi', '2026-11-02')], now);
+  assert.equal(dayAfter[0].label, 'Sıradaki · 02.11.2026');
+
+  // Today's and overdue tasks keep their behavior.
+  const daily = todayTasks([task('bugun', '2026-10-31', '20:00'), task('gecmis', '2026-10-30')], now);
+  assert.deepEqual(plain(daily.map(row => row.label)), ['Zamanı geçti', 'Bugün']);
+});

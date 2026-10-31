@@ -5,10 +5,12 @@ import { saveInboxIndex, type InboxReference } from "./productIntelligence";
 import { loadPrayerConfig } from "../shared/prayerTimes";
 import { loadStudyReminders } from "./studyReminderStore";
 
+const PAUSE_MESSAGE=/güvenli biçimde duraklatıldı/;
+
 export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void,visible=true){
   useEffect(()=>{
     let active=true,enabled=false,timer:ReturnType<typeof setInterval>|undefined,heartbeatTimer:ReturnType<typeof setInterval>|undefined,changeTimer:ReturnType<typeof setTimeout>|undefined;
-    let inFlight=false,lastErrorAlert=0;
+    let inFlight=false,lastErrorAlert=0,consecutiveFailures=0;
 
     async function sendHeartbeat(forceOffline=false){
       if(!active||!enabled)return;
@@ -36,12 +38,21 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void,
           saveInboxIndex(inboxRes.items as InboxReference[]);
           window.dispatchEvent(new Event("ack-inbox-updated"));
         }
+        consecutiveFailures=0;
       }catch(err){
+        const reason=err instanceof Error?err.message:typeof err==="string"?err:"";
+        // A visibility/restore change intentionally interrupts an in-flight sync via the pause guard.
+        // That is not a failure: the next run (≤30 s) continues from the durable queue.
+        if(PAUSE_MESSAGE.test(reason))return;
         console.warn("[ACKDeck Phone Sync]", err);
+        consecutiveFailures++;
         const now = Date.now();
-        if(active && now - lastErrorAlert > 300000){
+        // Transient network drops (sleep/wake, Wi-Fi switch) recover on the next interval.
+        // Only alert after 3 consecutive failures (~1.5 min) and at most once per 5 minutes.
+        if(active && consecutiveFailures>=3 && now - lastErrorAlert > 300000){
           lastErrorAlert = now;
-          onError("Telefon eşitlemesi tamamlanamadı. Yerel kayıtlar korunuyor.");
+          const detail=/[çğıöşüÇĞİÖŞÜ]/.test(reason)&&reason.length<=120?` (${reason.replace(/[.\s]+$/,"")})`:"";
+          onError(`Telefon eşitlemesi tamamlanamadı${detail}. Yerel kayıtlar korunuyor.`);
         }
       }finally{
         inFlight=false;

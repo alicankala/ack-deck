@@ -12,8 +12,12 @@ export function todayTasks(tasks: Task[], now = new Date()): { task: Task; label
   const overdue = (task: Task) => !task.recurrence && (date(task) < today || date(task) === today && taskDueAt(task) !== null && taskDueAt(task)! < now.getTime());
   const chronological = (a: Task, b: Task) => (date(a) + (a.dueTime ?? "23:59")).localeCompare(date(b) + (b.dueTime ?? "23:59"));
   const daily = incomplete.filter(task => date(task) <= today).sort((a, b) => Number(overdue(b)) - Number(overdue(a)) || chronological(a, b));
-  const next = incomplete.filter(task => date(task) > today).sort(chronological)[0];
-  return [...daily, ...(next ? [next] : [])].slice(0, 5).map(task => ({ task, label: overdue(task) ? "Zamanı geçti" : date(task) === today ? "Bugün" : "Sıradaki · " + date(task).split("-").reverse().join(".") }));
+  // The "Bugün" card only peeks at an upcoming task when it is due within the next 2 days;
+  // tasks further away (e.g. an exam 10 days later) belong to Görevler/Takvim, not today.
+  const dayOffset = (days: number) => { const d = new Date(now); d.setDate(d.getDate() + days); return localDateKey(d); };
+  const tomorrow = dayOffset(1), lookaheadEnd = dayOffset(2);
+  const next = incomplete.filter(task => date(task) > today && date(task) <= lookaheadEnd).sort(chronological)[0];
+  return [...daily, ...(next ? [next] : [])].slice(0, 5).map(task => ({ task, label: overdue(task) ? "Zamanı geçti" : date(task) === today ? "Bugün" : date(task) === tomorrow ? "Yarın" : "Sıradaki · " + date(task).split("-").reverse().join(".") }));
 }
 export function dashboardProjects(projects: Project[]): Project[] {
   const recents = loadRecents().entries.filter(item => item.source === "projects"), order = new Map(recents.map((item, index) => [item.id, index]));

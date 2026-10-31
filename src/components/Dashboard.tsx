@@ -259,7 +259,7 @@ export function Dashboard({ refreshMs, onNavigate, onAskAi, targetId }: Props) {
       const isOverdue = firstTask.label === "Zamanı geçti";
       return {
         eyebrow: isOverdue ? "Geciken görev" : firstTask.label === "Bugün" ? "Bugünkü görev" : "Yaklaşan görev",
-        badge: firstTask.task.dueTime || (firstTask.label.startsWith("Sıradaki · ") ? firstTask.label.slice(11) : "Bugün"),
+        badge: firstTask.task.dueTime || (firstTask.label.startsWith("Sıradaki · ") ? firstTask.label.slice(11) : firstTask.label === "Yarın" ? "Yarın" : "Bugün"),
         title: firstTask.task.text,
         meta: isOverdue ? "Tamamlanmayı bekliyor" : "Görev detayını aç",
         tone: isOverdue ? "warn" : "accent",
