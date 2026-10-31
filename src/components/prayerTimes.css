@@ -701,9 +701,30 @@
   transition: all 0.15s ease;
 }
 
+.prayer-choice-pill .pill-title-short {
+  display: none;
+}
+
+.prayer-choice-pill .pill-title-full {
+  display: inline;
+}
+
+@media (max-width: 640px) {
+  .prayer-choice-pill .pill-title-short {
+    display: inline;
+  }
+  .prayer-choice-pill .pill-title-full {
+    display: none;
+  }
+}
+
 .prayer-choice-pill strong {
   font-size: 0.8rem;
   color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .prayer-choice-pill small {

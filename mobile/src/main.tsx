@@ -40,6 +40,8 @@ import { SendCard } from "./SendCard";
 import { MobileSettings } from "./MobileSettings";
 import { MobileNav } from "./MobileNav";
 import { Icon } from "./Icon";
+import { MobileLockScreen } from "./MobileLockScreen";
+import { isSecurityLocked, initAutoLockListener } from "./mobileSecurity";
 
 type Inbox = { id: string; kind: string; title: string; content: string; mime: string | null; expiresAt: number | null; size?: number | null; handled: number };
 type Workspace = { id: string; name: string; icon: string; description: string };
@@ -173,6 +175,19 @@ function App() {
   const [name, setName] = useState("iPhone");
   const [online, setOnline] = useState(false);
   const [push, setPush] = useState(false);
+  const [isLocked, setIsLocked] = useState(() => isSecurityLocked());
+
+  useEffect(() => {
+    const cleanup = initAutoLockListener();
+    const handleLockState = () => {
+      setIsLocked(isSecurityLocked());
+    };
+    window.addEventListener("ack-mobile-lock-state-changed", handleLockState);
+    return () => {
+      cleanup();
+      window.removeEventListener("ack-mobile-lock-state-changed", handleLockState);
+    };
+  }, []);
   const [inbox, setInbox] = useState<Inbox[]>([]);
   const [editingInboxId, setEditingInboxId] = useState<string | null>(null);
   const [editingInboxText, setEditingInboxText] = useState("");
@@ -1970,6 +1985,9 @@ function App() {
 
       {/* Bottom Native Tab Navigation */}
       <MobileNav page={page} onChange={changePage} />
+
+      {/* Security App Lock Screen (Face ID / Passcode) */}
+      {isLocked && <MobileLockScreen onUnlock={() => setIsLocked(false)} />}
     </main>
   );
 }

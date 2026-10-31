@@ -8,6 +8,15 @@ import {
 } from "../../shared/prayerTimes";
 import { api, emptyState, json, type MobileState } from "./store";
 import { enablePush } from "./push";
+import {
+  loadSecurityConfig,
+  saveSecurityConfig,
+  setSecurityPasscode,
+  disableSecurity,
+  isBiometricsAvailable,
+  registerBiometrics,
+  type MobileSecurityConfig,
+} from "./mobileSecurity";
 
 export function MobileSettings({
   state,
@@ -45,6 +54,73 @@ export function MobileSettings({
     return (localStorage.getItem("ack-deck.mobile-theme") as "dark" | "light") || "dark";
   });
   const [syncing, setSyncing] = useState(false);
+  const [securityConfig, setSecurityConfig] = useState<MobileSecurityConfig>(loadSecurityConfig);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinDraft1, setPinDraft1] = useState("");
+  const [pinDraft2, setPinDraft2] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [bioSupported, setBioSupported] = useState(false);
+
+  useEffect(() => {
+    void isBiometricsAvailable().then(setBioSupported);
+    const handleSec = (e: Event) => {
+      setSecurityConfig((e as CustomEvent<MobileSecurityConfig>).detail ?? loadSecurityConfig());
+    };
+    window.addEventListener("ack-mobile-security-changed", handleSec);
+    return () => window.removeEventListener("ack-mobile-security-changed", handleSec);
+  }, []);
+
+  async function handleSaveNewPin(e: FormEvent) {
+    e.preventDefault();
+    setPinError("");
+    if (pinDraft1.length < 4) {
+      setPinError("Şifre en az 4 basamaklı olmalıdır.");
+      return;
+    }
+    if (pinDraft1 !== pinDraft2) {
+      setPinError("Girdiğiniz şifreler birbiriyle eşleşmiyor.");
+      return;
+    }
+    try {
+      await setSecurityPasscode(pinDraft1, bioSupported);
+      setShowPinModal(false);
+      setPinDraft1("");
+      setPinDraft2("");
+      onNotice("Uygulama kilidi ve şifre başarıyla kaydedildi.");
+    } catch (err) {
+      setPinError(err instanceof Error ? err.message : "Şifre kaydedilemedi.");
+    }
+  }
+
+  async function handleToggleFaceId() {
+    if (!securityConfig.enabled) {
+      onError("Önce bir şifre belirleyerek uygulama kilidini açmalısınız.");
+      return;
+    }
+    if (securityConfig.biometricsEnabled) {
+      saveSecurityConfig({ ...securityConfig, biometricsEnabled: false });
+      onNotice("Face ID kapatıldı (Şifre koruması devam ediyor).");
+    } else {
+      try {
+        const credId = await registerBiometrics();
+        saveSecurityConfig({
+          ...securityConfig,
+          biometricsEnabled: true,
+          biometricsCredentialId: credId,
+        });
+        onNotice("Face ID başarıyla etkinleştirildi.");
+      } catch (err) {
+        onError(err instanceof Error ? err.message : "Face ID doğrulanamadı.");
+      }
+    }
+  }
+
+  function handleDisableSecurity() {
+    if (confirm("Uygulama kilidini ve şifreyi kaldırmak istediğinize emin misiniz?")) {
+      disableSecurity();
+      onNotice("Uygulama kilidi kaldırıldı.");
+    }
+  }
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -252,7 +328,212 @@ export function MobileSettings({
         </div>
       </section>
 
-      {/* 4. Cihaz & Senkronizasyon */}
+      {/* 4. Güvenlik & Kilit (Face ID / Şifre) */}
+      <section className="settings-card">
+        <div className="settings-card-head">
+          <span style={{ fontSize: "1.2rem", lineHeight: 1 }} aria-hidden="true">🔒</span>
+          <h3>Uygulama Kilidi & Face ID</h3>
+        </div>
+
+        <div className="settings-row">
+          <div>
+            <strong>Kilit Koruması (PIN / Şifre)</strong>
+            <p className="settings-hint">
+              {securityConfig.enabled
+                ? securityConfig.biometricsEnabled
+                  ? "Aktif (Face ID + Şifre)"
+                  : "Aktif (Yalnızca Şifre)"
+                : "Kapalı (Uygulama doğrudan açılır)"}
+            </p>
+          </div>
+          {securityConfig.enabled ? (
+            <div style={{ display: "flex", gap: "6px" }}>
+              <button
+                type="button"
+                className="secondary-action-sm"
+                onClick={() => {
+                  setPinDraft1("");
+                  setPinDraft2("");
+                  setPinError("");
+                  setShowPinModal(true);
+                }}
+              >
+                Değiştir
+              </button>
+              <button
+                type="button"
+                className="danger-action-sm"
+                onClick={handleDisableSecurity}
+              >
+                Kaldır
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="primary-action-sm"
+              onClick={() => {
+                setPinDraft1("");
+                setPinDraft2("");
+                setPinError("");
+                setShowPinModal(true);
+              }}
+            >
+              Kilitle
+            </button>
+          )}
+        </div>
+
+        {securityConfig.enabled && (
+          <>
+            <div className="settings-row">
+              <div>
+                <strong>Face ID / Touch ID ile Aç</strong>
+                <p className="settings-hint">
+                  {bioSupported
+                    ? "Cihazınızın biyometrik sensörüyle anında kilit açın."
+                    : "Bu cihazda Face ID / Biyometri desteği bulunmuyor."}
+                </p>
+              </div>
+              <button
+                type="button"
+                className={securityConfig.biometricsEnabled ? "primary-action-sm active-bio-btn" : "secondary-action-sm"}
+                disabled={!bioSupported}
+                onClick={() => void handleToggleFaceId()}
+              >
+                {securityConfig.biometricsEnabled ? "✓ Açık" : "Etkinleştir"}
+              </button>
+            </div>
+
+            <div className="settings-select-group">
+              <label htmlFor="autolock-select">Otomatik Kilitleme Zamanı</label>
+              <select
+                id="autolock-select"
+                value={securityConfig.autoLockTimeoutSeconds}
+                onChange={e => {
+                  const sec = Number(e.target.value);
+                  saveSecurityConfig({ ...securityConfig, autoLockTimeoutSeconds: sec });
+                  onNotice(
+                    sec === 0
+                      ? "Uygulamadan çıkıldığında hemen kilitlenecek."
+                      : `${sec / 60} dakika sonra kilitlenecek.`
+                  );
+                }}
+              >
+                <option value={0}>Hemen (Arka plana geçtiğinde)</option>
+                <option value={60}>1 dakika sonra</option>
+                <option value={300}>5 dakika sonra</option>
+                <option value={900}>15 dakika sonra</option>
+              </select>
+            </div>
+          </>
+        )}
+      </section>
+
+      {/* PIN Kurulum / Değiştirme Modalı */}
+      {showPinModal && (
+        <div className="prayer-guide-overlay" onClick={() => setShowPinModal(false)} role="dialog" aria-modal="true">
+          <div className="prayer-guide-modal" onClick={e => e.stopPropagation()} style={{ padding: "20px 16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "1.4rem" }}>🔒</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "16px", color: "#f8fafc" }}>
+                    {securityConfig.enabled ? "Şifreyi Değiştir" : "Uygulama Şifresi Belirleyin"}
+                  </h3>
+                  <small style={{ color: "var(--app-muted)" }}>En az 4 basamaklı bir şifre girin</small>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="prayer-guide-close"
+                onClick={() => setShowPinModal(false)}
+                aria-label="Kapat"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveNewPin} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "13px" }}>
+                <span>Yeni Şifre:</span>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={pinDraft1}
+                  onChange={e => setPinDraft1(e.target.value)}
+                  placeholder="örn. 1234"
+                  maxLength={12}
+                  required
+                  style={{
+                    minHeight: "44px",
+                    padding: "8px 12px",
+                    borderRadius: "10px",
+                    background: "var(--app-field)",
+                    border: "1px solid var(--app-border)",
+                    color: "#fff",
+                    fontSize: "18px",
+                    letterSpacing: "0.2em",
+                    textAlign: "center",
+                  }}
+                />
+              </label>
+
+              <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "13px" }}>
+                <span>Şifreyi Tekrar Girin:</span>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={pinDraft2}
+                  onChange={e => setPinDraft2(e.target.value)}
+                  placeholder="örn. 1234"
+                  maxLength={12}
+                  required
+                  style={{
+                    minHeight: "44px",
+                    padding: "8px 12px",
+                    borderRadius: "10px",
+                    background: "var(--app-field)",
+                    border: "1px solid var(--app-border)",
+                    color: "#fff",
+                    fontSize: "18px",
+                    letterSpacing: "0.2em",
+                    textAlign: "center",
+                  }}
+                />
+              </label>
+
+              {pinError && (
+                <p style={{ color: "#f87171", margin: "2px 0", fontSize: "12px", textAlign: "center" }} role="alert">
+                  {pinError}
+                </p>
+              )}
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "6px" }}>
+                <button
+                  type="button"
+                  className="secondary-action"
+                  onClick={() => setShowPinModal(false)}
+                  style={{ minHeight: "42px", borderRadius: "10px" }}
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  className="primary-action"
+                  style={{ minHeight: "42px", borderRadius: "10px" }}
+                >
+                  Kaydet & Kilitle
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Cihaz & Senkronizasyon */}
       <section className="settings-card">
         <div className="settings-card-head">
           <Icon name="refresh" size={20} />

@@ -4590,6 +4590,8 @@ body:has(.editor) nav { visibility: hidden; }
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 4px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .prayer-choice-pill {
@@ -4606,17 +4608,34 @@ body:has(.editor) nav { visibility: hidden; }
   color: var(--app-muted, #94a3b8);
   cursor: pointer;
   min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.prayer-choice-pill .pill-title-short {
+  display: inline;
+}
+
+.prayer-choice-pill .pill-title-full {
+  display: none;
 }
 
 .prayer-choice-pill strong {
   font-size: 11px;
   color: #fff;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: block;
+  text-align: center;
 }
 
 .prayer-choice-pill small {
   font-size: 9.5px;
   white-space: nowrap;
+  display: block;
+  text-align: center;
 }
 
 .prayer-choice-pill.is-selected {
@@ -5163,5 +5182,219 @@ body:has(.editor) nav { visibility: hidden; }
   white-space: pre-wrap;
   word-break: break-word;
   font-family: inherit;
+}
+
+/* ==========================================================================
+   Mobile Security Lock Screen (Face ID & Passcode)
+   ========================================================================== */
+.mobile-lock-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  background: rgba(11, 17, 24, 0.96);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: max(20px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  animation: lockFadeIn 0.22s ease-out;
+}
+
+.mobile-lock-container {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  text-align: center;
+}
+
+.mobile-lock-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.lock-icon-badge {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1.5px solid rgba(56, 189, 248, 0.35);
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.2);
+}
+
+.mobile-lock-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #f8fafc;
+  letter-spacing: -0.02em;
+}
+
+.mobile-lock-desc {
+  margin: 0;
+  font-size: 13px;
+  color: var(--app-muted, #94a3b8);
+  line-height: 1.4;
+  max-width: 260px;
+}
+
+.lock-dots-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 4px 0;
+}
+
+.lock-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  background: transparent;
+  transition: all 0.15s ease;
+}
+
+.lock-dot.is-filled {
+  background: var(--app-accent, #38bdf8);
+  border-color: var(--app-accent, #38bdf8);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+  transform: scale(1.1);
+}
+
+.lock-dots-display.is-shaking {
+  animation: lockShake 0.4s ease;
+}
+
+.lock-error-text {
+  color: #f87171;
+  font-size: 12.5px;
+  margin: 0;
+  font-weight: 600;
+  min-height: 18px;
+}
+
+.lock-faceid-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lock-faceid-btn:active {
+  background: rgba(56, 189, 248, 0.25);
+  transform: scale(0.96);
+}
+
+.lock-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  width: 100%;
+  max-width: 270px;
+  margin: 4px 0;
+}
+
+.lock-key {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  margin: 0 auto;
+  padding: 0 !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lock-key:active {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(0.92);
+}
+
+.lock-key strong {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.lock-key-action {
+  background: transparent;
+  border-color: transparent;
+}
+
+.lock-key-spacer {
+  width: 68px;
+  height: 68px;
+}
+
+.key-action-icon {
+  font-size: 22px;
+  color: var(--app-muted, #94a3b8);
+}
+
+.lock-footer {
+  margin-top: 6px;
+}
+
+.lock-reset-btn {
+  background: none;
+  border: none;
+  color: var(--app-muted, #94a3b8);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 6px 10px;
+}
+
+.active-bio-btn {
+  background: rgba(52, 211, 153, 0.15) !important;
+  border-color: rgba(52, 211, 153, 0.4) !important;
+  color: #34d399 !important;
+}
+
+.danger-action-sm {
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #f87171;
+  cursor: pointer;
+}
+
+@keyframes lockShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-8px); }
+  40%, 80% { transform: translateX(8px); }
+}
+
+@keyframes lockFadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
 }
 

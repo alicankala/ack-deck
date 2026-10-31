@@ -295,7 +295,10 @@ export function PrayerGuideModal({ onClose }: { onClose: () => void }) {
                         className={`prayer-choice-pill ${selectedPrayerId === item.id ? "is-selected" : ""}`}
                         onClick={() => setSelectedPrayerId(item.id)}
                       >
-                        <strong>{item.title}</strong>
+                        <strong className="prayer-pill-title">
+                          <span className="pill-title-short">{item.title.replace(" Namazı", "")}</span>
+                          <span className="pill-title-full">{item.title}</span>
+                        </strong>
                         <small>{item.totalRakats} Rekat</small>
                       </button>
                     ))}
