@@ -28,7 +28,19 @@ export function NotesList({ records, onOpen, onNew, syncLabel, noteOrder, onReor
     <div className="notebook-list">{visible.map((row, index) => {
       const note = row.data as PhoneNote;
       const date = new Date(note.updatedAt);
-      return <button type="button" className="notebook-row" key={row.id} onClick={() => onOpen(row)}>
+      return <article
+        key={row.id}
+        role="button"
+        tabIndex={0}
+        className="notebook-row"
+        onClick={() => onOpen(row)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onOpen(row);
+          }
+        }}
+      >
         <span className="notebook-card-top">
           <span className="notebook-page-icon"><Icon name="note" size={18} /></span>
           <span className="notebook-card-top-right">
@@ -62,7 +74,7 @@ export function NotesList({ records, onOpen, onNew, syncLabel, noteOrder, onReor
         <strong>{note.title || "Başlıksız not"}</strong>
         <span className="notebook-preview">{note.content.replace(/\s+/g, " ").trim() || "Bu sayfa yazmanı bekliyor."}</span>
         <span className="notebook-card-bottom"><time dateTime={date.toISOString()}>{date.toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}</time><span>{note.content.trim() ? note.content.trim().split(/\s+/).length : 0} kelime</span></span>
-      </button>;
+      </article>;
     })}</div>
     {!visible.length && <div className="notebook-empty"><span className="notebook-empty-icon"><Icon name={query ? "search" : "compose"} size={34} /></span><h2>{query ? "Aradığın not burada yok" : "İlk sayfanı aç"}</h2><p>{query ? "Başlık veya içerikte başka bir kelime ara." : "Bir fikir, bir hatırlatma, birkaç satır. Hepsine burada yer var."}</p>{!query && <button type="button" onClick={onNew}>İlk notunu yaz <span aria-hidden="true">↗</span></button>}</div>}
   </section>;

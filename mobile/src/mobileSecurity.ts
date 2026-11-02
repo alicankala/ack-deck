@@ -73,12 +73,72 @@ function base64ToBuffer(b64: string): Uint8Array {
   return arr;
 }
 
+const ATTEMPTS_KEY = "ack-deck.mobile-pin-attempts.session";
+const LOCKOUT_KEY = "ack-deck.mobile-pin-lockout.session";
+
+export function getLockoutRemainingSeconds(): number {
+  try {
+    const raw = window.sessionStorage.getItem(LOCKOUT_KEY);
+    if (!raw) return 0;
+    const until = Number(raw);
+    const diff = Math.ceil((until - Date.now()) / 1000);
+    return diff > 0 ? diff : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function recordFailedAttempt(): { remainingLockout: number; failedCount: number } {
+  try {
+    const raw = Number(window.sessionStorage.getItem(ATTEMPTS_KEY) || 0) + 1;
+    window.sessionStorage.setItem(ATTEMPTS_KEY, String(raw));
+    if (raw >= 5) {
+      const lockoutUntil = Date.now() + 30000; // 30 seconds
+      window.sessionStorage.setItem(LOCKOUT_KEY, String(lockoutUntil));
+      window.sessionStorage.removeItem(ATTEMPTS_KEY);
+      return { remainingLockout: 30, failedCount: raw };
+    }
+    return { remainingLockout: 0, failedCount: raw };
+  } catch {
+    return { remainingLockout: 0, failedCount: 0 };
+  }
+}
+
+export function resetFailedAttempts(): void {
+  try {
+    window.sessionStorage.removeItem(ATTEMPTS_KEY);
+    window.sessionStorage.removeItem(LOCKOUT_KEY);
+  } catch {}
+}
+
 export async function hashPasscode(passcode: string, salt: string): Promise<string> {
   const enc = new TextEncoder();
-  const data = enc.encode(`${salt}:${passcode}`);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(digest));
-  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+  try {
+    const keyMaterial = await crypto.subtle.importKey(
+      "raw",
+      enc.encode(passcode),
+      "PBKDF2",
+      false,
+      ["deriveBits"]
+    );
+    const derived = await crypto.subtle.deriveBits(
+      {
+        name: "PBKDF2",
+        salt: enc.encode(salt),
+        iterations: 100000,
+        hash: "SHA-256",
+      },
+      keyMaterial,
+      256
+    );
+    const hashArray = Array.from(new Uint8Array(derived));
+    return "pbkdf2$" + hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+  } catch {
+    const data = enc.encode(`${salt}:${passcode}`);
+    const digest = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(digest));
+    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+  }
 }
 
 export async function isBiometricsAvailable(): Promise<boolean> {
@@ -196,7 +256,21 @@ export async function verifySecurityPasscode(passcode: string): Promise<boolean>
   const cfg = loadSecurityConfig();
   if (!cfg.enabled) return true;
   const computedHash = await hashPasscode(passcode, cfg.salt);
-  return computedHash === cfg.passcodeHash;
+  if (computedHash === cfg.passcodeHash) return true;
+
+  // Backward compatibility: If stored hash is legacy single-round SHA-256
+  if (cfg.passcodeHash && !cfg.passcodeHash.startsWith("pbkdf2$")) {
+    const enc = new TextEncoder();
+    const digest = await crypto.subtle.digest("SHA-256", enc.encode(`${cfg.salt}:${passcode}`));
+    const legacyHash = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, "0")).join("");
+    if (legacyHash === cfg.passcodeHash) {
+      // Seamlessly upgrade stored hash to PBKDF2:
+      cfg.passcodeHash = computedHash;
+      saveSecurityConfig(cfg);
+      return true;
+    }
+  }
+  return false;
 }
 
 export function disableSecurity(): void {

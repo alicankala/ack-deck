@@ -8,15 +8,29 @@ export function TitleBar() {
 
   useEffect(() => {
     if (!inTauri) return;
+    let disposed = false;
     let unlisten: (() => void) | undefined;
     try {
       const win = getCurrentWindow();
-      win.isMaximized().then(setIsMaximized).catch(() => {});
+      win.isMaximized().then((max) => {
+        if (!disposed) setIsMaximized(max);
+      }).catch(() => {});
       win.onResized(() => {
-        win.isMaximized().then(setIsMaximized).catch(() => {});
-      }).then((u) => { unlisten = u; }).catch(() => {});
+        if (!disposed) {
+          win.isMaximized().then((max) => {
+            if (!disposed) setIsMaximized(max);
+          }).catch(() => {});
+        }
+      }).then((u) => {
+        if (disposed) {
+          u();
+        } else {
+          unlisten = u;
+        }
+      }).catch(() => {});
     } catch {}
     return () => {
+      disposed = true;
       if (unlisten) unlisten();
     };
   }, [inTauri]);

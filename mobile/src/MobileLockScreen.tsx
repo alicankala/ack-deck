@@ -1,10 +1,14 @@
 import { useState, useEffect, useCallback, useId } from "react";
+import { emptyState, saveState } from "./store";
 import {
   loadSecurityConfig,
   verifySecurityPasscode,
   authenticateBiometrics,
   unlockSecurity,
   disableSecurity,
+  getLockoutRemainingSeconds,
+  recordFailedAttempt,
+  resetFailedAttempts,
   type MobileSecurityConfig,
 } from "./mobileSecurity";
 
@@ -14,19 +18,35 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
   const [errorMsg, setErrorMsg] = useState("");
   const [isShaking, setIsShaking] = useState(false);
   const [isAuthenticatingBio, setIsAuthenticatingBio] = useState(false);
+  const [lockoutSec, setLockoutSec] = useState(() => getLockoutRemainingSeconds());
   const titleId = useId();
 
   useEffect(() => {
     setConfig(loadSecurityConfig());
   }, []);
 
+  useEffect(() => {
+    if (lockoutSec <= 0) return;
+    const timer = setInterval(() => {
+      setLockoutSec(s => {
+        if (s <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lockoutSec]);
+
   const triggerFaceId = useCallback(async () => {
-    if (!config.biometricsEnabled) return;
+    if (!config.biometricsEnabled || lockoutSec > 0) return;
     setIsAuthenticatingBio(true);
     setErrorMsg("");
     try {
       const ok = await authenticateBiometrics(config.biometricsCredentialId);
       if (ok) {
+        resetFailedAttempts();
         unlockSecurity();
         onUnlock();
       }
@@ -35,20 +55,20 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
     } finally {
       setIsAuthenticatingBio(false);
     }
-  }, [config, onUnlock]);
+  }, [config, lockoutSec, onUnlock]);
 
   // Attempt Face ID automatically once on mount ONLY if autoPromptBiometrics is explicitly enabled
   useEffect(() => {
-    if (config.biometricsEnabled && config.autoPromptBiometrics) {
+    if (config.biometricsEnabled && config.autoPromptBiometrics && lockoutSec <= 0) {
       const timer = setTimeout(() => {
         void triggerFaceId();
       }, 350);
       return () => clearTimeout(timer);
     }
-  }, [config.biometricsEnabled, config.autoPromptBiometrics, triggerFaceId]);
+  }, [config.biometricsEnabled, config.autoPromptBiometrics, lockoutSec, triggerFaceId]);
 
   const handleNumberPress = async (digit: string) => {
-    if (pin.length >= 8) return;
+    if (lockoutSec > 0 || pin.length >= 8) return;
     const nextPin = pin + digit;
     setPin(nextPin);
     setErrorMsg("");
@@ -57,14 +77,21 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
     if (nextPin.length >= 4) {
       const ok = await verifySecurityPasscode(nextPin);
       if (ok) {
+        resetFailedAttempts();
         unlockSecurity();
         onUnlock();
         return;
       }
       // If it reached max 6 digits and still not valid
       if (nextPin.length >= 6) {
+        const { remainingLockout } = recordFailedAttempt();
         setIsShaking(true);
-        setErrorMsg("Hatalı şifre. Tekrar deneyin.");
+        if (remainingLockout > 0) {
+          setLockoutSec(remainingLockout);
+          setErrorMsg(`Çok fazla hatalı deneme. ${remainingLockout} saniye sonra tekrar deneyin.`);
+        } else {
+          setErrorMsg("Hatalı şifre. Tekrar deneyin.");
+        }
         setTimeout(() => {
           setPin("");
           setIsShaking(false);
@@ -74,18 +101,23 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
   };
 
   const handleDelete = () => {
+    if (lockoutSec > 0) return;
     setPin(p => p.slice(0, -1));
     setErrorMsg("");
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (
       confirm(
-        "Uygulama kilidini sıfırlamak istediğinize emin misiniz? Şifre ve Face ID kaldırılacaktır."
+        "Şifrenizi unuttuysanız kilidi kaldırmak için cihaz eşleşmesi sonlandırılacak ve yerel veriler temizlenecektir. Bilgisayarınızdan yeniden eşleştirmeniz gerekecektir.\n\nOnaylıyor musunuz?"
       )
     ) {
       disableSecurity();
-      onUnlock();
+      resetFailedAttempts();
+      try {
+        await saveState(emptyState());
+      } catch {}
+      window.location.reload();
     }
   };
 
@@ -109,7 +141,9 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
             ACKDeck Kilitli
           </h2>
           <p className="mobile-lock-desc">
-            {config.biometricsEnabled
+            {lockoutSec > 0
+              ? `Kilit geçici olarak devre dışı (${lockoutSec} sn)`
+              : config.biometricsEnabled
               ? "Face ID ile doğrulayın veya şifrenizi girin"
               : "Devam etmek için şifrenizi girin"}
           </p>
@@ -126,14 +160,18 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
           ))}
         </div>
 
-        {errorMsg && <p className="lock-error-text" role="alert">{errorMsg}</p>}
+        {(errorMsg || lockoutSec > 0) && (
+          <p className="lock-error-text" role="alert">
+            {lockoutSec > 0 ? `Çok fazla hatalı deneme. ${lockoutSec} saniye bekleyin.` : errorMsg}
+          </p>
+        )}
 
         {/* Face ID Quick Action */}
         {config.biometricsEnabled && (
           <button
             type="button"
             className="lock-faceid-btn"
-            disabled={isAuthenticatingBio}
+            disabled={isAuthenticatingBio || lockoutSec > 0}
             onClick={() => void triggerFaceId()}
           >
             <span aria-hidden="true">👤</span>
@@ -148,6 +186,7 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
               key={n}
               type="button"
               className="lock-key"
+              disabled={lockoutSec > 0}
               onClick={() => void handleNumberPress(n)}
             >
               <strong>{n}</strong>
@@ -159,6 +198,7 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
             <button
               type="button"
               className="lock-key lock-key-action"
+              disabled={lockoutSec > 0}
               onClick={() => void triggerFaceId()}
               aria-label="Face ID ile aç"
             >
@@ -171,6 +211,7 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
           <button
             type="button"
             className="lock-key"
+            disabled={lockoutSec > 0}
             onClick={() => void handleNumberPress("0")}
           >
             <strong>0</strong>
@@ -179,6 +220,7 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
           <button
             type="button"
             className="lock-key lock-key-action"
+            disabled={lockoutSec > 0}
             onClick={handleDelete}
             aria-label="Sil"
           >

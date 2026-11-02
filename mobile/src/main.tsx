@@ -1801,8 +1801,7 @@ function App() {
                               onChange={(e) => setEditingInboxText(e.target.value)}
                               className="mobile-textarea"
                               rows={3}
-                              autoFocus
-                              style={{ width: "100%", borderRadius: "8px", padding: "8px", fontSize: "0.85rem", boxSizing: "border-box" }}
+                              style={{ width: "100%", borderRadius: "8px", padding: "8px", fontSize: "16px", boxSizing: "border-box" }}
                             />
                             <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end", marginTop: "6px" }}>
                               <button
@@ -2030,13 +2029,13 @@ function App() {
               {form === "task" && (
                 <label>
                   Görev metni
-                  <input autoFocus value={title} onChange={e => setTitle(e.target.value)} required maxLength={2000} />
+                  <input value={title} onChange={e => setTitle(e.target.value)} required maxLength={2000} />
                 </label>
               )}
               {form !== "task" && (
                 <label>
                   {form === "link" ? "Web adresi" : "İçerik"}
-                  <textarea autoFocus disabled={busy || sending.current} value={content} onChange={e => { setContent(e.target.value); formRequestId.current = crypto.randomUUID(); }} required maxLength={20000} />
+                  <textarea disabled={busy || sending.current} value={content} onChange={e => { setContent(e.target.value); formRequestId.current = crypto.randomUUID(); }} required maxLength={20000} />
                 </label>
               )}
               {form === "task" && (
@@ -2114,11 +2113,16 @@ function App() {
 }
 
 if ("serviceWorker" in navigator) {
+  let refreshing = false;
+  const hadController = Boolean(navigator.serviceWorker.controller);
   navigator.serviceWorker.register("/sw.js").then(reg => {
     void reg.update();
   }).catch(() => {});
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    window.location.reload();
+    if (!refreshing && hadController) {
+      refreshing = true;
+      window.location.reload();
+    }
   });
 }
 createRoot(document.getElementById("root")!).render(<App />);
