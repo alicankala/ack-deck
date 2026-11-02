@@ -634,8 +634,9 @@ Do not produce long implementation essays after every task.
      - Disk üzerinde kalıcı şişkinlik yaratma; bellek içi (in-memory) sanal nesneler veya geçici akışlar (mock stream) tercih et.
      - Fiziksel dosya oluşturulması kaçınılmaz olduysa, test tamamlanır tamamlanmaz (`teardown` / `afterEach` / `afterAll` bloklarında) oluşturulan geçici dosyaları anında temizle ve sil.
 
-3. **Silinen test dosyalarını gereksiz yere geri getirme**:
-   - Kullanıcı tarafından silinen veya temizlenen test dosyalarını kullanıcının açık talimatı olmadan asla yeniden oluşturma.
+3. **İhtiyaç odaklı ve yalın test kurulumu**:
+   - Silinen test dosyalarını toptan veya ezbere geri getirme.
+   - Bir test dosyası veya fikstürü yalnızca ilgili işlevin doğrulanması için **gerçekten lazımsa ve gerekliyse** oluşturulabilir; ancak oluşturulduğunda disk alanını israf etmeden, yalın ve yalnızca işlevi test edecek boyutta tutulmalıdır.
 
 ---
 
