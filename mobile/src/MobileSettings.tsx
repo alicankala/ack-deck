@@ -214,10 +214,6 @@ export function MobileSettings({
         <h2>Ayarlar</h2>
       </div>
 
-      <div style={{ borderRadius: "16px", overflow: "hidden", marginBottom: "16px", border: "1px solid var(--app-border, rgba(255,255,255,0.08))" }}>
-        <img src="/ackdeck_banner.jpg" alt="ACKDeck Banner" style={{ width: "100%", height: "auto", display: "block" }} />
-      </div>
-
       {/* 1. Görünüm & Tema */}
       <section className="settings-card">
         <div className="settings-card-head">
