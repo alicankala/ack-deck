@@ -81,7 +81,9 @@ export function MobileAiChat({ state, online, onNotice, onError }: Props) {
   }, [state.token]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (messages.length > 0 || sending) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
   }, [messages, sending]);
 
   function startNewChat() {

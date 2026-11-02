@@ -5,6 +5,17 @@ self.addEventListener('activate', event => event.waitUntil(Promise.all([self.cli
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin || url.pathname.startsWith('/api/') || event.request.method !== 'GET') return;
+  const isHashedAsset = url.pathname.startsWith('/assets/') || url.pathname.endsWith('.png') || url.pathname.endsWith('.webmanifest');
+  if (isHashedAsset) {
+    event.respondWith(caches.match(event.request).then(cached => {
+      if (cached) return cached;
+      return fetch(event.request).then(response => {
+        if (response.ok) { const clone = response.clone(); void caches.open(SHELL).then(cache => cache.put(event.request, clone)); }
+        return response;
+      });
+    }));
+    return;
+  }
   event.respondWith(fetch(event.request).then(response => { if (response.ok) { const clone = response.clone(); void caches.open(SHELL).then(cache => cache.put(event.request, clone)); } return response; }).catch(async () => (await caches.match(event.request)) || (event.request.mode === 'navigate' ? await caches.match('/') : undefined) || new Response('Çevrimdışı içerik bulunamadı.', {status:503})));
 });
 self.addEventListener('push', event => {

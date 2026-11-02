@@ -5,7 +5,7 @@ export function NoteEditor({ title, content, onTitle, onContent, onClose, onSubm
   const titleField = useRef<HTMLTextAreaElement>(null), bodyField = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
     const resize = () => { for (const field of [titleField.current, bodyField.current]) if (field) { field.style.height = "auto"; field.style.height = field.scrollHeight + "px"; } };
-    resize(); window.addEventListener("resize", resize);
+    resize(); window.addEventListener("resize", resize, { passive: true });
     return () => window.removeEventListener("resize", resize);
   }, [title, content]);
   const words = content.trim() ? content.trim().split(/\s+/).length : 0;

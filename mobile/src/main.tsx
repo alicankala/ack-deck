@@ -226,6 +226,7 @@ function App() {
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     };
+    let rAF: number | null = null;
     const resize = () => {
       if (dialog.classList.contains("note-editor")) {
         dialog.style.top = "0px";
@@ -240,11 +241,26 @@ function App() {
       dialog.style.height = `${vh}px`;
       dialog.style.top = `${vt}px`;
     };
+    const scheduleResize = () => {
+      if (rAF !== null) return;
+      if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+        rAF = window.requestAnimationFrame(() => {
+          rAF = null;
+          resize();
+        });
+      } else {
+        resize();
+      }
+    };
     resize();
-    window.visualViewport?.addEventListener("resize", resize);
-    window.visualViewport?.addEventListener("scroll", resize);
+    window.visualViewport?.addEventListener("resize", scheduleResize, { passive: true });
+    window.visualViewport?.addEventListener("scroll", scheduleResize, { passive: true });
     window.addEventListener("keydown", key);
     return () => {
+      if (rAF !== null && typeof window !== "undefined" && typeof window.cancelAnimationFrame === "function") {
+        window.cancelAnimationFrame(rAF);
+        rAF = null;
+      }
       document.body.style.position = "";
       document.body.style.top = "";
       document.body.style.width = "";
@@ -252,8 +268,8 @@ function App() {
       document.documentElement.style.overflow = "";
       window.scrollTo(0, scrollY);
       window.removeEventListener("keydown", key);
-      window.visualViewport?.removeEventListener("resize", resize);
-      window.visualViewport?.removeEventListener("scroll", resize);
+      window.visualViewport?.removeEventListener("resize", scheduleResize);
+      window.visualViewport?.removeEventListener("scroll", scheduleResize);
       previous?.focus();
     };
   }, [!!form, !!subscriptionDraft]);
@@ -394,6 +410,8 @@ function App() {
       if (recordingTimer.current) clearTimeout(recordingTimer.current);
       if (recorder.current && recorder.current.state !== "inactive") recorder.current.stop();
       stream.current?.getTracks().forEach(track => track.stop());
+      attendanceSyncTimers.current.forEach(timer => clearTimeout(timer));
+      attendanceSyncTimers.current.clear();
     };
   }, []);
 
