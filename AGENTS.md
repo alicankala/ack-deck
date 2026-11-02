@@ -622,6 +622,23 @@ Do not produce long implementation essays after every task.
 
 ---
 
+## 16. Test dosyaları ve disk alanı disiplini (Test file & storage hygiene)
+
+1. **Gereksiz disk şişirmeyi ve GB ölçeğinde test dosyalarını kesinlikle önle**:
+   - Asla yapay olarak onlarca megabayt veya gigabaytlarca yer kaplayan sahte test girdileri, devasa tampon bellekler (buffer), dummy blob'lar veya tekrarlanan dosya yığınları oluşturma.
+   - Test dosyaları ve fikstürler doğrudan işlevselliği doğrulamaya odaklanmalı; test senaryolarında minimum, hafif (mock, stream, bounded fixture veya bellek içi payload) yapılar kullanılmalıdır.
+
+2. **Zorunlu büyük veri senaryoları**:
+   - Eğer sınır değer veya kota testi için (örneğin 10 MB KV sınırı, dosya boyutu kontrolleri vb.) büyük veri testi mutlak bir zorunluluksa:
+     - Alanı son derece hesaplı ve verimli kullan.
+     - Disk üzerinde kalıcı şişkinlik yaratma; bellek içi (in-memory) sanal nesneler veya geçici akışlar (mock stream) tercih et.
+     - Fiziksel dosya oluşturulması kaçınılmaz olduysa, test tamamlanır tamamlanmaz (`teardown` / `afterEach` / `afterAll` bloklarında) oluşturulan geçici dosyaları anında temizle ve sil.
+
+3. **Silinen test dosyalarını gereksiz yere geri getirme**:
+   - Kullanıcı tarafından silinen veya temizlenen test dosyalarını kullanıcının açık talimatı olmadan asla yeniden oluşturma.
+
+---
+
 ## Display scaling and monitor preferences
 
 Main-window UI sizing uses the original 15px baseline, root --ui-scale and shared --ui-unit/design tokens. Keep responsive breakpoints and the 1800px content cap in logical CSS dimensions; never use physical monitor resolution as a layout breakpoint. The compact palette owns a 1px sizing unit and does not inherit main-window scaling. Native tray/menu assets are unaffected.
