@@ -1195,9 +1195,25 @@ function App() {
         {/* 1. TODAY TAB (Günün Akışı & Görevler) */}
         {(page === "today" || page === "tasks") && (
           <>
-            {/* Dynamic Greeting Strip */}
+            {/* Dynamic Greeting Strip with Weather */}
             <div className="mobile-greeting-strip">
               <span className="mobile-greeting-title">{mobileGreeting}</span>
+              {weather ? (
+                <button
+                  type="button"
+                  className="mobile-greeting-weather"
+                  onClick={() => setWeatherModalOpen(true)}
+                  title={`${weather.city} Hava Durumu: ${weather.temperature}°C, ${weather.desc} — Detaylar için tıkla`}
+                >
+                  <span className="weather-symbol">{weather.symbol}</span>
+                  <span className="weather-text">{weather.city} {weather.temperature}°C · {weather.desc}</span>
+                </button>
+              ) : (
+                <div className="mobile-greeting-weather" title="Hava durumu yükleniyor">
+                  <span className="weather-symbol">🌤️</span>
+                  <span className="weather-text">Yükleniyor…</span>
+                </div>
+              )}
             </div>
 
             {/* Quick Metrics Bar at Top */}
