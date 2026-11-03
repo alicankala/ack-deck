@@ -4,6 +4,7 @@ import { synchronizePhone, pausePhoneSync, isPhoneSyncRunning } from "./phoneSyn
 import { saveInboxIndex, type InboxReference } from "./productIntelligence";
 import { loadPrayerConfig } from "../shared/prayerTimes";
 import { loadStudyReminders } from "./studyReminderStore";
+import { loadNotificationPreferences } from "./notificationStore";
 
 const PAUSE_MESSAGE=/güvenli biçimde duraklatıldı/;
 
@@ -20,7 +21,12 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void,
       }
       try{
         const studyRem=loadStudyReminders();
-        await phoneRequest("heartbeat",{prayerConfig:loadPrayerConfig(),...(!studyRem.locked?{studyReminders:studyRem.entries}:{})});
+        const notif=loadNotificationPreferences();
+        await phoneRequest("heartbeat",{
+          prayerConfig:loadPrayerConfig(),
+          ...(!studyRem.locked?{studyReminders:studyRem.entries}:{}),
+          notificationPreferences:notif,
+        });
       }catch(err){
         console.warn("[ACKDeck Heartbeat]",err);
       }
@@ -84,6 +90,8 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void,
     const pauseForRestore=(event:Event)=>{if((event as CustomEvent).detail===true)pausePhoneSync(true);};
     const restored=()=>{pausePhoneSync(true);enabled=false;clearInterval(timer);clearInterval(heartbeatTimer);try{window.localStorage.setItem("ack-deck.phone-restore-review.v1","true");}catch{}void phoneStatus().then(status=>status.enabled?configurePhone(status.url,false):undefined).then(()=>window.dispatchEvent(new Event("ack-phone-configured"))).catch(()=>{});};
     const onPrayerLogsChanged=()=>{if(active&&enabled&&!paused&&!isPhoneSyncRunning()){void sendHeartbeat();void run();}};
+    const onNotifChanged=()=>{if(active&&enabled&&!paused)void sendHeartbeat();};
+    window.addEventListener("ack-notification-preferences-changed",onNotifChanged);
     const onDataChanged=()=>{
       if(active&&enabled&&!paused&&!isPhoneSyncRunning()){
         clearTimeout(changeTimer);
@@ -119,6 +127,7 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void,
       window.removeEventListener("ack-data-restored",restored);
       window.removeEventListener("ack-restore-active",pauseForRestore);
       window.removeEventListener("ack-phone-configured",configure);
+      window.removeEventListener("ack-notification-preferences-changed",onNotifChanged);
       window.removeEventListener("ack-prayer-logs-changed",onPrayerLogsChanged);
       window.removeEventListener("ack-data-changed",onDataChanged);
       window.removeEventListener("focus",onWindowFocus);

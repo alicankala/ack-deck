@@ -2,9 +2,11 @@ import { ActionMenu } from "../../src/components/ActionMenu";
 import { MobileSmartCapture, MobileWeek } from "./ProductViews";
 import { MobilePrayerCard } from "./MobilePrayerCard";
 import { MobileDormMenuCard } from "./MobileDormMenuCard";
+import { MobilePomodoroCard } from "./MobilePomodoroCard";
 import { MobileMediaTracker } from "./MobileMediaTracker";
 import { MobileWeatherModal } from "./MobileWeatherModal";
 import { MobileAiChat } from "./MobileAiChat";
+import { useCollapsedCards } from "./useCollapsedCards";
 import { productMetadata } from "../../shared/productivity";
 import { moveBy } from "../../src/reorder";
 import { NoteAttachments } from "./NoteAttachments";
@@ -65,18 +67,8 @@ function formatAlarmHint(dueTime: string | null, reminderLeadMinutes?: number): 
 function App() {
   const [state, setState] = useState<MobileState>(emptyState);
   const [ready, setReady] = useState(false);
-  const [page, setPage] = useState<string>(() => {
-    const raw = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash;
-    if (raw === "prayer" || raw.startsWith("prayer")) return "today";
-    const params = new URLSearchParams(raw);
-    const p = params.get("page");
-    if (p === "subscriptions" || p === "plan" || p === "calendar") return "plan";
-    if (p === "media") return "media";
-    if (p === "notes") return "notes";
-    if (p === "send") return "send";
-    if (p === "settings") return "settings";
-    return "today";
-  });
+  const [page, setPage] = useState<string>("today");
+  const { isCollapsed, toggle: toggleCard } = useCollapsedCards();
   const [weather, setWeather] = useState<WeatherData | null>(() => loadWeatherCache());
   const [weatherModalOpen, setWeatherModalOpen] = useState(false);
   const [attendance, setAttendance] = useState(() => loadStudyAttendance());
@@ -680,7 +672,18 @@ function App() {
   }
 
   useEffect(() => {
-    handleHashRoute();
+    // Fresh app startup: clear lingering #page=... from URL so app always opens to Homepage
+    const raw = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash;
+    const params = new URLSearchParams(raw);
+    const hasTaskOrPair = Boolean(params.get("task") || raw.startsWith("pair="));
+    if (hasTaskOrPair) {
+      handleHashRoute();
+    } else if (raw) {
+      try {
+        history.replaceState(null, "", location.pathname);
+      } catch {}
+    }
+
     const change = () => handleHashRoute();
     window.addEventListener("hashchange", change);
     const onMessage = (e: MessageEvent) => {
@@ -1232,38 +1235,68 @@ function App() {
               </button>
             </div>
 
-            {/* Unified Schedule & Weekly Strip Card */}
-            <section className="mobile-timeline-section unified-schedule-box" aria-label="Günün akışı ve haftalık çizelge">
-              {/* Header inside the unified card */}
-              <div className="timeline-card-header-v2">
-                <div className="timeline-header-meta">
-                  <div className="timeline-header-icon-box">
-                    <Icon name="grid" size={20} />
-                  </div>
-                  <div>
-                    <h3 className="timeline-title-text">Haftalık Çizelge</h3>
-                  </div>
+            {/* Unified Schedule & Weekly Strip Card (Collapsible) */}
+            {isCollapsed("timeline") ? (
+              <div
+                className="mobile-collapsed-card"
+                onClick={() => toggleCard("timeline")}
+                role="button"
+                tabIndex={0}
+                aria-expanded={false}
+                title="Haftalık çizelgeyi genişletmek için tıkla"
+              >
+                <div className="mobile-collapsed-left">
+                  <span className="mobile-collapsed-icon" aria-hidden="true">📅</span>
+                  <span className="mobile-collapsed-title">Çizelge:</span>
+                  <span className="mobile-collapsed-text">
+                    {isSelectedMobileToday
+                      ? `Bugün ${todayStudyBlocks.length} ders, ${mobileTimelineItems.filter(i => i.kind === "task").length} görev`
+                      : `${selectedMobileDateLabel} oturumları`}
+                  </span>
                 </div>
-                <div className="timeline-header-actions">
-                  {!isSelectedMobileToday && (
+                <span className="mobile-collapsed-arrow" aria-hidden="true">⌄</span>
+              </div>
+            ) : (
+              <section className="mobile-timeline-section unified-schedule-box" aria-label="Günün akışı ve haftalık çizelge">
+                {/* Header inside the unified card */}
+                <div className="timeline-card-header-v2">
+                  <div className="timeline-header-meta">
+                    <div className="timeline-header-icon-box">
+                      <Icon name="grid" size={20} />
+                    </div>
+                    <div>
+                      <h3 className="timeline-title-text">Haftalık Çizelge</h3>
+                    </div>
+                  </div>
+                  <div className="timeline-header-actions">
+                    {!isSelectedMobileToday && (
+                      <button
+                        type="button"
+                        className="mobile-back-today-pill"
+                        onClick={() => setSelectedMobileDate(today)}
+                      >
+                        Bugün
+                      </button>
+                    )}
                     <button
                       type="button"
-                      className="mobile-back-today-pill"
-                      onClick={() => setSelectedMobileDate(today)}
+                      className="text-action"
+                      onClick={() => { changePage("plan"); setPlanTab("calendar"); }}
+                      title="Tüm Haftalık Plan"
                     >
-                      Bugün
+                      Tüm Plan ›
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    className="text-action"
-                    onClick={() => { changePage("plan"); setPlanTab("calendar"); }}
-                    title="Tüm Haftalık Plan"
-                  >
-                    Tüm Plan ›
-                  </button>
+                    <button
+                      type="button"
+                      className="mobile-card-collapse-btn"
+                      onClick={() => toggleCard("timeline")}
+                      title="Kartı daralt"
+                      aria-label="Çizelge kartını daralt"
+                    >
+                      ⌃
+                    </button>
+                  </div>
                 </div>
-              </div>
 
               {/* Horizontal Week Mini Strip directly inside the card */}
               <div className="mobile-week-strip-grid" style={{ marginBottom: "0.75rem" }}>
@@ -1362,33 +1395,62 @@ function App() {
                 )}
               </div>
             </section>
+            )}
 
-            {/* Dedicated Görevler Card matching desktop logic */}
-            <section className="mobile-tasks-card surface" aria-label="Görevler">
-              <div className="mobile-tasks-header">
-                <div className="mobile-tasks-title-group">
-                  <div className="mobile-tasks-icon-box">
-                    <Icon name="checkCircle" size={18} />
-                  </div>
-                  <div>
-                    <h3 className="mobile-tasks-title">Görevler</h3>
-                    <p className="mobile-tasks-subtitle">
-                      Yapılacaklarını ve derslerini tek yerden takip et.
-                    </p>
-                  </div>
+            {/* Dedicated Görevler Card (Collapsible) */}
+            {isCollapsed("tasks") ? (
+              <div
+                className="mobile-collapsed-card"
+                onClick={() => toggleCard("tasks")}
+                role="button"
+                tabIndex={0}
+                aria-expanded={false}
+                title="Görevler kartını genişletmek için tıkla"
+              >
+                <div className="mobile-collapsed-left">
+                  <span className="mobile-collapsed-icon" aria-hidden="true">📋</span>
+                  <span className="mobile-collapsed-title">Görevler:</span>
+                  <span className="mobile-collapsed-text">
+                    {totalRemainingCount} yapılacak kaldı · {totalCompletedTasksCount} tamamlandı
+                  </span>
                 </div>
-                <div className="mobile-tasks-actions">
-                  <span className="mobile-remaining-pill">{totalRemainingCount} KALDI</span>
-                  <button
-                    className="primary-action-round"
-                    type="button"
-                    onClick={() => { openForm("task"); if (mobileTaskFilter === "today") setDate(today); }}
-                    title="Görev Ekle"
-                  >
-                    +
-                  </button>
-                </div>
+                <span className="mobile-collapsed-arrow" aria-hidden="true">⌄</span>
               </div>
+            ) : (
+              <section className="mobile-tasks-card surface" aria-label="Görevler">
+                <div className="mobile-tasks-header">
+                  <div className="mobile-tasks-title-group">
+                    <div className="mobile-tasks-icon-box">
+                      <Icon name="checkCircle" size={18} />
+                    </div>
+                    <div>
+                      <h3 className="mobile-tasks-title">Görevler</h3>
+                      <p className="mobile-tasks-subtitle">
+                        Yapılacaklarını ve derslerini tek yerden takip et.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mobile-tasks-actions">
+                    <span className="mobile-remaining-pill">{totalRemainingCount} KALDI</span>
+                    <button
+                      className="primary-action-round"
+                      type="button"
+                      onClick={() => { openForm("task"); if (mobileTaskFilter === "today") setDate(today); }}
+                      title="Görev Ekle"
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      className="mobile-card-collapse-btn"
+                      onClick={() => toggleCard("tasks")}
+                      title="Kartı daralt"
+                      aria-label="Görevler kartını daralt"
+                    >
+                      ⌃
+                    </button>
+                  </div>
+                </div>
 
               {/* Filter Tabs matching desktop [Aktif | Bugün | Yaklaşan | Tarihsiz | Tamamlanan] */}
               <div className="mobile-task-filters" role="group" aria-label="Görev filtresi">
@@ -1549,12 +1611,27 @@ function App() {
                 </span>
               </div>
             </section>
+            )}
 
             {/* Namaz Vakitleri Kartı */}
-            <MobilePrayerCard records={state.records} onSave={saveMutation} />
+            <MobilePrayerCard
+              records={state.records}
+              onSave={saveMutation}
+              isCollapsed={isCollapsed("prayer")}
+              onToggleCollapse={() => toggleCard("prayer")}
+            />
 
             {/* Günün Yemek Menüsü (Altınkalem) */}
-            <MobileDormMenuCard />
+            <MobileDormMenuCard
+              isCollapsed={isCollapsed("dormMenu")}
+              onToggleCollapse={() => toggleCard("dormMenu")}
+            />
+
+            {/* Pomodoro Odak Sayacı */}
+            <MobilePomodoroCard
+              isCollapsed={isCollapsed("pomodoro")}
+              onToggleCollapse={() => toggleCard("pomodoro")}
+            />
           </>
         )}
 

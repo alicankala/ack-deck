@@ -4951,6 +4951,263 @@ body:has(.editor) nav { display: none !important; visibility: hidden; }
   border-radius: 5px;
 }
 
+/* Steps View Switcher & Flow Cards */
+.steps-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.steps-view-switcher {
+  display: inline-flex;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--app-border, #243547);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.view-switch-btn {
+  background: transparent;
+  border: none;
+  color: var(--app-muted, #94a3b8);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.2;
+}
+
+.view-switch-btn:hover {
+  color: var(--app-text, #f1f5f9);
+}
+
+.view-switch-btn.is-active {
+  background: var(--app-accent, #38bdf8);
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.prayer-flow-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flow-section-divider {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--app-accent, #38bdf8);
+  margin-top: 10px;
+  margin-bottom: 2px;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed rgba(56, 189, 248, 0.2);
+}
+
+.flow-step-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--app-border, #243547);
+  border-radius: 9px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.is-kamet-item .flow-step-card {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.flow-step-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.flow-step-badge-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  letter-spacing: 0.2px;
+}
+
+.flow-step-note {
+  font-size: 0.7rem;
+  color: var(--app-muted, #94a3b8);
+  line-height: 1.35;
+}
+
+.flow-chips-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px 3px;
+}
+
+.flow-chip-group {
+  display: inline-flex;
+  align-items: center;
+}
+
+.flow-chip {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: 0.74rem;
+  padding: 2.5px 7px;
+  border-radius: 6px;
+  line-height: 1.25;
+  user-select: none;
+  border: 1px solid transparent;
+}
+
+.flow-arrow {
+  color: var(--app-muted, #64748b);
+  font-size: 0.68rem;
+  font-weight: 700;
+  margin: 0 4px;
+  user-select: none;
+}
+
+/* Chip Color Themes */
+.flow-chip.chip-intro {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.28);
+}
+
+.flow-chip.chip-fatiha {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.35);
+  font-weight: 700;
+}
+
+.flow-chip.chip-surah {
+  background: rgba(52, 211, 153, 0.12);
+  color: #6ee7b7;
+  border-color: rgba(52, 211, 153, 0.28);
+}
+
+.flow-chip.chip-kamet {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fde047;
+  border-color: rgba(245, 158, 11, 0.45);
+  font-weight: 700;
+}
+
+.flow-chip.chip-dua {
+  background: rgba(168, 85, 247, 0.14);
+  color: #c084fc;
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+.flow-chip.chip-niyyah {
+  background: rgba(249, 115, 22, 0.12);
+  color: #fb923c;
+  border-color: rgba(249, 115, 22, 0.28);
+}
+
+.flow-chip.chip-action {
+  background: rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.flow-chip.chip-tesbih {
+  background: rgba(14, 165, 233, 0.14);
+  color: #7dd3fc;
+  border-color: rgba(14, 165, 233, 0.3);
+}
+
+.flow-chip.chip-default {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--app-secondary, #cbd5e1);
+  border-color: var(--app-border, #243547);
+}
+
+/* Light Theme Adjustments */
+:root[data-theme="light"] .steps-view-switcher {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+:root[data-theme="light"] .flow-step-card {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+:root[data-theme="light"] .flow-step-badge-label {
+  color: #0f172a;
+}
+
+:root[data-theme="light"] .flow-step-note {
+  color: #64748b;
+}
+
+:root[data-theme="light"] .flow-chip.chip-intro {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-color: #bae6fd;
+}
+
+:root[data-theme="light"] .flow-chip.chip-fatiha {
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #bbf7d0;
+}
+
+:root[data-theme="light"] .flow-chip.chip-surah {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+:root[data-theme="light"] .flow-chip.chip-kamet {
+  background: #fef3c7;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+:root[data-theme="light"] .flow-chip.chip-dua {
+  background: #f3e8ff;
+  color: #7e22ce;
+  border-color: #e9d5ff;
+}
+
+:root[data-theme="light"] .flow-chip.chip-niyyah {
+  background: #ffedd5;
+  color: #c2410c;
+  border-color: #fed7aa;
+}
+
+:root[data-theme="light"] .flow-chip.chip-action {
+  background: #f1f5f9;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+:root[data-theme="light"] .flow-chip.chip-tesbih {
+  background: #e0f2fe;
+  color: #0284c7;
+  border-color: #bae6fd;
+}
+
+:root[data-theme="light"] .flow-arrow {
+  color: #94a3b8;
+}
+
 /* Guide Cards (Kamet & Tesbihat) */
 .guide-card {
   background: rgba(255, 255, 255, 0.02);
@@ -5554,4 +5811,396 @@ body:has(.editor) nav { display: none !important; visibility: hidden; }
   from { opacity: 0; transform: scale(0.98); }
   to { opacity: 1; transform: scale(1); }
 }
+
+/* Mobile Pomodoro Card (iPhone & Android Optimized) */
+.mobile-pomodoro-card {
+  background: linear-gradient(135deg, #161b22 0%, #0f141c 100%);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  border-radius: 18px;
+  padding: 14px 16px 16px;
+  margin: 0 0 16px;
+  box-shadow: 0 6px 20px -4px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+}
+
+:root[data-theme="light"] .mobile-pomodoro-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-color: rgba(239, 68, 68, 0.3);
+  box-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.06);
+  color: var(--app-text);
+}
+
+.mobile-pomodoro-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mobile-pomodoro-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mobile-pomodoro-icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.mobile-pomodoro-title-group h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--app-text);
+}
+
+.mobile-pomodoro-sub {
+  display: block;
+  font-size: 11px;
+  color: var(--app-muted);
+  margin-top: 1px;
+}
+
+.mobile-pomodoro-modes {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--app-control);
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid var(--app-border);
+}
+
+.mobile-pomodoro-mode-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--app-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mobile-pomodoro-mode-btn.is-active {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--app-text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+:root[data-theme="light"] .mobile-pomodoro-mode-btn.is-active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-pomodoro-display {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.mobile-pomodoro-digits {
+  font-size: 42px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  color: var(--app-text);
+  line-height: 1;
+}
+
+.mobile-pomodoro-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mobile-pomodoro-badge.mode-pomodoro {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.mobile-pomodoro-badge.mode-shortBreak {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.mobile-pomodoro-badge.mode-longBreak {
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.mobile-pomodoro-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-pomodoro-action-btn {
+  flex: 2;
+  height: 40px;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 10px;
+  border: none;
+  background: #ef4444;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35);
+}
+
+.mobile-pomodoro-action-btn.is-running {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
+  box-shadow: none;
+}
+
+.mobile-pomodoro-sec-btn {
+  flex: 1;
+  height: 40px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 10px;
+  border: 1px solid var(--app-border);
+  background: var(--app-control);
+  color: var(--app-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mobile-pomodoro-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 2px;
+  font-size: 11px;
+  color: var(--app-muted);
+}
+
+.mobile-pomodoro-track {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mobile-pomodoro-track-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--app-muted);
+  margin-right: 2px;
+}
+
+.mobile-pomodoro-dot {
+  font-size: 12px;
+  opacity: 0.35;
+  transition: opacity 0.2s ease;
+}
+
+.mobile-pomodoro-dot.is-done {
+  opacity: 1;
+}
+
+.mobile-pomodoro-total-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--app-muted);
+  background: var(--app-control);
+  padding: 2px 6px;
+  border-radius: 5px;
+  margin-left: 4px;
+}
+
+.mobile-pomodoro-autobreak {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--app-muted);
+}
+
+.mobile-pomodoro-autobreak input {
+  accent-color: #ef4444;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.mobile-pomodoro-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.mobile-pomodoro-progress-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.mobile-pomodoro-progress-fill.mode-pomodoro {
+  background: #ef4444;
+}
+
+.mobile-pomodoro-progress-fill.mode-shortBreak {
+  background: #10b981;
+}
+
+.mobile-pomodoro-progress-fill.mode-longBreak {
+  background: #3b82f6;
+}
+
+/* Mobile Collapsible Cards (Akordiyon / Kompakt Mod) */
+.mobile-collapsed-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--app-surface, #151b23);
+  border: 1px solid var(--app-border, rgba(255, 255, 255, 0.08));
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+  font-size: 0.875rem;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.mobile-collapsed-card:active {
+  transform: scale(0.985);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mobile-collapsed-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-collapsed-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.mobile-collapsed-title {
+  font-weight: 700;
+  color: var(--app-text, #f1f5f9);
+  flex-shrink: 0;
+  font-size: 0.85rem;
+}
+
+.mobile-collapsed-text {
+  color: var(--app-muted, #94a3b8);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  flex: 1;
+}
+
+.mobile-collapsed-arrow {
+  color: var(--app-muted, #94a3b8);
+  font-size: 1.15rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+  line-height: 1;
+  transition: transform 0.2s ease, background 0.15s ease;
+}
+
+.mobile-card-collapse-btn {
+  background: transparent;
+  border: 1px solid var(--app-border, rgba(255, 255, 255, 0.12));
+  color: var(--app-muted, #94a3b8);
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  transition: all 0.15s ease;
+  margin-left: 4px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.mobile-card-collapse-btn:active {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--app-text, #fff);
+  transform: scale(0.94);
+}
+
+:root[data-theme="light"] .mobile-collapsed-card {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.09);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+:root[data-theme="light"] .mobile-collapsed-card:active {
+  background: #f8fafc;
+}
+
+:root[data-theme="light"] .mobile-collapsed-title {
+  color: #0f172a;
+}
+
+:root[data-theme="light"] .mobile-collapsed-text {
+  color: #64748b;
+}
+
+:root[data-theme="light"] .mobile-collapsed-arrow {
+  background: rgba(0, 0, 0, 0.04);
+  color: #64748b;
+}
+
+:root[data-theme="light"] .mobile-card-collapse-btn {
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #64748b;
+}
+
+:root[data-theme="light"] .mobile-card-collapse-btn:active {
+  background: rgba(0, 0, 0, 0.06);
+  color: #0f172a;
+}
+
 

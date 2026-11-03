@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useId } from "react";
+import { useState, useEffect, useCallback, useId, useRef } from "react";
 import { emptyState, saveState } from "./store";
 import {
   loadSecurityConfig,
@@ -39,8 +39,12 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
     return () => clearInterval(timer);
   }, [lockoutSec]);
 
+  const bioInFlightRef = useRef(false);
+  const autoPromptedRef = useRef(false);
+
   const triggerFaceId = useCallback(async () => {
-    if (!config.biometricsEnabled || lockoutSec > 0) return;
+    if (bioInFlightRef.current || !config.biometricsEnabled || lockoutSec > 0) return;
+    bioInFlightRef.current = true;
     setIsAuthenticatingBio(true);
     setErrorMsg("");
     try {
@@ -53,13 +57,16 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
     } catch (e) {
       console.warn("Face ID failed:", e);
     } finally {
+      bioInFlightRef.current = false;
       setIsAuthenticatingBio(false);
     }
-  }, [config, lockoutSec, onUnlock]);
+  }, [config.biometricsEnabled, config.biometricsCredentialId, lockoutSec, onUnlock]);
 
   // Attempt Face ID automatically once on mount ONLY if autoPromptBiometrics is explicitly enabled
   useEffect(() => {
+    if (autoPromptedRef.current) return;
     if (config.biometricsEnabled && config.autoPromptBiometrics && lockoutSec <= 0) {
+      autoPromptedRef.current = true;
       const timer = setTimeout(() => {
         void triggerFaceId();
       }, 350);

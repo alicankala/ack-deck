@@ -81,18 +81,14 @@ export function PrayerWidget() {
   }
 
   function cyclePrayerStatus(name: TrackedPrayerName) {
-    const current = currentLog.prayers[name];
-    const nextStatus: PrayerStatus | undefined =
-      current === undefined ? "prayed" : current === "prayed" ? "missed" : undefined;
-    const nextPrayers = { ...currentLog.prayers };
-    if (nextStatus) {
-      nextPrayers[name] = nextStatus;
-    } else {
-      delete nextPrayers[name];
-    }
+    const current = currentLog.prayers[name] ?? "missed";
+    const nextStatus: PrayerStatus = current === "prayed" ? "missed" : "prayed";
     saveDayLog({
       ...currentLog,
-      prayers: nextPrayers,
+      prayers: {
+        ...currentLog.prayers,
+        [name]: nextStatus,
+      },
       updatedAt: Date.now(),
     });
   }
@@ -266,21 +262,22 @@ export function PrayerWidget() {
 
         <div className="prayer-check-grid" role="group" aria-label="Günlük namaz çetelesi">
           {TRACKED_PRAYERS.map(tp => {
-            const status = currentLog.prayers[tp.name];
+            const status: PrayerStatus = currentLog.prayers[tp.name] ?? "missed";
+            const isPrayed = status === "prayed";
             return (
               <button
                 key={tp.name}
                 type="button"
-                className={`prayer-check-btn ${status === "prayed" ? "is-prayed" : status === "missed" ? "is-missed" : ""}`}
+                className={`prayer-check-btn ${isPrayed ? "is-prayed" : "is-missed"}`}
                 onClick={() => cyclePrayerStatus(tp.name)}
-                title={`${tp.label}: ${status === "prayed" ? "Kılındı (Kaza/Kılınmadı yapmak için tıkla)" : status === "missed" ? "Kılınmadı (Sıfırlamak için tıkla)" : "İşaretlemek için tıkla"}`}
+                title={`${tp.label}: ${isPrayed ? "Kılındı (Kılınmadı yapmak için tıkla)" : "Kılınmadı (Kılındı yapmak için tıkla)"}`}
               >
                 <span className="check-btn-icon">
-                  {status === "prayed" ? "✓" : status === "missed" ? "✕" : "○"}
+                  {isPrayed ? "✓" : "✕"}
                 </span>
                 <span className="check-btn-label">{tp.label}</span>
                 <small className="check-btn-state">
-                  {status === "prayed" ? "Kılındı" : status === "missed" ? "Kılınmadı" : "Bekliyor"}
+                  {isPrayed ? "Kılındı" : "Kılınmadı"}
                 </small>
               </button>
             );

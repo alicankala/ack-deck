@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./Icon";
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { loadNotificationPreferences } from "../notificationStore";
 
 export type PomodoroMode = "pomodoro" | "shortBreak" | "longBreak";
 
@@ -41,6 +42,7 @@ export function PomodoroTimer() {
   const [mode, setMode] = useState<PomodoroMode>("pomodoro");
   const [timeLeft, setTimeLeft] = useState<number>(MODE_DURATIONS.pomodoro);
   const [isRunning, setIsRunning] = useState(false);
+  const [endTimeMs, setEndTimeMs] = useState<number | null>(null);
   const [completedSessions, setCompletedSessions] = useState(0);
   const [autoStartBreaks, setAutoStartBreaks] = useState(true);
 
@@ -50,17 +52,49 @@ export function PomodoroTimer() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
+        let curMode: PomodoroMode = "pomodoro";
         if (parsed.mode && MODE_DURATIONS[parsed.mode as PomodoroMode]) {
-          setMode(parsed.mode);
+          curMode = parsed.mode;
+          setMode(curMode);
         }
+        let curSessions = 0;
         if (typeof parsed.completedSessions === "number") {
-          setCompletedSessions(parsed.completedSessions);
-        }
-        if (typeof parsed.timeLeft === "number" && parsed.timeLeft > 0) {
-          setTimeLeft(parsed.timeLeft);
+          curSessions = parsed.completedSessions;
+          setCompletedSessions(curSessions);
         }
         if (typeof parsed.autoStartBreaks === "boolean") {
           setAutoStartBreaks(parsed.autoStartBreaks);
+        }
+
+        // Real-time resume check using target timestamp (even if PC was in sleep/locked)
+        if (parsed.isRunning && typeof parsed.endTimeMs === "number") {
+          const now = Date.now();
+          if (now >= parsed.endTimeMs) {
+            if (curMode === "pomodoro") {
+              const nextSessions = curSessions + 1;
+              setCompletedSessions(nextSessions);
+              const isLong = nextSessions % 4 === 0;
+              const nextMode: PomodoroMode = isLong ? "longBreak" : "shortBreak";
+              setMode(nextMode);
+              setTimeLeft(MODE_DURATIONS[nextMode]);
+              setIsRunning(false);
+              setEndTimeMs(null);
+            } else {
+              setMode("pomodoro");
+              setTimeLeft(MODE_DURATIONS.pomodoro);
+              setIsRunning(false);
+              setEndTimeMs(null);
+            }
+          } else {
+            const remaining = Math.max(1, Math.round((parsed.endTimeMs - now) / 1000));
+            setTimeLeft(remaining);
+            setIsRunning(true);
+            setEndTimeMs(parsed.endTimeMs);
+          }
+        } else if (typeof parsed.timeLeft === "number" && parsed.timeLeft > 0) {
+          setTimeLeft(parsed.timeLeft);
+          setIsRunning(false);
+          setEndTimeMs(null);
         }
       }
     } catch {}
@@ -71,87 +105,122 @@ export function PomodoroTimer() {
     try {
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ mode, timeLeft, completedSessions, autoStartBreaks })
+        JSON.stringify({ mode, timeLeft, completedSessions, autoStartBreaks, isRunning, endTimeMs })
       );
     } catch {}
-  }, [mode, timeLeft, completedSessions, autoStartBreaks]);
+  }, [mode, timeLeft, completedSessions, autoStartBreaks, isRunning, endTimeMs]);
 
   // Keep references to current state so the timer interval can cleanly transition
-  const stateRef = useRef({ mode, completedSessions, autoStartBreaks });
-  stateRef.current = { mode, completedSessions, autoStartBreaks };
+  const stateRef = useRef({ mode, completedSessions, autoStartBreaks, endTimeMs, isRunning });
+  stateRef.current = { mode, completedSessions, autoStartBreaks, endTimeMs, isRunning };
 
-  // Timer interval countdown
+  // Timer interval countdown & background resume handler
   useEffect(() => {
     if (!isRunning) return;
 
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          // Time is up! Handle mode transition
-          const { mode: curMode, completedSessions: curSessions, autoStartBreaks: autoStart } = stateRef.current;
-          playBeep();
+    function checkProgress() {
+      const { mode: curMode, completedSessions: curSessions, autoStartBreaks: autoStart, endTimeMs: targetEnd } = stateRef.current;
+      const now = Date.now();
 
-          if (curMode === "pomodoro") {
-            const nextSessions = curSessions + 1;
-            setCompletedSessions(nextSessions);
-            const isLong = nextSessions % 4 === 0;
-            const nextMode: PomodoroMode = isLong ? "longBreak" : "shortBreak";
-            const nextDuration = MODE_DURATIONS[nextMode];
+      if (!targetEnd || now >= targetEnd) {
+        // Time is up! Handle mode transition
+        playBeep();
 
-            setMode(nextMode);
-            setIsRunning(autoStart); // Auto-start the break if enabled
+        if (curMode === "pomodoro") {
+          const nextSessions = curSessions + 1;
+          setCompletedSessions(nextSessions);
+          const isLong = nextSessions % 4 === 0;
+          const nextMode: PomodoroMode = isLong ? "longBreak" : "shortBreak";
+          const nextDuration = MODE_DURATIONS[nextMode];
 
-            if (isTauri()) {
-              void invoke("notify_desktop", {
-                title: "🍅 Pomodoro Tamamlandı!",
-                body: isLong
-                  ? "Tebrikler, 4 seansı tamamladın! 15 dakikalık uzun mola başladı."
-                  : "Tebrikler, 25 dakikalık odak seansını bitirdin. 5 dakikalık mola başladı!",
-                target: null,
-              }).catch(() => {});
-            }
-
-            return nextDuration;
-          } else {
-            // Break is over -> return to focus mode and pause until user clicks start
-            setMode("pomodoro");
-            setIsRunning(false);
-
-            if (isTauri()) {
-              void invoke("notify_desktop", {
-                title: "☕ Mola Bitti!",
-                body: "Mola süresi doldu. Yeni bir odak seansına hazır olduğunda Başlat'a tıkla!",
-                target: null,
-              }).catch(() => {});
-            }
-
-            return MODE_DURATIONS.pomodoro;
+          const notif = loadNotificationPreferences();
+          if (notif.desktopMaster && notif.desktopPomodoro && isTauri()) {
+            void invoke("notify_desktop", {
+              title: "🍅 Pomodoro Tamamlandı!",
+              body: isLong
+                ? "Tebrikler, 4 seansı tamamladın! 15 dakikalık uzun mola başladı."
+                : "Tebrikler, 25 dakikalık odak seansını bitirdin. 5 dakikalık mola başladı!",
+              target: null,
+            }).catch(() => {});
           }
-        }
-        return prev - 1;
-      });
-    }, 1000);
 
-    return () => clearInterval(timer);
+          setMode(nextMode);
+          setTimeLeft(nextDuration);
+          if (autoStart) {
+            const nextEnd = Date.now() + nextDuration * 1000;
+            setEndTimeMs(nextEnd);
+            setIsRunning(true);
+          } else {
+            setEndTimeMs(null);
+            setIsRunning(false);
+          }
+        } else {
+          // Break is over -> return to focus mode
+          const notif = loadNotificationPreferences();
+          if (notif.desktopMaster && notif.desktopPomodoro && isTauri()) {
+            void invoke("notify_desktop", {
+              title: "☕ Mola Bitti!",
+              body: "Mola süresi doldu. Yeni bir odak seansına hazır olduğunda Başlat'a tıkla!",
+              target: null,
+            }).catch(() => {});
+          }
+
+          setMode("pomodoro");
+          setTimeLeft(MODE_DURATIONS.pomodoro);
+          setIsRunning(false);
+          setEndTimeMs(null);
+        }
+      } else {
+        const remaining = Math.max(0, Math.round((targetEnd - now) / 1000));
+        setTimeLeft(remaining);
+      }
+    }
+
+    const timer = setInterval(checkProgress, 500);
+
+    const handleVisibilitySync = () => {
+      if (document.visibilityState === "visible") {
+        checkProgress();
+      }
+    };
+
+    window.addEventListener("focus", handleVisibilitySync);
+    document.addEventListener("visibilitychange", handleVisibilitySync);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", handleVisibilitySync);
+      document.removeEventListener("visibilitychange", handleVisibilitySync);
+    };
   }, [isRunning]);
 
   function switchMode(newMode: PomodoroMode) {
     setIsRunning(false);
+    setEndTimeMs(null);
     setMode(newMode);
     setTimeLeft(MODE_DURATIONS[newMode]);
   }
 
   function resetTimer() {
     setIsRunning(false);
+    setEndTimeMs(null);
     setTimeLeft(MODE_DURATIONS[mode]);
   }
 
   function toggleRunning() {
-    setIsRunning(!isRunning);
+    if (isRunning) {
+      setIsRunning(false);
+      setEndTimeMs(null);
+    } else {
+      const target = Date.now() + timeLeft * 1000;
+      setEndTimeMs(target);
+      setIsRunning(true);
+    }
   }
 
   function skipPhase() {
     setIsRunning(false);
+    setEndTimeMs(null);
     if (mode === "pomodoro") {
       const nextSessions = completedSessions + 1;
       setCompletedSessions(nextSessions);

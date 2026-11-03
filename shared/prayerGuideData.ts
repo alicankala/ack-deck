@@ -7,6 +7,14 @@ export type PrayerSectionInfo = {
   notes?: string;
 };
 
+export type RekatStepFlow = {
+  sectionTitle?: string;
+  rekatLabel: string;
+  badges: string[];
+  note?: string;
+  isKamet?: boolean;
+};
+
 export type PrayerGuideItem = {
   id: string;
   title: string;
@@ -15,6 +23,7 @@ export type PrayerGuideItem = {
   sections: PrayerSectionInfo[];
   description: string;
   stepByStep: string[];
+  rekatFlow: RekatStepFlow[];
 };
 
 export type SurahOrDua = {
@@ -64,6 +73,42 @@ export const PRAYER_GUIDE_ITEMS: PrayerGuideItem[] = [
       "7. Farza Niyet: 'Niyet ettim Allah rızası için bugünkü sabah namazının iki rekat farzını kılmaya.' Tekbir alınıp 2 rekat sünnet gibi kılınır.",
       "8. Namaz tamamlandıktan sonra Tesbihat ve Âyet-el Kürsî okunur.",
     ],
+    rekatFlow: [
+      {
+        sectionTitle: "2 Rekat Sünnet",
+        rekatLabel: "1. Rekat",
+        badges: ["Sübhaneke", "Eûzü-Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde"],
+        note: "Niyet: 'Niyet ettim Allah rızası için sabah namazının iki rekat sünnetini kılmaya' deyip tekbir alınır.",
+      },
+      {
+        rekatLabel: "2. Rekat",
+        badges: ["Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde", "Son Oturuş: Ettehiyyâtü, Salli-Bârik, Rabbenâ", "Selam"],
+        note: "Dualar okunup önce sağa, sonra sola selam verilir.",
+      },
+      {
+        sectionTitle: "2 Rekat Farz",
+        rekatLabel: "🔔 Kamet",
+        badges: ["Kamet Getirilir"],
+        note: "Farza kalkmadan hemen önce erkekler kamet getirir.",
+        isKamet: true,
+      },
+      {
+        rekatLabel: "1. Rekat",
+        badges: ["Sübhaneke", "Eûzü-Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde"],
+        note: "Niyet: 'Niyet ettim Allah rızası için sabah namazının iki rekat farzını kılmaya.'",
+      },
+      {
+        rekatLabel: "2. Rekat",
+        badges: ["Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde", "Son Oturuş: Ettehiyyâtü, Salli-Bârik, Rabbenâ", "Selam"],
+        note: "Dualar okunup selam verilir.",
+      },
+      {
+        sectionTitle: "Namaz Tamamlandı",
+        rekatLabel: "📿 Tesbihat",
+        badges: ["Selam Duası", "Âyet-el Kürsî", "33'lük Tesbihler", "Dua"],
+        note: "Selamın ardından istiğfar, salavat, Âyet-el Kürsî ve tesbihat yapılır.",
+      },
+    ],
   },
   {
     id: "dhuhr",
@@ -102,6 +147,73 @@ export const PRAYER_GUIDE_ITEMS: PrayerGuideItem[] = [
       "4. Son Sünnet (2 Rekat): Sabah namazının 2 rekat sünneti gibi kılınır.",
       "5. Tesbihat ve Âyet-el Kürsî ile namaz tamamlanır.",
     ],
+    rekatFlow: [
+      {
+        sectionTitle: "4 Rekat İlk Sünnet",
+        rekatLabel: "1. Rekat",
+        badges: ["Sübhaneke", "Eûzü-Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde"],
+        note: "Niyet: 'Niyet ettim Allah rızası için öğle namazının ilk sünnetini kılmaya.'",
+      },
+      {
+        rekatLabel: "2. Rekat",
+        badges: ["Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde", "İlk Oturuş: Sadece Ettehiyyâtü"],
+        note: "İlk oturuşta SADECE Ettehiyyâtü okunur, ardından 3. rekata kalkılır.",
+      },
+      {
+        rekatLabel: "3. Rekat",
+        badges: ["Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde"],
+        note: "Sünnet olduğu için 3. rekatta da Fatiha'dan sonra zamm-ı sure okunur.",
+      },
+      {
+        rekatLabel: "4. Rekat",
+        badges: ["Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde", "Son Oturuş: Ettehiyyâtü, Salli-Bârik, Rabbenâ", "Selam"],
+        note: "Dualar okunup selam verilir.",
+      },
+      {
+        sectionTitle: "4 Rekat Farz",
+        rekatLabel: "🔔 Kamet",
+        badges: ["Kamet Getirilir"],
+        note: "Farza başlamadan önce kamet getirilir.",
+        isKamet: true,
+      },
+      {
+        rekatLabel: "1. Rekat",
+        badges: ["Sübhaneke", "Eûzü-Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde"],
+        note: "Niyet: 'Niyet ettim Allah rızası için öğle namazının 4 rekat farzını kılmaya.'",
+      },
+      {
+        rekatLabel: "2. Rekat",
+        badges: ["Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde", "İlk Oturuş: Sadece Ettehiyyâtü"],
+        note: "İlk oturuşta SADECE Ettehiyyâtü okunup 3. rekata kalkılır.",
+      },
+      {
+        rekatLabel: "3. Rekat",
+        badges: ["Besmele", "Yalnızca Fatiha", "Rükû & Secde"],
+        note: "⚠️ Farz kuralı: 3. rekatta Zamm-ı Sure OKUNMAZ, yalnızca Fatiha okunur.",
+      },
+      {
+        rekatLabel: "4. Rekat",
+        badges: ["Besmele", "Yalnızca Fatiha", "Rükû & Secde", "Son Oturuş: Ettehiyyâtü, Salli-Bârik, Rabbenâ", "Selam"],
+        note: "⚠️ 4. rekatta da yalnızca Fatiha okunur. Oturuşta dualar okunup selam verilir.",
+      },
+      {
+        sectionTitle: "2 Rekat Son Sünnet",
+        rekatLabel: "1. Rekat",
+        badges: ["Sübhaneke", "Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde"],
+        note: "Sabah sünneti gibi 2 rekat kılınır.",
+      },
+      {
+        rekatLabel: "2. Rekat",
+        badges: ["Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde", "Son Oturuş: Dualar & Selam"],
+        note: "Dualar okunup selam verilir.",
+      },
+      {
+        sectionTitle: "Namaz Tamamlandı",
+        rekatLabel: "📿 Tesbihat",
+        badges: ["Selam Duası", "Âyet-el Kürsî", "33'lük Tesbihler", "Dua"],
+        note: "Son sünnetin ardından tesbihat yapılır.",
+      },
+    ],
   },
   {
     id: "asr",
@@ -133,6 +245,62 @@ export const PRAYER_GUIDE_ITEMS: PrayerGuideItem[] = [
       "4. Farz (4 Rekat): Tıpkı öğle namazının farzı gibi; ilk 2 rekatta Fatiha + Zamm-ı sure, 3. ve 4. rekatta ise sadece Fatiha okunur.",
       "5. Tesbihat ve Âyet-el Kürsî okunur.",
     ],
+    rekatFlow: [
+      {
+        sectionTitle: "4 Rekat Sünnet (Gayr-i Müekkede)",
+        rekatLabel: "1. Rekat",
+        badges: ["Sübhaneke", "Eûzü-Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde"],
+        note: "Niyet: 'Niyet ettim Allah rızası için ikindi namazının 4 rekat sünnetini kılmaya.'",
+      },
+      {
+        rekatLabel: "2. Rekat",
+        badges: ["Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde", "İlk Oturuş: Ettehiyyâtü + Salli + Bârik"],
+        note: "⚠️ Önemli Fark: İlk oturuşta Ettehiyyâtü'den sonra Allâhümme Salli ve Bârik de okunur.",
+      },
+      {
+        rekatLabel: "3. Rekat",
+        badges: ["Sübhaneke", "Eûzü-Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde"],
+        note: "⚠️ Önemli Fark: 3. rekata kalkınca baştan Sübhaneke okunur, sonra Eûzü-Besmele çekilir.",
+      },
+      {
+        rekatLabel: "4. Rekat",
+        badges: ["Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde", "Son Oturuş: Ettehiyyâtü, Salli-Bârik, Rabbenâ", "Selam"],
+        note: "Dualar okunup selam verilir.",
+      },
+      {
+        sectionTitle: "4 Rekat Farz",
+        rekatLabel: "🔔 Kamet",
+        badges: ["Kamet Getirilir"],
+        note: "Farza kalkarken kamet getirilir.",
+        isKamet: true,
+      },
+      {
+        rekatLabel: "1. Rekat",
+        badges: ["Sübhaneke", "Eûzü-Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde"],
+        note: "Niyet: 'Niyet ettim Allah rızası için ikindi namazının 4 rekat farzını kılmaya.'",
+      },
+      {
+        rekatLabel: "2. Rekat",
+        badges: ["Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde", "İlk Oturuş: Sadece Ettehiyyâtü"],
+        note: "İlk oturuşta SADECE Ettehiyyâtü okunup kalkılır.",
+      },
+      {
+        rekatLabel: "3. Rekat",
+        badges: ["Besmele", "Yalnızca Fatiha", "Rükû & Secde"],
+        note: "⚠️ Farzın 3. rekatında zamm-ı sure yok, yalnızca Fatiha okunur.",
+      },
+      {
+        rekatLabel: "4. Rekat",
+        badges: ["Besmele", "Yalnızca Fatiha", "Rükû & Secde", "Son Oturuş: Ettehiyyâtü, Salli-Bârik, Rabbenâ", "Selam"],
+        note: "⚠️ Yalnızca Fatiha. Son oturuşta dualar okunup selam verilir.",
+      },
+      {
+        sectionTitle: "Namaz Tamamlandı",
+        rekatLabel: "📿 Tesbihat",
+        badges: ["Selam Duası", "Âyet-el Kürsî", "33'lük Tesbihler", "Dua"],
+        note: "Farzın ardından tesbihat yapılır.",
+      },
+    ],
   },
   {
     id: "maghrib",
@@ -162,6 +330,47 @@ export const PRAYER_GUIDE_ITEMS: PrayerGuideItem[] = [
       "2. Farz (3 Rekat): 1. ve 2. rekatta Fatiha + Zamm-ı sure. 2. rekat sonunda oturulup sadece Ettehiyyâtü okunur. 3. rekatta SADECE Fatiha okunur, rükû ve secdelerden sonra son oturuş yapılıp selam verilir.",
       "3. Sünnet (2 Rekat): Sabah namazının 2 rekat sünneti gibi kılınır.",
       "4. Tesbihat ve Âyet-el Kürsî okunur.",
+    ],
+    rekatFlow: [
+      {
+        sectionTitle: "3 Rekat Farz (Önce Kılınır)",
+        rekatLabel: "🔔 Kamet",
+        badges: ["Kamet Getirilir"],
+        note: "Akşam namazı doğrudan farzla başladığı için en başta kamet getirilir.",
+        isKamet: true,
+      },
+      {
+        rekatLabel: "1. Rekat",
+        badges: ["Sübhaneke", "Eûzü-Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde"],
+        note: "Niyet: 'Niyet ettim Allah rızası için akşam namazının 3 rekat farzını kılmaya.'",
+      },
+      {
+        rekatLabel: "2. Rekat",
+        badges: ["Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde", "İlk Oturuş: Sadece Ettehiyyâtü"],
+        note: "İlk oturuşta SADECE Ettehiyyâtü okunup 3. rekata kalkılır.",
+      },
+      {
+        rekatLabel: "3. Rekat",
+        badges: ["Besmele", "Yalnızca Fatiha", "Rükû & Secde", "Son Oturuş: Ettehiyyâtü, Salli-Bârik, Rabbenâ", "Selam"],
+        note: "⚠️ 3. rekatta Zamm-ı Sure OKUNMAZ, yalnızca Fatiha okunur. Oturuşta dualar okunup selam verilir.",
+      },
+      {
+        sectionTitle: "2 Rekat Sünnet",
+        rekatLabel: "1. Rekat",
+        badges: ["Sübhaneke", "Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde"],
+        note: "Sabah sünneti gibi kılınır.",
+      },
+      {
+        rekatLabel: "2. Rekat",
+        badges: ["Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde", "Son Oturuş: Dualar & Selam"],
+        note: "Dualar okunup selam verilir.",
+      },
+      {
+        sectionTitle: "Namaz Tamamlandı",
+        rekatLabel: "📿 Tesbihat",
+        badges: ["Selam Duası", "Âyet-el Kürsî", "33'lük Tesbihler", "Dua"],
+        note: "Sünnetin ardından tesbihat yapılır.",
+      },
     ],
   },
   {
@@ -209,6 +418,89 @@ export const PRAYER_GUIDE_ITEMS: PrayerGuideItem[] = [
       "5. 3 Rekat Vitir Namazı: 1. ve 2. rekatta Fatiha + Zamm-ı sure okunur. 2. rekatta oturulup sadece Ettehiyyâtü okunur. 3. rekata kalkılıp Besmele, Fatiha ve Zamm-ı sure okunur.",
       "6. Vitir Tekbiri ve Kunut: 3. rekatta zamm-ı sureden sonra eller kulak hizasına kaldırılıp 'Allâhu Ekber' denir ve tekrar bağlanır. Kunut Duaları (1 ve 2) okunur, rükû ve secdeye gidilir. Son oturuşta selam verilir.",
       "7. Tesbihat ve Âyet-el Kürsî okunur.",
+    ],
+    rekatFlow: [
+      {
+        sectionTitle: "4 Rekat İlk Sünnet (Gayr-i Müekkede)",
+        rekatLabel: "1. Rekat",
+        badges: ["Sübhaneke", "Eûzü-Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde"],
+        note: "İkindi sünneti gibidir.",
+      },
+      {
+        rekatLabel: "2. Rekat",
+        badges: ["Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde", "İlk Oturuş: Ettehiyyâtü + Salli + Bârik"],
+        note: "⚠️ İlk oturuşta Ettehiyyâtü'den sonra Salli ve Bârik de okunur.",
+      },
+      {
+        rekatLabel: "3. Rekat",
+        badges: ["Sübhaneke", "Eûzü-Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde"],
+        note: "⚠️ 3. rekata kalkınca Sübhaneke okunur, sonra Eûzü-Besmele çekilir.",
+      },
+      {
+        rekatLabel: "4. Rekat",
+        badges: ["Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde", "Son Oturuş: Ettehiyyâtü, Salli-Bârik, Rabbenâ", "Selam"],
+        note: "Dualar okunup selam verilir.",
+      },
+      {
+        sectionTitle: "4 Rekat Farz",
+        rekatLabel: "🔔 Kamet",
+        badges: ["Kamet Getirilir"],
+        note: "Farza başlamadan önce kamet getirilir.",
+        isKamet: true,
+      },
+      {
+        rekatLabel: "1. Rekat",
+        badges: ["Sübhaneke", "Eûzü-Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde"],
+        note: "Niyet: 'Niyet ettim Allah rızası için yatsı namazının 4 rekat farzını kılmaya.'",
+      },
+      {
+        rekatLabel: "2. Rekat",
+        badges: ["Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde", "İlk Oturuş: Sadece Ettehiyyâtü"],
+        note: "İlk oturuşta SADECE Ettehiyyâtü okunup kalkılır.",
+      },
+      {
+        rekatLabel: "3. Rekat",
+        badges: ["Besmele", "Yalnızca Fatiha", "Rükû & Secde"],
+        note: "⚠️ Farz kuralı: 3. rekatta zamm-ı sure yok, yalnızca Fatiha.",
+      },
+      {
+        rekatLabel: "4. Rekat",
+        badges: ["Besmele", "Yalnızca Fatiha", "Rükû & Secde", "Son Oturuş: Ettehiyyâtü, Salli-Bârik, Rabbenâ", "Selam"],
+        note: "⚠️ Yalnızca Fatiha. Son oturuşta dualar okunup selam verilir.",
+      },
+      {
+        sectionTitle: "2 Rekat Son Sünnet",
+        rekatLabel: "1. Rekat",
+        badges: ["Sübhaneke", "Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde"],
+        note: "Sabah sünneti gibi kılınır.",
+      },
+      {
+        rekatLabel: "2. Rekat",
+        badges: ["Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde", "Son Oturuş: Dualar & Selam"],
+        note: "Dualar okunup selam verilir.",
+      },
+      {
+        sectionTitle: "3 Rekat Vitir Vacip",
+        rekatLabel: "1. Rekat",
+        badges: ["Sübhaneke", "Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde"],
+        note: "Niyet: 'Niyet ettim Allah rızası için vitir namazını kılmaya.'",
+      },
+      {
+        rekatLabel: "2. Rekat",
+        badges: ["Besmele", "Fatiha", "Zamm-ı Sure", "Rükû & Secde", "İlk Oturuş: Sadece Ettehiyyâtü"],
+        note: "İlk oturuşta SADECE Ettehiyyâtü okunup 3. rekata kalkılır.",
+      },
+      {
+        rekatLabel: "3. Rekat",
+        badges: ["Besmele", "Fatiha", "Zamm-ı Sure", "Tekbir", "Kunut Duaları", "Rükû & Secde", "Son Oturuş", "Selam"],
+        note: "🌟 Vitir Kuralı: Zamm-ı sureden sonra eller kulaklara kaldırılıp 'Allâhu Ekber' denir ve bağlanır. Kunut 1 ve 2 okunup rükûya gidilir.",
+      },
+      {
+        sectionTitle: "Namaz Tamamlandı",
+        rekatLabel: "📿 Tesbihat",
+        badges: ["Selam Duası", "Âyet-el Kürsî", "33'lük Tesbihler", "Dua"],
+        note: "Vitirden sonra tesbihat ve Âyet-el Kürsî ile namaz tamamlanır.",
+      },
     ],
   },
 ];

@@ -49,6 +49,31 @@ function istanbulMinutesOfDay(ms: number): number {
 }
 
 export async function runReminders(env: Env, send = sendNotification, now = Date.now(), menuFetch: typeof fetch = fetch) {
+  let pcState: { prayer_config?: string | null; study_reminders?: string | null; notification_preferences?: string | null } | null = null;
+  try {
+    pcState = await env.DB.prepare("SELECT prayer_config, study_reminders, notification_preferences FROM desktop_state WHERE id=1").first<{ prayer_config?: string | null; study_reminders?: string | null; notification_preferences?: string | null }>();
+  } catch {
+    try {
+      pcState = await env.DB.prepare("SELECT prayer_config, study_reminders FROM desktop_state WHERE id=1").first<{ prayer_config?: string | null; study_reminders?: string | null }>();
+    } catch {
+      pcState = await env.DB.prepare("SELECT prayer_config FROM desktop_state WHERE id=1").first<{ prayer_config?: string | null }>().catch(() => null);
+    }
+  }
+
+  let notifPrefs: Record<string, boolean> = {};
+  if (pcState?.notification_preferences) {
+    try {
+      const p = JSON.parse(pcState.notification_preferences);
+      if (p && typeof p === "object") notifPrefs = p;
+    } catch {}
+  }
+  const mobileMaster = notifPrefs.mobileMaster !== false;
+  const mobileTasks = mobileMaster && notifPrefs.mobileTasks !== false;
+  const mobileSubs = mobileMaster && notifPrefs.mobileSubscriptions !== false;
+  const mobilePrayers = mobileMaster && notifPrefs.mobilePrayers !== false;
+  const mobileStudy = mobileMaster && notifPrefs.mobileStudy !== false;
+  const mobileDormMenu = mobileMaster && notifPrefs.mobileDormMenu !== false;
+
   const rows = await env.DB.prepare(`SELECT r.task_id,r.generation,r.due_at,r.kind,t.data,p.device_id,p.subscription FROM reminders r
     JOIN (SELECT kind,id,data,deleted FROM records UNION ALL SELECT kind,'subscription:'||id AS id,data,deleted FROM subscriptions) t ON t.kind=r.kind AND t.id=r.task_id AND t.deleted=0
     JOIN push_subscriptions p ON p.active=1 JOIN devices d ON d.id=p.device_id AND d.revoked_at IS NULL
@@ -56,6 +81,9 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
     WHERE r.active=1 AND r.due_at<=? AND (l.generation IS NULL OR (l.state='retry' AND l.retry_at<=? AND l.attempts<3))
     ORDER BY r.due_at LIMIT 5`).bind(now,now).all<{task_id:string;kind:string;generation:string;data:string;device_id:string;subscription:string}>();
   for (const row of rows.results) {
+    if (!mobileMaster) continue;
+    if (row.kind === "tasks" && !mobileTasks) continue;
+    if (row.kind === "subscriptions" && !mobileSubs) continue;
     const task = JSON.parse(row.data); if (task.completed || row.kind==="subscriptions"&&task.status!=="active") continue;
     const claim = await env.DB.prepare("INSERT INTO reminder_deliveries(generation,device_id,state,attempts,retry_at) VALUES(?,?,'sending',1,0) ON CONFLICT(generation,device_id) DO UPDATE SET state='sending',attempts=attempts+1 WHERE state='retry' AND retry_at<=? AND attempts<3 RETURNING generation").bind(row.generation,row.device_id,now).first();
     if (!claim) continue;
@@ -72,16 +100,9 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
     } catch { await env.DB.prepare("UPDATE reminder_deliveries SET state='uncertain' WHERE generation=? AND device_id=?").bind(row.generation,row.device_id).run(); }
   }
 
-  let pcState: { prayer_config?: string | null; study_reminders?: string | null } | null = null;
-  try {
-    pcState = await env.DB.prepare("SELECT prayer_config, study_reminders FROM desktop_state WHERE id=1").first<{ prayer_config?: string | null; study_reminders?: string | null }>();
-  } catch {
-    pcState = await env.DB.prepare("SELECT prayer_config FROM desktop_state WHERE id=1").first<{ prayer_config?: string | null }>().catch(() => null);
-  }
-
   // Prayer push notifications for paired devices
   try {
-    if (pcState?.prayer_config) {
+    if (mobilePrayers && pcState?.prayer_config) {
       const cfg = JSON.parse(pcState.prayer_config);
       if (cfg && typeof cfg.latitude === "number" && typeof cfg.longitude === "number" && (cfg.notifyAtTime || (typeof cfg.notifyBeforeMinutes === "number" && cfg.notifyBeforeMinutes > 0))) {
         const prayerAlerts: { id: string; text: string; dueAt: number }[] = [];
@@ -139,7 +160,7 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
   // Scheduled Study Program (Ders) push notifications when PC is off
   try {
     const progRows = await env.DB.prepare("SELECT data FROM study_programs WHERE deleted=0").all<{ data: string }>().catch(() => ({ results: [] }));
-    if (progRows.results.length > 0) {
+    if (mobileStudy && progRows.results.length > 0) {
       let prefs: Array<{ id: string; leadMinutes: number | null }> = [];
       if (pcState?.study_reminders) {
         try {
@@ -228,7 +249,7 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
   // 12:30 Dorm Meal Menu (Yurt Yemek Menüsü) push notification when PC is off
   try {
     const minsOfDay = istanbulMinutesOfDay(now);
-    if (pcState?.prayer_config && minsOfDay >= 12 * 60 + 30 && minsOfDay <= 14 * 60 + 30) {
+    if (mobileDormMenu && pcState?.prayer_config && minsOfDay >= 12 * 60 + 30 && minsOfDay <= 14 * 60 + 30) {
       const todayKey = turkeyDateKey(new Date(now));
       const gen = `dorm-menu:${todayKey}`;
       const pendingDevices = await env.DB.prepare(

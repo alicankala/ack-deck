@@ -10,10 +10,24 @@ import {
 
 type TabKind = "rakats" | "kamet_tesbihat" | "surahs" | "duas";
 
+function getChipClass(badge: string): string {
+  const b = badge.toLowerCase();
+  if (b.includes("kamet")) return "chip-kamet";
+  if (b.includes("sübhaneke")) return "chip-intro";
+  if (b.includes("fatiha")) return "chip-fatiha";
+  if (b.includes("zamm-ı") || b.includes("sure")) return "chip-surah";
+  if (b.includes("oturuş") || b.includes("ettehiyyâtü") || b.includes("salli") || b.includes("bârik") || b.includes("rabbenâ") || b.includes("kunut")) return "chip-dua";
+  if (b.includes("tekbir") || b.includes("niyet")) return "chip-niyyah";
+  if (b.includes("rükû") || b.includes("secde") || b.includes("selam")) return "chip-action";
+  if (b.includes("tesbih")) return "chip-tesbih";
+  return "chip-default";
+}
+
 export function PrayerGuideModal({ onClose }: { onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<TabKind>("rakats");
   const [search, setSearch] = useState("");
   const [selectedPrayerId, setSelectedPrayerId] = useState<string>("fajr");
+  const [stepViewMode, setStepViewMode] = useState<"flow" | "text">("flow");
   const [expandedItemIds, setExpandedItemIds] = useState<Record<string, boolean>>({
     fatiha: true,
     fil: true,
@@ -354,19 +368,71 @@ export function PrayerGuideModal({ onClose }: { onClose: () => void }) {
                           ))}
                         </div>
 
-                        {/* Step By Step Guide */}
+                        {/* Step By Step Guide (Visual Chip Flow or Detailed Text) */}
                         <div className="prayer-steps-box">
-                          <h4 className="sub-heading">Adım Adım Kılınış Rehberi:</h4>
-                          <ol className="steps-ordered-list">
-                            {current.stepByStep.map((step, idx) => (
-                              <li
-                                key={idx}
-                                className={step.includes("KAMET") ? "step-highlight-kamet" : ""}
+                          <div className="steps-header-row">
+                            <h4 className="sub-heading" style={{ margin: 0 }}>Adım Adım Kılınış:</h4>
+                            <div className="steps-view-switcher" role="group" aria-label="Kılınış görünüm modu">
+                              <button
+                                type="button"
+                                className={`view-switch-btn ${stepViewMode === "flow" ? "is-active" : ""}`}
+                                onClick={() => setStepViewMode("flow")}
+                                title="Hap kutucuklu görsel akış şeması"
                               >
-                                {step}
-                              </li>
-                            ))}
-                          </ol>
+                                🔲 Görsel Akış
+                              </button>
+                              <button
+                                type="button"
+                                className={`view-switch-btn ${stepViewMode === "text" ? "is-active" : ""}`}
+                                onClick={() => setStepViewMode("text")}
+                                title="Detaylı cümleler"
+                              >
+                                📝 Detaylı Cümleler
+                              </button>
+                            </div>
+                          </div>
+
+                          {stepViewMode === "flow" && current.rekatFlow ? (
+                            <div className="prayer-flow-list">
+                              {current.rekatFlow.map((step, idx) => (
+                                <div key={idx} className={`prayer-flow-item ${step.isKamet ? "is-kamet-item" : ""}`}>
+                                  {step.sectionTitle && (
+                                    <div className="flow-section-divider">
+                                      <span className="divider-icon">🔹</span>
+                                      <span className="divider-text">{step.sectionTitle}</span>
+                                    </div>
+                                  )}
+                                  <div className="flow-step-card">
+                                    <div className="flow-step-top">
+                                      <strong className="flow-step-badge-label">{step.rekatLabel}</strong>
+                                      {step.note && <span className="flow-step-note">{step.note}</span>}
+                                    </div>
+                                    <div className="flow-chips-row">
+                                      {step.badges.map((badge, bIdx) => (
+                                        <span key={bIdx} className="flow-chip-group">
+                                          <span className={`flow-chip ${getChipClass(badge)}`}>{badge}</span>
+                                          {bIdx < step.badges.length - 1 && (
+                                            <span className="flow-arrow" aria-hidden="true">➔</span>
+                                          )}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <ol className="steps-ordered-list">
+                              {current.stepByStep.map((step, idx) => (
+                                <li
+                                  key={idx}
+                                  className={step.includes("KAMET") ? "step-highlight-kamet" : ""}
+                                >
+                                  {step}
+                                </li>
+                              ))}
+                            </ol>
+                          )}
                         </div>
                       </div>
                     );

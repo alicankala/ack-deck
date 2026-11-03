@@ -192,11 +192,15 @@ async function handle(request: Request, env: Env): Promise<Response> {
   const actor = await authenticate(request,env);
   await rate(env,`api:${actor.id}`,120);
   if (path === "/api/status" && request.method === "GET") {
-    let pc: { last_seen: number; prayer_config?: string | null; study_reminders?: string | null } | null = null;
+    let pc: { last_seen: number; prayer_config?: string | null; study_reminders?: string | null; notification_preferences?: string | null } | null = null;
     try {
-      pc = await env.DB.prepare("SELECT last_seen, prayer_config, study_reminders FROM desktop_state WHERE id=1").first();
+      pc = await env.DB.prepare("SELECT last_seen, prayer_config, study_reminders, notification_preferences FROM desktop_state WHERE id=1").first();
     } catch {
-      pc = await env.DB.prepare("SELECT last_seen, prayer_config FROM desktop_state WHERE id=1").first();
+      try {
+        pc = await env.DB.prepare("SELECT last_seen, prayer_config, study_reminders FROM desktop_state WHERE id=1").first();
+      } catch {
+        pc = await env.DB.prepare("SELECT last_seen, prayer_config FROM desktop_state WHERE id=1").first();
+      }
     }
     const notification = actor.owner ? null : await env.DB.prepare("SELECT active FROM push_subscriptions WHERE device_id=?").bind(actor.id).first<{active:number}>();
     let prayerConfig = null;
@@ -207,8 +211,12 @@ async function handle(request: Request, env: Env): Promise<Response> {
     if (pc?.study_reminders) {
       try { studyReminders = JSON.parse(pc.study_reminders); } catch {}
     }
+    let notificationPreferences = null;
+    if (pc?.notification_preferences) {
+      try { notificationPreferences = JSON.parse(pc.notification_preferences); } catch {}
+    }
     const aiConfigured = await hasEncryptedGeminiKey(env);
-    return reply({ online:now-(pc?.last_seen ?? 0)<DESKTOP_ONLINE_THRESHOLD_MS, notifications:!!notification?.active, vapidPublicKey:env.VAPID_PUBLIC_KEY ?? "", prayerConfig, studyReminders, aiConfigured, now });
+    return reply({ online:now-(pc?.last_seen ?? 0)<DESKTOP_ONLINE_THRESHOLD_MS, notifications:!!notification?.active, vapidPublicKey:env.VAPID_PUBLIC_KEY ?? "", prayerConfig, studyReminders, notificationPreferences, aiConfigured, now });
   }
   if (path === "/api/pair" && request.method === "POST") {
     owner(actor); const code = randomToken();
@@ -273,6 +281,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
     const prayerConfig = body && typeof body === "object" && (body as Record<string, unknown>).prayerConfig && typeof (body as Record<string, unknown>).prayerConfig === "object" ? JSON.stringify((body as Record<string, unknown>).prayerConfig) : null;
     const rawStudy = body && typeof body === "object" && Array.isArray((body as Record<string, unknown>).studyReminders) ? (body as { studyReminders: unknown[] }).studyReminders : null;
     const studyReminders = rawStudy && rawStudy.length <= 200 ? JSON.stringify(rawStudy) : null;
+    const rawNotif = body && typeof body === "object" && (body as Record<string, unknown>).notificationPreferences && typeof (body as Record<string, unknown>).notificationPreferences === "object" ? JSON.stringify((body as Record<string, unknown>).notificationPreferences) : null;
     try {
       if (prayerConfig && studyReminders) {
         await env.DB.prepare("UPDATE desktop_state SET last_seen=?, prayer_config=?, study_reminders=? WHERE id=1").bind(now, prayerConfig, studyReminders).run();
@@ -286,6 +295,11 @@ async function handle(request: Request, env: Env): Promise<Response> {
     } catch {
       if (prayerConfig) await env.DB.prepare("UPDATE desktop_state SET last_seen=?, prayer_config=? WHERE id=1").bind(now, prayerConfig).run();
       else await env.DB.prepare("UPDATE desktop_state SET last_seen=? WHERE id=1").bind(now).run();
+    }
+    if (rawNotif) {
+      try {
+        await env.DB.prepare("UPDATE desktop_state SET notification_preferences=? WHERE id=1").bind(rawNotif).run();
+      } catch {}
     }
     return reply({ok:true});
   }

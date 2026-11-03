@@ -189,8 +189,15 @@ export async function registerBiometrics(): Promise<string> {
   return bufferToBase64(new Uint8Array(cred.rawId));
 }
 
+let biometricsInFlight = false;
+
 export async function authenticateBiometrics(credentialId?: string): Promise<boolean> {
   if (typeof window === "undefined" || !window.PublicKeyCredential) return false;
+  if (biometricsInFlight) {
+    console.warn("[ACKDeck Biometrics Auth] In-flight request active, ignoring duplicate prompt");
+    return false;
+  }
+  biometricsInFlight = true;
   const challenge = crypto.getRandomValues(new Uint8Array(32));
   const allowCredentials: PublicKeyCredentialDescriptor[] = credentialId
     ? [
@@ -216,6 +223,8 @@ export async function authenticateBiometrics(credentialId?: string): Promise<boo
   } catch (err) {
     console.warn("[ACKDeck Biometrics Auth]", err);
     return false;
+  } finally {
+    biometricsInFlight = false;
   }
 }
 

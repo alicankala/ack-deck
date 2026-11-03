@@ -34,9 +34,13 @@ function formatDayLabel(dateStr: string, todayStr: string): string {
 export function MobilePrayerCard({
   records,
   onSave,
+  isCollapsed,
+  onToggleCollapse,
 }: {
   records: CloudRecord[];
   onSave: (mutation: Mutation) => Promise<void>;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }) {
   const [config, setConfig] = useState<PrayerTimesConfig>(loadPrayerConfig);
   const [info, setInfo] = useState<PrayerDayInfo | null>(null);
@@ -84,18 +88,14 @@ export function MobilePrayerCard({
   }
 
   function cyclePrayerStatus(name: TrackedPrayerName) {
-    const current = currentLog.prayers[name];
-    const nextStatus: PrayerStatus | undefined =
-      current === undefined ? "prayed" : current === "prayed" ? "missed" : undefined;
-    const nextPrayers = { ...currentLog.prayers };
-    if (nextStatus) {
-      nextPrayers[name] = nextStatus;
-    } else {
-      delete nextPrayers[name];
-    }
+    const current = currentLog.prayers[name] ?? "missed";
+    const nextStatus: PrayerStatus = current === "prayed" ? "missed" : "prayed";
     void saveDayLog({
       ...currentLog,
-      prayers: nextPrayers,
+      prayers: {
+        ...currentLog.prayers,
+        [name]: nextStatus,
+      },
       updatedAt: Date.now(),
     });
   }
@@ -173,6 +173,30 @@ export function MobilePrayerCard({
   const prayedCount = TRACKED_PRAYERS.filter(tp => currentLog.prayers[tp.name] === "prayed").length;
   const stats = calculatePrayerStats(prayerLogs, todayStr);
 
+  if (isCollapsed) {
+    return (
+      <div
+        className="mobile-collapsed-card"
+        onClick={onToggleCollapse}
+        role="button"
+        tabIndex={0}
+        aria-expanded={false}
+        title="Namaz kartını genişletmek için tıkla"
+      >
+        <div className="mobile-collapsed-left">
+          <span className="mobile-collapsed-icon" aria-hidden="true">🕌</span>
+          <span className="mobile-collapsed-title">Namaz:</span>
+          <span className="mobile-collapsed-text">
+            {info.nextPrayer
+              ? `${info.nextPrayer.label} vaktine ${formatRemainingTime(info.timeToNextMs)} kaldı · ${prayedCount}/5 kılındı`
+              : `${info.city} vakitleri · ${prayedCount}/5 kılındı`}
+          </span>
+        </div>
+        <span className="mobile-collapsed-arrow" aria-hidden="true">⌄</span>
+      </div>
+    );
+  }
+
   return (
     <article className="mobile-prayer-card" aria-label="Namaz vakitleri ve takip">
       <div className="mobile-prayer-head">
@@ -200,6 +224,17 @@ export function MobilePrayerCard({
           >
             {prayedCount}/5 {showStats ? "▴" : "▾"}
           </button>
+          {onToggleCollapse && (
+            <button
+              type="button"
+              className="mobile-card-collapse-btn"
+              onClick={onToggleCollapse}
+              title="Kartı daralt"
+              aria-label="Namaz kartını daralt"
+            >
+              ⌃
+            </button>
+          )}
         </div>
       </div>
 
@@ -271,20 +306,22 @@ export function MobilePrayerCard({
 
         <div className="mobile-prayer-check-grid" role="group" aria-label="Günlük namaz takibi">
           {TRACKED_PRAYERS.map(tp => {
-            const status = currentLog.prayers[tp.name];
+            const status: PrayerStatus = currentLog.prayers[tp.name] ?? "missed";
+            const isPrayed = status === "prayed";
             return (
               <button
                 key={tp.name}
                 type="button"
-                className={`mobile-check-pill ${status === "prayed" ? "is-prayed" : status === "missed" ? "is-missed" : ""}`}
+                className={`mobile-check-pill ${isPrayed ? "is-prayed" : "is-missed"}`}
                 onClick={() => cyclePrayerStatus(tp.name)}
+                aria-label={`${tp.label}: ${isPrayed ? "Kıldım" : "Kılmadım"}`}
               >
                 <span className="pill-mark">
-                  {status === "prayed" ? "✓" : status === "missed" ? "✕" : "○"}
+                  {isPrayed ? "✓" : "✕"}
                 </span>
                 <span className="pill-name">{tp.label}</span>
                 <small className="pill-status">
-                  {status === "prayed" ? "Kıldım" : status === "missed" ? "Kılmadım" : "Seç"}
+                  {isPrayed ? "Kıldım" : "Kılmadım"}
                 </small>
               </button>
             );

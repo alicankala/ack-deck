@@ -8,12 +8,15 @@ import {
 } from "../shared/dormMenu";
 import { notifyDesktop } from "./desktopClient";
 import { isTauri } from "@tauri-apps/api/core";
+import { loadNotificationPreferences } from "./notificationStore";
 
 export function useDormMealReminder(setNotice: (text: string) => void) {
   useEffect(() => {
     let active = true;
 
     async function checkMealNotification() {
+      const notif = loadNotificationPreferences();
+      if (!notif.desktopMaster || !notif.desktopDormMenu) return;
       if (!shouldNotifyMealNow()) return;
       const todayKey = turkeyDateKey();
       const lastNotified = localStorage.getItem(DORM_MENU_NOTIFIED_KEY);

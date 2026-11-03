@@ -20,11 +20,13 @@ import { DesktopSettings } from "./DesktopSettings";
 import { BackupSettings } from "./BackupSettings";
 import { UpdateSettings } from "./UpdateSettings";
 import { AboutSettings } from "./AboutSettings";
+import { NotificationSettings } from "./NotificationSettings";
 import type { DesktopStatus } from "../desktopClient";
 
 const sections: { id: string; label: string; description: string; icon: IconName }[] = [
   { id: "general", label: "Genel", description: "Başlangıç ve genel tercihler", icon: "settings" },
   { id: "appearance", label: "Görünüm", description: "Tema, ölçek ve vakitler", icon: "grid" },
+  { id: "notifications", label: "Bildirimler", description: "Masaüstü ve mobil bildirimleri", icon: "bell" },
   { id: "ai", label: "ACK AI", description: "Model ve bağlantı", icon: "spark" },
   { id: "phone", label: "Telefon", description: "Eşitleme ve cihazlar", icon: "files" },
   { id: "data", label: "Veriler", description: "Yedekleme ve gizlilik", icon: "archive" },
@@ -157,6 +159,9 @@ export function Settings({ preferences, onPreferencesChange, desktop, onDesktopC
           </div>
         </section>
         <DisplayScaleSettings /><WeatherSettings /><PrayerSettings />
+      </section>
+      <section role="tabpanel" id="settings-panel-notifications" aria-labelledby="settings-tab-notifications" hidden={selectedSection !== "notifications"} className="settings-section-panel">
+        <NotificationSettings />
       </section>
       <section role="tabpanel" id="settings-panel-ai" aria-labelledby="settings-tab-ai" hidden={selectedSection !== "ai"} className="settings-section-panel">    <section className="settings-card surface" aria-labelledby="ai-settings-heading">
       <div className="settings-card-heading">

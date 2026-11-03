@@ -4,6 +4,7 @@ import { loadPrayerConfig, pendingPrayerReminders } from "./prayerStore";
 import { nextOccurrence } from "../shared/recurrence";
 import { subscriptionReminder } from "../shared/subscriptions";
 import { loadSubscriptions } from "./subscriptionStore";
+import { loadNotificationPreferences } from "./notificationStore";
 import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -26,8 +27,13 @@ export function useReminders(onError: (message: string) => void) {
       dirty = true; if (running || paused) return; running = true;
       try { while (dirty && active && !paused) {
         dirty = false; const loaded = loadTasks();
-        const prayerReminders = pendingPrayerReminders(loadPrayerConfig());
-        const delivered = await invoke<string[]>("sync_task_reminders", { reminders: loaded.locked ? [] : [...pendingStudyReminders(loadStudyPrograms().entries, loadStudyReminders().entries, studyDelivered), ...pendingReminders(loaded.entries), ...prayerReminders, ...loadSubscriptions().entries.flatMap(s=>{const next=subscriptionReminder(s);return next?[{id:"subscription:"+s.id,text:s.name+" ödeme hatırlatması",dueAt:next.at}]:[]})] });
+        const notif = loadNotificationPreferences();
+        const studyItems = notif.desktopMaster && notif.desktopStudy ? pendingStudyReminders(loadStudyPrograms().entries, loadStudyReminders().entries, studyDelivered) : [];
+        const taskItems = notif.desktopMaster && notif.desktopTasks ? pendingReminders(loaded.entries) : [];
+        const prayerItems = notif.desktopMaster && notif.desktopPrayers ? pendingPrayerReminders(loadPrayerConfig()) : [];
+        const subItems = notif.desktopMaster && notif.desktopSubscriptions ? loadSubscriptions().entries.flatMap(s => { const next = subscriptionReminder(s); return next ? [{ id: "subscription:" + s.id, text: s.name + " ödeme hatırlatması", dueAt: next.at }] : []; }) : [];
+        const allReminders = loaded.locked || !notif.desktopMaster ? [] : [...studyItems, ...taskItems, ...prayerItems, ...subItems];
+        const delivered = await invoke<string[]>("sync_task_reminders", { reminders: allReminders });
         if (!active) return;
         const nextStudyDelivered = delivered.filter(k => k.startsWith("study:"));
         if (nextStudyDelivered.some(k => !studyDelivered.includes(k))) dirty = true;
@@ -40,9 +46,10 @@ export function useReminders(onError: (message: string) => void) {
       } } catch { if (active) onError("Windows hatırlatmaları yüklenemedi. Görev kayıtları korunuyor."); } finally { running = false; }
     }
     const refresh = () => { void sync(); }; window.addEventListener("ack-data-changed", refresh);
+    window.addEventListener("ack-notification-preferences-changed", refresh);
     const restoreActive = (event: Event) => { paused = (event as CustomEvent).detail === true; if (!paused) refresh(); }; window.addEventListener("ack-restore-active", restoreActive);
     const subscriptions = [listen<{ id: string; key: string }>("ack-reminder-delivered", () => { if (active) refresh(); }), listen<string>("ack-reminder-error", () => { if (active) onError("Windows hatırlatması hazırlanamadı."); })];
     void Promise.all(subscriptions.map(async (promise) => { try { const cleanup = await promise; if (active) cleanups.push(cleanup); else cleanup(); } catch {} })).then(() => { if (active) refresh(); });
-    return () => { active = false; window.removeEventListener("ack-data-changed", refresh); window.removeEventListener("ack-restore-active", restoreActive); cleanups.forEach((cleanup) => cleanup()); };
+    return () => { active = false; window.removeEventListener("ack-data-changed", refresh); window.removeEventListener("ack-notification-preferences-changed", refresh); window.removeEventListener("ack-restore-active", restoreActive); cleanups.forEach((cleanup) => cleanup()); };
   }, [onError]);
 }

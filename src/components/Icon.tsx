@@ -1,6 +1,6 @@
 import type { ReactNode, SVGProps } from "react";
 
-export type IconName = "grid" | "folder" | "tool" | "archive" | "settings" | "cpu" | "memory" | "drive" | "wifi" | "arrowRight" | "arrowUp" | "arrowDown" | "plus" | "check" | "trash" | "note" | "qr" | "files" | "globe" | "speed" | "layers" | "info" | "spark";
+export type IconName = "grid" | "folder" | "tool" | "archive" | "settings" | "cpu" | "memory" | "drive" | "wifi" | "arrowRight" | "arrowUp" | "arrowDown" | "plus" | "check" | "trash" | "note" | "qr" | "files" | "globe" | "speed" | "layers" | "info" | "spark" | "bell" | "bellOff";
 
 const paths: Record<IconName, ReactNode> = {
   grid: <><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></>,
@@ -26,6 +26,8 @@ const paths: Record<IconName, ReactNode> = {
   layers: <path d="m12 3 9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5"/>,
   info: <><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></>,
   spark: <path d="m12 2 1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8zM19 18l.6 1.4L21 20l-1.4.6L19 22l-.6-1.4L17 20l1.4-.6z"/>,
+  bell: <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>,
+  bellOff: <><path d="M8.66 8.66A6 6 0 0 0 6 8c0 7-3 9-3 9h12m2.84 0a1.8 1.8 0 0 0 .16-.8c0-2.3-1-4.7-1-8.2a6 6 0 0 0-4.34-5.76"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0M1 1l22 22"/></>,
 };
 
 type Props = SVGProps<SVGSVGElement> & { name: IconName; size?: number };

@@ -228,7 +228,13 @@ export function createEmptyPrayerLog(dateStr: string): PrayerLogDay {
   return {
     id: dateStr,
     date: dateStr,
-    prayers: {},
+    prayers: {
+      fajr: "missed",
+      dhuhr: "missed",
+      asr: "missed",
+      maghrib: "missed",
+      isha: "missed",
+    },
     notes: [],
     updatedAt: Date.now(),
   };
@@ -243,11 +249,11 @@ export function calculatePrayerStats(logs: PrayerLogDay[], todayDate: string) {
   for (const log of logs) {
     let dayPrayed = 0;
     for (const tp of TRACKED_PRAYERS) {
-      const s = log.prayers[tp.name];
+      const s = log.prayers[tp.name] ?? "missed";
       if (s === "prayed") {
         totalPrayed++;
         dayPrayed++;
-      } else if (s === "missed") {
+      } else {
         totalMissed++;
       }
     }
@@ -267,7 +273,7 @@ export function calculatePrayerStats(logs: PrayerLogDay[], todayDate: string) {
     if (log) {
       for (const tp of TRACKED_PRAYERS) {
         if (log.prayers[tp.name] === "prayed") prayedCount++;
-        else if (log.prayers[tp.name] === "missed") missedCount++;
+        else missedCount++;
       }
     }
     const label = i === 0 ? "Bugün" : d.toLocaleDateString("tr-TR", { weekday: "short" });
