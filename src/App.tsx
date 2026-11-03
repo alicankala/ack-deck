@@ -26,6 +26,7 @@ import { Sidebar, type Page } from "./components/Sidebar";
 const Settings = lazy(() => import("./components/Settings").then(module => ({ default: module.Settings })));
 const Notes = lazy(() => import("./components/Notes").then(module => ({ default: module.Notes })));
 const MediaTracker = lazy(() => import("./components/MediaTracker").then(module => ({ default: module.MediaTracker })));
+const ActivityOverview = lazy(() => import("./components/ActivityOverview").then(module => ({ default: module.ActivityOverview })));
 import { useAutoBackup } from "./useAutoBackup";
 import { loadPreferences } from "./preferences";
 import { invoke, isTauri } from "@tauri-apps/api/core";
@@ -41,6 +42,10 @@ import { loadProjectSnapshot, saveProjects, type Project } from "./projectStore"
 import "./App.css";
 import "./content-polish.css";
 import "./desktop-layout.css";
+import "./styles/light-theme.css";
+import "./styles/dashboard-schedule.css";
+import "./styles/widgets-titlebar.css";
+import "./styles/media-overview.css";
 
 function App() {
   const [preferences, setPreferences] = useState(loadPreferences);
@@ -292,6 +297,7 @@ function App() {
 
   const pageViews: Record<Page, ReactNode> = {
     home: <Dashboard targetId={route.target.id} projects={projects} refreshMs={preferences.pcRefreshMs} onNavigate={navigate} onAskAi={askAi} />,
+    overview: <ActivityOverview />,
     ai: <div className="ai-history-layout"><ConversationHistory history={{ ...history, newChat: () => { setAiPrompt(undefined); history.newChat(); }, select: id => { setAiPrompt(undefined); history.select(id); } }} disabled={aiBusy} />{history.ready ? <AckAi prefill={phoneAiDraft} onPrefillConsumed={() => setPhoneAiDraft(undefined)} key={history.activeId || "unsaved"} blocked={history.mutating} onNewChat={() => { setAiPrompt(undefined); history.newChat(); }} onBusyChange={setAiBusy} messages={history.messages} initialPrompt={aiPrompt} onPromptConsumed={consumeAiPrompt} onMessagesChange={history.setMessages} onOpenSettings={() => setPage("settings")} onNavigate={navigate} /> : <p role="status">{history.error || "Sohbetler yükleniyor..."}</p>}</div>,
     settings: <Settings preferences={preferences} onPreferencesChange={setPreferences} desktop={desktop.status} onDesktopChange={desktop.setStatus} />,
     inbox: <PhoneInbox initialId={route.target.id} onAiDraft={(text,attachment) => { setAiPrompt(undefined); setPhoneAiDraft({id:crypto.randomUUID(),text,attachment}); navigate({page:"ai"}); }} />,

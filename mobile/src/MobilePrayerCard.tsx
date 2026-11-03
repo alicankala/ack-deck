@@ -317,7 +317,7 @@ export function MobilePrayerCard({
                 aria-label={`${tp.label}: ${isPrayed ? "Kıldım" : "Kılmadım"}`}
               >
                 <span className="pill-mark">
-                  {isPrayed ? "✓" : "✕"}
+                  {isPrayed ? "✓" : "○"}
                 </span>
                 <span className="pill-name">{tp.label}</span>
                 <small className="pill-status">

@@ -14,6 +14,7 @@ import {
 } from "../../shared/prayerTimes";
 import { PrayerGuideModal } from "./PrayerGuideModal";
 import "./prayerTimes.css";
+import "./prayerGuideModal.css";
 
 function shiftDate(dateStr: string, deltaDays: number): string {
   const d = new Date(dateStr + "T12:00:00");
@@ -273,7 +274,7 @@ export function PrayerWidget() {
                 title={`${tp.label}: ${isPrayed ? "Kılındı (Kılınmadı yapmak için tıkla)" : "Kılınmadı (Kılındı yapmak için tıkla)"}`}
               >
                 <span className="check-btn-icon">
-                  {isPrayed ? "✓" : "✕"}
+                  {isPrayed ? "✓" : "○"}
                 </span>
                 <span className="check-btn-label">{tp.label}</span>
                 <small className="check-btn-state">

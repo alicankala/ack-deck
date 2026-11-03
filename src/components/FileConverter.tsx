@@ -1,26 +1,16 @@
 import { useState, useRef, type ChangeEvent, type DragEvent } from "react";
-import mammoth from "mammoth";
-import { jsPDF } from "jspdf";
-
-type ConverterMode = "file" | "text" | "multi-image";
-
-interface ConvertedResult {
-  fileName: string;
-  blob: Blob;
-  previewUrl?: string;
-  textContent?: string;
-  htmlContent?: string;
-  fileType: "pdf" | "image" | "text" | "html" | "data";
-  originalSize: number;
-  newSize: number;
-}
-
-interface ImageItem {
-  id: string;
-  name: string;
-  size: number;
-  dataUrl: string;
-}
+import {
+  type ConverterMode,
+  type ConvertedResult,
+  type ImageItem,
+  type TextConvertType,
+  formatSize,
+  getAvailableFormats,
+  printHtmlDocument,
+  convertSingleFile,
+  convertTextData,
+  combineImagesToPdf,
+} from "./fileConverterEngine";
 
 export function FileConverter() {
   const [activeMode, setActiveMode] = useState<ConverterMode>("file");
@@ -39,7 +29,7 @@ export function FileConverter() {
 
   // Text/Data mode state
   const [textInput, setTextInput] = useState("");
-  const [textConvertType, setTextConvertType] = useState<"md2pdf" | "md2html" | "json2csv" | "csv2json" | "b64enc" | "b64dec">("md2pdf");
+  const [textConvertType, setTextConvertType] = useState<TextConvertType>("md2pdf");
   const [textResult, setTextResult] = useState<string>("");
   const [textPdfBlob, setTextPdfBlob] = useState<Blob | null>(null);
 
@@ -47,67 +37,6 @@ export function FileConverter() {
   const [multiImages, setMultiImages] = useState<ImageItem[]>([]);
   const multiFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Helper: Format file size
-  function formatSize(bytes: number): string {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(2) + " MB";
-  }
-
-  // Detect available target formats for a file
-  function getAvailableFormats(file: File): { id: string; label: string; icon: string }[] {
-    const name = file.name.toLowerCase();
-    if (name.endsWith(".docx")) {
-      return [
-        { id: "pdf", label: "PDF Belgesi (.pdf)", icon: "📄" },
-        { id: "html", label: "Web Sayfası (.html)", icon: "🌐" },
-        { id: "md", label: "Markdown (.md)", icon: "📝" },
-        { id: "txt", label: "Düz Metin (.txt)", icon: "📄" },
-      ];
-    }
-    if (file.type.startsWith("image/") || /\.(png|jpe?g|webp|bmp|gif|svg)$/i.test(name)) {
-      return [
-        { id: "pdf", label: "PDF Sayfası (.pdf)", icon: "📄" },
-        { id: "png", label: "PNG Resmi (.png)", icon: "🖼️" },
-        { id: "jpg", label: "JPG Resmi (.jpg)", icon: "🖼️" },
-        { id: "webp", label: "Modern WebP (.webp)", icon: "🌐" },
-        { id: "ico", label: "Simge / Icon (.ico)", icon: "🔷" },
-      ];
-    }
-    if (name.endsWith(".txt") || name.endsWith(".md")) {
-      return [
-        { id: "pdf", label: "PDF Belgesi (.pdf)", icon: "📄" },
-        { id: "html", label: "HTML Sayfası (.html)", icon: "🌐" },
-        { id: "txt", label: "Düz Metin (.txt)", icon: "📄" },
-      ];
-    }
-    if (name.endsWith(".html") || name.endsWith(".htm")) {
-      return [
-        { id: "pdf", label: "PDF Belgesi (.pdf)", icon: "📄" },
-        { id: "txt", label: "Metin Çıkarımı (.txt)", icon: "📄" },
-        { id: "md", label: "Markdown (.md)", icon: "📝" },
-      ];
-    }
-    if (name.endsWith(".json")) {
-      return [
-        { id: "csv", label: "CSV / Excel Tablosu (.csv)", icon: "📊" },
-        { id: "txt", label: "Formatlı Metin (.txt)", icon: "📄" },
-      ];
-    }
-    if (name.endsWith(".csv")) {
-      return [
-        { id: "json", label: "JSON Verisi (.json)", icon: "🗄️" },
-        { id: "txt", label: "Düz Metin (.txt)", icon: "📄" },
-      ];
-    }
-    // Default fallback
-    return [
-      { id: "pdf", label: "PDF Belgesi (.pdf)", icon: "📄" },
-      { id: "txt", label: "Metin (.txt)", icon: "📄" },
-    ];
-  }
-
-  // Handle single file selected
   function handleFileSelect(file: File) {
     setSelectedFile(file);
     setResult(null);
@@ -118,7 +47,6 @@ export function FileConverter() {
     }
   }
 
-  // Drag and drop handlers
   function handleDragOver(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setIsDragOver(true);
@@ -135,7 +63,6 @@ export function FileConverter() {
     }
   }
 
-  // Download converted file
   function downloadBlob(blob: Blob, filename: string) {
     try {
       const url = URL.createObjectURL(blob);
@@ -152,386 +79,28 @@ export function FileConverter() {
     }
   }
 
-  // Print document (Native Windows PDF Printer support)
   function printDocument(title: string, contentHtml: string) {
-    try {
-      const printWin = window.open("", "_blank");
-      if (!printWin) {
-        setMessage({ text: "Yazdırma penceresi açılamadı. Lütfen açılır pencerelere izin verin.", type: "error" });
-        return;
-      }
-      printWin.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8"/>
-          <title>${title}</title>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #111; padding: 2.5cm 2cm; margin: 0; }
-            h1, h2, h3, h4 { color: #0f172a; margin-top: 1.5em; margin-bottom: 0.5em; }
-            p { margin: 0.6em 0; }
-            table { border-collapse: collapse; width: 100%; margin: 1em 0; }
-            th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; }
-            th { background: #f1f5f9; }
-            img { max-width: 100%; height: auto; }
-            @page { margin: 1.5cm; size: A4; }
-          </style>
-        </head>
-        <body>
-          ${contentHtml}
-          <script>
-            window.onload = function() { window.focus(); window.print(); };
-          </script>
-        </body>
-        </html>
-      `);
-      printWin.document.close();
-    } catch {
-      setMessage({ text: "Yazdırma başlatılamadı.", type: "error" });
+    if (!printHtmlDocument(title, contentHtml)) {
+      setMessage({ text: "Yazdırma penceresi açılamadı. Lütfen açılır pencerelere izin verin.", type: "error" });
     }
   }
 
-  // --- CORE CONVERSION LOGIC ---
   async function performConversion() {
     if (!selectedFile) return;
     setBusy(true);
     setProgressText("Dönüştürülüyor...");
     setMessage(null);
-
-    const baseName = selectedFile.name.replace(/\.[^/.]+$/, "");
-    const ext = selectedFile.name.split(".").pop()?.toLowerCase() || "";
-
     try {
-      // 1. DOCX CONVERSIONS
-      if (ext === "docx") {
-        const arrayBuffer = await selectedFile.arrayBuffer();
-
-        if (targetFormat === "pdf") {
-          setProgressText("Word belgesi işleniyor ve PDF oluşturuluyor...");
-          const { value: html } = await mammoth.convertToHtml({ arrayBuffer });
-          const { value: rawText } = await mammoth.extractRawText({ arrayBuffer });
-
-          // Generate PDF using jsPDF
-          const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait" });
-          doc.setFont("Helvetica", "normal");
-          doc.setFontSize(11);
-
-          // Split raw text into wrapped lines for high reliability
-          const splitLines = doc.splitTextToSize(rawText || " ", 515);
-          let cursorY = 45;
-          const pageHeight = doc.internal.pageSize.getHeight();
-
-          // Title
-          doc.setFontSize(16);
-          doc.setFont("Helvetica", "bold");
-          doc.text(baseName, 40, cursorY);
-          cursorY += 28;
-          doc.setFontSize(10);
-          doc.setFont("Helvetica", "normal");
-
-          for (let i = 0; i < splitLines.length; i++) {
-            if (cursorY > pageHeight - 45) {
-              doc.addPage();
-              cursorY = 45;
-            }
-            doc.text(splitLines[i], 40, cursorY);
-            cursorY += 16;
-          }
-
-          const pdfBlob = doc.output("blob");
-          setResult({
-            fileName: `${baseName}.pdf`,
-            blob: pdfBlob,
-            htmlContent: html,
-            textContent: rawText,
-            fileType: "pdf",
-            originalSize: selectedFile.size,
-            newSize: pdfBlob.size,
-          });
-        } else if (targetFormat === "html") {
-          setProgressText("HTML'e dönüştürülüyor...");
-          const { value: html } = await mammoth.convertToHtml({ arrayBuffer });
-          const fullHtml = `<!DOCTYPE html>\n<html>\n<head>\n<meta charset="utf-8"/>\n<title>${baseName}</title>\n<style>body{font-family:sans-serif;line-height:1.6;padding:2rem;max-width:800px;margin:auto;}</style>\n</head>\n<body>\n${html}\n</body>\n</html>`;
-          const blob = new Blob([fullHtml], { type: "text/html;charset=utf-8" });
-          setResult({
-            fileName: `${baseName}.html`,
-            blob,
-            htmlContent: html,
-            fileType: "html",
-            originalSize: selectedFile.size,
-            newSize: blob.size,
-          });
-        } else if (targetFormat === "md") {
-          setProgressText("Markdown'a dönüştürülüyor...");
-          const { value: md } = await mammoth.convertToMarkdown({ arrayBuffer });
-          const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
-          setResult({
-            fileName: `${baseName}.md`,
-            blob,
-            textContent: md,
-            fileType: "text",
-            originalSize: selectedFile.size,
-            newSize: blob.size,
-          });
-        } else if (targetFormat === "txt") {
-          setProgressText("Metin çıkarılıyor...");
-          const { value: text } = await mammoth.extractRawText({ arrayBuffer });
-          const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-          setResult({
-            fileName: `${baseName}.txt`,
-            blob,
-            textContent: text,
-            fileType: "text",
-            originalSize: selectedFile.size,
-            newSize: blob.size,
-          });
-        }
-      }
-
-      // 2. IMAGE CONVERSIONS
-      else if (selectedFile.type.startsWith("image/") || /\.(png|jpe?g|webp|bmp|gif|svg)$/i.test(selectedFile.name)) {
-        if (targetFormat === "pdf") {
-          setProgressText("Görsel PDF sayfasına yerleştiriliyor...");
-          const imgUrl = URL.createObjectURL(selectedFile);
-          const img = new Image();
-          await new Promise((res, rej) => {
-            img.onload = res;
-            img.onerror = rej;
-            img.src = imgUrl;
-          });
-
-          const doc = new jsPDF({ unit: "pt", format: "a4", orientation: img.width > img.height ? "landscape" : "portrait" });
-          const pageWidth = doc.internal.pageSize.getWidth();
-          const pageHeight = doc.internal.pageSize.getHeight();
-          const margin = 20;
-          const maxWidth = pageWidth - margin * 2;
-          const maxHeight = pageHeight - margin * 2;
-
-          let targetW = img.width;
-          let targetH = img.height;
-          const ratio = Math.min(maxWidth / targetW, maxHeight / targetH, 1);
-          targetW = targetW * ratio;
-          targetH = targetH * ratio;
-
-          const posX = (pageWidth - targetW) / 2;
-          const posY = (pageHeight - targetH) / 2;
-
-          // Render on canvas to ensure uniform JPEG/PNG data
-          const canvas = document.createElement("canvas");
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext("2d");
-          ctx?.drawImage(img, 0, 0);
-          const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
-
-          doc.addImage(dataUrl, "JPEG", posX, posY, targetW, targetH);
-          const pdfBlob = doc.output("blob");
-          URL.revokeObjectURL(imgUrl);
-
-          setResult({
-            fileName: `${baseName}.pdf`,
-            blob: pdfBlob,
-            fileType: "pdf",
-            originalSize: selectedFile.size,
-            newSize: pdfBlob.size,
-          });
-        } else {
-          // PNG, JPG, WEBP, ICO
-          setProgressText("Görsel işleniyor ve yeniden kodlanıyor...");
-          const imgUrl = URL.createObjectURL(selectedFile);
-          const img = new Image();
-          await new Promise((res, rej) => {
-            img.onload = res;
-            img.onerror = rej;
-            img.src = imgUrl;
-          });
-
-          let w = img.width;
-          let h = img.height;
-
-          // Handle resizing
-          if (imageResizeMax !== "original") {
-            const max = parseInt(imageResizeMax, 10);
-            if (w > max || h > max) {
-              if (w > h) {
-                h = Math.round((h * max) / w);
-                w = max;
-              } else {
-                w = Math.round((w * max) / h);
-                h = max;
-              }
-            }
-          }
-
-          if (targetFormat === "ico") {
-            w = 32;
-            h = 32;
-          }
-
-          const canvas = document.createElement("canvas");
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-            if (targetFormat === "jpg") {
-              ctx.fillStyle = "#ffffff";
-              ctx.fillRect(0, 0, w, h);
-            }
-            ctx.drawImage(img, 0, 0, w, h);
-          }
-
-          let mime = "image/png";
-          if (targetFormat === "jpg") mime = "image/jpeg";
-          if (targetFormat === "webp") mime = "image/webp";
-          if (targetFormat === "ico") mime = "image/x-icon";
-
-          const blob = await new Promise<Blob | null>((resolve) => {
-            canvas.toBlob(resolve, mime === "image/x-icon" ? "image/png" : mime, imageQuality);
-          });
-
-          URL.revokeObjectURL(imgUrl);
-
-          if (!blob) throw new Error("Görsel dönüştürülemedi.");
-
-          const previewUrl = URL.createObjectURL(blob);
-          setResult({
-            fileName: `${baseName}.${targetFormat}`,
-            blob,
-            previewUrl,
-            fileType: "image",
-            originalSize: selectedFile.size,
-            newSize: blob.size,
-          });
-        }
-      }
-
-      // 3. TEXT & MARKDOWN CONVERSIONS
-      else if (ext === "txt" || ext === "md") {
-        const text = await selectedFile.text();
-        if (targetFormat === "pdf") {
-          setProgressText("PDF belgesi oluşturuluyor...");
-          const doc = new jsPDF({ unit: "pt", format: "a4" });
-          doc.setFont("Helvetica", "normal");
-          doc.setFontSize(10);
-          const splitLines = doc.splitTextToSize(text, 515);
-          let cursorY = 45;
-          const pageHeight = doc.internal.pageSize.getHeight();
-
-          doc.setFontSize(15);
-          doc.setFont("Helvetica", "bold");
-          doc.text(baseName, 40, cursorY);
-          cursorY += 25;
-          doc.setFontSize(10);
-          doc.setFont("Helvetica", "normal");
-
-          for (let i = 0; i < splitLines.length; i++) {
-            if (cursorY > pageHeight - 45) {
-              doc.addPage();
-              cursorY = 45;
-            }
-            doc.text(splitLines[i], 40, cursorY);
-            cursorY += 15;
-          }
-
-          const pdfBlob = doc.output("blob");
-          setResult({
-            fileName: `${baseName}.pdf`,
-            blob: pdfBlob,
-            textContent: text,
-            fileType: "pdf",
-            originalSize: selectedFile.size,
-            newSize: pdfBlob.size,
-          });
-        } else if (targetFormat === "html") {
-          const html = `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"/><title>${baseName}</title><style>body{font-family:sans-serif;line-height:1.6;padding:2rem;max-width:800px;margin:auto;white-space:pre-wrap;}</style></head><body>${text.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</body></html>`;
-          const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-          setResult({
-            fileName: `${baseName}.html`,
-            blob,
-            textContent: text,
-            fileType: "html",
-            originalSize: selectedFile.size,
-            newSize: blob.size,
-          });
-        } else {
-          const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-          setResult({
-            fileName: `${baseName}.txt`,
-            blob,
-            textContent: text,
-            fileType: "text",
-            originalSize: selectedFile.size,
-            newSize: blob.size,
-          });
-        }
-      }
-
-      // 4. JSON / CSV CONVERSIONS
-      else if (ext === "json") {
-        const text = await selectedFile.text();
-        const parsed = JSON.parse(text);
-        if (targetFormat === "csv") {
-          let csv = "";
-          if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "object") {
-            const headers = Object.keys(parsed[0]);
-            csv = headers.join(",") + "\n";
-            csv += parsed.map(row => headers.map(h => JSON.stringify(row[h] ?? "")).join(",")).join("\n");
-          } else {
-            csv = "Key,Value\n" + Object.entries(parsed).map(([k, v]) => `"${k}","${String(v)}"`).join("\n");
-          }
-          // UTF-8 BOM for Microsoft Excel Turkish char compatibility
-          const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
-          setResult({
-            fileName: `${baseName}.csv`,
-            blob,
-            textContent: csv,
-            fileType: "data",
-            originalSize: selectedFile.size,
-            newSize: blob.size,
-          });
-        } else {
-          const formatted = JSON.stringify(parsed, null, 2);
-          const blob = new Blob([formatted], { type: "text/plain;charset=utf-8" });
-          setResult({
-            fileName: `${baseName}.txt`,
-            blob,
-            textContent: formatted,
-            fileType: "text",
-            originalSize: selectedFile.size,
-            newSize: blob.size,
-          });
-        }
-      } else if (ext === "csv") {
-        const text = await selectedFile.text();
-        if (targetFormat === "json") {
-          const lines = text.trim().split("\n").filter(Boolean);
-          if (lines.length > 0) {
-            const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
-            const rows = lines.slice(1).map(line => {
-              const values = line.split(",").map(v => v.trim().replace(/^"|"$/g, ""));
-              const obj: Record<string, string> = {};
-              headers.forEach((h, idx) => {
-                obj[h] = values[idx] || "";
-              });
-              return obj;
-            });
-            const jsonText = JSON.stringify(rows, null, 2);
-            const blob = new Blob([jsonText], { type: "application/json;charset=utf-8" });
-            setResult({
-              fileName: `${baseName}.json`,
-              blob,
-              textContent: jsonText,
-              fileType: "data",
-              originalSize: selectedFile.size,
-              newSize: blob.size,
-            });
-          }
-        }
-      }
-
+      const converted = await convertSingleFile(
+        selectedFile,
+        targetFormat,
+        imageQuality,
+        imageResizeMax,
+        setProgressText
+      );
+      setResult(converted);
       setMessage({ text: "Dönüştürme başarıyla tamamlandı!", type: "success" });
     } catch (err) {
-      console.error(err);
       setMessage({
         text: `Dönüştürme sırasında hata oluştu: ${err instanceof Error ? err.message : "Bilinmeyen hata"}`,
         type: "error",
@@ -542,86 +111,29 @@ export function FileConverter() {
     }
   }
 
-  // --- TEXT / CODE CONVERSIONS ---
   function handleTextConvert() {
     const val = textInput.trim();
     if (!val) {
       setMessage({ text: "Dönüştürülecek bir metin veya kod girin.", type: "error" });
       return;
     }
-
     try {
-      if (textConvertType === "md2pdf") {
-        const doc = new jsPDF({ unit: "pt", format: "a4" });
-        doc.setFont("Helvetica", "normal");
-        doc.setFontSize(10);
-        const splitLines = doc.splitTextToSize(val, 515);
-        let cursorY = 45;
-        const pageHeight = doc.internal.pageSize.getHeight();
-
-        for (let i = 0; i < splitLines.length; i++) {
-          if (cursorY > pageHeight - 45) {
-            doc.addPage();
-            cursorY = 45;
-          }
-          doc.text(splitLines[i], 40, cursorY);
-          cursorY += 15;
-        }
-
-        const blob = doc.output("blob");
-        setTextPdfBlob(blob);
-        setTextResult("PDF başarıyla oluşturuldu! Aşağıdaki indirme butonunu kullanabilirsin.");
-      } else if (textConvertType === "md2html") {
-        const html = `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"/><title>ACK Belge</title><style>body{font-family:system-ui,sans-serif;line-height:1.6;padding:2rem;max-width:800px;margin:auto;}</style></head><body>\n<pre style="white-space:pre-wrap;">${val.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</pre>\n</body></html>`;
-        setTextResult(html);
-        setTextPdfBlob(null);
-      } else if (textConvertType === "json2csv") {
-        const parsed = JSON.parse(val);
-        if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "object") {
-          const headers = Object.keys(parsed[0]);
-          const csv = headers.join(",") + "\n" + parsed.map(r => headers.map(h => JSON.stringify(r[h] ?? "")).join(",")).join("\n");
-          setTextResult(csv);
-        } else {
-          const csv = "Key,Value\n" + Object.entries(parsed).map(([k, v]) => `"${k}","${String(v)}"`).join("\n");
-          setTextResult(csv);
-        }
-        setTextPdfBlob(null);
-      } else if (textConvertType === "csv2json") {
-        const lines = val.split("\n").filter(Boolean);
-        const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
-        const rows = lines.slice(1).map(line => {
-          const values = line.split(",").map(v => v.trim().replace(/^"|"$/g, ""));
-          const obj: Record<string, string> = {};
-          headers.forEach((h, i) => {
-            obj[h] = values[i] || "";
-          });
-          return obj;
-        });
-        setTextResult(JSON.stringify(rows, null, 2));
-        setTextPdfBlob(null);
-      } else if (textConvertType === "b64enc") {
-        const encoded = btoa(unescape(encodeURIComponent(val)));
-        setTextResult(encoded);
-        setTextPdfBlob(null);
-      } else if (textConvertType === "b64dec") {
-        const decoded = decodeURIComponent(escape(atob(val)));
-        setTextResult(decoded);
-        setTextPdfBlob(null);
-      }
+      const out = convertTextData(val, textConvertType);
+      setTextResult(out.textResult);
+      setTextPdfBlob(out.pdfBlob);
       setMessage({ text: "İşlem tamamlandı!", type: "success" });
     } catch (err) {
       setMessage({ text: `Hata: ${err instanceof Error ? err.message : "Geçersiz biçim"}`, type: "error" });
     }
   }
 
-  // --- MULTI-IMAGE TO PDF ---
   function handleMultiImageFiles(e: ChangeEvent<HTMLInputElement>) {
     if (!e.target.files) return;
     const files = Array.from(e.target.files);
     files.forEach(file => {
       if (!file.type.startsWith("image/")) return;
       const reader = new FileReader();
-      reader.onload = (event) => {
+      reader.onload = event => {
         if (event.target?.result) {
           setMultiImages(prev => [
             ...prev,
@@ -656,40 +168,10 @@ export function FileConverter() {
     setBusy(true);
     setProgressText("PDF sayfaları birleştiriliyor...");
     try {
-      const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait" });
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 20;
-      const maxWidth = pageWidth - margin * 2;
-      const maxHeight = pageHeight - margin * 2;
-
-      for (let i = 0; i < multiImages.length; i++) {
-        if (i > 0) doc.addPage();
-        const item = multiImages[i];
-
-        const img = new Image();
-        await new Promise((res, rej) => {
-          img.onload = res;
-          img.onerror = rej;
-          img.src = item.dataUrl;
-        });
-
-        let targetW = img.width;
-        let targetH = img.height;
-        const ratio = Math.min(maxWidth / targetW, maxHeight / targetH, 1);
-        targetW = targetW * ratio;
-        targetH = targetH * ratio;
-
-        const posX = (pageWidth - targetW) / 2;
-        const posY = (pageHeight - targetH) / 2;
-
-        doc.addImage(item.dataUrl, "JPEG", posX, posY, targetW, targetH);
-      }
-
-      const pdfBlob = doc.output("blob");
+      const pdfBlob = await combineImagesToPdf(multiImages);
       downloadBlob(pdfBlob, `Gorseller-${Date.now()}.pdf`);
       setMessage({ text: `${multiImages.length} görsel tek bir PDF belgesine dönüştürüldü!`, type: "success" });
-    } catch (err) {
+    } catch {
       setMessage({ text: "PDF oluşturulurken hata oluştu.", type: "error" });
     } finally {
       setBusy(false);
@@ -733,7 +215,6 @@ export function FileConverter() {
       {/* --- MOD 1: TEKLİ DOSYA DÖNÜŞTÜRÜCÜ --- */}
       {activeMode === "file" && (
         <div className="converter-file-section">
-          {/* Sürükle Bırak / Dosya Seçme Alanı */}
           <div
             className={`converter-dropzone ${isDragOver ? "is-dragover" : ""} ${selectedFile ? "has-file" : ""}`}
             onDragOver={handleDragOver}
@@ -742,13 +223,15 @@ export function FileConverter() {
             onClick={() => fileInputRef.current?.click()}
             role="button"
             tabIndex={0}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click(); }}
+            onKeyDown={e => {
+              if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click();
+            }}
           >
             <input
               type="file"
               ref={fileInputRef}
               style={{ display: "none" }}
-              onChange={(e) => {
+              onChange={e => {
                 if (e.target.files && e.target.files.length > 0) {
                   handleFileSelect(e.target.files[0]);
                 }
@@ -776,7 +259,7 @@ export function FileConverter() {
                   <button
                     type="button"
                     className="file-remove-btn"
-                    onClick={(e) => {
+                    onClick={e => {
                       e.stopPropagation();
                       setSelectedFile(null);
                       setResult(null);
@@ -790,7 +273,6 @@ export function FileConverter() {
             )}
           </div>
 
-          {/* Hedef Format ve Ayarlar Seçimi */}
           {selectedFile && !result && (
             <div className="converter-options-panel surface" style={{ marginTop: "1rem", padding: "1rem", borderRadius: "0.75rem", border: "1px solid var(--app-border)" }}>
               <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.6rem", color: "var(--app-text)" }}>
@@ -798,7 +280,7 @@ export function FileConverter() {
               </label>
 
               <div className="target-format-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(135px, 1fr))", gap: "0.5rem", marginBottom: "1rem" }}>
-                {getAvailableFormats(selectedFile).map((fmt) => (
+                {getAvailableFormats(selectedFile).map(fmt => (
                   <button
                     key={fmt.id}
                     type="button"
@@ -811,7 +293,6 @@ export function FileConverter() {
                 ))}
               </div>
 
-              {/* Ek Görsel Ayarları (Eğer resimse) */}
               {(selectedFile.type.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(selectedFile.name)) && targetFormat !== "pdf" && (
                 <div className="image-advanced-settings" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.8rem", padding: "0.75rem", background: "var(--app-field)", borderRadius: "0.5rem", marginBottom: "1rem" }}>
                   <div>
@@ -824,7 +305,7 @@ export function FileConverter() {
                       max="1.0"
                       step="0.05"
                       value={imageQuality}
-                      onChange={(e) => setImageQuality(parseFloat(e.target.value))}
+                      onChange={e => setImageQuality(parseFloat(e.target.value))}
                       style={{ width: "100%", marginTop: "0.3rem" }}
                     />
                   </div>
@@ -834,7 +315,7 @@ export function FileConverter() {
                     </label>
                     <select
                       value={imageResizeMax}
-                      onChange={(e) => setImageResizeMax(e.target.value)}
+                      onChange={e => setImageResizeMax(e.target.value)}
                       style={{ width: "100%", marginTop: "0.3rem", padding: "0.35rem 0.5rem", borderRadius: "0.4rem", background: "var(--app-surface)", color: "var(--app-text)", border: "1px solid var(--app-border)" }}
                     >
                       <option value="original">Orijinal Boyut</option>
@@ -859,7 +340,6 @@ export function FileConverter() {
             </div>
           )}
 
-          {/* SONUÇ VE İNDİRME KARTI */}
           {result && (
             <div className="converter-result-card surface" style={{ marginTop: "1rem", padding: "1.2rem", borderRadius: "0.85rem", border: "1px solid var(--app-border)", background: "var(--app-field)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.8rem", flexWrap: "wrap", gap: "0.5rem" }}>
@@ -919,7 +399,6 @@ export function FileConverter() {
                 </div>
               </div>
 
-              {/* Önizleme Alanı */}
               <div className="result-preview-box" style={{ marginTop: "0.8rem", padding: "0.75rem", background: "var(--app-surface)", borderRadius: "0.6rem", maxHeight: "250px", overflowY: "auto", border: "1px solid var(--app-border)" }}>
                 {result.previewUrl && (
                   <div style={{ textAlign: "center" }}>
@@ -954,20 +433,22 @@ export function FileConverter() {
       {activeMode === "text" && (
         <div className="converter-text-section">
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
-            {[
-              { id: "md2pdf", label: "Markdown ➔ PDF" },
-              { id: "md2html", label: "Markdown ➔ HTML" },
-              { id: "json2csv", label: "JSON ➔ CSV (Excel)" },
-              { id: "csv2json", label: "CSV ➔ JSON" },
-              { id: "b64enc", label: "Base64 Şifrele" },
-              { id: "b64dec", label: "Base64 Çöz" },
-            ].map(opt => (
+            {(
+              [
+                { id: "md2pdf", label: "Markdown ➔ PDF" },
+                { id: "md2html", label: "Markdown ➔ HTML" },
+                { id: "json2csv", label: "JSON ➔ CSV (Excel)" },
+                { id: "csv2json", label: "CSV ➔ JSON" },
+                { id: "b64enc", label: "Base64 Şifrele" },
+                { id: "b64dec", label: "Base64 Çöz" },
+              ] as { id: TextConvertType; label: string }[]
+            ).map(opt => (
               <button
                 key={opt.id}
                 type="button"
                 className={`converter-subtab-btn ${textConvertType === opt.id ? "is-active" : ""}`}
                 onClick={() => {
-                  setTextConvertType(opt.id as any);
+                  setTextConvertType(opt.id);
                   setTextResult("");
                   setTextPdfBlob(null);
                 }}
@@ -979,18 +460,14 @@ export function FileConverter() {
 
           <textarea
             value={textInput}
-            onChange={(e) => setTextInput(e.target.value)}
+            onChange={e => setTextInput(e.target.value)}
             placeholder="Dönüştürmek istediğin metni, Markdown'ı veya JSON/CSV verisini buraya yapıştır..."
             rows={6}
             style={{ width: "100%", padding: "0.75rem", borderRadius: "0.6rem", background: "var(--app-field)", border: "1px solid var(--app-border)", color: "var(--app-text)", fontFamily: "Consolas, monospace", fontSize: "0.85rem", resize: "vertical", boxSizing: "border-box" }}
           />
 
           <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.6rem" }}>
-            <button
-              type="button"
-              className="button button-primary"
-              onClick={handleTextConvert}
-            >
+            <button type="button" className="button button-primary" onClick={handleTextConvert}>
               ⚡ Dönüştür
             </button>
             {textInput && (
@@ -1093,7 +570,10 @@ export function FileConverter() {
                     <div style={{ display: "flex", justifyContent: "center", gap: "0.3rem", marginTop: "0.3rem" }}>
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); moveMultiImage(idx, -1); }}
+                        onClick={e => {
+                          e.stopPropagation();
+                          moveMultiImage(idx, -1);
+                        }}
                         disabled={idx === 0}
                         style={{ border: "none", background: "transparent", color: "var(--app-text)", cursor: "pointer", fontSize: "0.8rem", padding: "0 0.2rem" }}
                         title="Öne taşı"
@@ -1102,7 +582,10 @@ export function FileConverter() {
                       </button>
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); removeMultiImage(img.id); }}
+                        onClick={e => {
+                          e.stopPropagation();
+                          removeMultiImage(img.id);
+                        }}
                         style={{ border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: "0.8rem", padding: "0 0.2rem" }}
                         title="Kaldır"
                       >
@@ -1110,7 +593,10 @@ export function FileConverter() {
                       </button>
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); moveMultiImage(idx, 1); }}
+                        onClick={e => {
+                          e.stopPropagation();
+                          moveMultiImage(idx, 1);
+                        }}
                         disabled={idx === multiImages.length - 1}
                         style={{ border: "none", background: "transparent", color: "var(--app-text)", cursor: "pointer", fontSize: "0.8rem", padding: "0 0.2rem" }}
                         title="Arkaya taşı"

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "./Icon";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { loadNotificationPreferences } from "../notificationStore";
+import { recordPomodoroSession } from "../../shared/activityOverview";
 
 export type PomodoroMode = "pomodoro" | "shortBreak" | "longBreak";
 
@@ -71,6 +72,7 @@ export function PomodoroTimer() {
           const now = Date.now();
           if (now >= parsed.endTimeMs) {
             if (curMode === "pomodoro") {
+              recordPomodoroSession(25);
               const nextSessions = curSessions + 1;
               setCompletedSessions(nextSessions);
               const isLong = nextSessions % 4 === 0;
@@ -127,6 +129,7 @@ export function PomodoroTimer() {
         playBeep();
 
         if (curMode === "pomodoro") {
+          recordPomodoroSession(25);
           const nextSessions = curSessions + 1;
           setCompletedSessions(nextSessions);
           const isLong = nextSessions % 4 === 0;

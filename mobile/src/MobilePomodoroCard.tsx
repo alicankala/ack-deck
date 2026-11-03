@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { recordPomodoroSession } from "../../shared/activityOverview";
 
 export type PomodoroMode = "pomodoro" | "shortBreak" | "longBreak";
 
@@ -99,6 +100,7 @@ export function MobilePomodoroCard({
           if (now >= parsed.endTimeMs) {
             // Timer expired while app was locked / in background!
             if (curMode === "pomodoro") {
+              recordPomodoroSession(25);
               const nextSessions = curSessions + 1;
               setCompletedSessions(nextSessions);
               const isLong = nextSessions % 4 === 0;
@@ -161,6 +163,7 @@ export function MobilePomodoroCard({
       if (!targetEnd || now >= targetEnd) {
         // Time is up! Handle mode transition
         if (curMode === "pomodoro") {
+          recordPomodoroSession(25);
           const nextSessions = curSessions + 1;
           setCompletedSessions(nextSessions);
           const isLong = nextSessions % 4 === 0;

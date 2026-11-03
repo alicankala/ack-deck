@@ -22,7 +22,7 @@ export function MobileNav({
       {tabs.map((tab) => {
         const active =
           page === tab.id ||
-          (tab.id === "today" && page === "tasks") ||
+          (tab.id === "today" && ["tasks", "overview"].includes(page)) ||
           (tab.id === "plan" && ["plan", "calendar", "subscriptions"].includes(page)) ||
           (tab.id === "send" && ["send", "inbox", "settings", "work"].includes(page));
         return (
