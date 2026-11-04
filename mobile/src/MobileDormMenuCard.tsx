@@ -5,6 +5,7 @@ import {
   turkeyDateKey,
   type DailyMenu,
   loadDormMenuCache,
+  isDormMenuFresh,
 } from "../../shared/dormMenu";
 
 export function MobileDormMenuCard({
@@ -19,11 +20,17 @@ export function MobileDormMenuCard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const refresh = async () => {
+  const refresh = async (force = false) => {
+    // If not a forced manual refresh and today's menu is already fresh in cache, skip network request
+    if (!force && isDormMenuFresh(todayKey)) {
+      const cached = findMenuForDate(loadDormMenuCache(), todayKey);
+      setMenu(cached);
+      return;
+    }
     setLoading(true);
     setError("");
     try {
-      const records = await fetchDormMenu();
+      const records = await fetchDormMenu(force);
       const current = findMenuForDate(records, todayKey);
       setMenu(current);
       if (!current) setError("Bugünün menüsü henüz girilmedi.");
@@ -35,7 +42,9 @@ export function MobileDormMenuCard({
   };
 
   useEffect(() => {
-    void refresh();
+    if (!isDormMenuFresh(todayKey)) {
+      void refresh(false);
+    }
   }, [todayKey]);
 
   const dishIcons = ["🍲", "🥩", "🍚", "🥗", "🍮", "🍞", "🍎"];
@@ -81,7 +90,7 @@ export function MobileDormMenuCard({
             type="button"
             className="mobile-dorm-refresh"
             disabled={loading}
-            onClick={refresh}
+            onClick={() => void refresh(true)}
             aria-label="Yemek menüsünü yenile"
           >
             {loading ? "…" : "↻"}

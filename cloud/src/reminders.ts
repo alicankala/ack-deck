@@ -263,7 +263,22 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
 
       if (pendingDevices.results.length > 0) {
         let canFetch = true;
-        if (menuFetch === fetch) {
+        let records: DormMenuRecord[] = [];
+        try {
+          const cached = (await env.ATTACHMENTS.get("dorm-menu:cache", "json")) as {
+            fetchedAt: number;
+            records: DormMenuRecord[];
+          } | null;
+          if (cached && Array.isArray(cached.records)) {
+            const m = findMenuForDate(cached.records, todayKey);
+            if (m && !m.isFallback && m.date?.trim().startsWith(todayKey) && m.dinnerDishes.length > 0) {
+              records = cached.records;
+              canFetch = false;
+            }
+          }
+        } catch {}
+
+        if (canFetch && menuFetch === fetch) {
           const throttle = await env.DB.prepare(
             "INSERT INTO rate_limits(bucket,count,reset_at) VALUES(?,1,?) ON CONFLICT(bucket) DO UPDATE SET count=CASE WHEN reset_at<? THEN 1 ELSE count+1 END,reset_at=CASE WHEN reset_at<? THEN excluded.reset_at ELSE reset_at END RETURNING count",
           )
@@ -278,11 +293,22 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
           });
           if (res.ok) {
             const json = (await res.json()) as { records?: DormMenuRecord[]; menu?: { kayitlar?: DormMenuRecord[] } };
-            const records = Array.isArray(json?.records) ? json.records : Array.isArray(json?.menu?.kayitlar) ? json.menu.kayitlar : [];
-            const menu = findMenuForDate(records, todayKey);
-            if (menu && !menu.isFallback && menu.date?.trim().startsWith(todayKey) && menu.dinnerDishes.length > 0) {
-              const dishesText = menu.dinnerDishes.join(", ").slice(0, 300);
-              for (const device of pendingDevices.results) {
+            records = Array.isArray(json?.records) ? json.records : Array.isArray(json?.menu?.kayitlar) ? json.menu.kayitlar : [];
+            if (records.length > 0) {
+              try {
+                await env.ATTACHMENTS.put(
+                  "dorm-menu:cache",
+                  JSON.stringify({ fetchedAt: now, records }),
+                  { expirationTtl: 86400 }
+                );
+              } catch {}
+            }
+          }
+        }
+        const menu = findMenuForDate(records, todayKey);
+        if (menu && !menu.isFallback && menu.date?.trim().startsWith(todayKey) && menu.dinnerDishes.length > 0) {
+          const dishesText = menu.dinnerDishes.join(", ").slice(0, 300);
+          for (const device of pendingDevices.results) {
                 const claim = await env.DB.prepare(
                   "INSERT INTO reminder_deliveries(generation,device_id,state,attempts,retry_at) VALUES(?,?,'sending',1,0) ON CONFLICT(generation,device_id) DO UPDATE SET state='sending',attempts=attempts+1 WHERE state='retry' AND retry_at<=? AND attempts<3 RETURNING generation",
                 )
@@ -306,9 +332,7 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
             }
           }
         }
-      }
-    }
-  } catch (error) {
+    } catch (error) {
     console.warn("Dorm menu reminder processing error:", error);
   }
 

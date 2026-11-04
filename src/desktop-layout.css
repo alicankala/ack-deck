@@ -661,3 +661,5 @@
 .dashboard-ai-send {
   margin-top: 0.85rem;
 }
+
+.main-content .activity-overview-page { width: 100% !important; max-width: 100% !important; margin: 0 !important; }

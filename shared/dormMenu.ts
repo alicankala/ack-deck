@@ -20,6 +20,19 @@ export type DailyMenu = {
 
 export const DORM_MENU_CACHE_KEY = "ack-deck.dorm-menu.v1";
 export const DORM_MENU_NOTIFIED_KEY = "ack-deck.dorm-menu.last-notified";
+export const DORM_MENU_LAST_FETCH_KEY = "ack-deck.dorm-menu.last-fetched-at";
+
+function getStorage(): Storage | null {
+  try {
+    if (typeof window !== "undefined" && window.localStorage) {
+      return window.localStorage;
+    }
+    if (typeof localStorage !== "undefined") {
+      return localStorage;
+    }
+  } catch {}
+  return null;
+}
 
 export function parseDishes(text: string): string[] {
   if (!text) return [];
@@ -47,7 +60,8 @@ export function turkeyDateKey(d = new Date()): string {
 
 export function loadDormMenuCache(): DormMenuRecord[] {
   try {
-    const raw = localStorage.getItem(DORM_MENU_CACHE_KEY);
+    const storage = getStorage();
+    const raw = storage?.getItem(DORM_MENU_CACHE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) return parsed;
@@ -55,13 +69,40 @@ export function loadDormMenuCache(): DormMenuRecord[] {
   return [];
 }
 
+export function getLastDormMenuFetchTime(): number {
+  try {
+    const storage = getStorage();
+    const raw = storage?.getItem(DORM_MENU_LAST_FETCH_KEY);
+    return raw ? Number(raw) || 0 : 0;
+  } catch {
+    return 0;
+  }
+}
+
 export function saveDormMenuCache(records: DormMenuRecord[]): void {
   try {
-    localStorage.setItem(DORM_MENU_CACHE_KEY, JSON.stringify(records));
+    const storage = getStorage();
+    storage?.setItem(DORM_MENU_CACHE_KEY, JSON.stringify(records));
+    storage?.setItem(DORM_MENU_LAST_FETCH_KEY, String(Date.now()));
     if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
       window.dispatchEvent(new Event("ack-dorm-menu-updated"));
     }
   } catch {}
+}
+
+export function isDormMenuFresh(todayKey = turkeyDateKey()): boolean {
+  const records = loadDormMenuCache();
+  const current = findMenuForDate(records, todayKey);
+  // 1. If today's menu is already present (not a fallback from previous days) and has dinner dishes:
+  if (current && !current.isFallback && current.isToday && current.dinnerDishes.length > 0) {
+    return true; // Today's menu is already present and complete!
+  }
+  // 2. If we already checked within the last 2.5 hours, consider it recently checked to prevent repeated fetches:
+  const lastFetch = getLastDormMenuFetchTime();
+  if (lastFetch > 0 && Date.now() - lastFetch < 2.5 * 3600 * 1000) {
+    return true;
+  }
+  return false;
 }
 
 export function findMenuForDate(records: DormMenuRecord[], targetDate: string): DailyMenu | null {
@@ -95,7 +136,12 @@ export function findMenuForDate(records: DormMenuRecord[], targetDate: string): 
   };
 }
 
-export async function fetchDormMenu(): Promise<DormMenuRecord[]> {
+export async function fetchDormMenu(force = false): Promise<DormMenuRecord[]> {
+  const todayKey = turkeyDateKey();
+  if (!force && isDormMenuFresh(todayKey)) {
+    return loadDormMenuCache();
+  }
+
   // If in desktop Tauri environment, fetch through native Rust command
   if (typeof window !== "undefined" && Boolean((window as any).__TAURI_INTERNALS__)) {
     try {
@@ -119,8 +165,8 @@ export async function fetchDormMenu(): Promise<DormMenuRecord[]> {
   }
 
   const urls = [
-    "https://ack-deck-phone.ack-deck-cloud.workers.dev/api/dorm-menu",
-    "/api/dorm-menu",
+    "https://ack-deck-phone.ack-deck-cloud.workers.dev/api/dorm-menu" + (force ? "?force=1" : ""),
+    "/api/dorm-menu" + (force ? "?force=1" : ""),
     "https://altinkalemkarabuk.com/icerik/icerik.json?t=" + Date.now(),
   ];
 
@@ -145,6 +191,12 @@ export async function fetchDormMenu(): Promise<DormMenuRecord[]> {
       // Continue to next URL
     }
   }
+
+  // Record fetch attempt timestamp even on failure so client doesn't hammer on rapid page switches
+  try {
+    const storage = getStorage();
+    storage?.setItem(DORM_MENU_LAST_FETCH_KEY, String(Date.now()));
+  } catch {}
 
   return loadDormMenuCache();
 }

@@ -97,3 +97,17 @@ test('manifest, production service worker, privacy and notification click routin
   const push=readFileSync(new URL('../src/push.ts',import.meta.url),'utf8');assert.ok(push.indexOf('Notification.requestPermission()')<push.indexOf('const status = await api'));assert.match(push,/Ana Ekranınıza/);
   const main=readFileSync(new URL('../src/main.tsx',import.meta.url),'utf8');assert.match(main,/getUserMedia\(\{audio:true\}\)/);assert.match(main,/setTimeout\(\(\)=>rec.state/);assert.doesNotMatch(main,/speechRecognition|read_file|execute_command/);
 });
+
+test('face id auto-prompt on launch is direct, single-prompt and settings toggle is removed', () => {
+  const settings = readFileSync(new URL('../src/MobileSettings.tsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(settings, /Açılışta Otomatik Face ID/);
+  assert.match(settings, /Face ID \/ Touch ID ile Aç/);
+
+  const lock = readFileSync(new URL('../src/MobileLockScreen.tsx', import.meta.url), 'utf8');
+  assert.match(lock, /performBioAuth/);
+  assert.doesNotMatch(lock, /config\.autoPromptBiometrics/);
+  assert.match(lock, /autoPromptedRef\.current = true/);
+
+  const sec = readFileSync(new URL('../src/mobileSecurity.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(sec, /autoPromptBiometrics:\s*existing\.autoPromptBiometrics/);
+});

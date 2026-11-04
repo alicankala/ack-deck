@@ -26,7 +26,6 @@ const navigationGroups: { label: string; items: { id: Page; label: string; icon:
     label: "Çalışma Alanı",
     items: [
       { id: "home", label: "Ana Sayfa", icon: "grid" },
-      { id: "overview", label: "Genel Özet", icon: "activity" },
       { id: "tasks", label: "Görevler", icon: "check" },
       { id: "calendar", label: "Aylık Plan", icon: "grid" },
       { id: "notes", label: "Notlar", icon: "note" },

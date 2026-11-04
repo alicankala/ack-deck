@@ -119,35 +119,24 @@ export function MobileTodayHero(props: {
     <>
       <div className="mobile-greeting-strip">
         <span className="mobile-greeting-title">{mobileGreeting}</span>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+        {weather ? (
           <button
             type="button"
-            className="mobile-greeting-activity"
-            onClick={onOpenOverview}
-            title="Genel Aktivite ve Alışkanlık Özeti"
+            className="mobile-greeting-weather"
+            onClick={onOpenWeatherModal}
+            title={`${weather.city} Hava Durumu: ${weather.temperature}°C, ${weather.desc} — Detaylar için tıkla`}
           >
-            <Icon name="activity" size={13} />
-            <span>Özet</span>
+            <span className="weather-symbol">{weather.symbol}</span>
+            <span className="weather-text">
+              {weather.city} {weather.temperature}°C · {weather.desc}
+            </span>
           </button>
-          {weather ? (
-            <button
-              type="button"
-              className="mobile-greeting-weather"
-              onClick={onOpenWeatherModal}
-              title={`${weather.city} Hava Durumu: ${weather.temperature}°C, ${weather.desc} — Detaylar için tıkla`}
-            >
-              <span className="weather-symbol">{weather.symbol}</span>
-              <span className="weather-text">
-                {weather.city} {weather.temperature}°C · {weather.desc}
-              </span>
-            </button>
-          ) : (
-            <div className="mobile-greeting-weather" title="Hava durumu yükleniyor">
-              <span className="weather-symbol">🌤️</span>
-              <span className="weather-text">Yükleniyor…</span>
-            </div>
-          )}
-        </div>
+        ) : (
+          <div className="mobile-greeting-weather" title="Hava durumu yükleniyor">
+            <span className="weather-symbol">🌤️</span>
+            <span className="weather-text">Yükleniyor…</span>
+          </div>
+        )}
       </div>
 
       <div className="mobile-metrics-bar">

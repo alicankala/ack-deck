@@ -22,7 +22,9 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
   const titleId = useId();
 
   useEffect(() => {
-    setConfig(loadSecurityConfig());
+    const handleSecChange = () => setConfig(loadSecurityConfig());
+    window.addEventListener("ack-mobile-security-changed", handleSecChange);
+    return () => window.removeEventListener("ack-mobile-security-changed", handleSecChange);
   }, []);
 
   useEffect(() => {
@@ -39,40 +41,66 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
     return () => clearInterval(timer);
   }, [lockoutSec]);
 
+  const onUnlockRef = useRef(onUnlock);
+  onUnlockRef.current = onUnlock;
+
   const bioInFlightRef = useRef(false);
   const autoPromptedRef = useRef(false);
 
-  const triggerFaceId = useCallback(async () => {
-    if (bioInFlightRef.current || !config.biometricsEnabled || lockoutSec > 0) return;
+  const performBioAuth = useCallback(async (credentialId?: string): Promise<boolean> => {
+    if (bioInFlightRef.current || getLockoutRemainingSeconds() > 0) return false;
     bioInFlightRef.current = true;
     setIsAuthenticatingBio(true);
     setErrorMsg("");
     try {
-      const ok = await authenticateBiometrics(config.biometricsCredentialId);
+      const ok = await authenticateBiometrics(credentialId);
       if (ok) {
         resetFailedAttempts();
         unlockSecurity();
-        onUnlock();
+        onUnlockRef.current();
+        return true;
       }
+      return false;
     } catch (e) {
       console.warn("Face ID failed:", e);
+      return false;
     } finally {
       bioInFlightRef.current = false;
       setIsAuthenticatingBio(false);
     }
-  }, [config.biometricsEnabled, config.biometricsCredentialId, lockoutSec, onUnlock]);
+  }, []);
 
-  // Attempt Face ID automatically once on mount ONLY if autoPromptBiometrics is explicitly enabled
+  const triggerFaceId = useCallback(() => {
+    if (!config.biometricsEnabled || lockoutSec > 0) return;
+    void performBioAuth(config.biometricsCredentialId);
+  }, [config.biometricsEnabled, config.biometricsCredentialId, lockoutSec, performBioAuth]);
+
+  // Attempt Face ID automatically once on mount if biometrics is enabled
   useEffect(() => {
     if (autoPromptedRef.current) return;
-    if (config.biometricsEnabled && config.autoPromptBiometrics && lockoutSec <= 0) {
-      autoPromptedRef.current = true;
-      const timer = setTimeout(() => {
-        void triggerFaceId();
-      }, 350);
-      return () => clearTimeout(timer);
-    }
-  }, [config.biometricsEnabled, config.autoPromptBiometrics, lockoutSec, triggerFaceId]);
+    const cfg = loadSecurityConfig();
+    if (!cfg.enabled || !cfg.biometricsEnabled || getLockoutRemainingSeconds() > 0) return;
+
+    autoPromptedRef.current = true;
+    let cancelled = false;
+
+    // Use 380ms delay for iOS WebKit initial presentation, with a single fallback retry at 750ms if context was not ready
+    const timer = setTimeout(async () => {
+      if (cancelled) return;
+      const ok = await performBioAuth(cfg.biometricsCredentialId);
+      if (!ok && !cancelled && getLockoutRemainingSeconds() <= 0) {
+        const retryTimer = setTimeout(() => {
+          if (!cancelled) void performBioAuth(cfg.biometricsCredentialId);
+        }, 370);
+        return () => clearTimeout(retryTimer);
+      }
+    }, 380);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [performBioAuth]);
 
   const handleNumberPress = async (digit: string) => {
     if (lockoutSec > 0 || pin.length >= 8) return;
@@ -208,6 +236,7 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
               disabled={lockoutSec > 0}
               onClick={() => void triggerFaceId()}
               aria-label="Face ID ile aç"
+              title="Face ID ile Aç"
             >
               <span className="key-action-icon">👤</span>
             </button>

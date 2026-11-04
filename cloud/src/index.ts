@@ -35,18 +35,64 @@ async function handle(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url), path = url.pathname, now = Date.now();
   if (url.protocol !== "https:" && !["localhost","127.0.0.1"].includes(url.hostname)) throw new ApiError(400,"Güvenli bağlantı gereklidir.");
   if (path === "/api/dorm-menu" && request.method === "GET") {
+    const force = url.searchParams.get("force") === "1";
     try {
+      const cached = (await env.ATTACHMENTS.get("dorm-menu:cache", "json")) as {
+        fetchedAt: number;
+        records: any[];
+      } | null;
+
+      // 3-hour cache TTL (10,800,000 ms)
+      if (
+        !force &&
+        cached &&
+        Array.isArray(cached.records) &&
+        cached.records.length > 0 &&
+        now - cached.fetchedAt < 3 * 3600 * 1000
+      ) {
+        const resp = reply({ ok: true, records: cached.records, cached: true });
+        resp.headers.set("Access-Control-Allow-Origin", "*");
+        resp.headers.set("Cache-Control", "public, max-age=3600");
+        return resp;
+      }
+
       const res = await fetch("https://altinkalemkarabuk.com/icerik/icerik.json", {
         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
       });
       if (res.ok) {
-        const json = await res.json() as any;
-        const records = json?.menu?.kayitlar ?? [];
+        const json = (await res.json()) as any;
+        const records = json?.records ?? json?.menu?.kayitlar ?? [];
+        if (records.length > 0) {
+          try {
+            await env.ATTACHMENTS.put(
+              "dorm-menu:cache",
+              JSON.stringify({ fetchedAt: now, records }),
+              { expirationTtl: 86400 }
+            );
+          } catch {}
+        }
         const resp = reply({ ok: true, records });
+        resp.headers.set("Access-Control-Allow-Origin", "*");
+        resp.headers.set("Cache-Control", "public, max-age=3600");
+        return resp;
+      } else if (cached && Array.isArray(cached.records) && cached.records.length > 0) {
+        const resp = reply({ ok: true, records: cached.records, cached: true });
         resp.headers.set("Access-Control-Allow-Origin", "*");
         return resp;
       }
-    } catch {}
+    } catch {
+      try {
+        const cached = (await env.ATTACHMENTS.get("dorm-menu:cache", "json")) as {
+          fetchedAt: number;
+          records: any[];
+        } | null;
+        if (cached && Array.isArray(cached.records) && cached.records.length > 0) {
+          const resp = reply({ ok: true, records: cached.records, cached: true });
+          resp.headers.set("Access-Control-Allow-Origin", "*");
+          return resp;
+        }
+      } catch {}
+    }
     const resp = reply({ ok: false, records: [] });
     resp.headers.set("Access-Control-Allow-Origin", "*");
     return resp;
@@ -215,8 +261,13 @@ async function handle(request: Request, env: Env): Promise<Response> {
     if (pc?.notification_preferences) {
       try { notificationPreferences = JSON.parse(pc.notification_preferences); } catch {}
     }
+    let activityGoals = null;
+    try {
+      const goalsRow = await env.DB.prepare("SELECT value FROM app_settings WHERE key='activity_goals'").first<{ value: string }>();
+      if (goalsRow?.value) activityGoals = JSON.parse(goalsRow.value);
+    } catch {}
     const aiConfigured = await hasEncryptedGeminiKey(env);
-    return reply({ online:now-(pc?.last_seen ?? 0)<DESKTOP_ONLINE_THRESHOLD_MS, notifications:!!notification?.active, vapidPublicKey:env.VAPID_PUBLIC_KEY ?? "", prayerConfig, studyReminders, notificationPreferences, aiConfigured, now });
+    return reply({ online:now-(pc?.last_seen ?? 0)<DESKTOP_ONLINE_THRESHOLD_MS, notifications:!!notification?.active, vapidPublicKey:env.VAPID_PUBLIC_KEY ?? "", prayerConfig, studyReminders, notificationPreferences, activityGoals, aiConfigured, now });
   }
   if (path === "/api/pair" && request.method === "POST") {
     owner(actor); const code = randomToken();
@@ -301,7 +352,18 @@ async function handle(request: Request, env: Env): Promise<Response> {
         await env.DB.prepare("UPDATE desktop_state SET notification_preferences=? WHERE id=1").bind(rawNotif).run();
       } catch {}
     }
-    return reply({ok:true});
+    const rawGoals = body && typeof body === "object" && (body as Record<string, unknown>).activityGoals && typeof (body as Record<string, unknown>).activityGoals === "object" ? JSON.stringify((body as Record<string, unknown>).activityGoals) : null;
+    if (rawGoals) {
+      try {
+        await env.DB.prepare("INSERT INTO app_settings(key,value,updated_at) VALUES('activity_goals',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(rawGoals, now).run();
+      } catch {}
+    }
+    let currentGoals = null;
+    try {
+      const goalsRow = await env.DB.prepare("SELECT value FROM app_settings WHERE key='activity_goals'").first<{ value: string }>();
+      if (goalsRow?.value) currentGoals = JSON.parse(goalsRow.value);
+    } catch {}
+    return reply({ok:true, activityGoals: currentGoals});
   }
   if (path === "/api/study-reminders" && request.method === "POST") {
     const body = await jsonBody(request);
@@ -425,6 +487,21 @@ async function handle(request: Request, env: Env): Promise<Response> {
     }
     await env.DB.prepare("UPDATE desktop_state SET prayer_config=? WHERE id=1").bind(JSON.stringify(body.prayerConfig)).run();
     return reply({ ok: true });
+  }
+  if (path === "/api/activity-goals" && request.method === "POST") {
+    await ensureSyncTables(env);
+    const body = await jsonBody(request);
+    if (!object(body) || !exact(body, ["activityGoals"]) || !object(body.activityGoals)) {
+      throw new ApiError(400, "Aktivite hedefleri geçersiz.");
+    }
+    const goals = body.activityGoals as Record<string, unknown>;
+    const sanitized = {
+      prayerTarget: Math.min(5, Math.max(1, Math.round(Number(goals.prayerTarget) || 5))),
+      pomodoroTarget: Math.min(30, Math.max(1, Math.round(Number(goals.pomodoroTarget) || 4))),
+      tasksTarget: Math.min(50, Math.max(1, Math.round(Number(goals.tasksTarget) || 3))),
+    };
+    await env.DB.prepare("INSERT INTO app_settings(key,value,updated_at) VALUES('activity_goals',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(JSON.stringify(sanitized), now).run();
+    return reply({ ok: true, activityGoals: sanitized });
   }
   if (path === "/api/workspaces" && request.method === "GET") return reply({ workspaces:(await env.DB.prepare("SELECT id,name,icon,description FROM workspace_mirrors ORDER BY name LIMIT 100").all()).results });
   if (path === "/api/workspaces" && request.method === "POST") {

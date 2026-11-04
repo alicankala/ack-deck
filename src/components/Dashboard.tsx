@@ -354,7 +354,7 @@ export function Dashboard({ refreshMs, onNavigate, onAskAi, targetId }: Props) {
 
   return (
     <div className="dashboard work-dashboard">
-      <Header />
+      <Header onOpenOverview={() => onNavigate({ page: "overview" })} />
       <div className="dashboard-workbench">
         <div className="dashboard-primary-column">
           <div className="dashboard-overview live-status-overview" aria-label="Canlı durum özeti">

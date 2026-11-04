@@ -1,6 +1,6 @@
 import type { ReactNode, SVGProps } from "react";
 
-export type IconName = "grid" | "folder" | "tool" | "archive" | "settings" | "cpu" | "memory" | "drive" | "wifi" | "arrowRight" | "arrowUp" | "arrowDown" | "plus" | "check" | "trash" | "note" | "qr" | "files" | "globe" | "speed" | "layers" | "info" | "spark" | "bell" | "bellOff" | "activity";
+export type IconName = "grid" | "folder" | "tool" | "archive" | "settings" | "cpu" | "memory" | "drive" | "wifi" | "arrowRight" | "arrowUp" | "arrowDown" | "plus" | "check" | "trash" | "note" | "qr" | "files" | "globe" | "speed" | "layers" | "info" | "spark" | "bell" | "bellOff" | "activity" | "back";
 
 const paths: Record<IconName, ReactNode> = {
   grid: <><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></>,
@@ -29,6 +29,7 @@ const paths: Record<IconName, ReactNode> = {
   bell: <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>,
   bellOff: <><path d="M8.66 8.66A6 6 0 0 0 6 8c0 7-3 9-3 9h12m2.84 0a1.8 1.8 0 0 0 .16-.8c0-2.3-1-4.7-1-8.2a6 6 0 0 0-4.34-5.76"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0M1 1l22 22"/></>,
   activity: <path d="M22 12h-4l-3 9L9 3l-3 9H2" />,
+  back: <path d="M19 12H5m6-6-6 6 6 6"/>,
 };
 
 type Props = SVGProps<SVGSVGElement> & { name: IconName; size?: number };

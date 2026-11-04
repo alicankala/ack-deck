@@ -5,6 +5,7 @@ import {
   shouldNotifyMealNow,
   turkeyDateKey,
   DORM_MENU_NOTIFIED_KEY,
+  loadDormMenuCache,
 } from "../shared/dormMenu";
 import { notifyDesktop } from "./desktopClient";
 import { isTauri } from "@tauri-apps/api/core";
@@ -23,9 +24,13 @@ export function useDormMealReminder(setNotice: (text: string) => void) {
       if (lastNotified === todayKey) return;
 
       try {
-        const records = await fetchDormMenu();
+        let records = loadDormMenuCache();
+        let todayMenu = findMenuForDate(records, todayKey);
+        if (!todayMenu || todayMenu.isFallback || !todayMenu.isToday || todayMenu.dinnerDishes.length === 0) {
+          records = await fetchDormMenu();
+          todayMenu = findMenuForDate(records, todayKey);
+        }
         if (!active) return;
-        const todayMenu = findMenuForDate(records, todayKey);
         if (todayMenu && !todayMenu.isFallback && todayMenu.isToday && todayMenu.dinnerDishes.length > 0) {
           const dishesText = todayMenu.dinnerDishes.join(", ");
           if (isTauri()) {

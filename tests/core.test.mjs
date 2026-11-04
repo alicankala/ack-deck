@@ -318,3 +318,33 @@ test('Bugün card only peeks at upcoming tasks due within 2 days; far exams stay
   const daily = todayTasks([task('bugun', '2026-10-31', '20:00'), task('gecmis', '2026-10-30')], now);
   assert.deepEqual(plain(daily.map(row => row.label)), ['Zamanı geçti', 'Bugün']);
 });
+
+test('dorm menu client cache enforces freshness: skips fetch when today menu present or recently checked', async () => {
+  const env = setupModules();
+  const dorm = env.load('../shared/dormMenu');
+
+  // 1. Empty cache, no fetch time -> not fresh
+  env.values.clear();
+  assert.equal(dorm.isDormMenuFresh('2026-11-04'), false);
+
+  // 2. Pre-seed cache with today's menu
+  const todayRecords = [
+    { id: '1', tarih: '2026-11-04', kahvalti: '', aksam: 'Tarhana\nKuru Fasülye\nPilav', yayinda: true }
+  ];
+  dorm.saveDormMenuCache(todayRecords);
+
+  // Today's menu is now present -> fresh!
+  assert.equal(dorm.isDormMenuFresh('2026-11-04'), true);
+
+  // Calling fetchDormMenu(false) returns cached records immediately without network fetch
+  const result = await dorm.fetchDormMenu(false);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].aksam, 'Tarhana\nKuru Fasülye\nPilav');
+
+  // 3. For a future date not in cache, but fetched recently (< 2.5 hours) -> fresh (suppresses hammering)
+  assert.equal(dorm.isDormMenuFresh('2026-11-05'), true);
+
+  // 4. If last fetch was 3 hours ago and target date is not in cache -> not fresh
+  env.storage.setItem(dorm.DORM_MENU_LAST_FETCH_KEY, String(Date.now() - 3 * 3600 * 1000));
+  assert.equal(dorm.isDormMenuFresh('2026-11-05'), false);
+});

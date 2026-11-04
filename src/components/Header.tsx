@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { WeatherWidget } from "./WeatherWidget";
+import { Icon } from "./Icon";
 
-export function Header() {
+export function Header({ onOpenOverview }: { onOpenOverview?: () => void }) {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -31,12 +32,32 @@ export function Header() {
       ? "İyi akşamlar, Alican"
       : "İyi geceler, Alican";
 
+  const handleOpenOverview = () => {
+    if (onOpenOverview) {
+      onOpenOverview();
+    } else {
+      window.dispatchEvent(new CustomEvent("ack-navigate", { detail: { page: "overview" } }));
+    }
+  };
+
   return (
     <header className="dashboard-header">
       <div className="dashboard-greeting-block">
         <h1 className="dashboard-greeting-title">{greeting}</h1>
       </div>
       <div className="dashboard-header-actions">
+        <button
+          type="button"
+          className="dashboard-overview-btn"
+          onClick={handleOpenOverview}
+          title="Genel Aktivite ve Alışkanlık Özeti (Namaz, Pomodoro, Görevler)"
+          aria-label="Genel Aktivite ve Alışkanlık Özeti"
+        >
+          <span className="overview-btn-icon" aria-hidden="true">
+            <Icon name="activity" size={17} />
+          </span>
+          <span className="overview-btn-text">Genel Özet</span>
+        </button>
         <WeatherWidget />
         <div className="dashboard-live-badge" aria-label="Canlı Saat ve Tarih">
           <span className="live-status-dot" aria-hidden="true" />

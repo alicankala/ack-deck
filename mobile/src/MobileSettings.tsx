@@ -1,3 +1,4 @@
+import { loadActivityGoals, saveActivityGoals, type ActivityGoals } from "../../shared/activityOverview";
 import { useEffect, useState, type FormEvent } from "react";
 import { Icon } from "./Icon";
 import {
@@ -50,6 +51,14 @@ export function MobileSettings({
   onSync: () => Promise<void>;
 }) {
   const [prayerConfig, setPrayerConfig] = useState<PrayerTimesConfig>(loadPrayerConfig);
+  const [activityGoals, setActivityGoals] = useState<ActivityGoals>(loadActivityGoals);
+
+  function handleGoalChange<K extends keyof ActivityGoals>(key: K, val: number) {
+    const nextGoals: ActivityGoals = { ...activityGoals, [key]: val };
+    setActivityGoals(nextGoals);
+    saveActivityGoals(nextGoals);
+    void api(state, "activity-goals", json({ activityGoals: nextGoals })).catch(() => {});
+  }
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     return (localStorage.getItem("ack-deck.mobile-theme") as "dark" | "light") || "dark";
   });
@@ -295,6 +304,56 @@ export function MobileSettings({
         </p>
       </section>
 
+      {/* Aktivite & Alışkanlık Hedefleri */}
+      <section className="settings-card">
+        <div className="settings-card-head">
+          <Icon name="activity" size={20} />
+          <h3>Aktivite & Alışkanlık Hedefleri</h3>
+        </div>
+        <div className="settings-row">
+          <label htmlFor="goal-prayer">🕌 Günlük Namaz Hedefi</label>
+          <select
+            id="goal-prayer"
+            className="settings-select"
+            value={activityGoals.prayerTarget}
+            onChange={e => handleGoalChange("prayerTarget", Number(e.target.value))}
+          >
+            {[1, 2, 3, 4, 5].map(n => (
+              <option key={n} value={n}>{n} vakit</option>
+            ))}
+          </select>
+        </div>
+        <div className="settings-row">
+          <label htmlFor="goal-pomodoro">⏱️ Günlük Odaklanma (Pomodoro)</label>
+          <select
+            id="goal-pomodoro"
+            className="settings-select"
+            value={activityGoals.pomodoroTarget}
+            onChange={e => handleGoalChange("pomodoroTarget", Number(e.target.value))}
+          >
+            {[1, 2, 3, 4, 5, 6, 8, 10, 12].map(n => (
+              <option key={n} value={n}>{n} seans ({n * 25} dk)</option>
+            ))}
+          </select>
+        </div>
+        <div className="settings-row">
+          <label htmlFor="goal-tasks">✅ Günlük Görev Hedefi</label>
+          <select
+            id="goal-tasks"
+            className="settings-select"
+            value={activityGoals.tasksTarget}
+            onChange={e => handleGoalChange("tasksTarget", Number(e.target.value))}
+          >
+            {[1, 2, 3, 4, 5, 6, 8, 10, 15, 20].map(n => (
+              <option key={n} value={n}>{n} görev</option>
+            ))}
+          </select>
+        </div>
+        <p className="settings-hint">
+          Hedefler masaüstü ACKDeck ile otomatik eşitlenir ve halkalarda gösterilir.
+        </p>
+      </section>
+
       {/* 3. Push Bildirimleri */}
       <section className="settings-card">
         <div className="settings-card-head">
@@ -404,34 +463,6 @@ export function MobileSettings({
                 {securityConfig.biometricsEnabled ? "✓ Açık" : "Etkinleştir"}
               </button>
             </div>
-
-            {securityConfig.biometricsEnabled && (
-              <div className="settings-row" style={{ paddingTop: "8px", borderTop: "1px dashed rgba(255, 255, 255, 0.08)" }}>
-                <div>
-                  <strong style={{ fontSize: "13px" }}>Açılışta Otomatik Face ID</strong>
-                  <p className="settings-hint">
-                    {securityConfig.autoPromptBiometrics
-                      ? "Açık: Kilit ekranında Apple onay penceresi hemen açılır."
-                      : "Kapalı: Önce temiz PIN ekranı gelir; isterseniz butona basarak Face ID yapabilirsiniz."}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className={securityConfig.autoPromptBiometrics ? "primary-action-sm" : "secondary-action-sm"}
-                  onClick={() => {
-                    const nextVal = !securityConfig.autoPromptBiometrics;
-                    saveSecurityConfig({ ...securityConfig, autoPromptBiometrics: nextVal });
-                    onNotice(
-                      nextVal
-                        ? "Açılışta otomatik Face ID açıldı."
-                        : "Açılışta otomatik Face ID kapatıldı (Doğrudan PIN veya butonla açılır)."
-                    );
-                  }}
-                >
-                  {securityConfig.autoPromptBiometrics ? "Açık" : "Kapalı"}
-                </button>
-              </div>
-            )}
 
             <div className="settings-select-group">
               <label htmlFor="autolock-select">Otomatik Kilitleme Zamanı</label>

@@ -4,7 +4,7 @@ export interface MobileSecurityConfig {
   passcodeHash: string;
   biometricsEnabled: boolean;
   biometricsCredentialId?: string;
-  autoPromptBiometrics?: boolean; // false = wait for user tap, true = auto-prompt
+  autoPromptBiometrics?: boolean; // legacy compatibility
   autoLockTimeoutSeconds: number; // 0 = immediately, 60 = 1 min, 300 = 5 min
 }
 
@@ -252,7 +252,6 @@ export async function setSecurityPasscode(
     passcodeHash,
     biometricsEnabled: Boolean(biometricsCredentialId),
     biometricsCredentialId,
-    autoPromptBiometrics: existing.autoPromptBiometrics ?? false,
     autoLockTimeoutSeconds: existing.autoLockTimeoutSeconds,
   };
 

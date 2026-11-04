@@ -5,6 +5,7 @@ import { saveInboxIndex, type InboxReference } from "./productIntelligence";
 import { loadPrayerConfig } from "../shared/prayerTimes";
 import { loadStudyReminders } from "./studyReminderStore";
 import { loadNotificationPreferences } from "./notificationStore";
+import { loadActivityGoals, saveActivityGoals, type ActivityGoals } from "../shared/activityOverview";
 
 const PAUSE_MESSAGE=/güvenli biçimde duraklatıldı/;
 
@@ -22,11 +23,21 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void,
       try{
         const studyRem=loadStudyReminders();
         const notif=loadNotificationPreferences();
-        await phoneRequest("heartbeat",{
+        const currentGoals = loadActivityGoals();
+        const res = await phoneRequest<{ ok: boolean; activityGoals?: ActivityGoals }>("heartbeat",{
           prayerConfig:loadPrayerConfig(),
           ...(!studyRem.locked?{studyReminders:studyRem.entries}:{}),
           notificationPreferences:notif,
+          activityGoals: currentGoals,
         });
+        if (res?.activityGoals && typeof res.activityGoals === "object") {
+          const remote = res.activityGoals;
+          if (remote.prayerTarget !== currentGoals.prayerTarget ||
+              remote.pomodoroTarget !== currentGoals.pomodoroTarget ||
+              remote.tasksTarget !== currentGoals.tasksTarget) {
+            saveActivityGoals(remote);
+          }
+        }
       }catch(err){
         console.warn("[ACKDeck Heartbeat]",err);
       }

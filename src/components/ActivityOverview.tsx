@@ -1,3 +1,4 @@
+import { Icon } from "./Icon";
 import { useEffect, useState } from "react";
 import { ActivityRings } from "./ActivityRings";
 import {
@@ -16,7 +17,7 @@ import { loadTasks } from "../taskStore";
 import { TRACKED_PRAYERS } from "../../shared/prayerTimes";
 import "./activityOverview.css";
 
-export function ActivityOverview() {
+export function ActivityOverview({ onBack }: { onBack?: () => void }) {
   const [goals, setGoals] = useState<ActivityGoals>(loadActivityGoals);
   const [editingGoals, setEditingGoals] = useState(false);
   const [draftGoals, setDraftGoals] = useState<ActivityGoals>(goals);
@@ -118,24 +119,49 @@ export function ActivityOverview() {
       {/* Header */}
       <div className="overview-header">
         <div className="overview-header-title">
+          {onBack && (
+            <button
+              type="button"
+              className="overview-back-btn"
+              onClick={onBack}
+              title="Geri Dön"
+              aria-label="Geri Dön"
+            >
+              <Icon name="back" size={17} />
+              <span>Geri Dön</span>
+            </button>
+          )}
           <span className="overview-header-icon" aria-hidden="true">📊</span>
           <div>
             <h1>Genel Aktivite & Alışkanlık Özeti</h1>
             <p>Apple Fitness tarzı 3'lü aktivite halkaları, haftalık trendler ve disiplin karnesi</p>
           </div>
         </div>
-        <button
-          type="button"
-          className="overview-goals-btn"
-          onClick={() => {
-            setDraftGoals(goals);
-            setEditingGoals(true);
-          }}
-          title="Günlük hedefleri özelleştir"
-        >
-          <span>⚙️</span>
-          <span>Hedefleri Düzenle</span>
-        </button>
+        <div className="overview-header-actions">
+          <button
+            type="button"
+            className="overview-goals-btn"
+            onClick={() => {
+              setDraftGoals(goals);
+              setEditingGoals(true);
+            }}
+            title="Günlük hedefleri özelleştir"
+          >
+            <span>⚙️</span>
+            <span>Hedefleri Düzenle</span>
+          </button>
+          {onBack && (
+            <button
+              type="button"
+              className="overview-close-icon-btn"
+              onClick={onBack}
+              title="Kapat"
+              aria-label="Kapat"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Hero Card: Today's 3 Rings & Metrics */}

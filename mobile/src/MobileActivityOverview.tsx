@@ -16,6 +16,7 @@ import type { CloudRecord, PhoneTask } from "../../shared/phone";
 import type { PrayerLogDay } from "../../shared/prayerTimes";
 import { TRACKED_PRAYERS } from "../../shared/prayerTimes";
 import { Icon } from "./Icon";
+import { api, json } from "./store";
 
 type Props = {
   onBack: () => void;
@@ -101,6 +102,13 @@ export function MobileActivityOverview({ onBack, records }: Props) {
     if (saveActivityGoals(draftGoals)) {
       setGoals(draftGoals);
       setEditingGoals(false);
+      try {
+        const stored = localStorage.getItem("ack-deck.phone-state.v1");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          void api(parsed, "activity-goals", json({ activityGoals: draftGoals })).catch(() => {});
+        }
+      } catch {}
     }
   }
 

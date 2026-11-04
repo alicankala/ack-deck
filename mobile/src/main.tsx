@@ -56,6 +56,7 @@ import "./styles/prayer-guide.css";
 import "./styles/prayer-guide-details.css";
 import "./styles/lock-pomodoro.css";
 import "./styles/activity-overview.css";
+import { saveActivityGoals, type ActivityGoals } from "../../shared/activityOverview";
 import "./notes.css";
 import { createAttachmentSender } from "./sendFlow";
 import { MobileSettings } from "./MobileSettings";
@@ -290,6 +291,7 @@ function App() {
           notifications: boolean;
           prayerConfig?: PrayerTimesConfig;
           studyReminders?: { id: string; leadMinutes: number | null }[];
+          activityGoals?: ActivityGoals;
         }>(next, "status"),
         api<{ items: MobileInboxItem[] }>(next, "inbox"),
       ]);
@@ -305,6 +307,9 @@ function App() {
         try {
           localStorage.setItem("ack-deck.study-reminders.v1", JSON.stringify(status.studyReminders));
         } catch {}
+      }
+      if (status.activityGoals && typeof status.activityGoals === "object") {
+        saveActivityGoals(status.activityGoals);
       }
       if (!silent) {
         const elapsed = Date.now() - startTime;
