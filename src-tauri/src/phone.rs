@@ -118,6 +118,7 @@ fn route(operation: &str, body: &Value) -> Result<(&'static str, String), String
                 format!("inbox/{id}"),
             )
         }
+        "push/test-device" => ("POST", "push/test-device".into()),
         _ => return Err("Telefon işlemi desteklenmiyor.".into()),
     };
     Ok(result)
@@ -168,7 +169,13 @@ pub(crate) async fn request(
         .await
         .map_err(|_| "Telefon sunucusuna ulaşılamadı.")?;
     if !response.status().is_success() {
-        return Err(match response.status().as_u16() {
+        let status = response.status().as_u16();
+        if let Ok(err_json) = response.json::<Value>().await {
+            if let Some(err_msg) = err_json.get("error").and_then(Value::as_str) {
+                return Err(err_msg.to_string());
+            }
+        }
+        return Err(match status {
             401 | 403 => {
                 "Telefon erişimi doğrulanamadı. Sahip anahtarı ve sunucu adresini kontrol edin."
             }

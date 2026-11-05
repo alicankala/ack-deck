@@ -253,7 +253,7 @@ export function calculatePrayerStats(logs: PrayerLogDay[], todayDate: string) {
       if (s === "prayed") {
         totalPrayed++;
         dayPrayed++;
-      } else {
+      } else if (log.date < todayDate) {
         totalMissed++;
       }
     }

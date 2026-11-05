@@ -302,7 +302,7 @@ function App() {
     };
   }, []);
 
-  const currentTool: "converter" | "speed" | "ip" | "qr" = page === "speed" ? "speed" : page === "ip" ? "ip" : page === "qr" ? "qr" : "converter";
+  const currentTool: "converter" | "speed" | "ip" | "qr" = page === "files" ? "converter" : page === "ip" ? "ip" : page === "qr" ? "qr" : "speed";
   const projectsView = <Projects projects={projects} onChange={changeProjects} fullPage initialId={route.target.id} initialTool={currentTool} onNavigate={navigate} onAskAi={askAi} />;
 
   const pageViews: Record<Page, ReactNode> = {

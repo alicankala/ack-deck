@@ -14,6 +14,9 @@ export async function ensureSyncTables(env: Env) {
     env.DB.prepare("CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL)"),
     env.DB.prepare("CREATE TABLE IF NOT EXISTS ai_queries (id TEXT PRIMARY KEY, device_id TEXT NOT NULL, prompt TEXT NOT NULL, history TEXT NOT NULL DEFAULT '[]', model TEXT NOT NULL DEFAULT 'fast', state TEXT NOT NULL DEFAULT 'pending', reply TEXT, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL)"),
   ]);
+  try {
+    await env.DB.prepare("ALTER TABLE desktop_state ADD COLUMN notification_preferences TEXT").run();
+  } catch {}
   syncedTablesEnsured = true;
 }
 export async function mutate(env: Env, actor: Actor, input: unknown, schema = "3") {

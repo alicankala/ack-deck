@@ -6,7 +6,7 @@ import {
   MEDIA_TYPE_ICONS,
   newMediaItem,
 } from "../../shared/media";
-import { proxyPosterUrl, searchMediaCatalog } from "../../shared/mediaSearch";
+import { proxyPosterUrl, searchMediaCatalog, fetchMediaRating } from "../../shared/mediaSearch";
 import { sendGeminiMessage, getGeminiKeyStatus } from "../geminiClient";
 import { redactSecrets } from "../privacy";
 
@@ -200,10 +200,18 @@ Yanıtını YALNIZCA geçerli bir JSON dizisi formatında ver (markdown veya kod
     // Auto-fetch poster in background
     try {
       const candidates = await searchMediaCatalog(rec.type, rec.title);
-      if (candidates.length > 0 && candidates[0].posterUrl) {
-        newItem.posterUrl = candidates[0].posterUrl;
+      if (candidates.length > 0) {
+        if (candidates[0].posterUrl) newItem.posterUrl = candidates[0].posterUrl;
         if (!newItem.year && candidates[0].year) newItem.year = candidates[0].year;
         if (!newItem.creator && candidates[0].creator) newItem.creator = candidates[0].creator;
+        if (candidates[0].imdbId) {
+          newItem.imdbId = candidates[0].imdbId;
+          const r = await fetchMediaRating(candidates[0].imdbId);
+          if (typeof r === "number" && r > 0) {
+            newItem.imdbRating = r;
+            newItem.imdbUpdatedAt = Date.now();
+          }
+        }
       }
     } catch {}
 

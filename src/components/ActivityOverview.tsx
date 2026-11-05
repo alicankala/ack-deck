@@ -62,6 +62,8 @@ export function ActivityOverview({ onBack }: { onBack?: () => void }) {
   const todaySummary = calculateDaySummary(todayStr, prayerLogs, pomodoroHistory, tasks, goals);
   // Selected day summary
   const selectedSummary = selectedDate === todayStr ? todaySummary : calculateDaySummary(selectedDate, prayerLogs, pomodoroHistory, tasks, goals);
+  const isSelectedToday = selectedDate === todayStr;
+  const activeSummary = selectedSummary;
 
   // Weekly summaries
   const weeklySummaries = getWeeklySummaries(todayStr, prayerLogs, pomodoroHistory, tasks, goals);
@@ -168,13 +170,27 @@ export function ActivityOverview({ onBack }: { onBack?: () => void }) {
         </div>
       </div>
 
-      {/* Hero Card: Today's 3 Rings & Metrics */}
+      {/* Hero Card: Selected Day's 3 Rings & Metrics */}
       <div className="overview-hero-card">
         <div className="hero-rings-col">
-          <ActivityRings rings={todaySummary.rings} size={150} />
-          <span className="hero-rings-badge">
-            {todaySummary.allGoalsMet ? "🎉 Bugün Tüm Hedefler Kapandı!" : "Bugün Devam Ediyor"}
-          </span>
+          <ActivityRings rings={activeSummary.rings} size={150} />
+          <div className="hero-badge-wrap">
+            <span className="hero-rings-badge">
+              {isSelectedToday
+                ? (activeSummary.allGoalsMet ? "🎉 Bugün Tüm Hedefler Kapandı!" : "Bugün Devam Ediyor")
+                : `📅 ${activeSummary.fullDateLabel} (%${activeSummary.overallScore})`}
+            </span>
+            {!isSelectedToday && (
+              <button
+                type="button"
+                className="hero-today-return-btn"
+                onClick={() => setSelectedDate(todayStr)}
+                title="Bugünün özetine geri dön"
+              >
+                ↺ Bugüne Dön
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="hero-metrics-col">
@@ -186,15 +202,15 @@ export function ActivityOverview({ onBack }: { onBack?: () => void }) {
                 <span>🕌 Maneviyat (Namaz)</span>
               </span>
               <span className="metric-item-val" style={{ color: "#10b981" }}>
-                <span>{todaySummary.rings.prayer.current}</span>
-                <small>/ {todaySummary.rings.prayer.target} vakit (%{Math.round(todaySummary.rings.prayer.rawProgress * 100)})</small>
+                <span>{activeSummary.rings.prayer.current}</span>
+                <small>/ {activeSummary.rings.prayer.target} vakit (%{Math.round(activeSummary.rings.prayer.rawProgress * 100)})</small>
               </span>
             </div>
             <div className="metric-progress-track">
               <div
                 className="metric-progress-fill"
                 style={{
-                  width: `${Math.min(100, Math.round(todaySummary.rings.prayer.rawProgress * 100))}%`,
+                  width: `${Math.min(100, Math.round(activeSummary.rings.prayer.rawProgress * 100))}%`,
                   background: "#10b981",
                 }}
               />
@@ -209,15 +225,15 @@ export function ActivityOverview({ onBack }: { onBack?: () => void }) {
                 <span>⏱️ Odaklanma (Pomodoro)</span>
               </span>
               <span className="metric-item-val" style={{ color: "#f97316" }}>
-                <span>{todaySummary.rings.pomodoro.current}</span>
-                <small>/ {todaySummary.rings.pomodoro.target} seans ({todaySummary.rings.pomodoro.current * 25} dk)</small>
+                <span>{activeSummary.rings.pomodoro.current}</span>
+                <small>/ {activeSummary.rings.pomodoro.target} seans ({activeSummary.rings.pomodoro.current * 25} dk)</small>
               </span>
             </div>
             <div className="metric-progress-track">
               <div
                 className="metric-progress-fill"
                 style={{
-                  width: `${Math.min(100, Math.round(todaySummary.rings.pomodoro.rawProgress * 100))}%`,
+                  width: `${Math.min(100, Math.round(activeSummary.rings.pomodoro.rawProgress * 100))}%`,
                   background: "#f97316",
                 }}
               />
@@ -232,15 +248,15 @@ export function ActivityOverview({ onBack }: { onBack?: () => void }) {
                 <span>✅ Üretkenlik (Görevler)</span>
               </span>
               <span className="metric-item-val" style={{ color: "#06b6d4" }}>
-                <span>{todaySummary.rings.tasks.current}</span>
-                <small>/ {todaySummary.rings.tasks.target} görev (%{Math.round(todaySummary.rings.tasks.rawProgress * 100)})</small>
+                <span>{activeSummary.rings.tasks.current}</span>
+                <small>/ {activeSummary.rings.tasks.target} görev (%{Math.round(activeSummary.rings.tasks.rawProgress * 100)})</small>
               </span>
             </div>
             <div className="metric-progress-track">
               <div
                 className="metric-progress-fill"
                 style={{
-                  width: `${Math.min(100, Math.round(todaySummary.rings.tasks.rawProgress * 100))}%`,
+                  width: `${Math.min(100, Math.round(activeSummary.rings.tasks.rawProgress * 100))}%`,
                   background: "#06b6d4",
                 }}
               />

@@ -1252,3 +1252,83 @@
   padding: 0.35rem 0.85rem !important;
   font-size: 0.82rem !important;
 }
+
+/* IMDb Rating Badge */
+.media-imdb-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(245, 158, 11, 0.16);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 0.12rem 0.45rem;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
+/* Toolbar Refresh Ratings Button & Notice */
+.media-refresh-ratings-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.media-refresh-ratings-btn:hover:not(:disabled) {
+  background: rgba(51, 65, 85, 0.85);
+  border-color: rgba(148, 163, 184, 0.4);
+  color: #fff;
+}
+
+.media-refresh-ratings-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.media-refresh-notice {
+  margin: 0.45rem 0 0.85rem 0;
+  padding: 0.5rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+/* Showcase Grid Card Quick Actions */
+.media-card-quick-start {
+  background: #10b981 !important;
+  border-color: #10b981 !important;
+  color: #fff !important;
+  font-weight: 650 !important;
+  padding: 0.25rem 0.65rem !important;
+  font-size: 0.78rem !important;
+}
+
+.media-card-quick-start:hover {
+  background: #059669 !important;
+}
+
+.media-card-quick-finish {
+  background: #3b82f6 !important;
+  border-color: #3b82f6 !important;
+  color: #fff !important;
+  font-weight: 650 !important;
+  padding: 0.25rem 0.65rem !important;
+  font-size: 0.78rem !important;
+}
+
+.media-card-quick-finish:hover {
+  background: #2563eb !important;
+}

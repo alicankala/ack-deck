@@ -5,7 +5,7 @@ import { ApiError, boundedBytes, equalSecret, hash, jsonBody, pushEndpoint, rand
 import { mutate, ensureSyncTables } from "./sync";
 import { recordView, type Actor, type Env, type RecordRow } from "./types";
 import { runReminders, sendNotification, PushFailure } from "./reminders";
-import { searchPublicMedia } from "./mediaSearch";
+import { searchPublicMedia, fetchImdbRating } from "./mediaSearch";
 import {
   saveEncryptedGeminiKey,
   clearEncryptedGeminiKey,
@@ -114,6 +114,50 @@ async function handle(request: Request, env: Env): Promise<Response> {
     } catch (err) {
       if (err instanceof ApiError && err.status === 429) throw err;
       const resp = reply({ ok: false, results: [] });
+      resp.headers.set("Access-Control-Allow-Origin", "*");
+      return resp;
+    }
+  }
+  if (path === "/api/media-rating" && request.method === "GET") {
+    const imdbId = (url.searchParams.get("imdbId") || "").trim();
+    if (!/^tt\d{5,12}$/.test(imdbId)) {
+      const err = reply({ ok: false, error: "Geçersiz IMDb ID" }, 400);
+      err.headers.set("Access-Control-Allow-Origin", "*");
+      return err;
+    }
+    try {
+      await rate(
+        env,
+        `media-rating:${await hash((request.headers.get("CF-Connecting-IP") ?? "local") + (env.OWNER_SECRET ?? ""))}`,
+        60,
+        60
+      );
+
+      const cacheKey = `imdb-rating:${imdbId}`;
+      const cached = await env.ATTACHMENTS.get(cacheKey);
+      if (cached) {
+        const ratingNum = parseFloat(cached);
+        if (!isNaN(ratingNum) && ratingNum > 0) {
+          const resp = reply({ ok: true, imdbId, rating: ratingNum, cached: true });
+          resp.headers.set("Access-Control-Allow-Origin", "*");
+          return resp;
+        }
+      }
+
+      const rating = await fetchImdbRating(imdbId);
+      if (typeof rating === "number" && rating > 0) {
+        await env.ATTACHMENTS.put(cacheKey, String(rating), { expirationTtl: 14 * 86400 });
+        const resp = reply({ ok: true, imdbId, rating, cached: false });
+        resp.headers.set("Access-Control-Allow-Origin", "*");
+        return resp;
+      }
+
+      const empty = reply({ ok: false, imdbId, rating: null });
+      empty.headers.set("Access-Control-Allow-Origin", "*");
+      return empty;
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) throw err;
+      const resp = reply({ ok: false, imdbId, rating: null });
       resp.headers.set("Access-Control-Allow-Origin", "*");
       return resp;
     }
