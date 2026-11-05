@@ -6,8 +6,8 @@
   gap: 1.25rem;
   padding: 0.25rem 0 2rem;
   width: 100%;
-  max-width: 100%;
-  margin: 0;
+  max-width: 1080px;
+  margin: 0 auto;
   box-sizing: border-box;
 }
 
@@ -358,7 +358,8 @@
 }
 
 .calendar-cell {
-  aspect-ratio: 1;
+  min-height: 48px;
+  height: 52px;
   background: var(--app-field, rgba(255, 255, 255, 0.02));
   border: 1px solid var(--app-border, rgba(255, 255, 255, 0.06));
   border-radius: 0.55rem;

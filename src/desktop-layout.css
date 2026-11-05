@@ -662,4 +662,4 @@
   margin-top: 0.85rem;
 }
 
-.main-content .activity-overview-page { width: 100% !important; max-width: 100% !important; margin: 0 !important; }
+.main-content .activity-overview-page { width: 100%; max-width: 1080px; margin: 0 auto; }

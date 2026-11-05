@@ -9,6 +9,8 @@ import {
   newMediaItem,
 } from "../../shared/media";
 import { searchMediaCatalog, proxyPosterUrl, type MediaSearchCandidate } from "../../shared/mediaSearch";
+import { MobileMediaAiAssistant } from "./MobileMediaAiAssistant";
+import type { MobileState } from "./store";
 import type { CloudRecord, Mutation } from "../../shared/phone";
 
 function MobileMediaPoster({
@@ -44,12 +46,14 @@ function MobileMediaPoster({
 }
 
 export function MobileMediaTracker({
+  state,
   records,
   onSave,
   disabled = false,
   onNotice,
   onError,
 }: {
+  state: MobileState;
   records: CloudRecord[];
   onSave: (mutation: Mutation) => Promise<void>;
   disabled?: boolean;
@@ -60,6 +64,57 @@ export function MobileMediaTracker({
   const [statusFilter, setStatusFilter] = useState<MediaStatus | "all">("all");
   const [search, setSearch] = useState("");
   const [editor, setEditor] = useState<MediaItem | null>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const PAGE_SIZE = 24;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [typeFilter, statusFilter, search]);
+
+  const handleAddItemFromAi = async (item: MediaItem) => {
+    await onSave({
+      mutationId: crypto.randomUUID(),
+      kind: "mediaItems",
+      id: item.id,
+      baseVersion: 0,
+      deleted: false,
+      data: item,
+    });
+  };
+
+  const handleUpdateItemFromAi = async (item: MediaItem) => {
+    const existingRow = records.find((r) => r.kind === "mediaItems" && r.id === item.id);
+    await onSave({
+      mutationId: crypto.randomUUID(),
+      kind: "mediaItems",
+      id: item.id,
+      baseVersion: existingRow?.version ?? 0,
+      deleted: false,
+      data: item,
+    });
+  };
+
+  const openNewItemEditor = (type?: MediaType) => {
+    suppressNextLookupRef.current = false;
+    const initialType: MediaType = type || (typeFilter === "all" ? "movie" : typeFilter);
+    const initialStatus: MediaStatus =
+      statusFilter === "planned"
+        ? "planned"
+        : statusFilter === "in_progress"
+        ? "in_progress"
+        : "completed";
+    const item = newMediaItem(initialType);
+    item.status = initialStatus;
+    if (initialStatus === "planned") {
+      delete item.rating;
+      delete item.completedDate;
+    } else if (initialStatus === "in_progress") {
+      delete item.rating;
+      delete item.completedDate;
+    }
+    setEditor(item);
+  };
   const [suggestions, setSuggestions] = useState<MediaSearchCandidate[]>([]);
   const [searchingMeta, setSearchingMeta] = useState(false);
   const [searchHasQueried, setSearchHasQueried] = useState(false);
@@ -215,22 +270,36 @@ export function MobileMediaTracker({
   return (
     <div className="mobile-media-page">
       {/* Header */}
-      <div className="mobile-media-header">
+      <div className="mobile-media-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", gap: "8px" }}>
         <div>
           <h2>🎬 Koleksiyon</h2>
-          <span className="mobile-media-subtitle">Film, Dizi, Kitap, Oyun</span>
+          <span className="mobile-media-subtitle">Film, Dizi, Kitap, Oyun ({items.length})</span>
         </div>
-        <button
-          type="button"
-          className="mobile-button-primary"
-          style={{ padding: "0.4rem 0.85rem", fontSize: "0.85rem", borderRadius: "10px" }}
-          onClick={() => {
-            suppressNextLookupRef.current = false;
-            setEditor(newMediaItem(typeFilter === "all" ? "movie" : typeFilter));
-          }}
-        >
-          + Ekle
-        </button>
+        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+          <button
+            type="button"
+            className="pill-btn"
+            style={{
+              background: "linear-gradient(135deg, rgba(96,165,250,0.2) 0%, rgba(168,85,247,0.2) 100%)",
+              border: "1px solid rgba(168,85,247,0.4)",
+              color: "#e0e7ff",
+              fontWeight: 700,
+              fontSize: "12px",
+              padding: "6px 10px",
+            }}
+            onClick={() => setAiModalOpen(true)}
+          >
+            ✨ ACK AI
+          </button>
+          <button
+            type="button"
+            className="mobile-button-primary"
+            style={{ padding: "0.4rem 0.85rem", fontSize: "0.85rem", borderRadius: "10px" }}
+            onClick={() => openNewItemEditor()}
+          >
+            + Ekle
+          </button>
+        </div>
       </div>
 
       {/* Stats Chips */}
@@ -296,7 +365,7 @@ export function MobileMediaTracker({
             <p>{items.length === 0 ? "Henüz kayıtlı film, dizi, kitap veya oyun yok." : "Filtreye uygun kayıt bulunamadı."}</p>
           </div>
         ) : (
-          filtered.map((item) => (
+          filtered.slice(0, visibleCount).map((item) => (
             <article
               key={item.id}
               className="mobile-media-card"
@@ -343,6 +412,16 @@ export function MobileMediaTracker({
               )}
             </article>
           ))
+        )}
+        {visibleCount < filtered.length && (
+          <button
+            type="button"
+            className="mobile-button-secondary"
+            onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
+            style={{ width: "100%", padding: "10px", margin: "8px 0", fontSize: "13px" }}
+          >
+            Daha Fazla Göster ({visibleCount} / {filtered.length})
+          </button>
         )}
       </div>
 
@@ -510,52 +589,93 @@ export function MobileMediaTracker({
                   <span style={{ fontSize: "12px", color: "var(--app-text-muted)" }}>Durum</span>
                   <select
                     value={editor.status}
-                    onChange={(e) => setEditor({ ...editor, status: e.target.value as MediaStatus })}
-                    style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff" }}
+                    onChange={(e) => {
+                      const nextStatus = e.target.value as MediaStatus;
+                      const updated = { ...editor, status: nextStatus };
+                      if (nextStatus === "completed") {
+                        if (updated.rating === undefined) updated.rating = 8;
+                        if (!updated.completedDate) updated.completedDate = new Date().toISOString().slice(0, 10);
+                      } else if (nextStatus === "planned") {
+                        delete updated.rating;
+                        delete updated.completedDate;
+                      } else if (nextStatus === "in_progress") {
+                        delete updated.completedDate;
+                      }
+                      setEditor(updated);
+                    }}
+                    style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff", fontSize: "16px" }}
                   >
-                    <option value="completed">Bitirildi</option>
-                    <option value="in_progress">Devam Ediyor</option>
                     <option value="planned">Listemde</option>
+                    <option value="in_progress">Devam Ediyor</option>
+                    <option value="completed">Bitirildi</option>
                   </select>
                 </label>
 
-                <label className="mobile-field" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  <span style={{ fontSize: "12px", color: "var(--app-text-muted)" }}>Puan (1-10)</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max="10"
-                    step="0.5"
-                    value={editor.rating ?? 8}
-                    onChange={(e) => setEditor({ ...editor, rating: Number(e.target.value) })}
-                    style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff" }}
-                  />
-                </label>
+                {editor.status === "completed" ? (
+                  <label className="mobile-field" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span style={{ fontSize: "12px", color: "var(--app-text-muted)" }}>Puan (1-10)</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      step="0.5"
+                      value={editor.rating ?? 8}
+                      onChange={(e) => setEditor({ ...editor, rating: Number(e.target.value) })}
+                      style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff", fontSize: "16px" }}
+                    />
+                  </label>
+                ) : editor.status === "in_progress" ? (
+                  <label className="mobile-field" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span style={{ fontSize: "12px", color: "var(--app-text-muted)" }}>İlerleme</span>
+                    <input
+                      type="text"
+                      value={editor.progress ?? ""}
+                      onChange={(e) => setEditor({ ...editor, progress: e.target.value })}
+                      placeholder="örn. S3 B2, 120. sayfa"
+                      maxLength={60}
+                      style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff", fontSize: "16px" }}
+                    />
+                  </label>
+                ) : (
+                  <label className="mobile-field" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span style={{ fontSize: "12px", color: "var(--app-text-muted)" }}>Hedef / Not</span>
+                    <input
+                      type="text"
+                      value={editor.progress ?? ""}
+                      onChange={(e) => setEditor({ ...editor, progress: e.target.value })}
+                      placeholder="örn. Vizyon, platform"
+                      maxLength={60}
+                      style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff", fontSize: "16px" }}
+                    />
+                  </label>
+                )}
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                <label className="mobile-field" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  <span style={{ fontSize: "12px", color: "var(--app-text-muted)" }}>İlerleme / Sayfa</span>
-                  <input
-                    type="text"
-                    value={editor.progress ?? ""}
-                    onChange={(e) => setEditor({ ...editor, progress: e.target.value })}
-                    placeholder="örn. S3 B2, 352 sayfa"
-                    maxLength={60}
-                    style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff" }}
-                  />
-                </label>
+              {editor.status === "completed" && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                  <label className="mobile-field" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span style={{ fontSize: "12px", color: "var(--app-text-muted)" }}>İlerleme / Detay</span>
+                    <input
+                      type="text"
+                      value={editor.progress ?? ""}
+                      onChange={(e) => setEditor({ ...editor, progress: e.target.value })}
+                      placeholder="örn. 352 sayfa, 40 saat"
+                      maxLength={60}
+                      style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff", fontSize: "16px" }}
+                    />
+                  </label>
 
-                <label className="mobile-field" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  <span style={{ fontSize: "12px", color: "var(--app-text-muted)" }}>Bitirme Tarihi</span>
-                  <input
-                    type="date"
-                    value={editor.completedDate ?? ""}
-                    onChange={(e) => setEditor({ ...editor, completedDate: e.target.value })}
-                    style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff" }}
-                  />
-                </label>
-              </div>
+                  <label className="mobile-field" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span style={{ fontSize: "12px", color: "var(--app-text-muted)" }}>Bitirme Tarihi</span>
+                    <input
+                      type="date"
+                      value={editor.completedDate ?? ""}
+                      onChange={(e) => setEditor({ ...editor, completedDate: e.target.value })}
+                      style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff", fontSize: "16px" }}
+                    />
+                  </label>
+                </div>
+              )}
 
               <label className="mobile-field" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                 <span style={{ fontSize: "12px", color: "var(--app-text-muted)" }}>Notlar</span>
@@ -594,6 +714,18 @@ export function MobileMediaTracker({
             </form>
           </div>
         </div>
+      )}
+
+      {aiModalOpen && (
+        <MobileMediaAiAssistant
+          items={items}
+          state={state}
+          onAddItem={handleAddItemFromAi}
+          onUpdateItem={handleUpdateItemFromAi}
+          onClose={() => setAiModalOpen(false)}
+          onNotice={onNotice}
+          onError={(err) => onError?.(err)}
+        />
       )}
     </div>
   );

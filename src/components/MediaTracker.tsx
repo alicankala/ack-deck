@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type FormEvent } from "react";
+import { useState, useEffect, useRef, useMemo, type FormEvent } from "react";
 import {
   type MediaItem,
   type MediaType,
@@ -10,6 +10,7 @@ import {
 } from "../../shared/media";
 import { searchMediaCatalog, proxyPosterUrl, type MediaSearchCandidate } from "../../shared/mediaSearch";
 import { loadMedia, saveMedia } from "../mediaStore";
+import { MediaAiAssistant } from "./MediaAiAssistant";
 
 export function MediaTracker() {
   const [mediaData, setMediaData] = useState(loadMedia);
@@ -18,6 +19,38 @@ export function MediaTracker() {
   const [statusFilter, setStatusFilter] = useState<MediaStatus | "all">("all");
   const [search, setSearch] = useState("");
   const [editor, setEditor] = useState<MediaItem | null>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+
+  const openNewItemEditor = (type?: MediaType) => {
+    suppressNextLookupRef.current = false;
+    const initialType: MediaType = type || (typeFilter === "all" ? "movie" : typeFilter);
+    const initialStatus: MediaStatus =
+      statusFilter === "planned"
+        ? "planned"
+        : statusFilter === "in_progress"
+        ? "in_progress"
+        : "completed";
+    const item = newMediaItem(initialType);
+    item.status = initialStatus;
+    if (initialStatus === "planned") {
+      delete item.rating;
+      delete item.completedDate;
+    } else if (initialStatus === "in_progress") {
+      delete item.rating;
+      delete item.completedDate;
+    }
+    setEditor(item);
+  };
+
+  const handleAddItem = (item: MediaItem) => {
+    const next = [item, ...items];
+    commit(next);
+  };
+
+  const handleUpdateItem = (item: MediaItem) => {
+    const next = items.map((i) => (i.id === item.id ? item : i));
+    commit(next);
+  };
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<MediaSearchCandidate[]>([]);
   const [searchingMeta, setSearchingMeta] = useState(false);
@@ -117,26 +150,43 @@ export function MediaTracker() {
     return false;
   };
 
-  const counts = {
-    movie: items.filter((i) => i.type === "movie").length,
-    series: items.filter((i) => i.type === "series").length,
-    book: items.filter((i) => i.type === "book").length,
-    game: items.filter((i) => i.type === "game").length,
-  };
+  const PAGE_SIZE = 36;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  const filtered = items.filter((item) => {
-    if (typeFilter !== "all" && item.type !== typeFilter) return false;
-    if (statusFilter !== "all" && item.status !== statusFilter) return false;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      const matchTitle = item.title.toLowerCase().includes(q);
-      const matchReview = item.review?.toLowerCase().includes(q);
-      const matchProgress = item.progress?.toLowerCase().includes(q);
-      const matchCreator = item.creator?.toLowerCase().includes(q);
-      if (!matchTitle && !matchReview && !matchProgress && !matchCreator) return false;
-    }
-    return true;
-  });
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [typeFilter, statusFilter, search]);
+
+  const counts = useMemo(
+    () => ({
+      movie: items.filter((i) => i.type === "movie").length,
+      series: items.filter((i) => i.type === "series").length,
+      book: items.filter((i) => i.type === "book").length,
+      game: items.filter((i) => i.type === "game").length,
+    }),
+    [items]
+  );
+
+  const filtered = useMemo(() => {
+    return items.filter((item) => {
+      if (typeFilter !== "all" && item.type !== typeFilter) return false;
+      if (statusFilter !== "all" && item.status !== statusFilter) return false;
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const matchTitle = item.title.toLowerCase().includes(q);
+        const matchReview = item.review?.toLowerCase().includes(q);
+        const matchProgress = item.progress?.toLowerCase().includes(q);
+        const matchCreator = item.creator?.toLowerCase().includes(q);
+        if (!matchTitle && !matchReview && !matchProgress && !matchCreator) return false;
+      }
+      return true;
+    });
+  }, [items, typeFilter, statusFilter, search]);
+
+  const visibleItems = useMemo(
+    () => filtered.slice(0, visibleCount),
+    [filtered, visibleCount]
+  );
 
   const handleSaveItem = (e: FormEvent) => {
     e.preventDefault();
@@ -147,8 +197,16 @@ export function MediaTracker() {
       posterUrl: editor.posterUrl?.trim() || undefined,
       year: editor.year?.trim() || undefined,
       creator: editor.creator?.trim() || undefined,
+      progress: editor.progress?.trim() || undefined,
+      review: editor.review?.trim() || undefined,
       updatedAt: Date.now(),
     };
+    if (editor.status === "planned") {
+      delete cleanItem.rating;
+      delete cleanItem.completedDate;
+    } else if (editor.status === "in_progress") {
+      delete cleanItem.completedDate;
+    }
     const exists = items.some((i) => i.id === cleanItem.id);
     const next = exists
       ? items.map((i) => (i.id === cleanItem.id ? cleanItem : i))
@@ -169,16 +227,23 @@ export function MediaTracker() {
           <h1>Koleksiyon</h1>
           <p>İzlediğin filmler, diziler, okuduğun kitaplar ve bitirdiğin oyunların kişisel koleksiyonu.</p>
         </div>
-        <button
-          type="button"
-          className="button button-primary"
-          onClick={() => {
-            suppressNextLookupRef.current = false;
-            setEditor(newMediaItem(typeFilter === "all" ? "movie" : typeFilter));
-          }}
-        >
-          + Yeni Kayıt Ekle
-        </button>
+        <div style={{ display: "flex", gap: "0.65rem", alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="media-ai-btn"
+            onClick={() => setAiModalOpen(true)}
+            title="ACK AI ile listenden seç veya zevkine göre yeni öneri al"
+          >
+            <span>✨</span> ACK AI Asistanı
+          </button>
+          <button
+            type="button"
+            className="button button-primary"
+            onClick={() => openNewItemEditor()}
+          >
+            + Yeni Kayıt Ekle
+          </button>
+        </div>
       </header>
 
       {/* Stats Bar */}
@@ -256,20 +321,26 @@ export function MediaTracker() {
                 : "Seçili filtrelere uygun film, dizi, kitap veya oyun bulunamadı."}
             </p>
             {items.length === 0 && (
-              <button
-                type="button"
-                className="button button-primary"
-                onClick={() => {
-                  suppressNextLookupRef.current = false;
-                  setEditor(newMediaItem(typeFilter === "all" ? "movie" : typeFilter));
-                }}
-              >
-                + İlk Kaydını Ekle
-              </button>
+              <div style={{ display: "flex", gap: "0.65rem", marginTop: "0.5rem" }}>
+                <button
+                  type="button"
+                  className="button button-primary"
+                  onClick={() => openNewItemEditor()}
+                >
+                  + İlk Kaydını Ekle
+                </button>
+                <button
+                  type="button"
+                  className="media-ai-btn"
+                  onClick={() => setAiModalOpen(true)}
+                >
+                  <span>✨</span> ACK AI ile Öneri Al
+                </button>
+              </div>
             )}
           </div>
         ) : (
-          filtered.map((item) => (
+          visibleItems.map((item) => (
             <article key={item.id} className="surface media-card">
               <div className="media-card-body-row">
                 {item.posterUrl ? (
@@ -522,71 +593,124 @@ export function MediaTracker() {
                   <span>Durum</span>
                   <select
                     value={editor.status}
-                    onChange={(e) => setEditor({ ...editor, status: e.target.value as MediaStatus })}
+                    onChange={(e) => {
+                      const nextStatus = e.target.value as MediaStatus;
+                      const updated = { ...editor, status: nextStatus };
+                      if (nextStatus === "completed") {
+                        if (updated.rating === undefined) updated.rating = 8;
+                        if (!updated.completedDate) {
+                          updated.completedDate = new Date().toISOString().slice(0, 10);
+                        }
+                      } else if (nextStatus === "planned") {
+                        delete updated.rating;
+                        delete updated.completedDate;
+                      } else if (nextStatus === "in_progress") {
+                        delete updated.completedDate;
+                      }
+                      setEditor(updated);
+                    }}
                   >
-                    <option value="completed">Bitirildi / İzlendi / Okundu</option>
-                    <option value="in_progress">Devam Ediyor</option>
                     <option value="planned">Listemde / Planlandı</option>
+                    <option value="in_progress">Devam Ediyor</option>
+                    <option value="completed">Bitirildi / İzlendi / Okundu</option>
                   </select>
                 </label>
 
-                <label className="editor-field">
-                  <span>Puan (1-10)</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max="10"
-                    step="0.5"
-                    value={editor.rating ?? 8}
-                    onChange={(e) => setEditor({ ...editor, rating: Number(e.target.value) })}
-                  />
-                </label>
+                {editor.status === "completed" ? (
+                  <label className="editor-field">
+                    <span>Puan (1-10)</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      step="0.5"
+                      value={editor.rating ?? 8}
+                      onChange={(e) => setEditor({ ...editor, rating: Number(e.target.value) })}
+                    />
+                  </label>
+                ) : editor.status === "in_progress" ? (
+                  <label className="editor-field">
+                    <span>İlerleme Durumu</span>
+                    <input
+                      type="text"
+                      value={editor.progress ?? ""}
+                      onChange={(e) => setEditor({ ...editor, progress: e.target.value })}
+                      placeholder="örn. 3. Sezon 4. Bölüm, 120. sayfa..."
+                      maxLength={60}
+                    />
+                  </label>
+                ) : (
+                  <label className="editor-field">
+                    <span>Not / Hedef (opsiyonel)</span>
+                    <input
+                      type="text"
+                      value={editor.progress ?? ""}
+                      onChange={(e) => setEditor({ ...editor, progress: e.target.value })}
+                      placeholder="örn. Vizyon tarihi, platform, tavsiye eden..."
+                      maxLength={60}
+                    />
+                  </label>
+                )}
               </div>
 
-              <div className="editor-row">
-                <label className="editor-field">
-                  <span>İlerleme / Bölüm / Sayfa (opsiyonel)</span>
-                  <input
-                    type="text"
-                    value={editor.progress ?? ""}
-                    onChange={(e) => setEditor({ ...editor, progress: e.target.value })}
-                    placeholder="örn. 3. Sezon, 352 sayfa, 40 saat..."
-                    maxLength={60}
-                  />
-                </label>
+              {editor.status === "completed" && (
+                <div className="editor-row">
+                  <label className="editor-field">
+                    <span>İlerleme / Detay (opsiyonel)</span>
+                    <input
+                      type="text"
+                      value={editor.progress ?? ""}
+                      onChange={(e) => setEditor({ ...editor, progress: e.target.value })}
+                      placeholder="örn. Tüm sezonlar, 352 sayfa, 40 saat..."
+                      maxLength={60}
+                    />
+                  </label>
 
-                <label className="editor-field">
-                  <span>Bitirme Tarihi</span>
-                  <input
-                    type="date"
-                    value={editor.completedDate ?? ""}
-                    onChange={(e) => setEditor({ ...editor, completedDate: e.target.value })}
-                  />
-                </label>
-              </div>
+                  <label className="editor-field">
+                    <span>Bitirme Tarihi</span>
+                    <input
+                      type="date"
+                      value={editor.completedDate ?? ""}
+                      onChange={(e) => setEditor({ ...editor, completedDate: e.target.value })}
+                    />
+                  </label>
+                </div>
+              )}
 
               <label className="editor-field">
-                <span>İnceleme / Kişisel Notlar</span>
+                <span>{editor.status === "planned" ? "Beklenti / Notlar" : "İnceleme / Kişisel Notlar"}</span>
                 <textarea
                   value={editor.review ?? ""}
                   onChange={(e) => setEditor({ ...editor, review: e.target.value })}
-                  placeholder="Bu eser hakkında ne düşündün? Notların veya yorumun..."
+                  placeholder={
+                    editor.status === "planned"
+                      ? "Neden listene aldın? Beklentilerin, tür veya nereden duyduğun..."
+                      : "Bu eser hakkında ne düşündün? Notların veya yorumun..."
+                  }
                   rows={3}
                   maxLength={1000}
                 />
               </label>
 
               <div className="media-editor-actions">
-                <button type="submit" className="button button-primary">
-                  Kaydet
-                </button>
                 <button type="button" className="button button-secondary" onClick={() => setEditor(null)}>
                   Vazgeç
+                </button>
+                <button type="submit" className="button button-primary">
+                  Kaydet
                 </button>
               </div>
             </form>
           </div>
         </div>
+      )}
+      {aiModalOpen && (
+        <MediaAiAssistant
+          items={items}
+          onAddItem={handleAddItem}
+          onUpdateItem={handleUpdateItem}
+          onClose={() => setAiModalOpen(false)}
+        />
       )}
     </section>
   );

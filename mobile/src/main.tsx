@@ -921,6 +921,7 @@ function App() {
 
         {page === "media" && (
           <MobileMediaTracker
+            state={state}
             records={state.records}
             onSave={saveMutation}
             disabled={busy}
@@ -984,7 +985,7 @@ function App() {
         )}
 
         {page === "overview" && (
-          <MobileActivityOverview onBack={() => changePage("today")} records={state.records} />
+          <MobileActivityOverview onBack={() => changePage("today")} records={state.records} state={state} />
         )}
 
         <MobileConflictCards

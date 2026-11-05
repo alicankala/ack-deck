@@ -440,13 +440,18 @@
   color: var(--app-secondary, #cbd5e1);
   font-weight: 600;
 }
-.mobile-sheet-form input {
+.mobile-sheet-form input,
+.mobile-sheet-form select {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--app-border, rgba(255, 255, 255, 0.1));
   border-radius: 8px;
   padding: 8px 10px;
   color: #f8fafc;
-  font-size: 14px;
+  font-size: 16px !important;
+}
+.mobile-sheet-form select option {
+  background: #0f172a;
+  color: #f8fafc;
 }
 
 .mobile-sheet-actions {

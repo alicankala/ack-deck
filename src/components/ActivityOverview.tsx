@@ -13,6 +13,7 @@ import {
   type ActivityGoals,
 } from "../../shared/activityOverview";
 import { loadPrayerLogs } from "../prayerStore";
+import { phoneRequest } from "../phoneClient";
 import { loadTasks } from "../taskStore";
 import { TRACKED_PRAYERS } from "../../shared/prayerTimes";
 import "./activityOverview.css";
@@ -76,6 +77,9 @@ export function ActivityOverview({ onBack }: { onBack?: () => void }) {
     if (saveActivityGoals(draftGoals)) {
       setGoals(draftGoals);
       setEditingGoals(false);
+      try {
+        void phoneRequest("activity-goals", { activityGoals: draftGoals }).catch(() => {});
+      } catch {}
     }
   }
 
@@ -458,50 +462,50 @@ export function ActivityOverview({ onBack }: { onBack?: () => void }) {
             <form onSubmit={handleSaveGoals} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
               <div className="goals-form-group">
                 <label htmlFor="goal-prayer">
-                  <span>🕌 Günlük Namaz Hedefi (vakit):</span>
+                  <span>🕌 Günlük Namaz Hedefi:</span>
                 </label>
-                <input
+                <select
                   id="goal-prayer"
-                  type="number"
-                  min={1}
-                  max={5}
                   value={draftGoals.prayerTarget}
-                  onChange={e => setDraftGoals({ ...draftGoals, prayerTarget: Number(e.target.value) || 5 })}
+                  onChange={e => setDraftGoals({ ...draftGoals, prayerTarget: Number(e.target.value) })}
                   className="goals-form-input"
-                  required
-                />
+                >
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <option key={n} value={n}>{n} vakit</option>
+                  ))}
+                </select>
               </div>
 
               <div className="goals-form-group">
                 <label htmlFor="goal-pomodoro">
-                  <span>⏱️ Günlük Pomodoro Hedefi (seans - her biri 25 dk):</span>
+                  <span>⏱️ Günlük Odaklanma (Pomodoro):</span>
                 </label>
-                <input
+                <select
                   id="goal-pomodoro"
-                  type="number"
-                  min={1}
-                  max={20}
                   value={draftGoals.pomodoroTarget}
-                  onChange={e => setDraftGoals({ ...draftGoals, pomodoroTarget: Number(e.target.value) || 4 })}
+                  onChange={e => setDraftGoals({ ...draftGoals, pomodoroTarget: Number(e.target.value) })}
                   className="goals-form-input"
-                  required
-                />
+                >
+                  {[1, 2, 3, 4, 5, 6, 8, 10, 12].map(n => (
+                    <option key={n} value={n}>{n} seans ({n * 25} dk)</option>
+                  ))}
+                </select>
               </div>
 
               <div className="goals-form-group">
                 <label htmlFor="goal-tasks">
-                  <span>✅ Günlük Görev Tamamlama Hedefi (adet):</span>
+                  <span>✅ Günlük Görev Hedefi:</span>
                 </label>
-                <input
+                <select
                   id="goal-tasks"
-                  type="number"
-                  min={1}
-                  max={30}
                   value={draftGoals.tasksTarget}
-                  onChange={e => setDraftGoals({ ...draftGoals, tasksTarget: Number(e.target.value) || 3 })}
+                  onChange={e => setDraftGoals({ ...draftGoals, tasksTarget: Number(e.target.value) })}
                   className="goals-form-input"
-                  required
-                />
+                >
+                  {[1, 2, 3, 4, 5, 6, 8, 10, 15, 20].map(n => (
+                    <option key={n} value={n}>{n} görev</option>
+                  ))}
+                </select>
               </div>
 
               <div className="goals-modal-actions">

@@ -30,7 +30,7 @@ export function Projects({ projects, onChange, fullPage = false, initialId, init
   const [dragged,setDragged]=useState<string|null>(null),[dragOver,setDragOver]=useState<string|null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [toolTab, setToolTab] = useState<"converter" | "speed" | "ip" | "qr">(initialTool || "converter");
+  const [toolTab, setToolTab] = useState<"converter" | "speed" | "ip" | "qr">(initialTool || "speed");
   const [viewMode, setViewMode] = useState<ViewMode>("split");
 
   function startEdit(project?: Project) {
@@ -199,17 +199,17 @@ export function Projects({ projects, onChange, fullPage = false, initialId, init
             <div className="project-tools-tab-buttons" style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
               <button
                 type="button"
-                className={`button ${toolTab === "converter" ? "button-primary" : "button-secondary"}`}
-                onClick={() => setToolTab("converter")}
-              >
-                📑 Çevirici (Word / PDF / Görsel)
-              </button>
-              <button
-                type="button"
                 className={`button ${toolTab === "speed" ? "button-primary" : "button-secondary"}`}
                 onClick={() => setToolTab("speed")}
               >
                 ⚡ Hız Testi
+              </button>
+              <button
+                type="button"
+                className={`button ${toolTab === "converter" ? "button-primary" : "button-secondary"}`}
+                onClick={() => setToolTab("converter")}
+              >
+                📑 Çevirici
               </button>
               <button
                 type="button"

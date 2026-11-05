@@ -352,17 +352,18 @@ async function handle(request: Request, env: Env): Promise<Response> {
         await env.DB.prepare("UPDATE desktop_state SET notification_preferences=? WHERE id=1").bind(rawNotif).run();
       } catch {}
     }
-    const rawGoals = body && typeof body === "object" && (body as Record<string, unknown>).activityGoals && typeof (body as Record<string, unknown>).activityGoals === "object" ? JSON.stringify((body as Record<string, unknown>).activityGoals) : null;
-    if (rawGoals) {
-      try {
-        await env.DB.prepare("INSERT INTO app_settings(key,value,updated_at) VALUES('activity_goals',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(rawGoals, now).run();
-      } catch {}
-    }
     let currentGoals = null;
     try {
       const goalsRow = await env.DB.prepare("SELECT value FROM app_settings WHERE key='activity_goals'").first<{ value: string }>();
       if (goalsRow?.value) currentGoals = JSON.parse(goalsRow.value);
     } catch {}
+    const rawGoals = body && typeof body === "object" && (body as Record<string, unknown>).activityGoals && typeof (body as Record<string, unknown>).activityGoals === "object" ? JSON.stringify((body as Record<string, unknown>).activityGoals) : null;
+    if (!currentGoals && rawGoals) {
+      try {
+        await env.DB.prepare("INSERT INTO app_settings(key,value,updated_at) VALUES('activity_goals',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(rawGoals, now).run();
+        currentGoals = JSON.parse(rawGoals);
+      } catch {}
+    }
     return reply({ok:true, activityGoals: currentGoals});
   }
   if (path === "/api/study-reminders" && request.method === "POST") {

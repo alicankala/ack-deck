@@ -16,14 +16,15 @@ import type { CloudRecord, PhoneTask } from "../../shared/phone";
 import type { PrayerLogDay } from "../../shared/prayerTimes";
 import { TRACKED_PRAYERS } from "../../shared/prayerTimes";
 import { Icon } from "./Icon";
-import { api, json } from "./store";
+import { api, json, type MobileState } from "./store";
 
 type Props = {
   onBack: () => void;
   records: CloudRecord[];
+  state?: MobileState;
 };
 
-export function MobileActivityOverview({ onBack, records }: Props) {
+export function MobileActivityOverview({ onBack, records, state }: Props) {
   const [goals, setGoals] = useState<ActivityGoals>(loadActivityGoals);
   const [editingGoals, setEditingGoals] = useState(false);
   const [draftGoals, setDraftGoals] = useState<ActivityGoals>(goals);
@@ -429,39 +430,39 @@ export function MobileActivityOverview({ onBack, records }: Props) {
 
             <form onSubmit={handleSaveGoals} className="mobile-sheet-form">
               <label>
-                <span>🕌 Günlük Namaz Hedefi (vakit):</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={5}
+                <span>🕌 Günlük Namaz Hedefi:</span>
+                <select
                   value={draftGoals.prayerTarget}
-                  onChange={e => setDraftGoals({ ...draftGoals, prayerTarget: Number(e.target.value) || 5 })}
-                  required
-                />
+                  onChange={e => setDraftGoals({ ...draftGoals, prayerTarget: Number(e.target.value) })}
+                >
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <option key={n} value={n}>{n} vakit</option>
+                  ))}
+                </select>
               </label>
 
               <label>
-                <span>⏱️ Günlük Pomodoro Hedefi (seans):</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={20}
+                <span>⏱️ Günlük Odaklanma (Pomodoro):</span>
+                <select
                   value={draftGoals.pomodoroTarget}
-                  onChange={e => setDraftGoals({ ...draftGoals, pomodoroTarget: Number(e.target.value) || 4 })}
-                  required
-                />
+                  onChange={e => setDraftGoals({ ...draftGoals, pomodoroTarget: Number(e.target.value) })}
+                >
+                  {[1, 2, 3, 4, 5, 6, 8, 10, 12].map(n => (
+                    <option key={n} value={n}>{n} seans ({n * 25} dk)</option>
+                  ))}
+                </select>
               </label>
 
               <label>
-                <span>✅ Günlük Görev Hedefi (adet):</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={30}
+                <span>✅ Günlük Görev Hedefi:</span>
+                <select
                   value={draftGoals.tasksTarget}
-                  onChange={e => setDraftGoals({ ...draftGoals, tasksTarget: Number(e.target.value) || 3 })}
-                  required
-                />
+                  onChange={e => setDraftGoals({ ...draftGoals, tasksTarget: Number(e.target.value) })}
+                >
+                  {[1, 2, 3, 4, 5, 6, 8, 10, 15, 20].map(n => (
+                    <option key={n} value={n}>{n} görev</option>
+                  ))}
+                </select>
               </label>
 
               <div className="mobile-sheet-actions">
