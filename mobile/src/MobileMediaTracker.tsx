@@ -162,6 +162,56 @@ export function MobileMediaTracker({
     );
   };
 
+  // Background auto-resolve for missing IMDb ratings & IDs
+  useEffect(() => {
+    const candidates = items.filter(
+      (i) =>
+        (i.type === "movie" || i.type === "series") &&
+        (!i.imdbRating || !i.imdbId || !i.imdbUpdatedAt || Date.now() - i.imdbUpdatedAt > 30 * 86400 * 1000)
+    ).slice(0, 5);
+
+    if (candidates.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      for (const item of candidates) {
+        if (cancelled) break;
+        try {
+          let activeImdbId = item.imdbId;
+          if (!activeImdbId) {
+            const results = await searchMediaCatalog(item.type, item.title);
+            const matched = results.find((c) => c.imdbId);
+            if (matched?.imdbId) activeImdbId = matched.imdbId;
+          }
+          if (activeImdbId) {
+            const rating = await fetchMediaRating(activeImdbId);
+            if (!cancelled && typeof rating === "number" && rating > 0) {
+              const existingRow = records.find((r) => r.kind === "mediaItems" && r.id === item.id);
+              await onSave({
+                mutationId: crypto.randomUUID(),
+                kind: "mediaItems",
+                id: item.id,
+                baseVersion: existingRow?.version ?? 0,
+                deleted: false,
+                data: {
+                  ...item,
+                  imdbId: activeImdbId,
+                  imdbRating: rating,
+                  imdbUpdatedAt: Date.now(),
+                },
+              });
+            }
+          }
+        } catch {}
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const PAGE_SIZE = 24;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
@@ -631,6 +681,11 @@ export function MobileMediaTracker({
                   {item.creator && <span className="mobile-media-creator">{item.creator}</span>}
 
                   <div className="mobile-media-meta">
+                    {(item.type === "movie" || item.type === "series") && item.imdbRating !== undefined && (
+                      <span className="mobile-imdb-badge" title={`IMDb: ${item.imdbRating}/10`}>
+                        🟡 {item.imdbRating}
+                      </span>
+                    )}
                     {item.rating !== undefined && (
                       <span className="rating-tag">⭐ {item.rating}/10</span>
                     )}

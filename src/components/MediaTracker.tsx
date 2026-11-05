@@ -46,6 +46,40 @@ export function MediaTracker() {
     commit(next);
   };
 
+  const handleQuickRestart = (item: MediaItem) => {
+    const updated: MediaItem = {
+      ...item,
+      status: "in_progress",
+      progress: "Yeniden başlandı",
+      updatedAt: Date.now(),
+    };
+    const next = items.map((i) => (i.id === item.id ? updated : i));
+    commit(next);
+  };
+
+  const handleFetchSingleImdb = async (item: MediaItem) => {
+    try {
+      let activeImdbId = item.imdbId;
+      if (!activeImdbId) {
+        const candidates = await searchMediaCatalog(item.type, item.title);
+        const matched = candidates.find((c) => c.imdbId);
+        if (matched?.imdbId) activeImdbId = matched.imdbId;
+      }
+      if (activeImdbId) {
+        const rating = await fetchMediaRating(activeImdbId);
+        if (typeof rating === "number" && rating > 0) {
+          const updated: MediaItem = {
+            ...item,
+            imdbId: activeImdbId,
+            imdbRating: rating,
+            imdbUpdatedAt: Date.now(),
+          };
+          commit(items.map((i) => (i.id === item.id ? updated : i)));
+        }
+      }
+    } catch {}
+  };
+
   const handleQuickFinish = (item: MediaItem) => {
     suppressNextLookupRef.current = true;
     setEditor({
@@ -62,10 +96,10 @@ export function MediaTracker() {
   const handleRefreshImdbRatings = async () => {
     if (refreshingRatings) return;
     const targets = items.filter(
-      (i) => (i.type === "movie" || i.type === "series") && i.imdbId
+      (i) => i.type === "movie" || i.type === "series"
     );
     if (targets.length === 0) {
-      setRefreshNotice("Yenilenecek IMDb kodlu film veya dizi bulunamadı.");
+      setRefreshNotice("Koleksiyonunuzda film veya dizi bulunamadı.");
       setTimeout(() => setRefreshNotice(null), 3000);
       return;
     }
@@ -79,16 +113,26 @@ export function MediaTracker() {
     for (let index = 0; index < targets.length; index++) {
       const item = targets[index];
       try {
-        const rating = await fetchMediaRating(item.imdbId!);
-        if (typeof rating === "number" && rating > 0 && rating !== item.imdbRating) {
-          updatedCount++;
-          const updated: MediaItem = {
-            ...item,
-            imdbRating: rating,
-            imdbUpdatedAt: Date.now(),
-          };
-          currentList = currentList.map((x) => (x.id === item.id ? updated : x));
-          commit(currentList);
+        let activeImdbId = item.imdbId;
+        if (!activeImdbId) {
+          const candidates = await searchMediaCatalog(item.type, item.title);
+          const matched = candidates.find((c) => c.imdbId);
+          if (matched?.imdbId) activeImdbId = matched.imdbId;
+        }
+
+        if (activeImdbId) {
+          const rating = await fetchMediaRating(activeImdbId);
+          if (typeof rating === "number" && rating > 0 && (rating !== item.imdbRating || !item.imdbId)) {
+            updatedCount++;
+            const updated: MediaItem = {
+              ...item,
+              imdbId: activeImdbId,
+              imdbRating: rating,
+              imdbUpdatedAt: Date.now(),
+            };
+            currentList = currentList.map((x) => (x.id === item.id ? updated : x));
+            commit(currentList);
+          }
         }
       } catch {}
       if (index < targets.length - 1) {
@@ -109,9 +153,8 @@ export function MediaTracker() {
     const candidates = items.filter(
       (i) =>
         (i.type === "movie" || i.type === "series") &&
-        i.imdbId &&
-        (!i.imdbRating || !i.imdbUpdatedAt || Date.now() - i.imdbUpdatedAt > 30 * 86400 * 1000)
-    ).slice(0, 3);
+        (!i.imdbRating || !i.imdbId || !i.imdbUpdatedAt || Date.now() - i.imdbUpdatedAt > 30 * 86400 * 1000)
+    ).slice(0, 5);
 
     if (candidates.length === 0) return;
 
@@ -122,18 +165,28 @@ export function MediaTracker() {
       for (const item of candidates) {
         if (cancelled) break;
         try {
-          const rating = await fetchMediaRating(item.imdbId!);
-          if (!cancelled && typeof rating === "number" && rating > 0 && rating !== item.imdbRating) {
-            hasChange = true;
-            const updated: MediaItem = {
-              ...item,
-              imdbRating: rating,
-              imdbUpdatedAt: Date.now(),
-            };
-            currentList = currentList.map((x) => (x.id === item.id ? updated : x));
+          let activeImdbId = item.imdbId;
+          if (!activeImdbId) {
+            const results = await searchMediaCatalog(item.type, item.title);
+            const matched = results.find((c) => c.imdbId);
+            if (matched?.imdbId) activeImdbId = matched.imdbId;
+          }
+          if (activeImdbId) {
+            const rating = await fetchMediaRating(activeImdbId);
+            if (!cancelled && typeof rating === "number" && rating > 0 && (rating !== item.imdbRating || !item.imdbId)) {
+              hasChange = true;
+              const updated: MediaItem = {
+                ...item,
+                imdbId: activeImdbId,
+                imdbRating: rating,
+                imdbUpdatedAt: Date.now(),
+              };
+              currentList = currentList.map((x) => (x.id === item.id ? updated : x));
+              commit(currentList);
+            }
           }
         } catch {}
-        await new Promise((r) => setTimeout(r, 600));
+        await new Promise((r) => setTimeout(r, 500));
       }
       if (!cancelled && hasChange) {
         commit(currentList);
@@ -427,59 +480,75 @@ export function MediaTracker() {
 
       {/* Filter Toolbar */}
       <div className="media-toolbar">
-        <div className="media-type-pills">
-          {(["all", "movie", "series", "book", "game"] as const).map((t) => (
-            <button
-              type="button"
-              key={t}
-              className={`pill-btn ${typeFilter === t ? "is-selected" : ""}`}
-              onClick={() => setTypeFilter(t)}
-            >
-              {t === "all" ? "Tümü" : `${MEDIA_TYPE_ICONS[t]} ${MEDIA_TYPE_LABELS[t]}`}
-            </button>
-          ))}
+        <div className="media-toolbar-row-top">
+          <div className="media-type-pills">
+            {(["all", "movie", "series", "book", "game"] as const).map((t) => (
+              <button
+                type="button"
+                key={t}
+                className={`pill-btn ${typeFilter === t ? "is-selected" : ""}`}
+                onClick={() => setTypeFilter(t)}
+              >
+                {t === "all" ? "Tümü" : `${MEDIA_TYPE_ICONS[t]} ${MEDIA_TYPE_LABELS[t]}`}
+              </button>
+            ))}
+          </div>
+
+          <div className="media-status-pills">
+            {(["all", "completed", "in_progress", "planned"] as const).map((s) => (
+              <button
+                type="button"
+                key={s}
+                className={`pill-btn ${statusFilter === s ? "is-selected" : ""}`}
+                onClick={() => setStatusFilter(s)}
+              >
+                {s === "all" ? "Tüm Durumlar" : MEDIA_STATUS_LABELS[s]}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="media-status-pills">
-          {(["all", "completed", "in_progress", "planned"] as const).map((s) => (
-            <button
-              type="button"
-              key={s}
-              className={`pill-btn ${statusFilter === s ? "is-selected" : ""}`}
-              onClick={() => setStatusFilter(s)}
-            >
-              {s === "all" ? "Tüm Durumlar" : MEDIA_STATUS_LABELS[s]}
-            </button>
-          ))}
-        </div>
+        <div className="media-toolbar-row-bottom">
+          <div className="media-search-wrap">
+            <span className="media-search-icon" aria-hidden="true">🔍</span>
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Film, dizi, kitap, yazar veya not ara…"
+              className="media-search-input"
+            />
+          </div>
 
-        <div className="media-search-wrap">
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Başlık, yönetmen/yazar veya not ara…"
-            className="media-search-input"
-          />
-        </div>
-
-        <div className="media-view-toggle">
           <button
             type="button"
-            className={`pill-btn ${viewMode === "grid" ? "is-selected" : ""}`}
-            onClick={() => handleSetViewMode("grid")}
-            title="Vitrin / Kart Görünümü"
+            className={`media-refresh-ratings-btn ${refreshingRatings ? "is-loading" : ""}`}
+            onClick={() => void handleRefreshImdbRatings()}
+            title="Tüm film ve dizi IMDb puanlarını internetten güncelle"
+            disabled={refreshingRatings}
           >
-            🔲 Vitrin
+            <span>{refreshingRatings ? "⏳" : "🔄"}</span>
+            <span>{refreshingRatings ? "Puanlar Güncelleniyor..." : "Puanları Yenile"}</span>
           </button>
-          <button
-            type="button"
-            className={`pill-btn ${viewMode === "list" ? "is-selected" : ""}`}
-            onClick={() => handleSetViewMode("list")}
-            title="Kompakt Liste Görünümü"
-          >
-            ☰ Liste
-          </button>
+
+          <div className="media-view-toggle">
+            <button
+              type="button"
+              className={`pill-btn ${viewMode === "grid" ? "is-selected" : ""}`}
+              onClick={() => handleSetViewMode("grid")}
+              title="Vitrin / Kart Görünümü"
+            >
+              🔲 Vitrin
+            </button>
+            <button
+              type="button"
+              className={`pill-btn ${viewMode === "list" ? "is-selected" : ""}`}
+              onClick={() => handleSetViewMode("list")}
+              title="Kompakt Liste Görünümü"
+            >
+              ☰ Liste
+            </button>
+          </div>
         </div>
       </div>
 
@@ -674,6 +743,24 @@ export function MediaTracker() {
                     <span className="media-card-type-chip">
                       {MEDIA_TYPE_ICONS[item.type]} {MEDIA_TYPE_LABELS[item.type]}
                     </span>
+                    {(item.type === "movie" || item.type === "series") && item.imdbRating !== undefined && (
+                      <span className="media-imdb-badge" title={`IMDb: ${item.imdbRating}/10`}>
+                        🟡 {item.imdbRating}
+                      </span>
+                    )}
+                    {(item.type === "movie" || item.type === "series") && item.imdbRating === undefined && (
+                      <button
+                        type="button"
+                        className="media-imdb-fetch-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleFetchSingleImdb(item);
+                        }}
+                        title="IMDb puanını getir"
+                      >
+                        🟡 IMDb Çek
+                      </button>
+                    )}
                     <span className={`media-status-chip is-${item.status}`}>
                       {MEDIA_STATUS_LABELS[item.status]}
                     </span>
@@ -687,8 +774,13 @@ export function MediaTracker() {
                   {item.creator && <p className="media-card-creator">{item.creator}</p>}
 
                   <div className="media-card-meta">
+                    {(item.type === "movie" || item.type === "series") && item.imdbRating !== undefined && (
+                      <span className="media-imdb-badge" title={`IMDb Puanı: ${item.imdbRating}/10`}>
+                        🟡 {item.imdbRating}
+                      </span>
+                    )}
                     {item.rating !== undefined && (
-                      <span className="media-rating-tag" title={`${item.rating}/10`}>
+                      <span className="media-rating-tag" title={`Senin Puanın: ${item.rating}/10`}>
                         ⭐ {item.rating}/10
                       </span>
                     )}
@@ -729,6 +821,17 @@ export function MediaTracker() {
                     title="Bitirildi olarak işaretle"
                   >
                     ✓ Bitir
+                  </button>
+                )}
+                {item.status === "completed" && (
+                  <button
+                    type="button"
+                    className="button button-secondary media-card-quick-restart"
+                    style={{ padding: "0.25rem 0.6rem", fontSize: "0.78rem" }}
+                    onClick={() => handleQuickRestart(item)}
+                    title="Yeniden İzle / Oku / Oyna (Devam Ediyor yap)"
+                  >
+                    ↺ Yeniden
                   </button>
                 )}
                 <button
@@ -949,6 +1052,45 @@ export function MediaTracker() {
                       </button>
                     )}
                   </div>
+                </div>
+              )}
+
+              {(editor.type === "movie" || editor.type === "series") && (
+                <div className="editor-imdb-block">
+                  <div className="editor-imdb-left">
+                    <span className="editor-imdb-title">IMDb Bağlantısı</span>
+                    {editor.imdbId ? (
+                      <span className="editor-imdb-connected">
+                        <span className="media-imdb-badge">🟡 {editor.imdbRating ?? "Puan aranıyor"}</span>
+                        <code>{editor.imdbId}</code>
+                      </span>
+                    ) : (
+                      <span className="editor-imdb-unlinked">Henüz IMDb kodu bağlanmadı</span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="button button-secondary editor-imdb-btn"
+                    onClick={async () => {
+                      if (!editor.title.trim()) return;
+                      const results = await searchMediaCatalog(editor.type, editor.title);
+                      const matched = results.find((c) => c.imdbId);
+                      if (matched?.imdbId) {
+                        const r = await fetchMediaRating(matched.imdbId);
+                        setEditor({
+                          ...editor,
+                          imdbId: matched.imdbId,
+                          imdbRating: r,
+                          posterUrl: editor.posterUrl || matched.posterUrl,
+                          year: editor.year || matched.year,
+                          creator: editor.creator || matched.creator,
+                        });
+                      }
+                    }}
+                    title="Başlığa göre otomatik IMDb eşleştir"
+                  >
+                    🔍 IMDb'de Bul ve Eşle
+                  </button>
                 </div>
               )}
 
