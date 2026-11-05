@@ -82,6 +82,9 @@ export function MobileActivityOverview({ onBack, records, state }: Props) {
       ? todaySummary
       : calculateDaySummary(selectedDate, prayerLogs, pomodoroHistory, tasks, goals);
 
+  const isSelectedToday = selectedDate === todayStr;
+  const activeSummary = selectedSummary;
+
   // Weekly summaries
   const weeklySummaries = getWeeklySummaries(todayStr, prayerLogs, pomodoroHistory, tasks, goals);
 

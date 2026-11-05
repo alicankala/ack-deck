@@ -45,6 +45,13 @@ function MobileMediaPoster({
   );
 }
 
+function sanitizeMediaProgress(progress?: string): string | undefined {
+  if (!progress) return undefined;
+  const trimmed = progress.trim();
+  if (trimmed === "Başlandı" || trimmed === "Yeniden başlandı") return undefined;
+  return trimmed || undefined;
+}
+
 export function MobileMediaTracker({
   state,
   records,
@@ -92,7 +99,7 @@ export function MobileMediaTracker({
         data: {
           ...item,
           status: "in_progress",
-          progress: item.progress || "Başlandı",
+          progress: sanitizeMediaProgress(item.progress),
           updatedAt: Date.now(),
         },
       });
@@ -604,7 +611,7 @@ export function MobileMediaTracker({
                 <div className="mobile-media-row-meta">
                   {item.creator && <span>{item.creator}</span>}
                   {item.rating !== undefined && <span style={{ color: "#fbbf24", fontWeight: 650 }}>⭐ {item.rating}/10</span>}
-                  {item.progress && <span style={{ color: "#38bdf8" }}>📌 {item.progress}</span>}
+                  {sanitizeMediaProgress(item.progress) && <span style={{ color: "#38bdf8" }}>📌 {sanitizeMediaProgress(item.progress)}</span>}
                   {item.review && <span style={{ fontStyle: "italic", maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis" }}>"{item.review}"</span>}
                 </div>
               </div>
@@ -663,11 +670,6 @@ export function MobileMediaTracker({
                     <span className="type-badge">
                       {MEDIA_TYPE_ICONS[item.type]} {MEDIA_TYPE_LABELS[item.type]}
                     </span>
-                    {(item.type === "movie" || item.type === "series") && item.imdbRating !== undefined && (
-                      <span className="mobile-imdb-badge" title={`IMDb: ${item.imdbRating}/10`}>
-                        🟡 {item.imdbRating}
-                      </span>
-                    )}
                     <span className={`status-badge is-${item.status}`}>
                       {MEDIA_STATUS_LABELS[item.status]}
                     </span>

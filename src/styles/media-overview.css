@@ -38,19 +38,33 @@
 .media-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.85rem;
   align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem 1.25rem;
   margin-bottom: 1.25rem;
   padding: 0.75rem 1rem;
   background: var(--app-surface, #11141b);
   border: 1px solid var(--app-border, rgba(255, 255, 255, 0.06));
   border-radius: 14px;
+  width: 100%;
+  box-sizing: border-box;
 }
-.media-type-pills, .media-status-pills {
+
+.media-toolbar-filters {
   display: flex;
-  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.media-type-pills,
+.media-status-pills {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   flex-wrap: wrap;
 }
+
 .pill-btn {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -72,19 +86,52 @@
   font-weight: 650;
   border-color: var(--app-accent, #38bdf8);
 }
-.media-search-wrap {
+
+.media-toolbar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   margin-left: auto;
-  min-width: 260px;
 }
+
+.media-search-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.media-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 250px;
+}
+
+.media-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  color: var(--app-text-muted, #94a3b8);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
 .media-search-input {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--app-border, rgba(255, 255, 255, 0.1));
-  border-radius: 8px;
-  padding: 0.45rem 0.85rem;
+  border-radius: 10px;
+  padding: 0.45rem 0.75rem 0.45rem 2.1rem;
   font-size: 0.85rem;
   color: #fff;
   width: 100%;
   box-sizing: border-box;
+  transition: all 0.15s ease;
+}
+
+.media-search-input:focus {
+  outline: none;
+  border-color: var(--app-accent, #38bdf8);
+  background: rgba(56, 189, 248, 0.05);
 }
 
 .media-grid {
@@ -1335,58 +1382,6 @@
 
 
 /* Enhanced Media Toolbar & IMDb Styles */
-.media-toolbar {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  margin-bottom: 1.25rem;
-  padding: 0.85rem 1.1rem;
-  background: var(--app-surface, #11141b);
-  border: 1px solid var(--app-border, rgba(255, 255, 255, 0.06));
-  border-radius: 14px;
-}
-.media-toolbar-row-top {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.85rem;
-  align-items: center;
-}
-.media-toolbar-row-bottom {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: center;
-}
-.media-search-wrap {
-  position: relative;
-  flex: 1;
-  min-width: 240px;
-  display: flex;
-  align-items: center;
-}
-.media-search-icon {
-  position: absolute;
-  left: 0.85rem;
-  color: var(--app-text-muted, #94a3b8);
-  font-size: 0.85rem;
-  pointer-events: none;
-}
-.media-search-input {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--app-border, rgba(255, 255, 255, 0.1));
-  border-radius: 10px;
-  padding: 0.5rem 0.85rem 0.5rem 2.2rem;
-  font-size: 0.85rem;
-  color: #fff;
-  width: 100%;
-  box-sizing: border-box;
-  transition: all 0.15s ease;
-}
-.media-search-input:focus {
-  outline: none;
-  border-color: var(--app-accent, #38bdf8);
-  background: rgba(56, 189, 248, 0.05);
-}
 .media-refresh-ratings-btn {
   display: inline-flex;
   align-items: center;

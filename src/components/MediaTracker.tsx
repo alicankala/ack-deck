@@ -12,6 +12,13 @@ import { searchMediaCatalog, proxyPosterUrl, fetchMediaRating, type MediaSearchC
 import { loadMedia, saveMedia } from "../mediaStore";
 import { MediaAiAssistant } from "./MediaAiAssistant";
 
+function sanitizeMediaProgress(progress?: string): string | undefined {
+  if (!progress) return undefined;
+  const trimmed = progress.trim();
+  if (trimmed === "Başlandı" || trimmed === "Yeniden başlandı") return undefined;
+  return trimmed || undefined;
+}
+
 export function MediaTracker() {
   const [mediaData, setMediaData] = useState(loadMedia);
   const [items, setItems] = useState<MediaItem[]>(mediaData.entries);
@@ -39,51 +46,18 @@ export function MediaTracker() {
     const updated: MediaItem = {
       ...item,
       status: "in_progress",
-      progress: item.progress || "Başlandı",
+      progress: sanitizeMediaProgress(item.progress),
       updatedAt: Date.now(),
     };
     const next = items.map((i) => (i.id === item.id ? updated : i));
     commit(next);
-  };
-
-  const handleQuickRestart = (item: MediaItem) => {
-    const updated: MediaItem = {
-      ...item,
-      status: "in_progress",
-      progress: "Yeniden başlandı",
-      updatedAt: Date.now(),
-    };
-    const next = items.map((i) => (i.id === item.id ? updated : i));
-    commit(next);
-  };
-
-  const handleFetchSingleImdb = async (item: MediaItem) => {
-    try {
-      let activeImdbId = item.imdbId;
-      if (!activeImdbId) {
-        const candidates = await searchMediaCatalog(item.type, item.title);
-        const matched = candidates.find((c) => c.imdbId);
-        if (matched?.imdbId) activeImdbId = matched.imdbId;
-      }
-      if (activeImdbId) {
-        const rating = await fetchMediaRating(activeImdbId);
-        if (typeof rating === "number" && rating > 0) {
-          const updated: MediaItem = {
-            ...item,
-            imdbId: activeImdbId,
-            imdbRating: rating,
-            imdbUpdatedAt: Date.now(),
-          };
-          commit(items.map((i) => (i.id === item.id ? updated : i)));
-        }
-      }
-    } catch {}
   };
 
   const handleQuickFinish = (item: MediaItem) => {
     suppressNextLookupRef.current = true;
     setEditor({
       ...item,
+      progress: sanitizeMediaProgress(item.progress),
       status: "completed",
       rating: item.rating ?? 8,
       completedDate: item.completedDate || new Date().toISOString().slice(0, 10),
@@ -148,6 +122,22 @@ export function MediaTracker() {
     );
     setTimeout(() => setRefreshNotice(null), 4000);
   };
+
+  useEffect(() => {
+    // Sanitize any existing items that had 'Başlandı' or 'Yeniden başlandı'
+    let hasDirty = false;
+    const sanitized = items.map((item) => {
+      const cleanP = sanitizeMediaProgress(item.progress);
+      if (cleanP !== item.progress) {
+        hasDirty = true;
+        return { ...item, progress: cleanP };
+      }
+      return item;
+    });
+    if (hasDirty) {
+      commit(sanitized);
+    }
+  }, []);
 
   useEffect(() => {
     const candidates = items.filter(
@@ -391,7 +381,7 @@ export function MediaTracker() {
       posterUrl: editor.posterUrl?.trim() || undefined,
       year: editor.year?.trim() || undefined,
       creator: editor.creator?.trim() || undefined,
-      progress: editor.progress?.trim() || undefined,
+      progress: (editor.status === "completed" ? sanitizeMediaProgress(editor.progress) : editor.progress?.trim()) || undefined,
       review: editor.review?.trim() || undefined,
       updatedAt: Date.now(),
     };
@@ -461,15 +451,6 @@ export function MediaTracker() {
           <span className="media-stat-icon">🎮</span>
           <span className="media-stat-count">{counts.game}</span>
           <span className="media-stat-label">Oyun</span>
-          <button
-            type="button"
-            className={`media-refresh-ratings-btn ${refreshingRatings ? "is-loading" : ""}`}
-            onClick={() => void handleRefreshImdbRatings()}
-            title="Film ve Dizi IMDb puanlarını tazele"
-            disabled={refreshingRatings}
-          >
-            {refreshingRatings ? "🔄 Yenileniyor..." : "🔄 Puanları Yenile"}
-          </button>
         </div>
       </div>
       {refreshNotice && (
@@ -480,8 +461,9 @@ export function MediaTracker() {
 
       {/* Filter Toolbar */}
       <div className="media-toolbar">
-        <div className="media-toolbar-row-top">
-          <div className="media-type-pills">
+        {/* Sol Grup: Tür ve Durum Filtreleri */}
+        <div className="media-toolbar-filters">
+          <div className="media-type-pills" role="group" aria-label="Tür Filtreleri">
             {(["all", "movie", "series", "book", "game"] as const).map((t) => (
               <button
                 type="button"
@@ -494,7 +476,7 @@ export function MediaTracker() {
             ))}
           </div>
 
-          <div className="media-status-pills">
+          <div className="media-status-pills" role="group" aria-label="Durum Filtreleri">
             {(["all", "completed", "in_progress", "planned"] as const).map((s) => (
               <button
                 type="button"
@@ -508,30 +490,33 @@ export function MediaTracker() {
           </div>
         </div>
 
-        <div className="media-toolbar-row-bottom">
-          <div className="media-search-wrap">
-            <span className="media-search-icon" aria-hidden="true">🔍</span>
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Film, dizi, kitap, yazar veya not ara…"
-              className="media-search-input"
-            />
+        {/* Sağ Grup: Arama, Puan Yenile ve Görünüm Seçici */}
+        <div className="media-toolbar-actions">
+          <div className="media-search-actions">
+            <div className="media-search-wrap">
+              <span className="media-search-icon" aria-hidden="true">🔍</span>
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Film, dizi, kitap, yazar ara…"
+                className="media-search-input"
+              />
+            </div>
+
+            <button
+              type="button"
+              className={`media-refresh-ratings-btn ${refreshingRatings ? "is-loading" : ""}`}
+              onClick={() => void handleRefreshImdbRatings()}
+              title="Tüm film ve dizi IMDb puanlarını internetten güncelle"
+              disabled={refreshingRatings}
+            >
+              <span>{refreshingRatings ? "⏳" : "🔄"}</span>
+              <span>{refreshingRatings ? "Puanlar Güncelleniyor..." : "Puanları Yenile"}</span>
+            </button>
           </div>
 
-          <button
-            type="button"
-            className={`media-refresh-ratings-btn ${refreshingRatings ? "is-loading" : ""}`}
-            onClick={() => void handleRefreshImdbRatings()}
-            title="Tüm film ve dizi IMDb puanlarını internetten güncelle"
-            disabled={refreshingRatings}
-          >
-            <span>{refreshingRatings ? "⏳" : "🔄"}</span>
-            <span>{refreshingRatings ? "Puanlar Güncelleniyor..." : "Puanları Yenile"}</span>
-          </button>
-
-          <div className="media-view-toggle">
+          <div className="media-view-toggle" role="group" aria-label="Görünüm Seçici">
             <button
               type="button"
               className={`pill-btn ${viewMode === "grid" ? "is-selected" : ""}`}
@@ -743,24 +728,6 @@ export function MediaTracker() {
                     <span className="media-card-type-chip">
                       {MEDIA_TYPE_ICONS[item.type]} {MEDIA_TYPE_LABELS[item.type]}
                     </span>
-                    {(item.type === "movie" || item.type === "series") && item.imdbRating !== undefined && (
-                      <span className="media-imdb-badge" title={`IMDb: ${item.imdbRating}/10`}>
-                        🟡 {item.imdbRating}
-                      </span>
-                    )}
-                    {(item.type === "movie" || item.type === "series") && item.imdbRating === undefined && (
-                      <button
-                        type="button"
-                        className="media-imdb-fetch-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void handleFetchSingleImdb(item);
-                        }}
-                        title="IMDb puanını getir"
-                      >
-                        🟡 IMDb Çek
-                      </button>
-                    )}
                     <span className={`media-status-chip is-${item.status}`}>
                       {MEDIA_STATUS_LABELS[item.status]}
                     </span>
@@ -784,14 +751,14 @@ export function MediaTracker() {
                         ⭐ {item.rating}/10
                       </span>
                     )}
-                    {item.progress && (
-                      <span className="media-progress-tag">
-                        📌 {item.progress}
-                      </span>
-                    )}
                     {item.completedDate && (
                       <span className="media-date-tag">
                         🗓️ {item.completedDate.split("-").reverse().join(".")}
+                      </span>
+                    )}
+                    {sanitizeMediaProgress(item.progress) && (
+                      <span className="media-progress-tag">
+                        📌 {sanitizeMediaProgress(item.progress)}
                       </span>
                     )}
                   </div>
@@ -821,17 +788,6 @@ export function MediaTracker() {
                     title="Bitirildi olarak işaretle"
                   >
                     ✓ Bitir
-                  </button>
-                )}
-                {item.status === "completed" && (
-                  <button
-                    type="button"
-                    className="button button-secondary media-card-quick-restart"
-                    style={{ padding: "0.25rem 0.6rem", fontSize: "0.78rem" }}
-                    onClick={() => handleQuickRestart(item)}
-                    title="Yeniden İzle / Oku / Oyna (Devam Ediyor yap)"
-                  >
-                    ↺ Yeniden
                   </button>
                 )}
                 <button
@@ -1019,28 +975,7 @@ export function MediaTracker() {
                         />
                       </label>
                     </div>
-                    {(editor.type === "movie" || editor.type === "series") && (
-                      <div className="editor-row" style={{ marginTop: "0.35rem" }}>
-                        <label className="editor-field">
-                          <span>IMDb Puanı</span>
-                          <input
-                            type="number"
-                            step="0.1"
-                            min="0"
-                            max="10"
-                            value={editor.imdbRating ?? ""}
-                            onChange={(e) =>
-                              setEditor({
-                                ...editor,
-                                imdbRating: e.target.value === "" ? undefined : parseFloat(e.target.value),
-                                imdbUpdatedAt: Date.now(),
-                              })
-                            }
-                            placeholder="örn. 8.8 (otomatik çekilir)"
-                          />
-                        </label>
-                      </div>
-                    )}
+                    
                     {editor.posterUrl && (
                       <button
                         type="button"
@@ -1058,7 +993,7 @@ export function MediaTracker() {
               {(editor.type === "movie" || editor.type === "series") && (
                 <div className="editor-imdb-block">
                   <div className="editor-imdb-left">
-                    <span className="editor-imdb-title">IMDb Bağlantısı</span>
+                    <span className="editor-imdb-title">IMDb:</span>
                     {editor.imdbId ? (
                       <span className="editor-imdb-connected">
                         <span className="media-imdb-badge">🟡 {editor.imdbRating ?? "Puan aranıyor"}</span>
@@ -1089,7 +1024,7 @@ export function MediaTracker() {
                     }}
                     title="Başlığa göre otomatik IMDb eşleştir"
                   >
-                    🔍 IMDb'de Bul ve Eşle
+                    🔍 IMDb'de Eşle / Güncelle
                   </button>
                 </div>
               )}
