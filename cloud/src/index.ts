@@ -162,11 +162,12 @@ async function handle(request: Request, env: Env): Promise<Response> {
       return resp;
     }
   }
-  if (path === "/api/image-proxy" && request.method === "GET") {
-    const rawUrl = url.searchParams.get("url") || "";
+  if (path === "/api/image-proxy" && (request.method === "GET" || request.method === "HEAD")) {
+    const rawUrl = (url.searchParams.get("url") || "").trim();
+    const cleanUrl = rawUrl.replace(/^http:\/\//i, "https://");
     let parsed: URL;
     try {
-      parsed = new URL(rawUrl);
+      parsed = new URL(cleanUrl);
     } catch {
       const err = reply({ ok: false, error: "Geçersiz URL" }, 400);
       err.headers.set("Access-Control-Allow-Origin", "*");
@@ -175,27 +176,62 @@ async function handle(request: Request, env: Env): Promise<Response> {
     const allowedHosts = [
       "m.media-amazon.com",
       "images-na.ssl-images-amazon.com",
+      "images-amazon.com",
       "ia.media-imdb.com",
+      "imdb.com",
       "static.tvmaze.com",
+      "api.tvmaze.com",
       "image.tmdb.org",
+      "themoviedb.org",
       "books.google.com",
+      "googleusercontent.com",
       "covers.openlibrary.org",
+      "openlibrary.org",
+      "archive.org",
       "images.igdb.com",
+      "steamstatic.com",
+      "steampowered.com",
+      "akamaihd.net",
+      "rawg.io",
+      "wikimedia.org",
+      "wikipedia.org",
     ];
-    const isAllowed = parsed.protocol === "https:" && allowedHosts.some(h => parsed.hostname === h || parsed.hostname.endsWith("." + h));
+    const isAllowed =
+      parsed.protocol === "https:" &&
+      allowedHosts.some(h => parsed.hostname === h || parsed.hostname.endsWith("." + h));
     if (!isAllowed) {
       const forbidden = reply({ ok: false, error: "İzin verilmeyen görsel kaynağı" }, 403);
       forbidden.headers.set("Access-Control-Allow-Origin", "*");
       return forbidden;
     }
     try {
-      const imgRes = await fetch(parsed.toString(), {
+      let imgRes = await fetch(parsed.toString(), {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
           "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
         },
+        redirect: "follow",
         signal: AbortSignal.timeout(10000),
       });
+
+      // Steam fallback: if library_600x900.jpg 404s, try header.jpg
+      if (!imgRes.ok && parsed.pathname.endsWith("/library_600x900.jpg")) {
+        try {
+          const headerUrl = parsed.toString().replace(/\/library_600x900\.jpg$/, "/header.jpg");
+          const fallbackRes = await fetch(headerUrl, {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+              "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+            },
+            redirect: "follow",
+            signal: AbortSignal.timeout(8000),
+          });
+          if (fallbackRes.ok) {
+            imgRes = fallbackRes;
+          }
+        } catch {}
+      }
+
       if (!imgRes.ok) {
         const fail = reply({ ok: false, error: "Görsel indirilemedi" }, 502);
         fail.headers.set("Access-Control-Allow-Origin", "*");

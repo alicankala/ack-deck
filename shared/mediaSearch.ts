@@ -53,23 +53,66 @@ export async function searchMediaCatalog(
 
 export function proxyPosterUrl(url?: string): string | undefined {
   if (!url || typeof url !== "string") return undefined;
-  if (
-    url.startsWith("https://") &&
-    (url.includes("media-amazon.com") ||
-      url.includes("ssl-images-amazon.com") ||
-      url.includes("imdb.com") ||
-      url.includes("tvmaze.com") ||
-      url.includes("tmdb.org") ||
-      url.includes("books.google.com") ||
-      url.includes("openlibrary.org"))
-  ) {
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.includes("/api/image-proxy?url=")) return trimmed;
+
+  const normalized = trimmed.replace(/^http:\/\//i, "https://");
+
+  const shouldProxy =
+    normalized.includes("media-amazon.com") ||
+    normalized.includes("ssl-images-amazon.com") ||
+    normalized.includes("images-amazon.com") ||
+    normalized.includes("imdb.com") ||
+    normalized.includes("tvmaze.com") ||
+    normalized.includes("tmdb.org") ||
+    normalized.includes("themoviedb.org") ||
+    normalized.includes("books.google.com") ||
+    normalized.includes("googleusercontent.com") ||
+    normalized.includes("openlibrary.org") ||
+    normalized.includes("archive.org") ||
+    normalized.includes("steamstatic.com") ||
+    normalized.includes("steampowered.com") ||
+    normalized.includes("akamaihd.net") ||
+    normalized.includes("rawg.io") ||
+    normalized.includes("igdb.com") ||
+    normalized.includes("wikimedia.org");
+
+  if (shouldProxy) {
     const loc = (globalThis as { location?: { hostname?: string } }).location;
     const isWorkersOrigin = Boolean(loc?.hostname?.endsWith(".workers.dev"));
     return isWorkersOrigin
-      ? `/api/image-proxy?url=${encodeURIComponent(url)}`
-      : `https://ack-deck-phone.ack-deck-cloud.workers.dev/api/image-proxy?url=${encodeURIComponent(url)}`;
+      ? `/api/image-proxy?url=${encodeURIComponent(normalized)}`
+      : `https://ack-deck-phone.ack-deck-cloud.workers.dev/api/image-proxy?url=${encodeURIComponent(normalized)}`;
   }
-  return url;
+  return normalized;
+}
+
+export function getPosterFallbackUrls(url?: string): string[] {
+  if (!url || typeof url !== "string") return [];
+  const trimmed = url.trim();
+  if (!trimmed) return [];
+  const normalized = trimmed.replace(/^http:\/\//i, "https://");
+  const candidates: string[] = [];
+
+  // 1. Primary: edge-proxied URL
+  const proxied = proxyPosterUrl(normalized);
+  if (proxied && !candidates.includes(proxied)) candidates.push(proxied);
+
+  // 2. Steam specific fallback: library_600x900 -> header
+  if (normalized.includes("library_600x900.jpg")) {
+    const headerUrl = normalized.replace("library_600x900.jpg", "header.jpg");
+    const proxiedHeader = proxyPosterUrl(headerUrl);
+    if (proxiedHeader && !candidates.includes(proxiedHeader)) candidates.push(proxiedHeader);
+    if (!candidates.includes(headerUrl)) candidates.push(headerUrl);
+  }
+
+  // 3. Direct normalized URL (in case proxy has issues)
+  if (!candidates.includes(normalized)) {
+    candidates.push(normalized);
+  }
+
+  return candidates;
 }
 
 export async function fetchMediaRating(

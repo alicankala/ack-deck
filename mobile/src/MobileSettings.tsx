@@ -23,32 +23,26 @@ export function MobileSettings({
   state,
   commit,
   busy,
-  name,
-  setName,
   push,
   setPush,
-  online,
-  tasksCount,
-  notesCount,
   onNotice,
   onError,
   onBack,
-  onSync,
 }: {
   state: MobileState;
   commit: (next: MobileState) => Promise<void>;
   busy: boolean;
-  name: string;
-  setName: (val: string) => void;
+  name?: string;
+  setName?: (val: string) => void;
   push: boolean;
   setPush: (val: boolean) => void;
-  online: boolean;
-  tasksCount: number;
-  notesCount: number;
+  online?: boolean;
+  tasksCount?: number;
+  notesCount?: number;
   onNotice: (msg: string) => void;
   onError: (msg: string) => void;
   onBack: () => void;
-  onSync: () => Promise<void>;
+  onSync?: () => Promise<void>;
 }) {
   const [prayerConfig, setPrayerConfig] = useState<PrayerTimesConfig>(loadPrayerConfig);
   const [activityGoals, setActivityGoals] = useState<ActivityGoals>(loadActivityGoals);
@@ -62,7 +56,6 @@ export function MobileSettings({
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     return (localStorage.getItem("ack-deck.mobile-theme") as "dark" | "light") || "dark";
   });
-  const [syncing, setSyncing] = useState(false);
   const [securityConfig, setSecurityConfig] = useState<MobileSecurityConfig>(loadSecurityConfig);
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinDraft1, setPinDraft1] = useState("");
@@ -175,52 +168,14 @@ export function MobileSettings({
     onNotice(minutes > 0 ? `Vaktin ${minutes} dakika öncesinde hatırlatılacak.` : "Vakit öncesi hatırlatma kapatıldı.");
   }
 
-  async function handleDeviceRename(e: FormEvent) {
-    e.preventDefault();
-    try {
-      await api(state, "me", json({ name }));
-      await commit({ ...state, name });
-      onNotice("Cihaz adı kaydedildi.");
-    } catch (e) {
-      onError(e instanceof Error ? e.message : "Cihaz adı kaydedilemedi.");
-    }
-  }
-
-  async function handleManualSync() {
-    if (syncing || busy) return;
-    setSyncing(true);
-    try {
-      await onSync();
-      onNotice("Tüm veriler başarıyla eşitlendi.");
-    } catch (e) {
-      onError(e instanceof Error ? e.message : "Eşitleme yapılamadı.");
-    } finally {
-      setSyncing(false);
-    }
-  }
-
-  async function handleRefreshCache() {
-    try {
-      if ("serviceWorker" in navigator) {
-        const reg = await navigator.serviceWorker.getRegistration();
-        await reg?.update();
-        onNotice("Uygulama önbelleği yenilendi.");
-      } else {
-        onNotice("Önbellek güncel.");
-      }
-    } catch {
-      onNotice("Önbellek kontrolü tamamlandı.");
-    }
-  }
-
   return (
     <div className="mobile-settings-page">
       <div className="settings-header-bar">
-        <button type="button" className="back-to-send-btn" onClick={onBack}>
+        <h2>Ayarlar</h2>
+        <button type="button" className="back-to-send-btn" onClick={onBack} aria-label="Gönder'e Dön">
           <Icon name="back" size={18} />
           <span>Gönder'e Dön</span>
         </button>
-        <h2>Ayarlar</h2>
       </div>
 
       {/* 1. Görünüm & Tema */}
@@ -595,79 +550,6 @@ export function MobileSettings({
         </div>
       )}
 
-      {/* 5. Cihaz & Senkronizasyon */}
-      <section className="settings-card">
-        <div className="settings-card-head">
-          <Icon name="refresh" size={20} />
-          <h3>Cihaz ve Eşitleme</h3>
-        </div>
-        <form className="settings-rename-form" onSubmit={handleDeviceRename}>
-          <label htmlFor="device-name-input">Cihaz Adı</label>
-          <div className="input-with-button">
-            <input
-              id="device-name-input"
-              value={name}
-              maxLength={80}
-              onChange={e => setName(e.target.value)}
-              placeholder="Örn: iPhone"
-            />
-            <button type="submit" disabled={busy} className="primary-action-sm">
-              Kaydet
-            </button>
-          </div>
-        </form>
-        <div className="settings-row" style={{ marginTop: "12px" }}>
-          <span>Bağlantı Durumu</span>
-          <span className={`settings-badge ${online ? "success" : "warning"}`}>
-            {online ? "● Çevrimiçi" : "○ Çevrimdışı"}
-          </span>
-        </div>
-        <div className="settings-row">
-          <span>Kuyrukta Bekleyen</span>
-          <span>{state.queue.length} değişiklik</span>
-        </div>
-        <div className="settings-actions-group">
-          <button
-            type="button"
-            className="secondary-action full-width"
-            disabled={busy || syncing}
-            onClick={handleManualSync}
-          >
-            {syncing ? "Eşitleniyor..." : "🔄 Şimdi Eşitle"}
-          </button>
-        </div>
-      </section>
-
-      {/* 5. Veri & Önbellek */}
-      <section className="settings-card">
-        <div className="settings-card-head">
-          <Icon name="files" size={20} />
-          <h3>Kayıtlar & Depolama</h3>
-        </div>
-        <div className="settings-stats-grid">
-          <div className="stat-pill">
-            <strong>{tasksCount}</strong>
-            <small>Kayıtlı Görev</small>
-          </div>
-          <div className="stat-pill">
-            <strong>{notesCount}</strong>
-            <small>Kayıtlı Not</small>
-          </div>
-          <div className="stat-pill">
-            <strong>{state.records.filter(r => r.kind === "subscriptions" && !r.deleted).length}</strong>
-            <small>Abonelik</small>
-          </div>
-        </div>
-        <div className="settings-actions-group" style={{ marginTop: "12px" }}>
-          <button
-            type="button"
-            className="secondary-action full-width"
-            onClick={handleRefreshCache}
-          >
-            Önbelleği Yenile & Güncellemeleri Denetle
-          </button>
-        </div>
-      </section>
 
       {/* 6. Tehlikeli Alan */}
       <section className="settings-card danger-zone">

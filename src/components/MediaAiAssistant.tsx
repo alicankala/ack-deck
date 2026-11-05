@@ -24,6 +24,7 @@ type RecItem = {
   creator?: string;
   reason: string;
   added?: boolean;
+  posterUrl?: string;
 };
 
 export function MediaAiAssistant({ items, onAddItem, onUpdateItem, onClose }: Props) {
@@ -433,7 +434,21 @@ Yanıtını YALNIZCA geçerli bir JSON dizisi formatında ver (markdown veya kod
                 <div className="ai-recs-grid">
                   {recs.map((rec, index) => (
                     <div key={`${rec.title}-${index}`} className="ai-rec-card">
-                      <div className="ai-rec-thumb">{MEDIA_TYPE_ICONS[rec.type] || "🎬"}</div>
+                      <div className="ai-rec-thumb" style={{ overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {rec.posterUrl ? (
+                          <img
+                            src={proxyPosterUrl(rec.posterUrl)}
+                            alt=""
+                            style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "6px" }}
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                            }}
+                          />
+                        ) : (
+                          MEDIA_TYPE_ICONS[rec.type] || "🎬"
+                        )}
+                      </div>
                       <div className="ai-rec-info">
                         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                           <span style={{ fontSize: "0.75rem", color: "#c084fc", fontWeight: 700 }}>
@@ -534,7 +549,21 @@ Yanıtını YALNIZCA geçerli bir JSON dizisi formatında ver (markdown veya kod
                 <div className="ai-recs-grid">
                   {recs.map((rec, index) => (
                     <div key={`${rec.title}-${index}`} className="ai-rec-card">
-                      <div className="ai-rec-thumb">{MEDIA_TYPE_ICONS[rec.type] || "🎬"}</div>
+                      <div className="ai-rec-thumb" style={{ overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {rec.posterUrl ? (
+                          <img
+                            src={proxyPosterUrl(rec.posterUrl)}
+                            alt=""
+                            style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "6px" }}
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                            }}
+                          />
+                        ) : (
+                          MEDIA_TYPE_ICONS[rec.type] || "🎬"
+                        )}
+                      </div>
                       <div className="ai-rec-info">
                         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                           <span style={{ fontSize: "0.75rem", color: "#c084fc", fontWeight: 700 }}>

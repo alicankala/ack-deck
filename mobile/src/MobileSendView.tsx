@@ -31,7 +31,8 @@ interface MobileSendViewProps {
   setInbox: Dispatch<SetStateAction<MobileInboxItem[]>>;
   onOpenSettings: () => void;
   onSelectFile: (file: File | null) => void;
-  onOpenForm: (kind: "text" | "link" | "ai_prompt") => void;
+  onOpenForm?: (kind: "text" | "link" | "ai_prompt") => void;
+  onSendText?: (kind: "text" | "link" | "ai_prompt", text: string) => Promise<boolean>;
   onUploadFile: (file: File | Blob, filename: string) => Promise<boolean>;
   onToggleRecord: () => void;
   onCancelAudio: () => void;
@@ -56,6 +57,7 @@ export function MobileSendView({
   onOpenSettings,
   onSelectFile,
   onOpenForm,
+  onSendText,
   onUploadFile,
   onToggleRecord,
   onCancelAudio,
@@ -64,6 +66,48 @@ export function MobileSendView({
 }: MobileSendViewProps) {
   const [editingInboxId, setEditingInboxId] = useState<string | null>(null);
   const [editingInboxText, setEditingInboxText] = useState("");
+
+  async function internalSendText(kind: "text" | "link" | "ai_prompt", text: string): Promise<boolean> {
+    if (onSendText) {
+      return onSendText(kind, text);
+    }
+    const trimmed = text.trim();
+    if (!trimmed) return false;
+    if (!navigator.onLine) {
+      onError("Bu gönderi için internet gerekir. Metniniz burada korunuyor.");
+      return false;
+    }
+    try {
+      const id = crypto.randomUUID();
+      const firstLine = trimmed.split("\n")[0].slice(0, 100);
+      const title =
+        kind === "link"
+          ? trimmed.slice(0, 100)
+          : firstLine || (kind === "ai_prompt" ? "ACK AI İstemi" : "Metin Notu");
+      await api(state, "inbox", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, kind, title, content: trimmed }),
+      });
+      onNotice("Gönderildi.");
+      setInbox((cur) => [
+        {
+          id,
+          kind,
+          title,
+          content: trimmed,
+          mime: null,
+          expiresAt: null,
+          handled: 0,
+        },
+        ...cur,
+      ]);
+      return true;
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Gönderilemedi.");
+      return false;
+    }
+  }
 
   return (
     <div className="more-sections-container send-view-container">
@@ -105,7 +149,7 @@ export function MobileSendView({
           onError={onError}
         />
       ) : (
-        <section className="more-section-card">
+        <div className="send-content-panel">
           <SendCard
             busy={busy || sending}
             recording={recording}
@@ -113,7 +157,7 @@ export function MobileSendView({
             feedback={sendFeedback}
             file={selectedFile}
             onSelectFile={onSelectFile}
-            onOpen={onOpenForm}
+            onSendText={internalSendText}
             onFile={file => onUploadFile(file, file.name)}
             onRecord={onToggleRecord}
             onAudioSend={() => {
@@ -236,7 +280,7 @@ export function MobileSendView({
               </div>
             </details>
           )}
-        </section>
+        </div>
       )}
     </div>
   );

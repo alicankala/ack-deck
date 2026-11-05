@@ -383,7 +383,8 @@
 }
 
 .send-view-container {
-  gap: 10px;
+  gap: 8px;
+  padding-top: 2px;
 }
 .send-tab-header {
   display: flex;
@@ -421,25 +422,36 @@
 .settings-header-bar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  min-height: 38px;
+  margin-bottom: 14px;
 }
 .settings-header-bar h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--app-text);
+  line-height: 1.2;
 }
 .back-to-send-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  background: var(--app-surface, #1e293b);
-  border: 1px solid var(--app-border);
-  color: var(--app-accent, #38bdf8);
-  padding: 6px 10px;
-  border-radius: 8px;
+  gap: 6px;
+  background: var(--app-card-bg, #1e293b);
+  border: 1px solid var(--app-border, rgba(255, 255, 255, 0.08));
+  border-radius: 999px;
+  color: var(--app-text);
+  padding: 6px 12px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 550;
   cursor: pointer;
+  white-space: nowrap;
+}
+.back-to-send-btn:hover,
+.back-to-send-btn:active {
+  background: var(--app-hover, rgba(255, 255, 255, 0.06));
 }
 
 /* Mobile Settings Page */

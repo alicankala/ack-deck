@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type FormEvent } from "react";
+import { useState, useEffect, useRef, useMemo, type FormEvent } from "react";
 import {
   type MediaItem,
   type MediaType,
@@ -8,7 +8,7 @@ import {
   MEDIA_STATUS_LABELS,
   newMediaItem,
 } from "../../shared/media";
-import { searchMediaCatalog, proxyPosterUrl, fetchMediaRating, type MediaSearchCandidate } from "../../shared/mediaSearch";
+import { searchMediaCatalog, proxyPosterUrl, getPosterFallbackUrls, fetchMediaRating, type MediaSearchCandidate } from "../../shared/mediaSearch";
 import { MobileMediaAiAssistant } from "./MobileMediaAiAssistant";
 import type { MobileState } from "./store";
 import type { CloudRecord, Mutation } from "../../shared/phone";
@@ -18,29 +18,39 @@ function MobileMediaPoster({
   title,
   type,
   className = "mobile-media-poster",
+  placeholderClassName = "mobile-media-poster-placeholder",
 }: {
   url?: string;
   title: string;
   type: MediaType;
   className?: string;
+  placeholderClassName?: string;
 }) {
-  const [loadFailed, setLoadFailed] = useState(false);
-  const src = !loadFailed && url ? proxyPosterUrl(url) : null;
-  if (!src) {
+  const fallbacks = useMemo(() => getPosterFallbackUrls(url), [url]);
+  const [attemptIndex, setAttemptIndex] = useState(0);
+
+  useEffect(() => {
+    setAttemptIndex(0);
+  }, [url]);
+
+  const currentSrc = fallbacks[attemptIndex];
+  if (!currentSrc || attemptIndex >= fallbacks.length) {
     return (
-      <div className="mobile-media-poster-placeholder" aria-hidden="true">
+      <div className={placeholderClassName} aria-hidden="true">
         <span>{MEDIA_TYPE_ICONS[type]}</span>
       </div>
     );
   }
   return (
     <img
-      src={src}
+      src={currentSrc}
       alt={title}
       className={className}
       loading="lazy"
       referrerPolicy="no-referrer"
-      onError={() => setLoadFailed(true)}
+      onError={() => {
+        setAttemptIndex((prev) => prev + 1);
+      }}
     />
   );
 }

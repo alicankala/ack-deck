@@ -8,9 +8,51 @@ import {
   MEDIA_STATUS_LABELS,
   newMediaItem,
 } from "../../shared/media";
-import { searchMediaCatalog, proxyPosterUrl, fetchMediaRating, type MediaSearchCandidate } from "../../shared/mediaSearch";
+import { searchMediaCatalog, getPosterFallbackUrls, fetchMediaRating, type MediaSearchCandidate } from "../../shared/mediaSearch";
 import { loadMedia, saveMedia } from "../mediaStore";
 import { MediaAiAssistant } from "./MediaAiAssistant";
+
+function MediaPoster({
+  url,
+  title,
+  type,
+  className = "media-card-poster",
+  placeholderClassName = "media-card-poster-placeholder",
+}: {
+  url?: string;
+  title: string;
+  type: MediaType;
+  className?: string;
+  placeholderClassName?: string;
+}) {
+  const fallbacks = useMemo(() => getPosterFallbackUrls(url), [url]);
+  const [attemptIndex, setAttemptIndex] = useState(0);
+
+  useEffect(() => {
+    setAttemptIndex(0);
+  }, [url]);
+
+  const currentSrc = fallbacks[attemptIndex];
+  if (!currentSrc || attemptIndex >= fallbacks.length) {
+    return (
+      <div className={placeholderClassName} aria-hidden="true">
+        <span>{MEDIA_TYPE_ICONS[type]}</span>
+      </div>
+    );
+  }
+  return (
+    <img
+      src={currentSrc}
+      alt={title}
+      className={className}
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => {
+        setAttemptIndex((prev) => prev + 1);
+      }}
+    />
+  );
+}
 
 function sanitizeMediaProgress(progress?: string): string | undefined {
   if (!progress) return undefined;
@@ -571,22 +613,13 @@ export function MediaTracker() {
           {visibleItems.map((item) => (
             <article key={item.id} className="surface media-list-row">
               <div className="media-list-thumb-wrap">
-                {item.posterUrl ? (
-                  <img
-                    src={proxyPosterUrl(item.posterUrl)}
-                    alt={item.title}
-                    className="media-list-thumb"
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
-                ) : (
-                  <div className="media-list-thumb-placeholder" aria-hidden="true">
-                    <span>{MEDIA_TYPE_ICONS[item.type]}</span>
-                  </div>
-                )}
+                <MediaPoster
+                  url={item.posterUrl}
+                  title={item.title}
+                  type={item.type}
+                  className="media-list-thumb"
+                  placeholderClassName="media-list-thumb-placeholder"
+                />
               </div>
 
               <div className="media-list-main-info">
@@ -707,22 +740,13 @@ export function MediaTracker() {
           {visibleItems.map((item) => (
             <article key={item.id} className="surface media-card">
               <div className="media-card-body-row">
-                {item.posterUrl ? (
-                  <img
-                    src={proxyPosterUrl(item.posterUrl)}
-                    alt={item.title}
-                    className="media-card-poster"
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
-                ) : (
-                  <div className="media-card-poster-placeholder" aria-hidden="true">
-                    <span>{MEDIA_TYPE_ICONS[item.type]}</span>
-                  </div>
-                )}
+                <MediaPoster
+                  url={item.posterUrl}
+                  title={item.title}
+                  type={item.type}
+                  className="media-card-poster"
+                  placeholderClassName="media-card-poster-placeholder"
+                />
                 <div className="media-card-info">
                   <div className="media-card-top">
                     <span className="media-card-type-chip">
@@ -916,11 +940,13 @@ export function MediaTracker() {
                           className="media-suggestion-item"
                           onClick={() => applyCandidate(cand)}
                         >
-                          {cand.posterUrl ? (
-                            <img src={proxyPosterUrl(cand.posterUrl)} alt="" className="media-suggestion-thumb" referrerPolicy="no-referrer" />
-                          ) : (
-                            <span className="media-suggestion-placeholder">{MEDIA_TYPE_ICONS[displayType]}</span>
-                          )}
+                          <MediaPoster
+                            url={cand.posterUrl}
+                            title={cand.title}
+                            type={cand.suggestedType || editor.type}
+                            className="media-suggestion-thumb"
+                            placeholderClassName="media-suggestion-placeholder"
+                          />
                           <div className="media-suggestion-meta">
                             <div className="media-suggestion-title-row">
                               <strong>{cand.title}</strong>
@@ -949,9 +975,13 @@ export function MediaTracker() {
 
               {(editor.posterUrl || editor.year || editor.creator) && (
                 <div className="media-selected-meta-preview">
-                  {editor.posterUrl && (
-                    <img src={proxyPosterUrl(editor.posterUrl)} alt="" className="media-preview-poster" referrerPolicy="no-referrer" />
-                  )}
+                  <MediaPoster
+                    url={editor.posterUrl}
+                    title={editor.title}
+                    type={editor.type}
+                    className="media-preview-poster"
+                    placeholderClassName="media-preview-poster-placeholder"
+                  />
                   <div className="media-preview-fields">
                     <div className="editor-row">
                       <label className="editor-field">

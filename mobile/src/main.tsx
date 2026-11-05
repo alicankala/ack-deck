@@ -661,6 +661,46 @@ function App() {
     return success;
   }
 
+  async function handleSendText(kind: "text" | "link" | "ai_prompt", text: string): Promise<boolean> {
+    const trimmed = text.trim();
+    if (!trimmed) return false;
+    if (!navigator.onLine) {
+      setError("Bu gönderi için internet gerekir. Metniniz burada korunuyor.");
+      return false;
+    }
+    if (sending.current || busy || locked.current) return false;
+    sending.current = true;
+    setBusy(true);
+    setError("");
+    let sent = false;
+    try {
+      const id = crypto.randomUUID();
+      const firstLine = trimmed.split("\n")[0].slice(0, 100);
+      const title =
+        kind === "link"
+          ? trimmed.slice(0, 100)
+          : firstLine || (kind === "ai_prompt" ? "ACK AI İstemi" : "Metin Notu");
+      await api(state, "inbox", json({ id, kind, title, content: trimmed }));
+      sent = true;
+      setNotice("Gönderildi.");
+      setSendFeedback(
+        kind === "ai_prompt"
+          ? "ACK AI görevi bilgisayarına gönderildi."
+          : kind === "link"
+          ? "Bağlantı bilgisayarına gönderildi."
+          : "Metin bilgisayarına gönderildi."
+      );
+      void refresh();
+      return true;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gönderilemedi.");
+      return false;
+    } finally {
+      sending.current = false;
+      setBusy(false);
+    }
+  }
+
   async function startRecording() {
     if (recordingStarting.current || recording || sending.current) return;
     setError("");
@@ -953,10 +993,7 @@ function App() {
                 setError("");
               }
             }}
-            onOpenForm={kind => {
-              setSendFeedback("");
-              openForm(kind);
-            }}
+            onSendText={handleSendText}
             onUploadFile={(file, filename) => upload(file, filename)}
             onToggleRecord={() => (recording ? recorder.current?.stop() : void startRecording())}
             onCancelAudio={() => setAudio(null)}

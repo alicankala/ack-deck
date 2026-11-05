@@ -12,6 +12,7 @@ export function SendCard({
   file,
   feedback,
   onOpen,
+  onSendText,
   onSelectFile,
   onFile,
   onRecord,
@@ -23,7 +24,8 @@ export function SendCard({
   audio: Blob | null;
   file: File | null;
   feedback: string;
-  onOpen: (kind: SendKind) => void;
+  onOpen?: (kind: SendKind) => void;
+  onSendText?: (kind: SendKind, text: string) => Promise<boolean>;
   onSelectFile: (file: File | null) => void;
   onFile: (file: File) => Promise<boolean>;
   onRecord: () => void;
@@ -32,6 +34,7 @@ export function SendCard({
 }) {
   const [kind, setKind] = useState<Choice | null>(() => (audio ? "audio" : file ? "file" : null));
   const [preview, setPreview] = useState("");
+  const [draftText, setDraftText] = useState("");
 
   useEffect(() => {
     if (!audio) {
@@ -43,21 +46,19 @@ export function SendCard({
     return () => URL.revokeObjectURL(url);
   }, [audio]);
 
-  const options: [Choice, string, string, "note" | "link" | "files" | "mic" | "spark", string][] = [
-    ["text", "Metin Notu", "Kısa veya uzun not bırak", "note", "send-opt-text"],
-    ["link", "Web Bağlantısı", "Link veya makale kaydet", "link", "send-opt-link"],
-    ["file", "Fotoğraf / Dosya", "Galeriden veya cihazdan seç", "files", "send-opt-file"],
-    ["audio", "Sesli Not", "Kaydet, dinle ve ilet", "mic", "send-opt-audio"],
-    ["ai_prompt", "ACK AI ile Otomatik İşle", "PC açıldığında arka planda otomatik analiz edip yanıtlasın", "spark", "send-opt-ai"],
+  const options: [Choice, string, "note" | "link" | "files" | "mic" | "spark", string][] = [
+    ["text", "Metin Notu", "note", "send-opt-text"],
+    ["link", "Web Bağlantısı", "link", "send-opt-link"],
+    ["file", "Fotoğraf / Dosya", "files", "send-opt-file"],
+    ["audio", "Sesli Not", "mic", "send-opt-audio"],
+    ["ai_prompt", "ACK AI ile Otomatik İşle", "spark", "send-opt-ai"],
   ];
 
-  return (
-    <section className="send-card" aria-labelledby="send-card-title">
-      <div className="send-card-heading">
-        <h2 id="send-card-title">Bilgisayarına Gönder</h2>
-        <p>İçerik türünü seç; metin, link, ses veya dosyanı bilgisayarına anında ilet.</p>
-      </div>
+  const inlineKind: SendKind | null =
+    kind === "text" || kind === "link" || kind === "ai_prompt" ? kind : null;
 
+  return (
+    <section className="send-card" aria-label="PC'ye Gönder">
       {feedback && (
         <p className="send-success" role="status">
           ✓ {feedback}
@@ -65,31 +66,147 @@ export function SendCard({
       )}
 
       <div className="send-grid">
-        {options.map(([value, label, hint, icon, extraClass]) => (
-          <button
-            key={value}
-            className={`send-tile-btn ${extraClass} ${kind === value ? "selected" : ""}`}
-            type="button"
-            aria-pressed={kind === value}
-            disabled={busy || recording}
-            onClick={() => {
-              setKind(value);
-              if (value !== "file" && value !== "audio") onOpen(value as SendKind);
+        {options.map(([value, label, icon, extraClass]) => {
+          const isSelected = kind === value;
+          return (
+            <button
+              key={value}
+              className={`send-tile-btn ${extraClass} ${isSelected ? "selected" : ""}`}
+              type="button"
+              aria-pressed={isSelected}
+              disabled={busy || recording}
+              onClick={() => {
+                if (isSelected) {
+                  setKind(null);
+                  setDraftText("");
+                } else {
+                  setKind(value);
+                }
+              }}
+            >
+              <div className="send-icon-wrap">
+                <span className="send-icon">
+                  <Icon name={icon} size={20} />
+                </span>
+              </div>
+              <div className="send-tile-info">
+                <strong>{label}</strong>
+              </div>
+              {value === "ai_prompt" && <span className="send-ai-badge">🤖 Otomatik</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {inlineKind && (
+        <div
+          className="send-inline-panel"
+          style={{
+            marginTop: "0.75rem",
+            background: "rgba(255, 255, 255, 0.03)",
+            border: "1px solid var(--app-border, rgba(255, 255, 255, 0.08))",
+            borderRadius: "10px",
+            padding: "10px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "6px",
             }}
           >
-            <div className="send-icon-wrap">
-              <span className="send-icon">
-                <Icon name={icon} size={22} />
+            <span
+              style={{
+                fontSize: "0.85rem",
+                fontWeight: 700,
+                color: "var(--app-text, #fff)",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+            >
+              <Icon
+                name={inlineKind === "text" ? "note" : inlineKind === "link" ? "link" : "spark"}
+                size={16}
+              />
+              {inlineKind === "text"
+                ? "Metin Notu İlet"
+                : inlineKind === "link"
+                ? "Web Bağlantısı İlet"
+                : "ACK AI ile Otomatik İşlem"}
+            </span>
+            {inlineKind === "ai_prompt" && (
+              <span className="send-ai-badge" style={{ margin: 0 }}>
+                🤖 Otomatik
               </span>
-            </div>
-            <div className="send-tile-info">
-              <strong>{label}</strong>
-              <small>{hint}</small>
-            </div>
-            {value === "ai_prompt" && <span className="send-ai-badge">🤖 Otomatik</span>}
-          </button>
-        ))}
-      </div>
+            )}
+          </div>
+          <textarea
+            value={draftText}
+            onChange={(e) => setDraftText(e.target.value)}
+            className="mobile-textarea"
+            rows={inlineKind === "link" ? 2 : 3}
+            placeholder={
+              inlineKind === "link"
+                ? "https://... web bağlantısını yapıştır veya yaz"
+                : inlineKind === "ai_prompt"
+                ? "ACK AI'ın bilgisayarında yanıtlamasını veya işlemesini istediğin görevi yaz…"
+                : "Bilgisayarına iletmek istediğin notu veya metni yaz…"
+            }
+            style={{
+              width: "100%",
+              borderRadius: "8px",
+              padding: "8px 10px",
+              fontSize: "16px",
+              boxSizing: "border-box",
+              background: "rgba(0, 0, 0, 0.25)",
+              color: "#fff",
+              border: "1px solid rgba(255, 255, 255, 0.12)",
+              resize: "vertical",
+              fontFamily: "inherit",
+              lineHeight: "1.4",
+            }}
+            autoComplete="off"
+          />
+          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "8px" }}>
+            <button
+              type="button"
+              className="mobile-button-secondary"
+              style={{ padding: "0.38rem 0.85rem", fontSize: "0.82rem" }}
+              disabled={busy}
+              onClick={() => {
+                setKind(null);
+                setDraftText("");
+              }}
+            >
+              Vazgeç
+            </button>
+            <button
+              type="button"
+              className="mobile-button-primary"
+              style={{ padding: "0.38rem 1rem", fontSize: "0.82rem" }}
+              disabled={busy || !draftText.trim()}
+              onClick={async () => {
+                const text = draftText.trim();
+                if (!text) return;
+                if (onSendText) {
+                  const ok = await onSendText(inlineKind, text);
+                  if (ok) {
+                    setDraftText("");
+                    setKind(null);
+                  }
+                } else if (onOpen) {
+                  onOpen(inlineKind);
+                }
+              }}
+            >
+              {busy ? "Gönderiliyor…" : "Bilgisayara Gönder"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {kind === "file" && (
         <div className="send-file-panel">
@@ -101,7 +218,7 @@ export function SendCard({
               type="file"
               accept="image/png,image/jpeg,image/webp,image/heic,application/pdf,audio/mp4,audio/mpeg,audio/ogg,audio/webm,audio/wav,text/plain"
               disabled={busy}
-              onChange={event => {
+              onChange={(event) => {
                 onSelectFile(event.target.files?.[0] ?? null);
                 event.target.value = "";
               }}
@@ -120,7 +237,7 @@ export function SendCard({
                   className="primary-action"
                   disabled={busy}
                   onClick={() =>
-                    void onFile(file).then(ok => {
+                    void onFile(file).then((ok) => {
                       if (ok) onSelectFile(null);
                     })
                   }
@@ -168,9 +285,9 @@ export function SendCard({
                   controls
                   preload="metadata"
                   src={preview}
-                  onLoadedMetadata={event => prepareAudioDuration(event.currentTarget)}
-                  onDurationChange={event => restoreAudioStart(event.currentTarget)}
-                  onSeeked={event => restoreAudioStart(event.currentTarget)}
+                  onLoadedMetadata={(event) => prepareAudioDuration(event.currentTarget)}
+                  onDurationChange={(event) => restoreAudioStart(event.currentTarget)}
+                  onSeeked={(event) => restoreAudioStart(event.currentTarget)}
                 />
               )}
               <div className="actions">
@@ -187,7 +304,7 @@ export function SendCard({
       )}
 
       <p className="send-card-hint">
-        En fazla 10 MB · Bulutta 30 gün güvenle saklanır. Bilgisayarını açtığında doğrudan karşına gelir.
+        Maks. 10 MB dosya boyutu · 30 gün saklama süresi
       </p>
     </section>
   );

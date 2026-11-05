@@ -362,35 +362,35 @@
 
 /* Inbox / Send Screen */
 .send-card {
-  padding: 20px;
+  padding: 16px 16px 14px;
   background: var(--app-surface);
   border: 1px solid var(--app-border);
   border-radius: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.4);
+  margin-bottom: 14px;
+  box-shadow: 0 6px 20px -6px rgba(0, 0, 0, 0.38);
 }
-.send-card-heading h2 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -0.01em; }
-.send-card-heading p { margin: 6px 0 18px; font-size: 13px; color: var(--app-muted); line-height: 1.5; }
 .send-success {
-  padding: 12px 16px;
+  padding: 10px 14px;
   border: 1px solid rgba(52, 211, 153, 0.3);
-  border-radius: 14px;
+  border-radius: 12px;
   background: rgba(52, 211, 153, 0.1);
   color: #6ee7b7;
-  font-size: 13.5px;
-  line-height: 1.5;
-  margin-bottom: 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 12px;
 }
 .send-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 .send-tile-btn {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 16px;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px;
   background: var(--app-control);
   border: 1px solid var(--app-border);
   border-radius: 16px;
@@ -398,8 +398,7 @@
   cursor: pointer;
   position: relative;
   transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-  min-height: 112px;
-  justify-content: space-between;
+  min-height: 86px;
 }
 .send-tile-btn:active {
   transform: scale(0.98);
@@ -413,10 +412,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 .send-icon {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 12px;
   display: grid;
   place-items: center;
@@ -443,9 +443,9 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 14px;
-  min-height: auto;
-  padding: 16px 18px;
+  gap: 12px;
+  min-height: 64px;
+  padding: 14px 16px;
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.1) 100%);
   border: 1px solid rgba(168, 85, 247, 0.35);
 }
@@ -469,22 +469,22 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  width: 100%;
 }
 .send-tile-btn strong {
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 700;
   color: var(--app-text);
-}
-.send-tile-btn small {
-  font-size: 12px;
-  color: var(--app-muted);
-  line-height: 1.4;
+  line-height: 1.28;
+  white-space: normal;
+  word-break: normal;
 }
 .send-card-hint {
   font-size: 12px;
   color: var(--app-muted);
-  line-height: 1.6;
-  margin: 16px 0 0;
+  line-height: 1.5;
+  margin: 14px 0 2px;
+  text-align: center;
 }
 
 .send-file-panel, .send-audio-panel {
