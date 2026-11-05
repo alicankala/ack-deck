@@ -12,7 +12,7 @@ const STORAGE_KEY = "ack-ai-daily-quota";
 export const FAST_LIMIT = 1500;
 export const POWERFUL_LIMIT = 50;
 
-function todayDateKey(): string {
+export function todayDateKey(): string {
   try {
     return new Intl.DateTimeFormat("en-CA", {
       timeZone: "America/Los_Angeles",
@@ -29,15 +29,31 @@ function todayDateKey(): string {
   }
 }
 
+type StoredQuota = {
+  date: string;
+  fastDesktop?: number;
+  powerfulDesktop?: number;
+  fastCloud?: number;
+  powerfulCloud?: number;
+  fast?: number;
+  powerful?: number;
+};
+
 export function getAiQuotaUsage(): QuotaInfo {
   const today = todayDateKey();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw);
+      const parsed = JSON.parse(raw) as StoredQuota;
       if (parsed && parsed.date === today) {
-        const fastUsed = typeof parsed.fast === "number" ? parsed.fast : 0;
-        const powerfulUsed = typeof parsed.powerful === "number" ? parsed.powerful : 0;
+        const fastDesktop = typeof parsed.fastDesktop === "number" ? parsed.fastDesktop : (typeof parsed.fast === "number" ? parsed.fast : 0);
+        const powerfulDesktop = typeof parsed.powerfulDesktop === "number" ? parsed.powerfulDesktop : (typeof parsed.powerful === "number" ? parsed.powerful : 0);
+        const fastCloud = typeof parsed.fastCloud === "number" ? parsed.fastCloud : 0;
+        const powerfulCloud = typeof parsed.powerfulCloud === "number" ? parsed.powerfulCloud : 0;
+
+        const fastUsed = fastDesktop + fastCloud;
+        const powerfulUsed = powerfulDesktop + powerfulCloud;
+
         return {
           date: today,
           fastUsed,
@@ -63,14 +79,82 @@ export function getAiQuotaUsage(): QuotaInfo {
 }
 
 export function recordAiUsage(model: "fast" | "powerful") {
-  const usage = getAiQuotaUsage();
-  const next = {
-    date: usage.date,
-    fast: usage.fastUsed + (model === "fast" ? 1 : 0),
-    powerful: usage.powerfulUsed + (model === "powerful" ? 1 : 0),
+  const today = todayDateKey();
+  let fastDesktop = 0;
+  let powerfulDesktop = 0;
+  let fastCloud = 0;
+  let powerfulCloud = 0;
+
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as StoredQuota;
+      if (parsed && parsed.date === today) {
+        fastDesktop = typeof parsed.fastDesktop === "number" ? parsed.fastDesktop : (typeof parsed.fast === "number" ? parsed.fast : 0);
+        powerfulDesktop = typeof parsed.powerfulDesktop === "number" ? parsed.powerfulDesktop : (typeof parsed.powerful === "number" ? parsed.powerful : 0);
+        fastCloud = typeof parsed.fastCloud === "number" ? parsed.fastCloud : 0;
+        powerfulCloud = typeof parsed.powerfulCloud === "number" ? parsed.powerfulCloud : 0;
+      }
+    }
+  } catch {}
+
+  if (model === "fast") fastDesktop += 1;
+  else powerfulDesktop += 1;
+
+  const next: StoredQuota = {
+    date: today,
+    fastDesktop,
+    powerfulDesktop,
+    fastCloud,
+    powerfulCloud,
   };
+
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     window.dispatchEvent(new CustomEvent("ack-ai-quota-changed"));
   } catch {}
+}
+
+export function syncCloudAiUsage(cloudData: { date?: string; fast?: number; powerful?: number }) {
+  if (!cloudData || typeof cloudData !== "object") return;
+  const today = todayDateKey();
+  if (cloudData.date && cloudData.date !== today) return;
+
+  const cloudFast = typeof cloudData.fast === "number" ? cloudData.fast : 0;
+  const cloudPowerful = typeof cloudData.powerful === "number" ? cloudData.powerful : 0;
+
+  let fastDesktop = 0;
+  let powerfulDesktop = 0;
+  let fastCloud = 0;
+  let powerfulCloud = 0;
+
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as StoredQuota;
+      if (parsed && parsed.date === today) {
+        fastDesktop = typeof parsed.fastDesktop === "number" ? parsed.fastDesktop : (typeof parsed.fast === "number" ? parsed.fast : 0);
+        powerfulDesktop = typeof parsed.powerfulDesktop === "number" ? parsed.powerfulDesktop : (typeof parsed.powerful === "number" ? parsed.powerful : 0);
+        fastCloud = typeof parsed.fastCloud === "number" ? parsed.fastCloud : 0;
+        powerfulCloud = typeof parsed.powerfulCloud === "number" ? parsed.powerfulCloud : 0;
+      }
+    }
+  } catch {}
+
+  const nextFastCloud = Math.max(fastCloud, cloudFast);
+  const nextPowerfulCloud = Math.max(powerfulCloud, cloudPowerful);
+
+  if (nextFastCloud !== fastCloud || nextPowerfulCloud !== powerfulCloud) {
+    const next: StoredQuota = {
+      date: today,
+      fastDesktop,
+      powerfulDesktop,
+      fastCloud: nextFastCloud,
+      powerfulCloud: nextPowerfulCloud,
+    };
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      window.dispatchEvent(new CustomEvent("ack-ai-quota-changed"));
+    } catch {}
+  }
 }

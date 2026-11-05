@@ -21,7 +21,7 @@ export function NotesList({ records, onOpen, onNew, syncLabel, noteOrder, onReor
   }) : rawNotes;
   const visible = notes.filter(row => { const note = row.data as PhoneNote; return (note.title + " " + note.content).toLocaleLowerCase("tr-TR").includes(query.trim().toLocaleLowerCase("tr-TR")); });
   return <section className="phone-notebook" aria-label="Not defteri">
-    <div className="notebook-brand"><span className="notebook-brand-icon"><Icon name="note" size={17} /></span><span>ACKDECK</span></div>
+    
     <header className="notebook-heading"><div><h1>Notlar</h1><p>{notes.length} not <span aria-hidden="true">·</span> {syncLabel}</p></div><button type="button" className="new-note-button" onClick={onNew}><Icon name="compose" size={19} /><span>Yeni not</span></button></header>
     <div className="notebook-search"><Icon name="search" size={19} /><label className="sr-only" htmlFor="notes-search">Notlarda ara</label><input id="notes-search" type="search" placeholder="Notlarında ara…" value={query} onChange={event => setQuery(event.target.value)} />{query && <button type="button" aria-label="Aramayı temizle" onClick={() => setQuery("")}>×</button>}</div>
     {!!visible.length && <div className="notebook-section-heading"><h2>{query.trim() ? "Arama sonuçları" : "Notlar"}</h2><span>{visible.length}</span></div>}

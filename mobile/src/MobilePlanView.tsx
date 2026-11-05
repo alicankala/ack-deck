@@ -110,18 +110,29 @@ export function MobilePlanView({
         />
       ) : (
         <>
-          <div className="page-heading subscription-page-header">
-            <button className="primary-action" onClick={() => onOpenSubscription(newSubscription())}>+ Abonelik Ekle</button>
-          </div>
           <div className="subscription-totals">
-            <span>Aylık karşılık</span>
-            <div className="subscription-totals-amounts">
-              {monthlyTotals(allSubRows.map(r => r.data as Subscription)).map(([c, a]) => (
-                <strong key={c}>{money(a, c)}</strong>
-              ))}
+            <div className="subscription-totals-head">
+              <div>
+                <span className="subscription-totals-label">Aylık Karşılık</span>
+                <div className="subscription-totals-amounts">
+                  {monthlyTotals(allSubRows.map(r => r.data as Subscription)).length > 0 ? (
+                    monthlyTotals(allSubRows.map(r => r.data as Subscription)).map(([c, a]) => (
+                      <strong key={c}>{money(a, c)}</strong>
+                    ))
+                  ) : (
+                    <strong>0,00 ₺</strong>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="mobile-button-primary subscription-add-btn"
+                onClick={() => onOpenSubscription(newSubscription())}
+              >
+                + Abonelik Ekle
+              </button>
             </div>
           </div>
-          <p className="status subscription-status-note">Dönem tutarlarının aylık ortalaması; para birimleri ayrı tutulur.</p>
 
           <div className="subscription-list">
             {visibleSubs.map((row, idx) => {

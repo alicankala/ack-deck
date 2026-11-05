@@ -19,7 +19,7 @@ import { collectAckContext, contextReferences, executeAckAction, proposeAckActio
 import { isActionRequest, proposalFromTool, prepareAckProposal } from "../ackActions";
 import type { NavigationTarget } from "../navigation";
 import { takeDashboardPrompt, type AiPromptHandoff } from "../aiPromptHandoff";
-import { getAiQuotaUsage, recordAiUsage, type QuotaInfo } from "../aiQuotaStore";
+import { getAiQuotaUsage, type QuotaInfo } from "../aiQuotaStore";
 
 type Props = {
   prefill?: { id: string; text: string; attachment?: AiAttachment };
@@ -147,7 +147,6 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
       const actionRequest = isActionRequest(text)||/görev.*çıkar|arşiv.*taslak|toparla|ders.*program|çalışma.*plan|çalışma.*program|çizelge|haftalık.*plan/iu.test(text);
       const intelligence=!attachment?buildIntelligenceContext(text):null;
       const reply = await sendGeminiMessage(next, model, context, actionRequest, attachment ? [attachment.id] : []);
-      recordAiUsage(model);
       if (requestId === generation.current) {
         removeAttachment();
         const proposal = reply.action ? proposalFromTool(reply.action, text) : null;
@@ -218,12 +217,23 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
     <header className="feature-heading ai-heading">
       <div className="ai-page-title"><span className="ai-page-mark"><Icon name="spark" size={24}/></span><div><h1>ACK AI</h1><p>Düşün, planla, harekete geç.</p></div></div>
       <div className="ai-heading-tools" style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-        <div className="ai-quota-meter" title="Google Gemini ücretsiz günlük kullanım kotası (Google sunucularıyla senkron: Her gün 10:00'da yenilenir)">
-          <span className={`ai-quota-pill ${quota.fastRemaining <= 100 ? "is-low" : ""}`}>
+        <div
+          className="ai-quota-meter"
+          title={`Google Gemini ücretsiz günlük kullanım kotası (Google sunucularıyla senkron: Her gün 10:00'da yenilenir)\n⚡ Hızlı Model: ${quota.fastUsed} kullanıldı · ${quota.fastRemaining} kaldı (Limit: ${quota.fastLimit})\n🧠 Güçlü Model: ${quota.powerfulUsed} kullanıldı · ${quota.powerfulRemaining} kaldı (Limit: ${quota.powerfulLimit})`}
+        >
+          <span
+            className={`ai-quota-pill ${quota.fastRemaining <= 100 ? "is-low" : ""}`}
+            title={`Hızlı Model: ${quota.fastUsed} istek gönderildi, ${quota.fastRemaining} kaldı (Limit: ${quota.fastLimit})`}
+          >
             ⚡ Hızlı: <strong>{quota.fastRemaining}</strong>/{quota.fastLimit}
+            {quota.fastUsed > 0 && <small className="ai-quota-used-tag">({quota.fastUsed} gitti)</small>}
           </span>
-          <span className={`ai-quota-pill ${quota.powerfulRemaining <= 5 ? "is-low" : ""}`}>
+          <span
+            className={`ai-quota-pill ${quota.powerfulRemaining <= 5 ? "is-low" : ""}`}
+            title={`Güçlü Model: ${quota.powerfulUsed} istek gönderildi, ${quota.powerfulRemaining} kaldı (Limit: ${quota.powerfulLimit})`}
+          >
             🧠 Güçlü: <strong>{quota.powerfulRemaining}</strong>/{quota.powerfulLimit}
+            {quota.powerfulUsed > 0 && <small className="ai-quota-used-tag">({quota.powerfulUsed} gitti)</small>}
           </span>
         </div>
         {!onNewChat && <button className="button button-secondary" type="button" onClick={newChat} disabled={blocked || attaching || actionBusy.current || (messages.length === 0 && !draft && !error)}>

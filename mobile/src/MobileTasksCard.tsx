@@ -134,12 +134,7 @@ export function MobileTasksCard({
           <div className="mobile-tasks-icon-box">
             <Icon name="checkCircle" size={18} />
           </div>
-          <div>
-            <h3 className="mobile-tasks-title">Görevler</h3>
-            <p className="mobile-tasks-subtitle">
-              Yapılacaklarını ve derslerini tek yerden takip et.
-            </p>
-          </div>
+          <h3 className="mobile-tasks-title">Görevler</h3>
         </div>
         <div className="mobile-tasks-actions">
           <span className="mobile-remaining-pill">{totalRemainingCount} KALDI</span>

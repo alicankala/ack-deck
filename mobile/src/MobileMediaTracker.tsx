@@ -440,11 +440,8 @@ export function MobileMediaTracker({
   return (
     <div className="mobile-media-page">
       {/* Header */}
-      <div className="mobile-media-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", gap: "8px" }}>
-        <div>
-          <h2>🎬 Koleksiyon</h2>
-          <span className="mobile-media-subtitle">Film, Dizi, Kitap, Oyun ({items.length})</span>
-        </div>
+      <div className="mobile-media-header">
+        <h2>🎬 Koleksiyon</h2>
         <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
           <button
             type="button"
@@ -455,7 +452,8 @@ export function MobileMediaTracker({
               color: "#e0e7ff",
               fontWeight: 700,
               fontSize: "12px",
-              padding: "6px 10px",
+              padding: "6px 11px",
+              borderRadius: "10px",
             }}
             onClick={() => setAiModalOpen(true)}
           >
@@ -464,7 +462,7 @@ export function MobileMediaTracker({
           <button
             type="button"
             className="mobile-button-primary"
-            style={{ padding: "0.4rem 0.85rem", fontSize: "0.85rem", borderRadius: "10px" }}
+            style={{ padding: "6px 14px", fontSize: "12.5px", fontWeight: 650, borderRadius: "10px" }}
             onClick={() => openNewItemEditor()}
           >
             + Ekle

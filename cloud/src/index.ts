@@ -310,8 +310,13 @@ async function handle(request: Request, env: Env): Promise<Response> {
       const goalsRow = await env.DB.prepare("SELECT value FROM app_settings WHERE key='activity_goals'").first<{ value: string }>();
       if (goalsRow?.value) activityGoals = JSON.parse(goalsRow.value);
     } catch {}
+    let cloudAiUsage = null;
+    try {
+      const usageRow = await env.DB.prepare("SELECT value FROM app_settings WHERE key='ai_cloud_usage'").first<{ value: string }>();
+      if (usageRow?.value) cloudAiUsage = JSON.parse(usageRow.value);
+    } catch {}
     const aiConfigured = await hasEncryptedGeminiKey(env);
-    return reply({ online:now-(pc?.last_seen ?? 0)<DESKTOP_ONLINE_THRESHOLD_MS, notifications:!!notification?.active, vapidPublicKey:env.VAPID_PUBLIC_KEY ?? "", prayerConfig, studyReminders, notificationPreferences, activityGoals, aiConfigured, now });
+    return reply({ online:now-(pc?.last_seen ?? 0)<DESKTOP_ONLINE_THRESHOLD_MS, notifications:!!notification?.active, vapidPublicKey:env.VAPID_PUBLIC_KEY ?? "", prayerConfig, studyReminders, notificationPreferences, activityGoals, cloudAiUsage, aiConfigured, now });
   }
   if (path === "/api/pair" && request.method === "POST") {
     owner(actor); const code = randomToken();
@@ -408,7 +413,12 @@ async function handle(request: Request, env: Env): Promise<Response> {
         currentGoals = JSON.parse(rawGoals);
       } catch {}
     }
-    return reply({ok:true, activityGoals: currentGoals});
+    let cloudAiUsage = null;
+    try {
+      const usageRow = await env.DB.prepare("SELECT value FROM app_settings WHERE key='ai_cloud_usage'").first<{ value: string }>();
+      if (usageRow?.value) cloudAiUsage = JSON.parse(usageRow.value);
+    } catch {}
+    return reply({ok:true, activityGoals: currentGoals, cloudAiUsage});
   }
   if (path === "/api/study-reminders" && request.method === "POST") {
     const body = await jsonBody(request);
@@ -477,6 +487,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
 
     const direct = await runCloudMobileAiChat(env, prompt, history, modelChoice);
     if (direct) {
+      await recordCloudAiUsage(env, direct.modelUsed || modelChoice);
       return reply({ ok: true, mode: "cloud", reply: direct.reply, modelUsed: direct.modelUsed });
     }
 
@@ -629,6 +640,49 @@ async function handle(request: Request, env: Env): Promise<Response> {
   }
   throw new ApiError(404,"İşlem bulunamadı.");
 }
+function cloudTodayDateKey(): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Los_Angeles",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+  } catch {
+    const now = new Date();
+    return now.toISOString().slice(0, 10);
+  }
+}
+
+async function recordCloudAiUsage(env: Env, model: "fast" | "powerful") {
+  try {
+    const today = cloudTodayDateKey();
+    let current = { date: today, fast: 0, powerful: 0 };
+    const row = await env.DB.prepare("SELECT value FROM app_settings WHERE key='ai_cloud_usage'").first<{ value: string }>();
+    if (row?.value) {
+      try {
+        const parsed = JSON.parse(row.value);
+        if (parsed && parsed.date === today) {
+          current = {
+            date: today,
+            fast: typeof parsed.fast === "number" ? parsed.fast : 0,
+            powerful: typeof parsed.powerful === "number" ? parsed.powerful : 0,
+          };
+        }
+      } catch {}
+    }
+    if (model === "fast") current.fast += 1;
+    else current.powerful += 1;
+    await env.DB.prepare(
+      "INSERT INTO app_settings(key, value, updated_at) VALUES('ai_cloud_usage', ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at",
+    )
+      .bind(JSON.stringify(current), Date.now())
+      .run();
+  } catch (err) {
+    console.warn("[Cloud AI Usage Record Error]", err);
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env) { try { return await handle(request,env); } catch (error) { if(error instanceof PushFailure)return reply({error:error.code.startsWith("VAPID")?"Bildirim sunucusunun anahtar yapılandırması doğrulanamadı.":error.code==="PUSH_ENCRYPTION_FAILED"?"Bildirim şifrelenemedi. Sunucu yapılandırmasını kontrol edin.":"Bildirim sunucusuna ulaşılamadı. Daha sonra tekrar deneyin.",code:error.code},error.status);return reply({error:error instanceof ApiError ? error.message : "İşlem tamamlanamadı. Daha sonra tekrar deneyin."},error instanceof ApiError ? error.status : 500); } },
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) { ctx.waitUntil(runReminders(env)); },

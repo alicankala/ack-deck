@@ -633,7 +633,7 @@ dialog,
   border-radius: 16px;
   background: var(--app-surface-elevated, #181b22);
   border: 1px solid var(--app-border, rgba(255, 255, 255, 0.08));
-  margin-bottom: 1rem;
+  margin-bottom: 0;
 }
 .dorm-menu-header {
   display: flex;

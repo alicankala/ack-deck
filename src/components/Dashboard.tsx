@@ -356,7 +356,8 @@ export function Dashboard({ refreshMs, onNavigate, onAskAi, targetId }: Props) {
     <div className="dashboard work-dashboard">
       <Header onOpenOverview={() => onNavigate({ page: "overview" })} />
       <div className="dashboard-workbench">
-        <div className="dashboard-primary-column">
+        {/* Satır 1: Canlı Durum & Haftalık Çizelge | Namaz Vakitleri */}
+        <div className="dashboard-grid-row row-overview-schedule">
           <div className="dashboard-overview live-status-overview" aria-label="Canlı durum özeti">
             <button
               type="button"
@@ -524,9 +525,13 @@ export function Dashboard({ refreshMs, onNavigate, onAskAi, targetId }: Props) {
           </section>
 
           {feedback && <p className="tool-feedback error" role="alert">{feedback}</p>}
+        </div>
+        <aside className="dashboard-grid-rail rail-prayer dashboard-right-rail" aria-label="Namaz vakitleri">
+          <PrayerWidget />
+        </aside>
 
-          {/* Bugün ve ACK AI (Altta) */}
-          <div className="dashboard-start-grid">
+        {/* Satır 2: Bugün ve ACK AI | Günün Yemek Menüsü */}
+        <div className="dashboard-start-grid">
             <section className="dashboard-today surface" aria-labelledby="dashboard-today-heading">
               <div className="dashboard-section-top">
                 <div>
@@ -635,15 +640,16 @@ export function Dashboard({ refreshMs, onNavigate, onAskAi, targetId }: Props) {
             </section>
 
             <AiStart onAskAi={onAskAi} />
-          </div>
+        </div>
+        <aside className="dashboard-grid-rail rail-dorm dashboard-right-rail" aria-label="Günün yemek menüsü">
+          <DormMenuCard />
+        </aside>
 
-          {/* Pomodoro Odak Sayacı */}
+        {/* Satır 3: Pomodoro Odak Sayacı | Abonelikler & PC Durumu */}
+        <div className="dashboard-grid-row row-pomodoro">
           <PomodoroTimer />
         </div>
-
-        <aside className="dashboard-right-rail" aria-label="Namaz vakitleri ve durum">
-          <PrayerWidget />
-          <DormMenuCard />
+        <aside className="dashboard-grid-rail rail-system dashboard-right-rail" aria-label="Abonelikler ve PC durumu">
           <Subscriptions compact onOpen={() => onNavigate({ page: "subscriptions" })} />
           <PcStatus refreshMs={refreshMs} compact />
         </aside>

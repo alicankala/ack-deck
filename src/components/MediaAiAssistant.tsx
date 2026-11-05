@@ -83,6 +83,13 @@ export function MediaAiAssistant({ items, onAddItem, onUpdateItem, onClose }: Pr
     setErrorMessage(null);
     setRecs([]);
 
+    // 0. Koleksiyon okunamadıysa veya hiç kayıt yoksa
+    if (!items || items.length === 0) {
+      setLoading(false);
+      setErrorMessage("Koleksiyon verisi okunamadı veya henüz hiç kayıt eklenmedi. Zevkini analiz edebilmem için önce koleksiyonuna eserler eklemelisin.");
+      return;
+    }
+
     // 1. Diverse, recency-weighted sampling of top favorites (max 10 items)
     const completedHighRated = items
       .filter((i) => i.status === "completed" && (i.rating ?? 0) >= 7)
@@ -96,6 +103,17 @@ export function MediaAiAssistant({ items, onAddItem, onUpdateItem, onClose }: Pr
       for (const t of types) {
         sampledFavorites.push(...completedHighRated.filter((i) => i.type === t).slice(0, 3));
       }
+    }
+
+    // Yeterli veri yoksa kesinlikle cevap verme
+    if (!customPrompt && sampledFavorites.length === 0) {
+      setLoading(false);
+      setErrorMessage(
+        typeFilter === "all"
+          ? "Zevkine göre öneri yapabilmek için koleksiyonunda henüz yeterli veri bulunamadı. Zevkini analiz edebilmem için tamamladığın ve beğendiğin (7+ puan verdiğin) en az bir eser eklemelisin."
+          : `Zevkine göre öneri yapabilmek için koleksiyonunda ${MEDIA_TYPE_LABELS[typeFilter]} türünde henüz yeterli veri bulunamadı. Zevkini analiz edebilmem için tamamladığın ve beğendiğin (7+ puan verdiğin) en az bir ${MEDIA_TYPE_LABELS[typeFilter].toLowerCase()} eklemelisin.`
+      );
+      return;
     }
 
     const favoritesSummary = sampledFavorites
@@ -258,7 +276,7 @@ Yanıtını YALNIZCA geçerli bir JSON dizisi formatında ver (markdown veya kod
             onClick={() => {
               setActiveMode("recommend");
               setErrorMessage(null);
-              if (recs.length === 0) void handleGetRecommendations();
+              // Explicit user action needed
             }}
           >
             <span>✨ Zevkime Göre Öner</span>
@@ -287,9 +305,7 @@ Yanıtını YALNIZCA geçerli bir JSON dizisi formatında ver (markdown veya kod
                 setTypeFilter(t);
                 setPickedItem(null);
                 setPickedFeedback(null);
-                if (activeMode === "recommend") {
-                  setTimeout(() => void handleGetRecommendations(), 50);
-                }
+                if (activeMode === "recommend") { setRecs([]); setErrorMessage(null); }
               }}
             >
               {t === "all" ? "Tümü" : `${MEDIA_TYPE_ICONS[t]} ${MEDIA_TYPE_LABELS[t]}`}
@@ -314,7 +330,6 @@ Yanıtını YALNIZCA geçerli bir JSON dizisi formatında ver (markdown veya kod
                     className="button button-primary"
                     onClick={() => {
                       setActiveMode("recommend");
-                      void handleGetRecommendations();
                     }}
                   >
                     ✨ Geçmiş Zevklerime Göre Yeni Eser Öner
@@ -384,25 +399,35 @@ Yanıtını YALNIZCA geçerli bir JSON dizisi formatında ver (markdown veya kod
           {/* MODE 2: RECOMMEND NEW BASED ON TASTE */}
           {activeMode === "recommend" && (
             <>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                <span style={{ fontSize: "0.82rem", color: "var(--app-secondary)" }}>
-                  Yüksek puan verdiğin eserler incelenerek seçildi:
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.85rem", gap: "0.5rem", flexWrap: "wrap" }}>
+                <span style={{ fontSize: "0.84rem", color: "var(--app-secondary)" }}>
+                  {typeFilter === "all"
+                    ? "Tüm türlerdeki zevklerin analiz edilir:"
+                    : `${MEDIA_TYPE_LABELS[typeFilter]} türündeki zevklerin analiz edilir:`}
                 </span>
                 <button
                   type="button"
-                  className="button button-secondary"
-                  style={{ padding: "0.25rem 0.65rem", fontSize: "0.78rem" }}
+                  className="button button-primary"
+                  style={{ padding: "0.35rem 0.95rem", fontSize: "0.82rem", fontWeight: 650 }}
                   onClick={() => void handleGetRecommendations()}
                   disabled={loading}
                 >
-                  {loading ? "Analiz ediliyor..." : "🔄 Yeniden Öner"}
+                  {loading
+                    ? "Analiz Ediliyor..."
+                    : recs.length > 0
+                    ? `🔄 Yeniden ${typeFilter === "all" ? "Öner" : `${MEDIA_TYPE_LABELS[typeFilter]} Öner`}`
+                    : `✨ ${typeFilter === "all" ? "Zevkime Göre Öner" : `${MEDIA_TYPE_LABELS[typeFilter]} Öner`}`}
                 </button>
               </div>
 
               {loading ? (
                 <div style={{ padding: "2.5rem", textAlign: "center", color: "#38bdf8" }}>
                   <div className="media-mini-spinner" style={{ width: 24, height: 24, margin: "0 auto 0.75rem" }} />
-                  <p style={{ margin: 0, fontSize: "0.9rem" }}>Koleksiyonun ve zevklerin analiz ediliyor, öneriler hazırlanıyor…</p>
+                  <p style={{ margin: 0, fontSize: "0.9rem" }}>
+                    {typeFilter === "all"
+                      ? "Koleksiyonun ve zevklerin analiz ediliyor, öneriler hazırlanıyor…"
+                      : `${MEDIA_TYPE_LABELS[typeFilter]} zevklerin analiz ediliyor, öneriler hazırlanıyor…`}
+                  </p>
                 </div>
               ) : recs.length > 0 ? (
                 <div className="ai-recs-grid">
@@ -433,11 +458,36 @@ Yanıtını YALNIZCA geçerli bir JSON dizisi formatında ver (markdown veya kod
                     </div>
                   ))}
                 </div>
-              ) : null}
+              ) : (
+                <div className="ai-empty-notice" style={{ padding: "2rem 1rem", textAlign: "center", background: "rgba(255, 255, 255, 0.02)", borderRadius: "12px", border: "1px dashed var(--app-border, rgba(255,255,255,0.08))" }}>
+                  <span style={{ fontSize: "2.2rem" }}>🎯</span>
+                  <h4 style={{ margin: "0.6rem 0 0.3rem", fontSize: "1.05rem", color: "var(--app-text, #fff)" }}>
+                    {typeFilter === "all"
+                      ? "Zevkine Göre Yeni Eserler Keşfet"
+                      : `Zevkine Göre Yeni ${MEDIA_TYPE_LABELS[typeFilter]} Keşfet`}
+                  </h4>
+                  <p style={{ margin: "0 0 1.1rem", fontSize: "0.85rem", color: "var(--app-text-muted, #94a3b8)", maxWidth: "420px", marginLeft: "auto", marginRight: "auto", lineHeight: "1.5" }}>
+                    {typeFilter === "all"
+                      ? "Koleksiyonundaki yüksek puanlı tüm yapıtlar incelenerek zevkine en uygun kaliteli yeni eserler tavsiye edilir."
+                      : `Koleksiyonunda yüksek puan verdiğin ${MEDIA_TYPE_LABELS[typeFilter].toLowerCase()} kayıtları incelenerek zevkine en uygun 2-3 yeni ${MEDIA_TYPE_LABELS[typeFilter].toLowerCase()} tavsiye edilir.`}
+                  </p>
+                  <button
+                    type="button"
+                    className="button button-primary"
+                    style={{ padding: "0.55rem 1.4rem", fontSize: "0.9rem", fontWeight: 650 }}
+                    onClick={() => void handleGetRecommendations()}
+                  >
+                    ✨ {typeFilter === "all" ? "Zevkime Göre Öner" : `${MEDIA_TYPE_LABELS[typeFilter]} Öner`}
+                  </button>
+                </div>
+              )}
 
               {errorMessage && (
-                <div style={{ background: "rgba(239, 68, 68, 0.12)", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: "8px", padding: "0.6rem 0.85rem", fontSize: "0.8rem", color: "#fca5a5" }}>
-                  {errorMessage}
+                <div style={{ marginTop: "0.75rem", background: "rgba(239, 68, 68, 0.12)", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: "8px", padding: "0.75rem 1rem", fontSize: "0.85rem", color: "#fca5a5", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ fontSize: "1.1rem" }}>⚠️</span>
+                  <div>
+                    <strong>Cevap Verilemiyor:</strong> {errorMessage}
+                  </div>
                 </div>
               )}
             </>

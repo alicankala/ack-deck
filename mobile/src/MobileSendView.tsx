@@ -66,16 +66,9 @@ export function MobileSendView({
   const [editingInboxText, setEditingInboxText] = useState("");
 
   return (
-    <div className="more-sections-container">
+    <div className="more-sections-container send-view-container">
       <div className="send-tab-header">
-        <div>
-          <h2>{sendTab === "ai" ? "ACK AI Sohbeti" : "Masaüstüne Gönder"}</h2>
-          <p className="mobile-work-hint">
-            {sendTab === "ai"
-              ? "Kayıtlarınla doğrudan telefondan konuş; PC kapalıyken de çalışır."
-              : "Not, bağlantı, ses veya dosyanı bilgisayarına anında ilet."}
-          </p>
-        </div>
+        <h2>{sendTab === "ai" ? "ACK AI Sohbeti" : "PC'ye Gönder"}</h2>
         <button
           type="button"
           className="settings-open-btn"
@@ -87,7 +80,7 @@ export function MobileSendView({
         </button>
       </div>
 
-      <div className="mobile-segmented-bar plan-toggle-bar">
+      <div className="mobile-segmented-bar send-toggle-bar">
         <button
           type="button"
           className={`segment-btn ${sendTab === "ai" ? "is-active" : ""}`}

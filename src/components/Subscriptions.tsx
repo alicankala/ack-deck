@@ -40,8 +40,8 @@ export function Subscriptions({compact=false,onOpen,initialId}:{compact?:boolean
           </div>
           <div className="dashboard-pc-metrics-line sub-metrics-line">
             <span className="pc-metric-tag sub-count-tag">{active.length} aktif</span>
-            <span className="pc-metric-tag sub-upcoming-tag">{nextText}</span>
-            <small className="pc-metric-details">Ayrıntılar ›</small>
+            <span className="pc-metric-tag sub-upcoming-tag" title={nextText}>{nextText}</span>
+            <small className="pc-metric-details">Ayrıntılar&nbsp;›</small>
           </div>
         </summary>
         <div className="dashboard-subscription-body">

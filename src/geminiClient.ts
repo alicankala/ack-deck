@@ -1,6 +1,7 @@
 import { boundedConversation } from "./conversationContext";
 import { invoke } from "@tauri-apps/api/core";
 import type { AckContext, AckSource } from "./ackIntegration";
+import { recordAiUsage } from "./aiQuotaStore";
 
 export type AiMessage = { role: "user" | "model"; text: string; sources?: AckSource[]; references?: {source:string;id:string;label:string}[]; attachments?: { name: string; mime: string; size: number }[] };
 export type AiModel = "fast" | "powerful";
@@ -50,5 +51,21 @@ export const getGeminiKeyStatus = () => invoke<boolean>("gemini_key_status");
 export const saveGeminiKey = (apiKey: string) => invoke<void>("save_gemini_key", { apiKey });
 export const deleteGeminiKey = () => invoke<void>("delete_gemini_key");
 export const testGeminiConnection = (model: AiModel) => invoke<void>("test_gemini_connection", { model });
-export const sendGeminiMessage = (messages: AiMessage[], model: AiModel, context: AckContext[] = [], allowActions = false, attachmentIds: string[] = []) =>
-  invoke<AiReply>("gemini_chat", { messages: boundedConversation(messages), model, context, allowActions, attachmentIds, localTime: new Date().toLocaleString("sv-SE") + " · UTC offset " + (-new Date().getTimezoneOffset()) + " dakika" });
+export const sendGeminiMessage = async (
+  messages: AiMessage[],
+  model: AiModel,
+  context: AckContext[] = [],
+  allowActions = false,
+  attachmentIds: string[] = []
+): Promise<AiReply> => {
+  const reply = await invoke<AiReply>("gemini_chat", {
+    messages: boundedConversation(messages),
+    model,
+    context,
+    allowActions,
+    attachmentIds,
+    localTime: new Date().toLocaleString("sv-SE") + " · UTC offset " + (-new Date().getTimezoneOffset()) + " dakika",
+  });
+  recordAiUsage(model);
+  return reply;
+};

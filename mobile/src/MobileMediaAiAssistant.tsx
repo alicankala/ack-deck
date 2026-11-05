@@ -91,6 +91,13 @@ export function MobileMediaAiAssistant({
     setErrorMessage(null);
     setRecs([]);
 
+    // 0. Koleksiyon okunamadıysa veya hiç kayıt yoksa
+    if (!items || items.length === 0) {
+      setLoading(false);
+      setErrorMessage("Koleksiyon verisi okunamadı veya henüz hiç kayıt eklenmedi. Zevkini analiz edebilmem için önce koleksiyonuna eserler eklemelisin.");
+      return;
+    }
+
     // 1. Diverse, recency-weighted favorites sampling (max 8 items for lean mobile tokens)
     const completedHighRated = items
       .filter((i) => i.status === "completed" && (i.rating ?? 0) >= 7)
@@ -104,6 +111,17 @@ export function MobileMediaAiAssistant({
       for (const t of types) {
         sampledFavorites.push(...completedHighRated.filter((i) => i.type === t).slice(0, 2));
       }
+    }
+
+    // Yeterli veri yoksa kesinlikle cevap verme
+    if (!customPrompt && sampledFavorites.length === 0) {
+      setLoading(false);
+      setErrorMessage(
+        typeFilter === "all"
+          ? "Zevkine göre öneri yapabilmek için koleksiyonunda henüz yeterli veri bulunamadı. Zevkini analiz edebilmem için tamamladığın ve beğendiğin (7+ puan verdiğin) en az bir eser eklemelisin."
+          : `Zevkine göre öneri yapabilmek için koleksiyonunda ${MEDIA_TYPE_LABELS[typeFilter]} türünde henüz yeterli veri bulunamadı. Zevkini analiz edebilmem için tamamladığın ve beğendiğin (7+ puan verdiğin) en az bir ${MEDIA_TYPE_LABELS[typeFilter].toLowerCase()} eklemelisin.`
+      );
+      return;
     }
 
     const favoritesSummary = sampledFavorites
@@ -252,7 +270,7 @@ YALNIZCA geçerli bir JSON dizisi formatında yanıt ver:
             onClick={() => {
               setActiveMode("recommend");
               setErrorMessage(null);
-              if (recs.length === 0) void handleGetRecommendations();
+              // Explicit user action needed
             }}
           >
             ✨ Zevkime Göre
@@ -280,9 +298,7 @@ YALNIZCA geçerli bir JSON dizisi formatında yanıt ver:
               style={{ fontSize: "11px", padding: "4px 8px" }}
               onClick={() => {
                 setTypeFilter(t);
-                if (activeMode === "recommend") {
-                  setTimeout(() => void handleGetRecommendations(), 50);
-                }
+                if (activeMode === "recommend") { setRecs([]); setErrorMessage(null); }
               }}
             >
               {t === "all" ? "Tümü" : `${MEDIA_TYPE_ICONS[t]} ${MEDIA_TYPE_LABELS[t]}`}
@@ -308,7 +324,6 @@ YALNIZCA geçerli bir JSON dizisi formatında yanıt ver:
                   style={{ marginTop: "12px", padding: "6px 14px", fontSize: "12px" }}
                   onClick={() => {
                     setActiveMode("recommend");
-                    void handleGetRecommendations();
                   }}
                 >
                   ✨ Zevkine Göre Eser Keşfet
@@ -389,6 +404,27 @@ YALNIZCA geçerli bir JSON dizisi formatında yanıt ver:
         {/* MODE 2: Zevkime Göre Öner & MODE 3: Özel İstek */}
         {(activeMode === "recommend" || activeMode === "custom") && (
           <div>
+            {activeMode === "recommend" && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", gap: "6px" }}>
+                <span style={{ fontSize: "11px", color: "var(--app-text-muted)" }}>
+                  {typeFilter === "all" ? "Tüm türlerde analiz:" : `${MEDIA_TYPE_LABELS[typeFilter]} analizi:`}
+                </span>
+                <button
+                  type="button"
+                  className="mobile-button-primary"
+                  style={{ padding: "6px 12px", fontSize: "12px", fontWeight: 650 }}
+                  onClick={() => void handleGetRecommendations()}
+                  disabled={loading}
+                >
+                  {loading
+                    ? "..."
+                    : recs.length > 0
+                    ? `🔄 Yeniden ${typeFilter === "all" ? "Öner" : `${MEDIA_TYPE_LABELS[typeFilter]} Öner`}`
+                    : `✨ ${typeFilter === "all" ? "Zevkime Göre Öner" : `${MEDIA_TYPE_LABELS[typeFilter]} Öner`}`}
+                </button>
+              </div>
+            )}
+
             {activeMode === "custom" && (
               <div style={{ display: "flex", gap: "6px", marginBottom: "12px" }}>
                 <input
@@ -423,9 +459,33 @@ YALNIZCA geçerli bir JSON dizisi formatında yanıt ver:
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {activeMode === "recommend" && recs.length === 0 && !errorMessage && (
+                  <div style={{ textAlign: "center", padding: "18px 10px", background: "rgba(255,255,255,0.02)", borderRadius: "12px", border: "1px dashed var(--app-border)" }}>
+                    <span style={{ fontSize: "24px" }}>🎯</span>
+                    <h4 style={{ margin: "6px 0 2px", fontSize: "13px" }}>
+                      {typeFilter === "all" ? "Zevkine Göre Yeni Eserler" : `Zevkine Göre Yeni ${MEDIA_TYPE_LABELS[typeFilter]}`}
+                    </h4>
+                    <p style={{ margin: "0 0 10px", fontSize: "11px", color: "var(--app-text-muted)" }}>
+                      {typeFilter === "all"
+                        ? "Koleksiyonundaki yüksek puanlı kayıtlar incelenerek yeni eserler önerilir."
+                        : `Yüksek puan verdiğin ${MEDIA_TYPE_LABELS[typeFilter].toLowerCase()} kayıtların incelenerek önerilir.`}
+                    </p>
+                    <button
+                      type="button"
+                      className="mobile-button-primary"
+                      style={{ padding: "8px 16px", fontSize: "12px", fontWeight: 650 }}
+                      onClick={() => void handleGetRecommendations()}
+                    >
+                      ✨ {typeFilter === "all" ? "Zevkime Göre Öner" : `${MEDIA_TYPE_LABELS[typeFilter]} Öner`}
+                    </button>
+                  </div>
+                )}
                 {errorMessage && (
-                  <div style={{ padding: "6px 8px", borderRadius: "8px", background: "rgba(245,158,11,0.12)", color: "#fbbf24", fontSize: "11px" }}>
-                    ℹ️ {errorMessage}
+                  <div style={{ padding: "8px 10px", borderRadius: "8px", background: "rgba(239, 68, 68, 0.12)", border: "1px solid rgba(239, 68, 68, 0.3)", color: "#fca5a5", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span>⚠️</span>
+                    <div>
+                      <strong>Cevap Verilemiyor:</strong> {errorMessage}
+                    </div>
                   </div>
                 )}
                 {recs.map((rec, idx) => (

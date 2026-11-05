@@ -1,12 +1,12 @@
-.mobile-app.notes-page { background: var(--app-bg); padding-inline: 22px; }
+.mobile-app.notes-page { background: var(--app-bg); padding-inline: 16px; }
 body:has(.notes-page) { background: var(--app-bg); }
-.notes-page :is(.mobile-header,.mobile-sync-status,.mobile-page-heading) { display: none; }
+.notes-page :is(.mobile-sync-status,.mobile-page-heading) { display: none; }
 .notes-page .mobile-nav { background: var(--app-nav); border-color: var(--app-hover); }
 .notes-page .mobile-nav button[aria-current] { background: var(--app-accent-soft); color: var(--app-accent); }
-.phone-notebook { --note-accent: var(--app-accent); color: var(--app-text); padding-top: 12px; }
-.notebook-brand { display: flex; align-items: center; gap: 8px; color: var(--app-muted); font-size: 10px; letter-spacing: .18em; font-weight: 600; }
+.phone-notebook { --note-accent: var(--app-accent); color: var(--app-text); padding-top: 0; }
+.notebook-brand { display: none; }
 .notebook-brand-icon { display: inline-flex; color: var(--note-accent); }
-.notebook-heading { display: flex; flex-wrap: nowrap; justify-content: space-between; align-items: center; gap: 12px; margin: 22px 0 24px; }
+.notebook-heading { display: flex; flex-wrap: nowrap; justify-content: space-between; align-items: center; gap: 12px; margin: 8px 0 20px; }
 .notebook-heading h1 { font-size: 36px; font-weight: 700; letter-spacing: -.055em; line-height: 1.1; margin: 0; }
 .notebook-heading p { margin: 10px 0 0; font-size: 12px; color: var(--app-muted); }
 .notebook-heading p > span { padding-inline: 4px; color: var(--app-border-strong); }

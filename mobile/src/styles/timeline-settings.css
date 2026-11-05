@@ -382,16 +382,27 @@
   padding-top: 10px;
 }
 
+.send-view-container {
+  gap: 10px;
+}
 .send-tab-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  min-height: 38px;
+  margin-bottom: 0;
+}
+.send-toggle-bar {
+  margin-bottom: 2px;
 }
 .send-tab-header h2 {
-  margin: 0 0 4px 0;
-  font-size: 18px;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--app-text);
+  line-height: 1.2;
 }
 .settings-open-btn {
   display: inline-flex;

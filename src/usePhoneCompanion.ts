@@ -6,6 +6,7 @@ import { loadPrayerConfig } from "../shared/prayerTimes";
 import { loadStudyReminders } from "./studyReminderStore";
 import { loadNotificationPreferences } from "./notificationStore";
 import { loadActivityGoals, saveActivityGoals, type ActivityGoals } from "../shared/activityOverview";
+import { syncCloudAiUsage } from "./aiQuotaStore";
 
 const PAUSE_MESSAGE=/güvenli biçimde duraklatıldı/;
 
@@ -24,7 +25,7 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void,
         const studyRem=loadStudyReminders();
         const notif=loadNotificationPreferences();
         const currentGoals = loadActivityGoals();
-        const res = await phoneRequest<{ ok: boolean; activityGoals?: ActivityGoals }>("heartbeat",{
+        const res = await phoneRequest<{ ok: boolean; activityGoals?: ActivityGoals; cloudAiUsage?: { date: string; fast: number; powerful: number } }>("heartbeat",{
           prayerConfig:loadPrayerConfig(),
           ...(!studyRem.locked?{studyReminders:studyRem.entries}:{}),
           notificationPreferences:notif,
@@ -37,6 +38,9 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void,
               remote.tasksTarget !== currentGoals.tasksTarget) {
             saveActivityGoals(remote);
           }
+        }
+        if (res?.cloudAiUsage) {
+          syncCloudAiUsage(res.cloudAiUsage);
         }
       }catch(err){
         console.warn("[ACKDeck Heartbeat]",err);
