@@ -20,6 +20,41 @@ export function MediaTracker() {
   const [search, setSearch] = useState("");
   const [editor, setEditor] = useState<MediaItem | null>(null);
   const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
+    try {
+      return (localStorage.getItem("ack-deck.media-view-mode.v1") as "grid" | "list") || "grid";
+    } catch {
+      return "grid";
+    }
+  });
+
+  const handleSetViewMode = (mode: "grid" | "list") => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("ack-deck.media-view-mode.v1", mode);
+    } catch {}
+  };
+
+  const handleQuickStart = (item: MediaItem) => {
+    const updated: MediaItem = {
+      ...item,
+      status: "in_progress",
+      progress: item.progress || "Başlandı",
+      updatedAt: Date.now(),
+    };
+    const next = items.map((i) => (i.id === item.id ? updated : i));
+    commit(next);
+  };
+
+  const handleQuickFinish = (item: MediaItem) => {
+    suppressNextLookupRef.current = true;
+    setEditor({
+      ...item,
+      status: "completed",
+      rating: item.rating ?? 8,
+      completedDate: item.completedDate || new Date().toISOString().slice(0, 10),
+    });
+  };
 
   const openNewItemEditor = (type?: MediaType) => {
     suppressNextLookupRef.current = false;
@@ -307,40 +342,185 @@ export function MediaTracker() {
             className="media-search-input"
           />
         </div>
+
+        <div className="media-view-toggle">
+          <button
+            type="button"
+            className={`pill-btn ${viewMode === "grid" ? "is-selected" : ""}`}
+            onClick={() => handleSetViewMode("grid")}
+            title="Vitrin / Kart Görünümü"
+          >
+            🔲 Vitrin
+          </button>
+          <button
+            type="button"
+            className={`pill-btn ${viewMode === "list" ? "is-selected" : ""}`}
+            onClick={() => handleSetViewMode("list")}
+            title="Kompakt Liste Görünümü"
+          >
+            ☰ Liste
+          </button>
+        </div>
       </div>
 
-      {/* Media Cards Grid */}
-      <div className="media-grid">
-        {filtered.length === 0 ? (
-          <div className="media-empty surface">
-            <span className="media-empty-icon" aria-hidden="true">🎬</span>
-            <h3>{items.length === 0 ? "Koleksiyonun Henüz Boş" : "Eşleşen Kayıt Bulunamadı"}</h3>
-            <p>
-              {items.length === 0
-                ? "İzlediğin filmleri, dizileri, okuduğun kitapları ve bitirdiğin oyunları ekleyip puanlayabilir, afiş ve kişisel notlarını tutabilirsin."
-                : "Seçili filtrelere uygun film, dizi, kitap veya oyun bulunamadı."}
-            </p>
-            {items.length === 0 && (
-              <div style={{ display: "flex", gap: "0.65rem", marginTop: "0.5rem" }}>
+      {/* Media Cards Grid or Compact List */}
+      {filtered.length === 0 ? (
+        <div className="media-empty surface">
+          <span className="media-empty-icon" aria-hidden="true">🎬</span>
+          <h3>{items.length === 0 ? "Koleksiyonun Henüz Boş" : "Eşleşen Kayıt Bulunamadı"}</h3>
+          <p>
+            {items.length === 0
+              ? "İzlediğin filmleri, dizileri, okuduğun kitapları ve bitirdiğin oyunları ekleyip puanlayabilir, afiş ve kişisel notlarını tutabilirsin."
+              : "Seçili filtrelere uygun film, dizi, kitap veya oyun bulunamadı."}
+          </p>
+          {items.length === 0 && (
+            <div style={{ display: "flex", gap: "0.65rem", marginTop: "0.5rem" }}>
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={() => openNewItemEditor()}
+              >
+                + İlk Kaydını Ekle
+              </button>
+              <button
+                type="button"
+                className="media-ai-btn"
+                onClick={() => setAiModalOpen(true)}
+              >
+                <span>✨</span> ACK AI ile Öneri Al
+              </button>
+            </div>
+          )}
+        </div>
+      ) : viewMode === "list" ? (
+        <div className="media-compact-list">
+          {visibleItems.map((item) => (
+            <article key={item.id} className="surface media-list-row">
+              <div className="media-list-thumb-wrap">
+                {item.posterUrl ? (
+                  <img
+                    src={proxyPosterUrl(item.posterUrl)}
+                    alt={item.title}
+                    className="media-list-thumb"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <div className="media-list-thumb-placeholder" aria-hidden="true">
+                    <span>{MEDIA_TYPE_ICONS[item.type]}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="media-list-main-info">
+                <div className="media-list-title-row">
+                  <span className="media-list-type-tag">
+                    {MEDIA_TYPE_ICONS[item.type]} {MEDIA_TYPE_LABELS[item.type]}
+                  </span>
+                  <h3 className="media-list-title">
+                    {item.title}
+                    {item.year && <span className="media-card-year"> ({item.year})</span>}
+                  </h3>
+                  {item.rating !== undefined && (
+                    <span className="media-rating-tag" title={`${item.rating}/10`}>
+                      ⭐ {item.rating}/10
+                    </span>
+                  )}
+                  <span className={`media-status-chip is-${item.status}`}>
+                    {MEDIA_STATUS_LABELS[item.status]}
+                  </span>
+                </div>
+
+                <div className="media-list-sub-row">
+                  {item.creator && <span className="media-list-creator">{item.creator}</span>}
+                  {item.progress && (
+                    <span className="media-list-progress">
+                      📌 {item.progress}
+                    </span>
+                  )}
+                  {item.completedDate && (
+                    <span className="media-list-date">
+                      🗓️ {item.completedDate.split("-").reverse().join(".")}
+                    </span>
+                  )}
+                  {item.review && (
+                    <span className="media-list-note" title={item.review}>
+                      💬 "{item.review.slice(0, 90)}{item.review.length > 90 ? "…" : ""}"
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="media-list-actions">
+                {item.status === "planned" && (
+                  <button
+                    type="button"
+                    className="button button-primary media-quick-start-btn"
+                    onClick={() => handleQuickStart(item)}
+                    title="Hemen Başla (Devam Ediyor Yap)"
+                  >
+                    ▶ Başla
+                  </button>
+                )}
+                {item.status === "in_progress" && (
+                  <button
+                    type="button"
+                    className="button button-primary media-quick-finish-btn"
+                    onClick={() => handleQuickFinish(item)}
+                    title="Bitirildi Olarak İşaretle"
+                  >
+                    ✓ Bitir
+                  </button>
+                )}
                 <button
                   type="button"
-                  className="button button-primary"
-                  onClick={() => openNewItemEditor()}
+                  className="button button-secondary"
+                  style={{ padding: "0.28rem 0.65rem", fontSize: "0.8rem" }}
+                  onClick={() => {
+                    suppressNextLookupRef.current = true;
+                    setEditor({ ...item });
+                  }}
                 >
-                  + İlk Kaydını Ekle
+                  Düzenle
                 </button>
                 <button
                   type="button"
-                  className="media-ai-btn"
-                  onClick={() => setAiModalOpen(true)}
+                  className="button button-secondary"
+                  style={{ padding: "0.28rem 0.65rem", fontSize: "0.8rem", color: "#f87171" }}
+                  onClick={() => setDeleteId(item.id)}
                 >
-                  <span>✨</span> ACK AI ile Öneri Al
+                  Sil
                 </button>
               </div>
-            )}
-          </div>
-        ) : (
-          visibleItems.map((item) => (
+
+              {deleteId === item.id && (
+                <div className="media-delete-confirm">
+                  <span>Bu kayıt silinsin mi?</span>
+                  <button type="button" onClick={() => handleDeleteItem(item.id)}>Evet</button>
+                  <button type="button" onClick={() => setDeleteId(null)}>Vazgeç</button>
+                </div>
+              )}
+            </article>
+          ))}
+          {visibleCount < filtered.length && (
+            <div style={{ display: "flex", justifyContent: "center", margin: "1.25rem 0", width: "100%" }}>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
+                style={{ padding: "0.6rem 1.4rem", fontSize: "0.9rem" }}
+              >
+                Daha Fazla Göster ({visibleCount} / {filtered.length})
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="media-grid">
+          {visibleItems.map((item) => (
             <article key={item.id} className="surface media-card">
               <div className="media-card-body-row">
                 {item.posterUrl ? (
@@ -430,9 +610,21 @@ export function MediaTracker() {
                 </div>
               )}
             </article>
-          ))
-        )}
-      </div>
+          ))}
+          {visibleCount < filtered.length && (
+            <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "center", margin: "1.5rem 0", width: "100%" }}>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
+                style={{ padding: "0.6rem 1.4rem", fontSize: "0.9rem" }}
+              >
+                Daha Fazla Göster ({visibleCount} / {filtered.length})
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Editor Modal */}
       {editor && (

@@ -65,6 +65,52 @@ export function MobileMediaTracker({
   const [search, setSearch] = useState("");
   const [editor, setEditor] = useState<MediaItem | null>(null);
   const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
+    try {
+      return (localStorage.getItem("ack-deck.mobile-media-view-mode.v1") as "grid" | "list") || "grid";
+    } catch {
+      return "grid";
+    }
+  });
+
+  const handleSetViewMode = (mode: "grid" | "list") => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("ack-deck.mobile-media-view-mode.v1", mode);
+    } catch {}
+  };
+
+  const handleQuickStart = async (item: MediaItem) => {
+    try {
+      const existingRow = records.find((r) => r.kind === "mediaItems" && r.id === item.id);
+      await onSave({
+        mutationId: crypto.randomUUID(),
+        kind: "mediaItems",
+        id: item.id,
+        baseVersion: existingRow?.version ?? 0,
+        deleted: false,
+        data: {
+          ...item,
+          status: "in_progress",
+          progress: item.progress || "Başlandı",
+          updatedAt: Date.now(),
+        },
+      });
+      onNotice("Eser 'Devam Ediyor' durumuna alındı.");
+    } catch (err) {
+      onError?.(err instanceof Error ? err.message : "Durum güncellenemedi.");
+    }
+  };
+
+  const handleQuickFinish = (item: MediaItem) => {
+    suppressNextLookupRef.current = true;
+    setEditor({
+      ...item,
+      status: "completed",
+      rating: item.rating ?? 8,
+      completedDate: item.completedDate || new Date().toISOString().slice(0, 10),
+    });
+  };
   const PAGE_SIZE = 24;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
@@ -359,13 +405,96 @@ export function MobileMediaTracker({
       </div>
 
       {/* Card List */}
-      <div className="mobile-media-list">
-        {filtered.length === 0 ? (
+      {filtered.length === 0 ? (
+        <div className="mobile-media-list">
           <div className="mobile-empty-card">
             <p>{items.length === 0 ? "Henüz kayıtlı film, dizi, kitap veya oyun yok." : "Filtreye uygun kayıt bulunamadı."}</p>
           </div>
-        ) : (
-          filtered.slice(0, visibleCount).map((item) => (
+        </div>
+      ) : viewMode === "list" ? (
+        <div className="mobile-media-compact-list">
+          {filtered.slice(0, visibleCount).map((item) => (
+            <div
+              key={item.id}
+              className="mobile-media-row-item"
+              onClick={() => {
+                suppressNextLookupRef.current = true;
+                setEditor({ ...item });
+              }}
+            >
+              {item.posterUrl ? (
+                <img
+                  src={proxyPosterUrl(item.posterUrl)}
+                  alt={item.title}
+                  className="mobile-media-row-thumb"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              ) : (
+                <div className="mobile-media-row-placeholder" aria-hidden="true">
+                  <span>{MEDIA_TYPE_ICONS[item.type]}</span>
+                </div>
+              )}
+
+              <div className="mobile-media-row-info">
+                <div className="mobile-media-row-top">
+                  <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "4px", background: "rgba(96,165,250,0.18)", color: "#93c5fd", fontWeight: 700 }}>
+                    {MEDIA_TYPE_ICONS[item.type]}
+                  </span>
+                  <strong className="mobile-media-row-title">{item.title}</strong>
+                  {item.year && <small style={{ color: "var(--app-text-muted)", fontSize: "10px" }}>({item.year})</small>}
+                </div>
+
+                <div className="mobile-media-row-meta">
+                  {item.creator && <span>{item.creator}</span>}
+                  {item.rating !== undefined && <span style={{ color: "#fbbf24", fontWeight: 650 }}>⭐ {item.rating}/10</span>}
+                  {item.progress && <span style={{ color: "#38bdf8" }}>📌 {item.progress}</span>}
+                  {item.review && <span style={{ fontStyle: "italic", maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis" }}>"{item.review}"</span>}
+                </div>
+              </div>
+
+              <div className="mobile-media-row-actions" onClick={(e) => e.stopPropagation()}>
+                {item.status === "planned" && (
+                  <button
+                    type="button"
+                    className="mobile-row-quick-btn is-start"
+                    onClick={() => void handleQuickStart(item)}
+                    title="Hemen Başla"
+                  >
+                    ▶ Başla
+                  </button>
+                )}
+                {item.status === "in_progress" && (
+                  <button
+                    type="button"
+                    className="mobile-row-quick-btn is-finish"
+                    onClick={() => handleQuickFinish(item)}
+                    title="Bitir"
+                  >
+                    ✓ Bitir
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {visibleCount < filtered.length && (
+            <button
+              type="button"
+              className="mobile-button-secondary"
+              onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
+              style={{ width: "100%", padding: "10px", margin: "8px 0", fontSize: "13px" }}
+            >
+              Daha Fazla Göster ({visibleCount} / {filtered.length})
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="mobile-media-list">
+          {filtered.slice(0, visibleCount).map((item) => (
             <article
               key={item.id}
               className="mobile-media-card"
@@ -411,19 +540,20 @@ export function MobileMediaTracker({
                 <p className="mobile-media-review">"{item.review}"</p>
               )}
             </article>
-          ))
-        )}
-        {visibleCount < filtered.length && (
-          <button
-            type="button"
-            className="mobile-button-secondary"
-            onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
-            style={{ width: "100%", padding: "10px", margin: "8px 0", fontSize: "13px" }}
-          >
-            Daha Fazla Göster ({visibleCount} / {filtered.length})
-          </button>
-        )}
-      </div>
+          ))}
+
+          {visibleCount < filtered.length && (
+            <button
+              type="button"
+              className="mobile-button-secondary"
+              onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
+              style={{ width: "100%", padding: "10px", margin: "8px 0", fontSize: "13px" }}
+            >
+              Daha Fazla Göster ({visibleCount} / {filtered.length})
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Edit / Add Modal */}
       {editor && (
