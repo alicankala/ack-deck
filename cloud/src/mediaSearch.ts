@@ -50,6 +50,7 @@ async function searchImdb(
           : undefined;
 
         const creator = typeof entry.s === "string" ? entry.s.slice(0, 140) : undefined;
+        const imdbId = typeof entry.id === "string" && /^tt\d{5,12}$/.test(entry.id) ? entry.id : undefined;
 
         return {
           title: String(entry.l).slice(0, 160),
@@ -57,6 +58,7 @@ async function searchImdb(
           creator,
           posterUrl,
           suggestedType,
+          imdbId,
         };
       });
   } catch {
@@ -235,4 +237,38 @@ export async function searchPublicMedia(
   }
 
   return [];
+}
+
+export async function fetchImdbRating(imdbId: string, fetcher: typeof fetch = fetch): Promise<number | undefined> {
+  const cleanId = (imdbId || "").trim();
+  if (!/^tt\d{5,12}$/.test(cleanId)) return undefined;
+
+  // 1. Try Agregarr rating API proxy
+  try {
+    const res = await fetcher(`https://api.agregarr.org/api/ratings?id=${cleanId}`, {
+      signal: AbortSignal.timeout(4000),
+      headers: { Accept: "application/json" },
+    });
+    if (res.ok) {
+      const data = (await res.json()) as Array<{ rating?: number }>;
+      if (Array.isArray(data) && typeof data[0]?.rating === "number" && data[0].rating > 0) {
+        return Math.round(data[0].rating * 10) / 10;
+      }
+    }
+  } catch {}
+
+  // 2. Fallback to TVMaze for series
+  try {
+    const res = await fetcher(`https://api.tvmaze.com/lookup/shows?imdb=${cleanId}`, {
+      signal: AbortSignal.timeout(4000),
+    });
+    if (res.ok) {
+      const data = (await res.json()) as { rating?: { average?: number } };
+      if (typeof data?.rating?.average === "number" && data.rating.average > 0) {
+        return Math.round(data.rating.average * 10) / 10;
+      }
+    }
+  } catch {}
+
+  return undefined;
 }

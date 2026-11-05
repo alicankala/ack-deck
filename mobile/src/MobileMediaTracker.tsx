@@ -8,7 +8,7 @@ import {
   MEDIA_STATUS_LABELS,
   newMediaItem,
 } from "../../shared/media";
-import { searchMediaCatalog, proxyPosterUrl, type MediaSearchCandidate } from "../../shared/mediaSearch";
+import { searchMediaCatalog, proxyPosterUrl, fetchMediaRating, type MediaSearchCandidate } from "../../shared/mediaSearch";
 import { MobileMediaAiAssistant } from "./MobileMediaAiAssistant";
 import type { MobileState } from "./store";
 import type { CloudRecord, Mutation } from "../../shared/phone";
@@ -111,6 +111,57 @@ export function MobileMediaTracker({
       completedDate: item.completedDate || new Date().toISOString().slice(0, 10),
     });
   };
+
+  const [refreshingRatings, setRefreshingRatings] = useState(false);
+
+  const handleRefreshImdbRatings = async () => {
+    if (refreshingRatings) return;
+    const targets = items.filter(
+      (i) => (i.type === "movie" || i.type === "series") && i.imdbId
+    );
+    if (targets.length === 0) {
+      onNotice("Yenilenecek IMDb kodlu film veya dizi yok.");
+      return;
+    }
+
+    setRefreshingRatings(true);
+    onNotice(`${targets.length} eserin puanı kontrol ediliyor...`);
+
+    let updatedCount = 0;
+    for (let index = 0; index < targets.length; index++) {
+      const item = targets[index];
+      try {
+        const rating = await fetchMediaRating(item.imdbId!);
+        if (typeof rating === "number" && rating > 0 && rating !== item.imdbRating) {
+          updatedCount++;
+          const existingRow = records.find((r) => r.kind === "mediaItems" && r.id === item.id);
+          await onSave({
+            mutationId: crypto.randomUUID(),
+            kind: "mediaItems",
+            id: item.id,
+            baseVersion: existingRow?.version ?? 0,
+            deleted: false,
+            data: {
+              ...item,
+              imdbRating: rating,
+              imdbUpdatedAt: Date.now(),
+            },
+          });
+        }
+      } catch {}
+      if (index < targets.length - 1) {
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    }
+
+    setRefreshingRatings(false);
+    onNotice(
+      updatedCount > 0
+        ? `✅ ${updatedCount} eserin IMDb puanı güncellendi.`
+        : "Tüm puanlar zaten güncel."
+    );
+  };
+
   const PAGE_SIZE = 24;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
@@ -224,17 +275,33 @@ export function MobileMediaTracker({
   const applyCandidate = (cand: MediaSearchCandidate) => {
     if (!editor) return;
     suppressNextLookupRef.current = true;
-    setEditor({
+    const nextType = (cand.suggestedType as MediaType) || editor.type;
+    const nextItem: MediaItem = {
       ...editor,
-      type: (cand.suggestedType as MediaType) || editor.type,
+      type: nextType,
       title: cand.title.slice(0, 160),
       posterUrl: cand.posterUrl || editor.posterUrl || "",
       year: cand.year || editor.year || "",
       creator: cand.creator || editor.creator || "",
       progress: editor.progress?.trim() ? editor.progress : (cand.progressHint ?? ""),
-    });
+      imdbId: cand.imdbId || editor.imdbId,
+      imdbRating: cand.imdbRating || editor.imdbRating,
+    };
+    setEditor(nextItem);
     setSuggestions([]);
     setSearchHasQueried(false);
+
+    if ((nextType === "movie" || nextType === "series") && nextItem.imdbId && !nextItem.imdbRating) {
+      void fetchMediaRating(nextItem.imdbId).then((rating) => {
+        if (typeof rating === "number" && rating > 0) {
+          setEditor((curr) =>
+            curr && curr.id === nextItem.id
+              ? { ...curr, imdbRating: rating, imdbUpdatedAt: Date.now() }
+              : curr
+          );
+        }
+      });
+    }
   };
 
   const items = records
@@ -395,13 +462,46 @@ export function MobileMediaTracker({
           ))}
         </div>
 
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Ara…"
-          className="mobile-search-input"
-        />
+                <div style={{ display: "flex", gap: "6px", alignItems: "center", width: "100%" }}>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Ara…"
+            className="mobile-search-input"
+            style={{ flex: 1, minWidth: 0, fontSize: "16px" }}
+          />
+          <div style={{ display: "inline-flex", gap: "3px", flexShrink: 0 }}>
+            <button
+              type="button"
+              className={`pill-btn ${viewMode === "grid" ? "is-selected" : ""}`}
+              onClick={() => handleSetViewMode("grid")}
+              title="Vitrin Görünümü"
+              style={{ padding: "4px 8px", fontSize: "12px" }}
+            >
+              🔲
+            </button>
+            <button
+              type="button"
+              className={`pill-btn ${viewMode === "list" ? "is-selected" : ""}`}
+              onClick={() => handleSetViewMode("list")}
+              title="Liste Görünümü"
+              style={{ padding: "4px 8px", fontSize: "12px" }}
+            >
+              ☰
+            </button>
+            <button
+              type="button"
+              className="mobile-refresh-ratings-btn"
+              onClick={() => void handleRefreshImdbRatings()}
+              title="IMDb Puanlarını Yenile"
+              disabled={refreshingRatings}
+              style={{ padding: "4px 8px", fontSize: "12px" }}
+            >
+              {refreshingRatings ? "..." : "🔄"}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Card List */}
@@ -446,6 +546,9 @@ export function MobileMediaTracker({
                   </span>
                   <strong className="mobile-media-row-title">{item.title}</strong>
                   {item.year && <small style={{ color: "var(--app-text-muted)", fontSize: "10px" }}>({item.year})</small>}
+                  {(item.type === "movie" || item.type === "series") && item.imdbRating !== undefined && (
+                    <span className="mobile-imdb-badge">🟡 {item.imdbRating}</span>
+                  )}
                 </div>
 
                 <div className="mobile-media-row-meta">
@@ -510,6 +613,11 @@ export function MobileMediaTracker({
                     <span className="type-badge">
                       {MEDIA_TYPE_ICONS[item.type]} {MEDIA_TYPE_LABELS[item.type]}
                     </span>
+                    {(item.type === "movie" || item.type === "series") && item.imdbRating !== undefined && (
+                      <span className="mobile-imdb-badge" title={`IMDb: ${item.imdbRating}/10`}>
+                        🟡 {item.imdbRating}
+                      </span>
+                    )}
                     <span className={`status-badge is-${item.status}`}>
                       {MEDIA_STATUS_LABELS[item.status]}
                     </span>
@@ -536,9 +644,42 @@ export function MobileMediaTracker({
                 </div>
               </div>
 
-              {item.review && (
+                            {item.review && (
                 <p className="mobile-media-review">"{item.review}"</p>
               )}
+
+              <div className="mobile-media-card-actions" onClick={(e) => e.stopPropagation()}>
+                {item.status === "planned" && (
+                  <button
+                    type="button"
+                    className="mobile-button-primary mobile-card-quick-btn"
+                    onClick={() => void handleQuickStart(item)}
+                    title="İzlemeye/Okumaya/Oynamaya Başla"
+                  >
+                    ▶ Başla
+                  </button>
+                )}
+                {item.status === "in_progress" && (
+                  <button
+                    type="button"
+                    className="mobile-button-primary mobile-card-quick-btn mobile-card-quick-finish"
+                    onClick={() => void handleQuickFinish(item)}
+                    title="Bitirildi olarak işaretle"
+                  >
+                    ✓ Bitir
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="mobile-button-secondary mobile-card-quick-btn"
+                  onClick={() => {
+                    suppressNextLookupRef.current = true;
+                    setEditor({ ...item });
+                  }}
+                >
+                  Düzenle
+                </button>
+              </div>
             </article>
           ))}
 

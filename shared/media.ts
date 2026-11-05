@@ -15,6 +15,9 @@ export type MediaItem = {
   posterUrl?: string;
   year?: string;
   creator?: string;
+  imdbId?: string; // tt1234567
+  imdbRating?: number; // 0-10
+  imdbUpdatedAt?: number; // timestamp
   createdAt: number;
   updatedAt: number;
 };
@@ -51,6 +54,9 @@ const MEDIA_ALLOWED_KEYS = new Set([
   "posterUrl",
   "year",
   "creator",
+  "imdbId",
+  "imdbRating",
+  "imdbUpdatedAt",
   "createdAt",
   "updatedAt",
 ]);
@@ -91,6 +97,9 @@ export function validMediaItem(v: unknown): v is MediaItem {
   if (!safeHttpsPoster(item.posterUrl)) return false;
   if (item.year !== undefined && !safeMediaText(item.year, 24)) return false;
   if (item.creator !== undefined && !safeMediaText(item.creator, 160)) return false;
+  if (item.imdbId !== undefined && (typeof item.imdbId !== "string" || !/^tt\d{5,12}$/.test(item.imdbId))) return false;
+  if (item.imdbRating !== undefined && (typeof item.imdbRating !== "number" || !Number.isFinite(item.imdbRating) || item.imdbRating < 0 || item.imdbRating > 10)) return false;
+  if (item.imdbUpdatedAt !== undefined && !safeTimestamp(item.imdbUpdatedAt)) return false;
   if (!safeTimestamp(item.createdAt) || !safeTimestamp(item.updatedAt)) return false;
   return true;
 }

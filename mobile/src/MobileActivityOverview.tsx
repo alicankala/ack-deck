@@ -175,15 +175,26 @@ export function MobileActivityOverview({ onBack, records, state }: Props) {
       {/* Hero: 3 Rings Card */}
       <div className="mobile-act-hero">
         <div className="mobile-act-hero-top">
-          <ActivityRings rings={todaySummary.rings} size={130} />
+          <ActivityRings rings={activeSummary.rings} size={130} />
           <div className="mobile-act-hero-info">
             <span className="mobile-act-badge">
-              {todaySummary.allGoalsMet ? "🎉 Tüm Hedefler Kapandı!" : "Bugün Devam Ediyor"}
+              {isSelectedToday
+                ? (activeSummary.allGoalsMet ? "🎉 Tüm Hedefler Kapandı!" : "Bugün Devam Ediyor")
+                : `📅 ${activeSummary.fullDateLabel}`}
             </span>
             <div className="mobile-act-hero-score">
-              <strong>%{todaySummary.overallScore}</strong>
-              <small>Günlük Başarı</small>
+              <strong>%{activeSummary.overallScore}</strong>
+              <small>{isSelectedToday ? "Günlük Başarı" : "Seçilen Gün Başarısı"}</small>
             </div>
+            {!isSelectedToday && (
+              <button
+                type="button"
+                className="mobile-act-today-btn"
+                onClick={() => setSelectedDate(todayStr)}
+              >
+                ↺ Bugüne Dön
+              </button>
+            )}
           </div>
         </div>
 
@@ -194,14 +205,14 @@ export function MobileActivityOverview({ onBack, records, state }: Props) {
             <div className="mobile-metric-text">
               <span style={{ color: "#10b981", fontWeight: 700 }}>🕌 Namaz</span>
               <span style={{ color: "#10b981", fontWeight: 700 }}>
-                {todaySummary.rings.prayer.current}/{todaySummary.rings.prayer.target} vakit
+                {activeSummary.rings.prayer.current}/{activeSummary.rings.prayer.target} vakit
               </span>
             </div>
             <div className="mobile-metric-bar">
               <div
                 className="mobile-metric-fill"
                 style={{
-                  width: `${Math.min(100, Math.round(todaySummary.rings.prayer.rawProgress * 100))}%`,
+                  width: `${Math.min(100, Math.round(activeSummary.rings.prayer.rawProgress * 100))}%`,
                   background: "#10b981",
                 }}
               />
@@ -213,14 +224,14 @@ export function MobileActivityOverview({ onBack, records, state }: Props) {
             <div className="mobile-metric-text">
               <span style={{ color: "#f97316", fontWeight: 700 }}>⏱️ Pomodoro</span>
               <span style={{ color: "#f97316", fontWeight: 700 }}>
-                {todaySummary.rings.pomodoro.current}/{todaySummary.rings.pomodoro.target} seans ({todaySummary.rings.pomodoro.current * 25} dk)
+                {activeSummary.rings.pomodoro.current}/{activeSummary.rings.pomodoro.target} seans ({activeSummary.rings.pomodoro.current * 25} dk)
               </span>
             </div>
             <div className="mobile-metric-bar">
               <div
                 className="mobile-metric-fill"
                 style={{
-                  width: `${Math.min(100, Math.round(todaySummary.rings.pomodoro.rawProgress * 100))}%`,
+                  width: `${Math.min(100, Math.round(activeSummary.rings.pomodoro.rawProgress * 100))}%`,
                   background: "#f97316",
                 }}
               />
@@ -232,14 +243,14 @@ export function MobileActivityOverview({ onBack, records, state }: Props) {
             <div className="mobile-metric-text">
               <span style={{ color: "#06b6d4", fontWeight: 700 }}>✅ Görevler</span>
               <span style={{ color: "#06b6d4", fontWeight: 700 }}>
-                {todaySummary.rings.tasks.current}/{todaySummary.rings.tasks.target} görev
+                {activeSummary.rings.tasks.current}/{activeSummary.rings.tasks.target} görev
               </span>
             </div>
             <div className="mobile-metric-bar">
               <div
                 className="mobile-metric-fill"
                 style={{
-                  width: `${Math.min(100, Math.round(todaySummary.rings.tasks.rawProgress * 100))}%`,
+                  width: `${Math.min(100, Math.round(activeSummary.rings.tasks.rawProgress * 100))}%`,
                   background: "#06b6d4",
                 }}
               />

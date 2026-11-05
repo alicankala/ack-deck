@@ -348,3 +348,37 @@ test('dorm menu client cache enforces freshness: skips fetch when today menu pre
   env.storage.setItem(dorm.DORM_MENU_LAST_FETCH_KEY, String(Date.now() - 3 * 3600 * 1000));
   assert.equal(dorm.isDormMenuFresh('2026-11-05'), false);
 });
+
+test('media items validate IMDb ratings, IDs and timestamps safely', () => {
+  const env = setupModules();
+  const media = env.load('../shared/media');
+
+  const validMovie = {
+    id: 'm-1',
+    type: 'movie',
+    title: 'Interstellar',
+    status: 'completed',
+    rating: 9,
+    year: '2014',
+    creator: 'Christopher Nolan',
+    posterUrl: 'https://example.com/poster.jpg',
+    imdbId: 'tt0816692',
+    imdbRating: 8.7,
+    imdbUpdatedAt: Date.now(),
+    createdAt: 1000,
+    updatedAt: 1000,
+  };
+
+  assert.equal(media.validMediaItem(validMovie), true);
+
+  // Invalid imdbId format
+  assert.equal(media.validMediaItem({ ...validMovie, imdbId: 'invalid-id' }), false);
+  assert.equal(media.validMediaItem({ ...validMovie, imdbId: 'tt123' }), false); // too short
+
+  // Invalid imdbRating bounds
+  assert.equal(media.validMediaItem({ ...validMovie, imdbRating: 11 }), false);
+  assert.equal(media.validMediaItem({ ...validMovie, imdbRating: -1 }), false);
+
+  // Disallowed arbitrary properties rejected
+  assert.equal(media.validMediaItem({ ...validMovie, maliciousField: 'hack' }), false);
+});

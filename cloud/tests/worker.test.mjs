@@ -433,3 +433,18 @@ test('/api/dorm-menu serves from KV cache, avoiding redundant Altinkalem fetches
   // No outbound HTTP fetch to Altinkalem was triggered!
   assert.equal(outbound.length, initialOutboundCount);
 });
+
+test('/api/media-rating validates IMDb IDs and serves from KV cache', async () => {
+  // 1. Invalid IMDb ID format rejected with 400
+  const invalidRes = await mf.dispatchFetch('https://ack.example/api/media-rating?imdbId=invalid');
+  assert.equal(invalidRes.status, 400);
+
+  // 2. Pre-seed KV cache with Inception rating
+  await kv.put('imdb-rating:tt1375666', '8.8');
+  const cachedRes = await mf.dispatchFetch('https://ack.example/api/media-rating?imdbId=tt1375666');
+  assert.equal(cachedRes.status, 200);
+  const json = await cachedRes.json();
+  assert.equal(json.ok, true);
+  assert.equal(json.rating, 8.8);
+  assert.equal(json.cached, true);
+});

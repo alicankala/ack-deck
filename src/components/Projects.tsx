@@ -31,6 +31,7 @@ export function Projects({ projects, onChange, fullPage = false, initialId, init
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [toolTab, setToolTab] = useState<"converter" | "speed" | "ip" | "qr">(initialTool || "speed");
+  useEffect(() => { if (initialTool) setToolTab(initialTool); }, [initialTool]);
   const [viewMode, setViewMode] = useState<ViewMode>("split");
 
   function startEdit(project?: Project) {

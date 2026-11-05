@@ -6,7 +6,7 @@ import {
   MEDIA_TYPE_ICONS,
   newMediaItem,
 } from "../../shared/media";
-import { proxyPosterUrl, searchMediaCatalog } from "../../shared/mediaSearch";
+import { proxyPosterUrl, searchMediaCatalog, fetchMediaRating } from "../../shared/mediaSearch";
 import { api, json, type MobileState } from "./store";
 
 type Props = {

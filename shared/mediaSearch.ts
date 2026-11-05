@@ -7,6 +7,8 @@ export type MediaSearchCandidate = {
   posterUrl?: string;
   progressHint?: string;
   suggestedType?: MediaType;
+  imdbId?: string;
+  imdbRating?: number;
 };
 
 export async function searchMediaCatalog(
@@ -68,4 +70,39 @@ export function proxyPosterUrl(url?: string): string | undefined {
       : `https://ack-deck-phone.ack-deck-cloud.workers.dev/api/image-proxy?url=${encodeURIComponent(url)}`;
   }
   return url;
+}
+
+export async function fetchMediaRating(
+  imdbId: string,
+  signal?: AbortSignal,
+): Promise<number | undefined> {
+  const cleanId = (imdbId || "").trim();
+  if (!/^tt\d{5,12}$/.test(cleanId)) return undefined;
+
+  const params = `imdbId=${encodeURIComponent(cleanId)}`;
+  const loc = (globalThis as { location?: { hostname?: string } }).location;
+  const isWorkersOrigin = Boolean(loc?.hostname?.endsWith(".workers.dev"));
+  const urls = isWorkersOrigin
+    ? [`/api/media-rating?${params}`]
+    : [
+        `https://ack-deck-phone.ack-deck-cloud.workers.dev/api/media-rating?${params}`,
+        `/api/media-rating?${params}`,
+      ];
+
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        headers: { Accept: "application/json" },
+        signal,
+      });
+      if (!res.ok) continue;
+      const json = (await res.json()) as { ok?: boolean; rating?: number };
+      if (json?.ok && typeof json.rating === "number" && json.rating > 0) {
+        return json.rating;
+      }
+    } catch (err) {
+      if ((err as { name?: string })?.name === "AbortError") return undefined;
+    }
+  }
+  return undefined;
 }
