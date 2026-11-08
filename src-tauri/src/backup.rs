@@ -32,6 +32,17 @@ pub(crate) fn valid_envelope(content: &str) -> bool {
         .is_some_and(|version| version == 1 || version == 2)
         && value.get("data").is_some_and(|value| value.is_object())
 }
+pub fn get_backup_dir(app: &tauri::AppHandle) -> std::path::PathBuf {
+    use tauri::Manager;
+    let dir = app
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default())
+        .join("auto-backups");
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
 #[tauri::command]
 pub async fn save_backup(
     app: tauri::AppHandle,
@@ -45,12 +56,14 @@ pub async fn save_backup(
     {
         return Err("Yedek verileri geçersiz veya gizli anahtar içeriyor.".into());
     }
+    let default_dir = get_backup_dir(&app);
     tauri::async_runtime::spawn_blocking(move || {
         let Some(file) = app
             .dialog()
             .file()
             .add_filter("JSON", &["json"])
             .set_file_name(file_name)
+            .set_directory(default_dir)
             .set_title("ACKDeck yedeğini kaydet")
             .blocking_save_file()
         else {
@@ -98,11 +111,13 @@ pub async fn save_backup(
 }
 #[tauri::command]
 pub async fn choose_backup(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let default_dir = get_backup_dir(&app);
     tauri::async_runtime::spawn_blocking(move || {
         let Some(file) = app
             .dialog()
             .file()
             .add_filter("JSON", &["json"])
+            .set_directory(default_dir)
             .set_title("ACKDeck yedeğini seç")
             .blocking_pick_file()
         else {
@@ -178,17 +193,21 @@ pub async fn save_auto_backup(
 
 #[tauri::command]
 pub async fn open_auto_backup_dir(app: tauri::AppHandle) -> Result<(), String> {
-    use tauri::Manager;
-    let base_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|_| "Uygulama veri dizinine erişilemedi.")?
-        .join("auto-backups");
+    let base_dir = get_backup_dir(&app);
 
-    std::fs::create_dir_all(&base_dir).map_err(|_| "Yedekleme dizini oluşturulamadı.")?;
-
-    tauri_plugin_opener::reveal_item_in_dir(base_dir)
-        .map_err(|_| "Yedekleme klasörü Explorer'da açılamadı.".to_string())
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&base_dir)
+            .spawn()
+            .map_err(|e| format!("Explorer başlatılamadı: {}", e))?;
+        Ok(())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        tauri_plugin_opener::open_path(base_dir.to_string_lossy().as_ref(), None::<&str>)
+            .map_err(|_| "Yedekleme klasörü açılamadı.".to_string())
+    }
 }
 
 #[tauri::command]

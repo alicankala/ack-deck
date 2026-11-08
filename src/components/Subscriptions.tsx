@@ -230,7 +230,7 @@ export function Subscriptions({ compact = false, onOpen, initialId }: { compact?
                     {isPaused ? "Duraklatıldı" : isCancelled ? "İptal Edildi" : s.autoRenew ? "Otomatik Yenileniyor" : "Manuel Ödeme"}
                   </span>
                   <span className="sub-date-pill">
-                    {paymentLabel(s)}
+                    · {paymentLabel(s)}
                   </span>
                 </div>
               </button>

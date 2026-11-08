@@ -340,12 +340,51 @@
 .main-content .task-item { padding:.75rem 1rem; gap:.85rem; align-items:center; }
 .main-content .task-item .task-meta { display:block; margin-top:.35rem; line-height:1.6; }
 .main-content .task-filters { padding:.9rem; gap:.4rem; }
-.main-content .subscriptions-page { width: 100% !important; max-width: 100% !important; margin: 0 !important; }
-.main-content .subscription-summary { width: 100% !important; max-width: 100% !important; padding:1.25rem; gap:.85rem; }
-.main-content .subscription-list { width: 100% !important; max-width: 100% !important; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr)); gap: 1rem; }
-.main-content .subscription-row { padding:1.1rem 1.25rem; gap:1rem; height: 100%; align-items: center; }
-.main-content .subscription-info h2 { margin:0 0 .4rem; }
-.main-content .subscription-info p { margin:.25rem 0; }
+.main-content .subscriptions-page { width: 100% !important; max-width: 100% !important; margin: 0 !important; display: flex; flex-direction: column; gap: 1.35rem; }
+.main-content .section-heading-titles { display: flex; flex-direction: column; gap: 0.25rem; }
+.main-content .section-subtext { margin: 0; font-size: 0.88rem; color: #8da4b5; }
+
+/* 3'lu KPI Grid */
+.subscriptions-kpi-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.15rem; width: 100%; }
+.subscriptions-kpi-card { padding: 1.25rem 1.4rem; border-radius: 1rem; border: 1px solid rgba(255, 255, 255, 0.07); display: flex; flex-direction: column; gap: 0.75rem; background: linear-gradient(180deg, rgba(23, 32, 42, 0.7) 0%, rgba(15, 23, 31, 0.9) 100%); }
+.subscriptions-kpi-header { display: flex; justify-content: space-between; align-items: center; }
+.subscriptions-kpi-header .kpi-label { font-size: 0.83rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #8da4b5; }
+.subscriptions-kpi-header .kpi-icon-pill { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; background: rgba(56, 189, 248, 0.12); color: #38bdf8; }
+.subscriptions-kpi-header .kpi-status-badge { font-size: 0.78rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 9999px; }
+.kpi-status-badge.badge-active { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.25); }
+.kpi-status-badge.badge-empty { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+.subscriptions-kpi-value { display: flex; align-items: baseline; gap: 0.6rem; min-height: 2.2rem; }
+.subscriptions-kpi-value .kpi-amount { font-size: 1.65rem; font-weight: 700; color: #f8fafc; letter-spacing: -0.02em; }
+.subscriptions-kpi-value .kpi-amount small { font-size: 0.9rem; font-weight: 500; color: #8da4b5; margin-left: 0.25rem; }
+.subscriptions-kpi-value .kpi-upcoming-name { font-size: 1.25rem; font-weight: 600; color: #f8fafc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.subscriptions-kpi-value .kpi-empty-text { font-size: 1rem; color: #64748b; font-style: italic; }
+.subscriptions-kpi-card .kpi-hint { margin: 0; font-size: 0.8rem; color: #64748b; line-height: 1.45; }
+.subscriptions-kpi-card .kpi-date-highlight { color: #38bdf8; font-weight: 600; font-size: 0.84rem; }
+/* Kart Listesi */
+.main-content .subscription-list { width: 100% !important; max-width: 100% !important; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 25rem), 1fr)); gap: 1.15rem; }
+.main-content .subscription-row { padding: 1.25rem; gap: 1.15rem; border-radius: 1rem; border: 1px solid rgba(255, 255, 255, 0.06); background: rgba(18, 26, 36, 0.7); display: flex; align-items: center; transition: border-color 0.18s ease, transform 0.18s ease; }
+.main-content .subscription-row:hover { border-color: rgba(56, 189, 248, 0.25); }
+.main-content .subscription-row.sub-paused { opacity: 0.65; }
+.main-content .subscription-initial { width: 44px; height: 44px; border-radius: 12px; font-size: 1.25rem; font-weight: 700; background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(99, 102, 241, 0.18)); border: 1px solid rgba(56, 189, 248, 0.25); color: #38bdf8; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.main-content .subscription-info { flex: 1; min-width: 0; background: transparent; border: none; padding: 0; text-align: left; cursor: pointer; color: inherit; }
+.main-content .subscription-main-row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; margin-bottom: 0.45rem; }
+.main-content .subscription-title { margin: 0; font-size: 1.1rem; font-weight: 600; color: #f8fafc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.main-content .subscription-cost { font-size: 1.05rem; font-weight: 700; color: #38bdf8; white-space: nowrap; }
+.main-content .subscription-cost small { font-size: 0.78rem; font-weight: 500; color: #8da4b5; }
+.main-content .subscription-meta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+.sub-status-pill { font-size: 0.72rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 6px; }
+.sub-status-pill.pill-active { background: rgba(34, 197, 94, 0.12); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); }
+.sub-status-pill.pill-paused { background: rgba(234, 179, 8, 0.12); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.2); }
+.sub-status-pill.pill-cancelled { background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
+.sub-date-pill { font-size: 0.78rem; color: #94a3b8; }
+
+/* Bos Durum */
+.subscriptions-empty-box { width: 100%; padding: 3.5rem 2rem; border-radius: 1.25rem; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.85rem; border: 1px dashed rgba(255, 255, 255, 0.1); }
+.subscriptions-empty-box .empty-title { margin: 0; font-size: 1.25rem; font-weight: 600; color: #f8fafc; }
+.subscriptions-empty-box .empty-desc { margin: 0; font-size: 0.9rem; color: #8da4b5; max-width: 28rem; line-height: 1.5; }
+
+
+
 .main-content .ai-history-layout { max-width:100%; width:100%; margin-inline:0; grid-template-columns:minmax(18rem,22%) minmax(0,1fr); gap:1.25rem; align-items:stretch; }
 .main-content .conversation-history { padding:1.1rem; max-height:calc(100dvh - 11rem); overflow:auto; align-self:start; }
 .main-content .conversation-history h2 { margin:0 0 .9rem; font-size:1.15rem; }

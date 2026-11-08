@@ -112,23 +112,7 @@ export function MobileSendView({
   return (
     <div className="more-sections-container send-view-container">
       <div className="send-tab-header">
-        <div className="mobile-segmented-bar send-toggle-bar">
-          <button
-            type="button"
-            className={`segment-btn ${sendTab === "ai" ? "is-active" : ""}`}
-            onClick={() => setSendTab("ai")}
-          >
-            💬 ACK AI Sohbet
-          </button>
-          <button
-            type="button"
-            className={`segment-btn ${sendTab === "send" ? "is-active" : ""}`}
-            onClick={() => setSendTab("send")}
-          >
-            📤 PC'ye Gönder
-          </button>
-        </div>
-
+        <h2>{sendTab === "ai" ? "ACK AI Sohbeti" : "PC'ye Gönder"}</h2>
         <button
           type="button"
           className="settings-open-btn"
@@ -137,6 +121,23 @@ export function MobileSendView({
         >
           <Icon name="settings" size={17} />
           <span>Ayarlar</span>
+        </button>
+      </div>
+
+      <div className="mobile-segmented-bar send-toggle-bar">
+        <button
+          type="button"
+          className={`segment-btn ${sendTab === "ai" ? "is-active" : ""}`}
+          onClick={() => setSendTab("ai")}
+        >
+          💬 ACK AI Sohbet
+        </button>
+        <button
+          type="button"
+          className={`segment-btn ${sendTab === "send" ? "is-active" : ""}`}
+          onClick={() => setSendTab("send")}
+        >
+          📤 PC'ye Gönder
         </button>
       </div>
 

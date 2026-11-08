@@ -52,6 +52,7 @@ fn main() {
             "save_backup",
             "choose_backup",
             "save_auto_backup",
+            "open_auto_backup_dir",
             "save_portable_backup",
             "choose_portable_backup",
             "prepare_portable_restore",

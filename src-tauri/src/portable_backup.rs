@@ -290,12 +290,19 @@ pub async fn save_portable_backup(
     content: String,
 ) -> Result<Option<usize>, String> {
     main_only(&window)?;
+    let default_dir = crate::backup::get_backup_dir(&app);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let default_file_name = format!("ACKDeck-Backup-{}.zip", now);
     tauri::async_runtime::spawn_blocking(move || {
         let Some(file) = app
             .dialog()
             .file()
             .add_filter("ACKDeck dosyalı yedek", &["zip"])
-            .set_file_name("ACKDeck-Backup.zip")
+            .set_file_name(default_file_name)
+            .set_directory(default_dir)
             .set_title("Dosyalı ACKDeck yedeğini kaydet")
             .blocking_save_file()
         else {
@@ -322,11 +329,13 @@ pub async fn choose_portable_backup(
     window: tauri::WebviewWindow,
 ) -> Result<Option<Preview>, String> {
     main_only(&window)?;
+    let default_dir = crate::backup::get_backup_dir(&app);
     tauri::async_runtime::spawn_blocking(move || {
         let Some(file) = app
             .dialog()
             .file()
             .add_filter("ACKDeck yedek", &["zip", "json"])
+            .set_directory(default_dir)
             .set_title("ACKDeck yedeğini seç")
             .blocking_pick_file()
         else {
