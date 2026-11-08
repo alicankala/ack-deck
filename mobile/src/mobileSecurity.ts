@@ -191,6 +191,10 @@ export async function registerBiometrics(): Promise<string> {
 
 let biometricsInFlight = false;
 
+export function isBiometricsInFlight(): boolean {
+  return biometricsInFlight;
+}
+
 export async function authenticateBiometrics(credentialId?: string): Promise<boolean> {
   if (typeof window === "undefined" || !window.PublicKeyCredential) return false;
   if (biometricsInFlight) {
@@ -319,6 +323,9 @@ export function unlockSecurity(): void {
 export function lockSecurity(): void {
   const cfg = loadSecurityConfig();
   if (!cfg.enabled) return;
+
+    // Do not trigger auto-lock while Face ID / biometrics prompt is active
+    if (biometricsInFlight) return;
   window.sessionStorage.removeItem(SESSION_UNLOCKED_KEY);
   window.dispatchEvent(new Event("ack-mobile-lock-state-changed"));
 }

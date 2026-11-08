@@ -256,7 +256,6 @@ export function MobileToasts(props: {
 
       {notice && (
         <div className="mobile-toast" role="status">
-          <span style={{ fontSize: "14px" }}>✨</span>
           <span>{notice}</span>
         </div>
       )}

@@ -29,7 +29,8 @@ self.addEventListener('push', event => {
       url = data.url;
     }
   }
-  event.waitUntil(self.registration.showNotification('ACKDeck', {body:data.body.slice(0,600),tag:String(data.tag || 'ackdeck'),icon:'/icon-192.png',badge:'/icon-192.png',data:{url}}));
+  const title = (typeof data.title === 'string' && data.title) ? data.title : 'ACKDeck';
+  event.waitUntil(self.registration.showNotification(title, {body:data.body.slice(0,600),tag:String(data.tag || 'ackdeck'),icon:'/icon-192.png',badge:'/icon-192.png',data:{url}}));
 });
 self.addEventListener('notificationclick', event => {
   event.notification.close();

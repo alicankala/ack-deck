@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useId, useRef } from "react";
 import { emptyState, saveState } from "./store";
 import {
   loadSecurityConfig,
+  isSecurityLocked,
   verifySecurityPasscode,
   authenticateBiometrics,
   unlockSecurity,
@@ -11,6 +12,16 @@ import {
   resetFailedAttempts,
   type MobileSecurityConfig,
 } from "./mobileSecurity";
+
+let globalBiometricsPrompted = false;
+
+if (typeof window !== "undefined") {
+  window.addEventListener("ack-mobile-lock-state-changed", () => {
+    if (isSecurityLocked()) {
+      globalBiometricsPrompted = false;
+    }
+  });
+}
 
 export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
   const [config, setConfig] = useState<MobileSecurityConfig>(loadSecurityConfig);
@@ -75,26 +86,20 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
     void performBioAuth(config.biometricsCredentialId);
   }, [config.biometricsEnabled, config.biometricsCredentialId, lockoutSec, performBioAuth]);
 
-  // Attempt Face ID automatically once on mount if biometrics is enabled
+  // Attempt Face ID automatically once on mount if biometrics is enabled (strictly once, no double-prompting)
   useEffect(() => {
-    if (autoPromptedRef.current) return;
+    if (autoPromptedRef.current || globalBiometricsPrompted) return;
     const cfg = loadSecurityConfig();
     if (!cfg.enabled || !cfg.biometricsEnabled || getLockoutRemainingSeconds() > 0) return;
 
     autoPromptedRef.current = true;
     let cancelled = false;
 
-    // Use 380ms delay for iOS WebKit initial presentation, with a single fallback retry at 750ms if context was not ready
+    // Prompt once on initial mount after view transition
     const timer = setTimeout(async () => {
       if (cancelled) return;
-      const ok = await performBioAuth(cfg.biometricsCredentialId);
-      if (!ok && !cancelled && getLockoutRemainingSeconds() <= 0) {
-        const retryTimer = setTimeout(() => {
-          if (!cancelled) void performBioAuth(cfg.biometricsCredentialId);
-        }, 370);
-        return () => clearTimeout(retryTimer);
-      }
-    }, 380);
+      await performBioAuth(cfg.biometricsCredentialId);
+    }, 280);
 
     return () => {
       cancelled = true;

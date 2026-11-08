@@ -172,7 +172,11 @@
   border: 1px solid var(--app-border);
   border-radius: 12px;
   padding: 10px 12px;
-  transition: all 0.15s ease;
+  transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.12s ease, opacity 0.15s ease;
+}
+
+.mobile-task-item:active {
+  transform: scale(0.985);
 }
 
 .mobile-task-item.completed {

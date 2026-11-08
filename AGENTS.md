@@ -21,8 +21,9 @@ ACKDeck is a personal, local-first Windows desktop application and companion mob
 
 > [!IMPORTANT]
 > **RUTİNLER VE CANLIYA ALMA DİSİPLİNİ:**
-> 1. Kullanıcı açıkça **"rutinleri yap"** dediyse: Tüm adımları eksiksiz uygula:
->    - **Testler:** Tüm testleri çalıştır (`tests/`, `mobile/tests/`, `cloud/tests/`).
+> 1. **Gereksiz Test Tekrarı Yasağı:** Eğer kodda yeni bir değişiklik yapılmadıysa ve ilgili testler bir önceki adımda zaten başarıyla geçmişse, deploy veya release sırasında testleri İKİNCİ KEZ TEKRARLAMA; doğrudan bir sonraki aşamaya geç. Yalnızca kod değiştiyse veya testler henüz koşulmadıysa çalıştır.
+> 2. Kullanıcı açıkça **"rutinleri yap"** dediyse: Tüm adımları eksiksiz uygula:
+>    - **Testler:** Testleri çalıştır (`tests/`, `mobile/tests/`, `cloud/tests/`) (eğer az önce zaten koşulmadıysa).
 >    - **Sürüm Eşitlemesi (Version Bump):** Sürüm yükseltildiğinde 5 dosyada birden eşitlenmelidir: `package.json`, `mobile/package.json`, `cloud/package.json`, `src-tauri/tauri.conf.json` ve **`src-tauri/Cargo.toml`** (Cargo güncellenmezse masaüstü sürüm yanlış görünür).
 >    - **Windows Installer & Release Derleme:**
 >      - İmza anahtarı: `$env:TAURI_SIGNING_PRIVATE_KEY = Join-Path $env:USERPROFILE '.tauri/ack-deck-updater.key'` ve `$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ''`
@@ -32,8 +33,8 @@ ACKDeck is a personal, local-first Windows desktop application and companion mob
 >      - `gh release create v<sürüm>` ile setup `.exe`, `.exe.sig`, `.msi` ve `latest.json` dosyalarını GitHub Release'e yükle.
 >    - **Cloudflare Worker:** `cloud/` dizininde `npx wrangler deploy` ile worker'ı canlıya al.
 >    - **Git:** Değişiklikleri anlamlı bir mesajla `git commit` et ve `git push` ile `origin/main`e gönder.
-> 2. Kullanıcı açıkça **"mobili canlıya al"** dediyse: YALNIZCA mobil ve bulut testlerini çalıştır, sadece Cloudflare Worker'ı canlıya al (`wrangler deploy`). Masaüstü release veya genel push yapma.
-> 3. Kullanıcı bunlardan birini veya benzerini açıkça **demediği sürece**: Canlıya alma, deployment, git commit veya git push işlemlerini **ASLA kendiliğinden yapma**. Kodları hazırla, testleri doğrula ve kullanıcı talimatını bekle.
+> 3. Kullanıcı açıkça **"mobili canlıya al"** dediyse: YALNIZCA mobil ve bulut testlerini çalıştır (eğer az önce zaten koşulmadıysa) ve Cloudflare Worker'ı doğrudan canlıya al (`wrangler deploy`). Masaüstü release veya genel push yapma.
+> 4. Kullanıcı bunlardan birini veya benzerini açıkça **demediği sürece**: Canlıya alma, deployment, git commit veya git push işlemlerini **ASLA kendiliğinden yapma**. Kodları hazırla, testleri doğrula ve kullanıcı talimatını bekle.
 
 ---
 

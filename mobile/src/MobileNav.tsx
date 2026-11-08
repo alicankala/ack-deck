@@ -1,4 +1,5 @@
 import { Icon, type IconName } from "./Icon";
+import { hapticLight } from "./haptics";
 
 export type MobileTabId = "today" | "plan" | "media" | "notes" | "send";
 
@@ -31,7 +32,10 @@ export function MobileNav({
             key={tab.id}
             className={`mobile-nav-btn ${active ? "is-active" : ""}`}
             aria-current={active ? "page" : undefined}
-            onClick={() => onChange(tab.id)}
+            onClick={() => {
+              hapticLight();
+              onChange(tab.id);
+            }}
           >
             <Icon name={tab.icon} size={22} />
             <span>{tab.label}</span>

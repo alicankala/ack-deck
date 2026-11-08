@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { hapticSuccess, hapticLight } from "./haptics";
 import {
   calculatePrayerTimes,
   formatRemainingTime,
@@ -90,6 +91,11 @@ export function MobilePrayerCard({
   function cyclePrayerStatus(name: TrackedPrayerName) {
     const current = currentLog.prayers[name] ?? "missed";
     const nextStatus: PrayerStatus = current === "prayed" ? "missed" : "prayed";
+    if (nextStatus === "prayed") {
+      hapticSuccess();
+    } else {
+      hapticLight();
+    }
     void saveDayLog({
       ...currentLog,
       prayers: {

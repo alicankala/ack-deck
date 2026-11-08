@@ -249,6 +249,10 @@
   justify-content: center;
   gap: 2px;
   color: var(--app-secondary);
+  transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.12s ease, border-color 0.12s ease;
+}
+.mobile-check-pill:active {
+  transform: scale(0.92);
 }
 .pill-mark {
   font-size: 13px;

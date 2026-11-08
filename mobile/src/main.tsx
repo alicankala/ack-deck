@@ -129,7 +129,7 @@ function App() {
 
   useEffect(() => {
     if (!notice) return;
-    const timer = setTimeout(() => setNotice(""), 4000);
+    const timer = setTimeout(() => setNotice(""), 1600);
     return () => clearTimeout(timer);
   }, [notice]);
 
@@ -319,7 +319,7 @@ function App() {
           minute: "2-digit",
           second: "2-digit",
         });
-        setNotice(next.conflicts.length ? "Eşitleme çakışması var; iki sürüm de korundu." : `Eşitlendi (${timeStr})`);
+        setNotice(next.conflicts.length ? "Eşitleme çakışması var; iki sürüm de korundu." : "Eşitlendi");
       } else if (next.conflicts.length) {
         setNotice("Eşitleme çakışması var; iki sürüm de korundu.");
       }
@@ -803,6 +803,14 @@ function App() {
     }
   }
 
+  if (isLocked) {
+    return <MobileLockScreen onUnlock={() => setIsLocked(false)} />;
+  }
+
+  if (!ready) {
+    return <main className="mobile-app" style={{ background: "var(--app-bg)", minHeight: "100vh" }} />;
+  }
+
   if (!state.token) {
     return (
       <MobilePairingScreen
@@ -1274,8 +1282,6 @@ function App() {
       )}
 
       <MobileNav page={page} onChange={changePage} />
-
-      {isLocked && <MobileLockScreen onUnlock={() => setIsLocked(false)} />}
     </main>
   );
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { hapticSuccess, hapticLight } from "./haptics";
 import { ActionMenu } from "../../src/components/ActionMenu";
 import {
   completedTaskSortTime,
@@ -192,7 +193,7 @@ export function MobileTasksCard({
                   <button
                     type="button"
                     className={`mobile-task-toggle study-status-toggle ${status === "attended" ? "is-attended" : status === "skipped" ? "is-skipped" : ""}`}
-                    onClick={() => onToggleStudyBlock(block.id)}
+                    onClick={() => { hapticLight(); onToggleStudyBlock(block.id); }}
                     aria-label={`${block.label}: ${status === undefined ? "Çalıştım olarak işaretle" : status === "attended" ? "Çalışmadım olarak işaretle" : "Durumu sıfırla"}`}
                     title="1 tık: Çalıştım · 2 tık: Çalışmadım · 3 tık: Sıfırla"
                   >
@@ -205,7 +206,7 @@ export function MobileTasksCard({
                   <button
                     type="button"
                     className="mobile-task-content"
-                    onClick={() => onToggleStudyBlock(block.id)}
+                    onClick={() => { hapticLight(); onToggleStudyBlock(block.id); }}
                   >
                     <strong>{block.label}{block.topic ? ` · ${block.topic}` : ""}</strong>
                     <small>
@@ -237,7 +238,7 @@ export function MobileTasksCard({
                     type="button"
                     className="mobile-task-toggle"
                     disabled={busy}
-                    onClick={() => onCompleteTask(row)}
+                    onClick={() => { if (!isTaskDone) hapticSuccess(); else hapticLight(); onCompleteTask(row); }}
                     aria-label={isTaskDone ? "Görevi yeniden aç" : "Tamamlandı olarak işaretle"}
                   >
                     {isTaskDone && <Icon name="check" size={12} />}
@@ -274,14 +275,14 @@ export function MobileTasksCard({
                       type="button"
                       className="mobile-task-reopen-btn"
                       disabled={busy}
-                      onClick={() => onCompleteTask(row)}
+                      onClick={() => { if (!isTaskDone) hapticSuccess(); else hapticLight(); onCompleteTask(row); }}
                     >
                       Yeniden Aç
                     </button>
                   )}
                   <ActionMenu label={task.text + " işlemleri"}>
                     {isTaskDone ? (
-                      <button disabled={busy} onClick={() => onCompleteTask(row)}>Yeniden Aç</button>
+                      <button disabled={busy} onClick={() => { if (!isTaskDone) hapticSuccess(); else hapticLight(); onCompleteTask(row); }}>Yeniden Aç</button>
                     ) : (
                       <>
                         <button disabled={busy} onClick={() => onSnoozeTask(row, 15)}>15 dk ertele</button>
