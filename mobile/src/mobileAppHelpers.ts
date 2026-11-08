@@ -12,7 +12,7 @@ import {
   type AttendanceEntry,
 } from "../../shared/studyAttendance";
 import { loadMedia } from "../../src/mediaStore";
-import { loadPrayerConfig, lookupTurkeyCity } from "../../shared/prayerTimes";
+import { loadPrayerConfig, savePrayerConfig, lookupTurkeyCity } from "../../shared/prayerTimes";
 import { fetchMobileWeather, loadWeatherCache, type WeatherData } from "../../shared/weather";
 import type { CloudRecord, Mutation, PhoneTask } from "../../shared/phone";
 import { enqueue, saveState, type MobileState } from "./store";
@@ -171,14 +171,31 @@ export function useMobileWeather(onNotice: (msg: string) => void) {
   }, []);
 
   async function handleMobileChangeCity(newCity: string) {
-    localStorage.setItem("ack-deck.weather-city.v1", newCity);
+    try {
+      localStorage.setItem("ack-deck.weather-city.v1", JSON.stringify(newCity));
+    } catch {}
     const cityData = lookupTurkeyCity(newCity) || { city: newCity, lat: 41.20488, lng: 32.62768 };
     const w = await fetchMobileWeather(cityData.city, cityData.lat, cityData.lng);
     if (w) setWeather(w);
-    onNotice(`Hava durumu konumu ${newCity} olarak güncellendi.`);
+
+    // Namaz vakitlerini de aynı şehre eşitle
+    try {
+      const currentPrayer = loadPrayerConfig();
+      const nextPrayer = {
+        ...currentPrayer,
+        city: cityData.city,
+        latitude: cityData.lat,
+        longitude: cityData.lng,
+      };
+      savePrayerConfig(nextPrayer);
+      window.dispatchEvent(new Event("ack-prayer-config-changed"));
+    } catch {}
+
+    window.dispatchEvent(new Event("ack-weather-city-changed"));
+    onNotice(`Konum ve hava durumu ${newCity} olarak güncellendi.`);
   }
 
-  return { weather, weatherModalOpen, setWeatherModalOpen, handleMobileChangeCity };
+  return { weather, weatherModalOpen, setWeatherModalOpen };
 }
 
 export function useMobileStudyAttendance(params: {

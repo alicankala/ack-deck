@@ -1,25 +1,267 @@
-import { ActionMenu } from "./ActionMenu";
 import { useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { PHONE_WORKER_URL } from "../phoneDeployment";
 import { toDataURL } from "qrcode";
 import { configurePhone, phoneRequest, phoneStatus, type PhoneStatus } from "../phoneClient";
 import { readPhoneSync, resolvePhoneConflict, synchronizePhone } from "../phoneSync";
-type Device={id:string;name:string;lastSeen:number;notifications:number|null};
-export function PhoneSettings(){
-  const [status,setStatus]=useState<PhoneStatus|null>(null),[url,setUrl]=useState(""),[feedback,setFeedback]=useState(""),[busy,setBusy]=useState(false),[confirm,setConfirm]=useState(false),[devices,setDevices]=useState<Device[]>([]),[pair,setPair]=useState<{url:string;code:string;expiresAt:number}|null>(null),[qr,setQr]=useState(""),[remaining,setRemaining]=useState(0),[sync,setSync]=useState(()=>{try{return readPhoneSync();}catch{return null;}});
-  const busyRef=useRef(false);
-  useEffect(()=>{let active=true;void phoneStatus().then(value=>{if(active){setStatus(value);setUrl(value.url || PHONE_WORKER_URL);if(value.enabled)void phoneRequest<{devices:Device[]}>("devices").then(result=>active&&setDevices(result.devices)).catch(()=>{});}}).catch(()=>setFeedback("Telefon ayarları okunamadı."));const configured=()=>{void phoneStatus().then(value=>{if(active){setStatus(value);setUrl(value.url || PHONE_WORKER_URL);}}).catch(()=>{});};window.addEventListener("ack-phone-configured",configured);const refresh=()=>{try{setSync(readPhoneSync());}catch{setFeedback("Telefon eşitleme kaydı okunamadı. Mevcut veriler korunuyor.");}};window.addEventListener("ack-phone-sync-status",refresh);return()=>{active=false;window.removeEventListener("ack-phone-configured",configured);window.removeEventListener("ack-phone-sync-status",refresh);};},[]);
-  useEffect(()=>{if(!pair)return;const update=()=>setRemaining(Math.max(0,Math.ceil((pair.expiresAt-Date.now())/1000)));update();const timer=setInterval(update,1000);return()=>clearInterval(timer);},[pair]);
-  async function action(fn:()=>Promise<void>){if(busyRef.current)return;busyRef.current=true;setBusy(true);setFeedback("");try{await fn();}catch(error){const msg=error instanceof Error?error.message:typeof error==="string"?error:"Telefon işlemi tamamlanamadı.";setFeedback(msg);}finally{busyRef.current=false;setBusy(false);}}
-  async function enable(){await configurePhone(url.trim(),true);window.localStorage.removeItem("ack-deck.phone-restore-review.v1");const next=await phoneStatus();setStatus(next);setConfirm(false);window.dispatchEvent(new Event("ack-phone-configured"));setFeedback("Telefon entegrasyonu etkinleştirildi. Eşitleme başlatılıyor.");}
-  return <section className="settings-card surface local-settings"><h2>Telefon</h2><p className="task-hint">Telefon bağlantısı: {status?.enabled?"Açık":"Kapalı"}</p><section className="settings-subsection" aria-label="Bağlantı adresi"><label className="archive-field">Telefon bağlantı adresi<input type="url" value={url} onChange={event=>setUrl(event.target.value)} placeholder="https://ack-deck-phone.…workers.dev" disabled={busy||status?.enabled}/></label><p className="task-hint">Mevcut telefon bağlantısı bu adresi kullanır. Eşleştirilmiş telefonunu kullanmak için adresi değiştirmen gerekmez.</p></section>
-    <section className="settings-subsection"><h3>Bulutta tutulanlar ve gizlilik</h3><p className="task-hint">Görevler, tekrar kuralları, abonelik ad/tutar/para birimi/yenileme/hatırlatma bilgileri, notlar, telefon gelenleri, hatırlatma zamanları, eşleştirilmiş cihazlar ve çalışma alanlarının yalnızca ad/kimlik/açıklamaları eşitlenir.</p><p className="task-hint">Gemini anahtarı, ACK AI sohbet geçmişi, dosya/klasör ve program yolları, Credential Manager verileri, arşiv ve diğer bilgisayar dosyaları gönderilmez. Telefon dosyaları yalnızca siz gönderdiğinizde 30 gün saklanır.</p><p className="task-hint">Bilgisayar kapalıyken telefon görevleri/notları ve bulut hatırlatmaları çalışır. Bulut eşitleme ve bildirim için internet gerekir. Windows hatırlatmaları mevcut davranışını korur.</p></section>
-    <div className="settings-actions">{!status?.enabled?<button className="button button-secondary" disabled={busy||!status?.configured} onClick={()=>setConfirm(true)}>Telefon entegrasyonunu etkinleştir</button>:<><button className="button button-secondary" disabled={busy} onClick={()=>void action(async()=>{const result=await phoneRequest<{url:string;code:string;expiresAt:number}>("pair");setPair(result);setQr(await toDataURL(result.url,{width:256,margin:2}));})}>Telefon Eşleştir</button><button className="button button-secondary" disabled={busy} onClick={()=>void action(async()=>{await invoke("phone_provision_mobile_ai");setFeedback("Mobil ACK AI (7/24 Bulut) etkinleştirildi. Telefonunuz PC kapalıyken de doğrudan sohbet edebilir.");})}>Mobil ACK AI (7/24) Etkinleştir</button><ActionMenu label="Telefon işlemleri"><button className="button button-secondary" disabled={busy} onClick={()=>void action(async()=>{await synchronizePhone();setSync(readPhoneSync());setFeedback("Eşitleme tamamlandı.");})}>Senkronizasyonu şimdi çalıştır</button><button className="button button-secondary" disabled={busy} onClick={()=>void action(async()=>{await configurePhone(status.url,false);setStatus(await phoneStatus());window.dispatchEvent(new Event("ack-phone-configured"));setPair(null);setDevices([]);setFeedback("Entegrasyon duraklatıldı. Yerel ve bulut kayıtları silinmedi.");})}>Telefon entegrasyonunu duraklat</button><button className="button button-secondary" disabled={busy} onClick={()=>void action(async()=>{await phoneRequest("status");setDevices((await phoneRequest<{devices:Device[]}>("devices")).devices);setFeedback("Telefon sunucusu hazır.");})}>Bağlantıyı ve cihazları kontrol et</button></ActionMenu></>}</div>
-    {confirm&&<div className="backup-confirm"><h3>Görev, not ve abonelikler buluta eşitlensin mi?</h3><p>Mevcut görev, not ve abonelik bilgileri Cloudflare sunucunuzda tutulacak. Ödeme kartı veya banka bilgisi saklanmaz. İlk yükleme bu onaydan sonra başlar. Gemini anahtarı ve bilgisayar yolları gönderilmez. Yerel silmeler buluta da yansır; aynı kayıttaki eşzamanlı değişiklikler seçim yapmanız için korunur. Yedek geri yüklediyseniz kayıtlarınızı önce kontrol edin.</p><button className="button button-primary" disabled={busy} onClick={()=>void action(enable)}>Onayla ve Etkinleştir</button><button className="button button-secondary" onClick={()=>setConfirm(false)}>İptal</button></div>}
-    {pair&&<div className="phone-pair"><h3>Telefon Eşleştir</h3>{remaining>0?<><img src={qr} alt="ACKDeck Mobile eşleştirme QR kodu"/><p>{remaining} saniye kaldı. Kod tek kullanımlıktır.</p><label className="archive-field">Alternatif eşleştirme kodu<input readOnly value={pair.code}/></label><p>iPhone'da ACKDeck Mobile'ı Ana Ekrana ekleyip açın ve bu kodu girin. Ardından Bildirimleri Aç'ı seçin.</p></>:<p>Eşleştirme kodunun süresi doldu. Yeni kod oluşturun.</p>}</div>}
-    <p className="task-hint">Son senkronizasyon: {sync?.lastSync?new Date(sync.lastSync).toLocaleString("tr-TR"):"Henüz yapılmadı"}</p><h3>Eşleştirilmiş cihazlar</h3>{devices.length?devices.map(device=><div className="phone-device" key={device.id}><div><strong>{device.name}</strong><p>Son erişim: {new Date(device.lastSeen).toLocaleString("tr-TR")} · Bildirimler: {device.notifications?"Açık":"Kapalı"}</p></div><button className="button button-secondary" disabled={busy} onClick={()=>{if(window.confirm(`${device.name} cihazının erişimi kaldırılsın mı? Görev ve notlar silinmez.`))void action(async()=>{await phoneRequest("revoke",{deviceId:device.id});setDevices(devices.filter(row=>row.id!==device.id));});}}>Erişimi Kaldır</button></div>):<p className="task-hint">Görüntülenen eşleştirilmiş cihaz yok.</p>}
-    {sync?.conflicts.map((conflict,index)=><div className="backup-confirm" key={index}><h3>Eşitleme çakışması</h3><p>Yerel ve bulut sürümleri korundu. {conflict.local.data&&"text" in conflict.local.data?conflict.local.data.text:conflict.local.data&&"title" in conflict.local.data?conflict.local.data.title:conflict.local.data&&"name" in conflict.local.data?conflict.local.data.name:"Silinmiş kayıt"}</p><button className="button button-secondary" disabled={busy} onClick={()=>{if(window.confirm("Bu kayıtta bulut sürümü kullanılsın mı?"))void action(async()=>{await resolvePhoneConflict(index,true);setSync(readPhoneSync());});}}>Bulut sürümünü kullan</button><button className="button button-secondary" disabled={busy} onClick={()=>{if(window.confirm("Bu kaydın yerel sürümü buluta gönderilsin mi?"))void action(async()=>{await resolvePhoneConflict(index,false);await synchronizePhone();setSync(readPhoneSync());});}}>Yerel sürümü gönder</button></div>)}
-    {feedback&&<p className="feedback" role="status">{feedback}</p>}
-  </section>;
+
+type Device = { id: string; name: string; lastSeen: number; notifications: number | null };
+
+export function PhoneSettings() {
+  const [status, setStatus] = useState<PhoneStatus | null>(null);
+  const [feedback, setFeedback] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [pair, setPair] = useState<{ url: string; code: string; expiresAt: number } | null>(null);
+  const [qr, setQr] = useState("");
+  const [remaining, setRemaining] = useState(0);
+  const [sync, setSync] = useState(() => {
+    try {
+      return readPhoneSync();
+    } catch {
+      return null;
+    }
+  });
+
+  const busyRef = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    void phoneStatus()
+      .then((val) => {
+        if (!active) return;
+        setStatus(val);
+        if (val.enabled) {
+          void phoneRequest<{ devices: Device[] }>("devices")
+            .then((res) => active && setDevices(res.devices))
+            .catch(() => {});
+        }
+      })
+      .catch(() => setFeedback("Telefon ayarları okunamadı."));
+
+    const configured = () => {
+      void phoneStatus().then((val) => active && setStatus(val)).catch(() => {});
+    };
+    window.addEventListener("ack-phone-configured", configured);
+
+    const refresh = () => {
+      try {
+        setSync(readPhoneSync());
+      } catch {}
+    };
+    window.addEventListener("ack-phone-sync-status", refresh);
+
+    return () => {
+      active = false;
+      window.removeEventListener("ack-phone-configured", configured);
+      window.removeEventListener("ack-phone-sync-status", refresh);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!pair) return;
+    const update = () => setRemaining(Math.max(0, Math.ceil((pair.expiresAt - Date.now()) / 1000)));
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [pair]);
+
+  async function action(fn: () => Promise<void>) {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setFeedback("");
+    try {
+      await fn();
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : typeof error === "string" ? error : "Telefon işlemi tamamlanamadı.";
+      setFeedback(msg);
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }
+
+  async function handleStartPair() {
+    await action(async () => {
+      if (!status?.enabled) {
+        await configurePhone("", true);
+        setStatus(await phoneStatus());
+        window.dispatchEvent(new Event("ack-phone-configured"));
+      }
+      const result = await phoneRequest<{ url: string; code: string; expiresAt: number }>("pair");
+      setPair(result);
+      setQr(await toDataURL(result.url, { width: 220, margin: 2 }));
+    });
+  }
+
+  async function handleRevoke(device: Device) {
+    if (!window.confirm(`${device.name} cihazının erişimi kaldırılsın mı? Görev ve notlar silinmez.`)) return;
+    await action(async () => {
+      await phoneRequest("revoke", { deviceId: device.id });
+      setDevices(devices.filter((row) => row.id !== device.id));
+      setFeedback(`${device.name} cihazının bağlantısı kesildi.`);
+    });
+  }
+
+  return (
+    <section className="settings-card surface local-settings" aria-labelledby="phone-settings-title">
+      <div className="settings-card-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <h2 id="phone-settings-title" style={{ margin: 0 }}>Telefon Eşitleme</h2>
+          <p className="task-hint" style={{ marginTop: "0.25rem" }}>
+            Görevler, notlar ve hatırlatıcılar iPhone ACKDeck Mobile PWA ile güvenli bulut üzerinden eşitlenir.
+          </p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.3rem 0.65rem", background: status?.enabled ? "rgba(16, 185, 129, 0.1)" : "rgba(148, 163, 184, 0.1)", borderRadius: "999px", border: `1px solid ${status?.enabled ? "rgba(16, 185, 129, 0.25)" : "rgba(148, 163, 184, 0.2)"}` }}>
+          <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: status?.enabled ? "#10b981" : "#94a3b8" }} />
+          <span style={{ fontSize: "0.78rem", fontWeight: 600, color: status?.enabled ? "#10b981" : "#94a3b8" }}>
+            {status?.enabled ? "Bulut Aktif" : "Kapalı"}
+          </span>
+        </div>
+      </div>
+
+      <div className="settings-actions" style={{ marginTop: "1rem", display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
+        <button
+          type="button"
+          className="button button-primary"
+          disabled={busy}
+          onClick={handleStartPair}
+        >
+          📱 Telefon Eşleştir
+        </button>
+        <button
+          type="button"
+          className="button button-secondary"
+          disabled={busy}
+          onClick={() => void action(async () => {
+            await synchronizePhone();
+            setSync(readPhoneSync());
+            setFeedback("Senkronizasyon tamamlandı.");
+          })}
+        >
+          Şimdi Eşitle
+        </button>
+      </div>
+
+      {pair && (
+        <div className="phone-pair-card" style={{ marginTop: "1.25rem", padding: "1.25rem", background: "rgba(0, 0, 0, 0.2)", borderRadius: "10px", border: "1px solid var(--app-border)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+            <h3 style={{ margin: 0, fontSize: "1.05rem" }}>iPhone Eşleştirme</h3>
+            <button type="button" className="button button-secondary" style={{ padding: "0.2rem 0.5rem", fontSize: "0.75rem" }} onClick={() => setPair(null)}>Kapat</button>
+          </div>
+          {remaining > 0 ? (
+            <div style={{ display: "flex", gap: "1.5rem", alignItems: "center", flexWrap: "wrap" }}>
+              <img src={qr} alt="Eşleştirme QR kodu" style={{ width: "160px", height: "160px", borderRadius: "8px", background: "white", padding: "4px" }} />
+              <div style={{ flex: 1, minWidth: "220px" }}>
+                <p style={{ margin: "0 0 0.5rem", fontSize: "0.85rem", color: "var(--app-secondary)" }}>
+                  1. iPhone kamerasından QR kodu okutun veya Safari ile açın.
+                </p>
+                <p style={{ margin: "0 0 0.75rem", fontSize: "0.85rem", color: "var(--app-secondary)" }}>
+                  2. İstersen mobil açılışta aşağıdaki eşleştirme kodunu girin:
+                </p>
+                <div style={{ display: "inline-block", padding: "0.4rem 0.8rem", background: "rgba(255, 255, 255, 0.06)", border: "1px dashed rgba(255, 255, 255, 0.2)", borderRadius: "6px", fontFamily: "monospace", fontSize: "1.25rem", letterSpacing: "2px", fontWeight: "bold", color: "#38bdf8" }}>
+                  {pair.code}
+                </div>
+                <p style={{ marginTop: "0.5rem", fontSize: "0.75rem", color: "#eab308" }}>
+                  ⏱ Kalan süre: {remaining} saniye
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", padding: "1rem" }}>
+              <p style={{ color: "#ef4444", marginBottom: "0.75rem" }}>Eşleştirme kodunun süresi doldu.</p>
+              <button type="button" className="button button-primary" onClick={handleStartPair}>Yeni Kod Oluştur</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ marginTop: "1.25rem" }}>
+        <h3 style={{ fontSize: "0.95rem", marginBottom: "0.5rem" }}>Eşleştirilmiş Cihazlar</h3>
+        {devices.length > 0 ? (
+          <div style={{ display: "grid", gap: "0.5rem" }}>
+            {devices.map((device) => (
+              <div
+                key={device.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "0.75rem 1rem",
+                  background: "rgba(255, 255, 255, 0.02)",
+                  border: "1px solid rgba(255, 255, 255, 0.06)",
+                  borderRadius: "8px",
+                }}
+              >
+                <div>
+                  <strong style={{ display: "block", fontSize: "0.9rem" }}>📱 {device.name}</strong>
+                  <small style={{ color: "#94a3b8", fontSize: "0.75rem" }}>
+                    Son erişim: {new Date(device.lastSeen).toLocaleString("tr-TR")} · Bildirimler: {device.notifications ? "Açık" : "Kapalı"}
+                  </small>
+                </div>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  style={{ fontSize: "0.75rem", padding: "0.3rem 0.65rem", color: "#f87171" }}
+                  disabled={busy}
+                  onClick={() => handleRevoke(device)}
+                >
+                  Erişimi Kaldır
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="task-hint" style={{ fontSize: "0.82rem", margin: 0 }}>
+            Henüz eşleştirilmiş bir telefon yok.
+          </p>
+        )}
+      </div>
+
+      {sync?.conflicts && sync.conflicts.length > 0 && (
+        <div style={{ marginTop: "1rem" }}>
+          {sync.conflicts.map((conflict, index) => (
+            <div className="backup-confirm" key={index} style={{ padding: "0.75rem", borderRadius: "8px" }}>
+              <h4 style={{ margin: "0 0 0.3rem" }}>Eşitleme Çakışması</h4>
+              <p style={{ fontSize: "0.8rem", margin: "0 0 0.5rem" }}>
+                {conflict.local.data && "text" in conflict.local.data
+                  ? conflict.local.data.text
+                  : conflict.local.data && "title" in conflict.local.data
+                  ? conflict.local.data.title
+                  : "Silinmiş kayıt"}
+              </p>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  style={{ fontSize: "0.75rem" }}
+                  disabled={busy}
+                  onClick={() => void action(async () => {
+                    await resolvePhoneConflict(index, true);
+                    setSync(readPhoneSync());
+                  })}
+                >
+                  Bulut Sürümünü Kullan
+                </button>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  style={{ fontSize: "0.75rem" }}
+                  disabled={busy}
+                  onClick={() => void action(async () => {
+                    await resolvePhoneConflict(index, false);
+                    await synchronizePhone();
+                    setSync(readPhoneSync());
+                  })}
+                >
+                  Yerel Sürümü Gönder
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {feedback && <p className="feedback" role="status" style={{ marginTop: "0.75rem" }}>{feedback}</p>}
+    </section>
+  );
 }

@@ -1,9 +1,7 @@
 import { TrashSettings } from "./TrashSettings";
 import { ActionMenu } from "./ActionMenu";
-import { GeminiModelSettings } from "./GeminiModelSettings";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { getSavedAiModel, saveAiModel } from "../aiModelPreference";
-import { savePreferences, type Preferences, type StartPage } from "../preferences";
+import { savePreferences, type Preferences } from "../preferences";
 import {
   aiErrorMessage,
   deleteGeminiKey,
@@ -11,38 +9,52 @@ import {
   saveGeminiKey,
   testGeminiConnection,
 } from "../geminiClient";
-import { WeatherSettings } from "./WeatherSettings";
-import { PrayerSettings } from "./PrayerSettings";
 import { Icon, type IconName } from "./Icon";
-import { DisplayScaleSettings } from "./DisplayScaleSettings";
+import { DisplayScaleControls } from "./DisplayScaleControls";
 import { PhoneSettings } from "./PhoneSettings";
 import { DesktopSettings } from "./DesktopSettings";
 import { BackupSettings } from "./BackupSettings";
 import { UpdateSettings } from "./UpdateSettings";
-import { AboutSettings } from "./AboutSettings";
 import { NotificationSettings } from "./NotificationSettings";
+import { CitySettings } from "./CitySettings";
 import type { DesktopStatus } from "../desktopClient";
 
+// 4 Temiz ve Sade Sekme
 const sections: { id: string; label: string; description: string; icon: IconName }[] = [
-  { id: "general", label: "Genel", description: "Başlangıç ve genel tercihler", icon: "settings" },
-  { id: "appearance", label: "Görünüm", description: "Tema, ölçek ve vakitler", icon: "grid" },
+  { id: "general", label: "Genel", description: "Görünüm, şehir ve Windows", icon: "settings" },
   { id: "notifications", label: "Bildirimler", description: "Masaüstü ve mobil bildirimleri", icon: "bell" },
-  { id: "ai", label: "ACK AI", description: "Model ve bağlantı", icon: "spark" },
-  { id: "phone", label: "Telefon", description: "Eşitleme ve cihazlar", icon: "files" },
-  { id: "data", label: "Veriler", description: "Yedekleme ve gizlilik", icon: "archive" },
-  { id: "updates", label: "Güncelleme", description: "Sürüm ve sistem kontrolü", icon: "info" },
+  { id: "connections", label: "Bağlantılar", description: "Telefon eşitleme ve ACK AI", icon: "files" },
+  { id: "data", label: "Veri & Güncelleme", description: "Yedekler, çöp kutusu ve sürüm", icon: "archive" },
 ];
+
 type Action = "save" | "delete" | "test";
 type Feedback = { kind: "success" | "error"; text: string };
 
-export function Settings({ preferences, onPreferencesChange, desktop, onDesktopChange }: { preferences: Preferences; onPreferencesChange: (value: Preferences) => void; desktop: DesktopStatus | null; onDesktopChange: (status: DesktopStatus) => void }) {
+export function Settings({
+  preferences,
+  onPreferencesChange,
+  desktop,
+  onDesktopChange,
+}: {
+  preferences: Preferences;
+  onPreferencesChange: (value: Preferences) => void;
+  desktop: DesktopStatus | null;
+  onDesktopChange: (status: DesktopStatus) => void;
+}) {
   const [selectedSection, setSelectedSection] = useState("general");
-  const [aiModel, setAiModel] = useState(getSavedAiModel);
   const [preferenceFeedback, setPreferenceFeedback] = useState("");
+
   function changePreference(value: Preferences) {
-    if (savePreferences(value)) { onPreferencesChange(value); setPreferenceFeedback("Tercihler kaydedildi."); }
-    else setPreferenceFeedback("Tercihler kaydedilemedi.");
+    if (savePreferences(value)) {
+      onPreferencesChange(value);
+      setPreferenceFeedback("Tercihler kaydedildi.");
+      setTimeout(() => setPreferenceFeedback(""), 3000);
+    } else {
+      setPreferenceFeedback("Tercihler kaydedilemedi.");
+    }
   }
+
+  // Gemini API Key State
   const inputRef = useRef<HTMLInputElement>(null);
   const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [action, setAction] = useState<Action | null>(null);
@@ -51,14 +63,18 @@ export function Settings({ preferences, onPreferencesChange, desktop, onDesktopC
   useEffect(() => {
     let active = true;
     getGeminiKeyStatus()
-      .then((saved) => { if (active) setHasKey(saved); })
+      .then((saved) => {
+        if (active) setHasKey(saved);
+      })
       .catch((error: unknown) => {
         if (active) setFeedback({ kind: "error", text: aiErrorMessage(error) });
       });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
-  async function save(event: FormEvent<HTMLFormElement>) {
+  async function saveKey(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     let apiKey = inputRef.current?.value.trim() ?? "";
     if (!apiKey) {
@@ -73,7 +89,7 @@ export function Settings({ preferences, onPreferencesChange, desktop, onDesktopC
       apiKey = "";
       await request;
       setHasKey(true);
-      setFeedback({ kind: "success", text: "API anahtarı Windows kimlik bilgilerine kaydedildi." });
+      setFeedback({ kind: "success", text: "API anahtarı Windows Kimlik Bilgisi Yöneticisi'ne güvenle kaydedildi." });
     } catch (error) {
       setFeedback({ kind: "error", text: aiErrorMessage(error) });
     } finally {
@@ -81,7 +97,7 @@ export function Settings({ preferences, onPreferencesChange, desktop, onDesktopC
     }
   }
 
-  async function remove() {
+  async function removeKey() {
     setAction("delete");
     setFeedback(null);
     try {
@@ -96,12 +112,12 @@ export function Settings({ preferences, onPreferencesChange, desktop, onDesktopC
     }
   }
 
-  async function test() {
+  async function testKey() {
     setAction("test");
     setFeedback(null);
     try {
-      await testGeminiConnection(getSavedAiModel());
-      setFeedback({ kind: "success", text: "Gemini bağlantısı başarılı." });
+      await testGeminiConnection("fast");
+      setFeedback({ kind: "success", text: "Gemini bağlantısı başarılı. ACK AI kullanıma hazır." });
     } catch (error) {
       setFeedback({ kind: "error", text: aiErrorMessage(error) });
     } finally {
@@ -109,84 +125,197 @@ export function Settings({ preferences, onPreferencesChange, desktop, onDesktopC
     }
   }
 
-  return <div className="settings-page">
-    <header className="feature-heading"><h1>Ayarlar</h1><p>Değiştirmek istediğin bölümü seç.</p></header>
-    {preferenceFeedback && <p className="feedback" role="status">{preferenceFeedback}</p>}
-    <div className="settings-layout"><div className="settings-navigation" role="tablist" aria-label="Ayar bölümleri" aria-orientation="vertical">{sections.map(section => <button type="button" role="tab" id={"settings-tab-" + section.id} aria-controls={"settings-panel-" + section.id} aria-selected={section.id === selectedSection} tabIndex={section.id === selectedSection ? 0 : -1} key={section.id} onClick={() => setSelectedSection(section.id)} onKeyDown={event => { if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return; event.preventDefault(); const index = sections.findIndex(item => item.id === selectedSection); const next = sections[event.key === "Home" ? 0 : event.key === "End" ? sections.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + sections.length) % sections.length]; setSelectedSection(next.id); document.getElementById("settings-tab-" + next.id)?.focus(); }}><Icon name={section.icon} size={20} /><span><strong>{section.label}</strong><small>{section.description}</small></span></button>)}</div>
-    <div className="settings-panels">
-      <section role="tabpanel" id="settings-panel-general" aria-labelledby="settings-tab-general" hidden={selectedSection !== "general"} className="settings-section-panel">    <section className="settings-card surface local-settings" aria-labelledby="local-settings-heading">
-      <h2 id="local-settings-heading">Yerel tercihler</h2>
-      <div className="archive-form-grid">
-        <label className="archive-field">Başlangıç sayfası<select value={preferences.startPage} onChange={(event) => changePreference({ ...preferences, startPage: event.target.value as StartPage })}><option value="home">Ana Sayfa</option><option value="tasks">Görevler</option><option value="calendar">Haftalık Plan</option><option value="notes">Notlar</option><option value="projects">Projeler</option><option value="ai">ACK AI</option><option value="subscriptions">Abonelikler</option><option value="inbox">Gelenler</option></select></label>
-        <label className="archive-field">PC Durumu yenileme aralığı<select value={preferences.pcRefreshMs} onChange={(event) => changePreference({ ...preferences, pcRefreshMs: Number(event.target.value) as Preferences["pcRefreshMs"] })}><option value={2500}>2,5 saniye</option><option value={5000}>5 saniye</option><option value={10000}>10 saniye</option></select></label>
+  return (
+    <div className="settings-page">
+      <header className="feature-heading">
+        <h1>Ayarlar</h1>
+        <p>Değiştirmek istediğin bölümü seç.</p>
+      </header>
 
-      </div>
+      {preferenceFeedback && <p className="feedback" role="status">{preferenceFeedback}</p>}
 
-    </section>
-    <DesktopSettings status={desktop} onChange={onDesktopChange} />
-</section>
-      <section role="tabpanel" id="settings-panel-appearance" aria-labelledby="settings-tab-appearance" hidden={selectedSection !== "appearance"} className="settings-section-panel">
-        <section className="surface settings-card local-settings" aria-labelledby="theme-settings-title">
-          <h2 id="theme-settings-title">Uygulama Teması</h2>
-          <p>Göz yormayan koyu çalışma alanı veya yumuşak taş tonlu açık tema arasında geçiş yapabilirsin.</p>
-          <div className="theme-toggle-options" role="radiogroup" aria-label="Tema seçimi">
+      <div className="settings-layout">
+        <div className="settings-navigation" role="tablist" aria-label="Ayar bölümleri" aria-orientation="vertical">
+          {sections.map((section) => (
             <button
               type="button"
-              role="radio"
-              aria-checked={(preferences.theme ?? "dark") === "dark"}
-              className={`theme-choice-card ${(preferences.theme ?? "dark") === "dark" ? "is-selected" : ""}`}
-              onClick={() => changePreference({ ...preferences, theme: "dark" })}
+              role="tab"
+              id={"settings-tab-" + section.id}
+              aria-controls={"settings-panel-" + section.id}
+              aria-selected={section.id === selectedSection}
+              tabIndex={section.id === selectedSection ? 0 : -1}
+              key={section.id}
+              onClick={() => setSelectedSection(section.id)}
+              onKeyDown={(event) => {
+                if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+                event.preventDefault();
+                const index = sections.findIndex((item) => item.id === selectedSection);
+                const next =
+                  sections[
+                    event.key === "Home"
+                      ? 0
+                      : event.key === "End"
+                      ? sections.length - 1
+                      : (index + (event.key === "ArrowDown" ? 1 : -1) + sections.length) % sections.length
+                  ];
+                setSelectedSection(next.id);
+                document.getElementById("settings-tab-" + next.id)?.focus();
+              }}
             >
-              <span className="theme-preview-swatch swatch-dark" aria-hidden="true" />
-              <div>
-                <strong>Koyu Tema</strong>
-                <small>Gece mavisi ve derin koyu yüzeyler</small>
-              </div>
+              <Icon name={section.icon} size={20} />
+              <span>
+                <strong>{section.label}</strong>
+                <small>{section.description}</small>
+              </span>
             </button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={preferences.theme === "light"}
-              className={`theme-choice-card ${preferences.theme === "light" ? "is-selected" : ""}`}
-              onClick={() => changePreference({ ...preferences, theme: "light" })}
-            >
-              <span className="theme-preview-swatch swatch-light" aria-hidden="true" />
-              <div>
-                <strong>Açık Tema</strong>
-                <small>Göz almayan yumuşak gri-taş tonları</small>
-              </div>
-            </button>
-          </div>
-        </section>
-        <DisplayScaleSettings /><WeatherSettings /><PrayerSettings />
-      </section>
-      <section role="tabpanel" id="settings-panel-notifications" aria-labelledby="settings-tab-notifications" hidden={selectedSection !== "notifications"} className="settings-section-panel">
-        <NotificationSettings />
-      </section>
-      <section role="tabpanel" id="settings-panel-ai" aria-labelledby="settings-tab-ai" hidden={selectedSection !== "ai"} className="settings-section-panel">    <section className="settings-card surface" aria-labelledby="ai-settings-heading">
-      <div className="settings-card-heading">
-        <span className="feature-icon"><Icon name="spark" size={23} /></span>
-        <div><h2 id="ai-settings-heading">ACK AI ve Gemini</h2><p>ACK AI için Gemini Developer API bağlantısı. Bağlantı testi seçili modeli kontrol eder.</p></div>
-        <span className={"key-status " + (hasKey ? "saved" : "")}>{hasKey === null ? "Kontrol ediliyor" : hasKey ? "Anahtar kayıtlı" : "Anahtar yok"}</span>
-      </div>
-        <label className="archive-field">ACK AI modeli<select value={aiModel} onChange={(event) => { const choice = event.target.value === "powerful" ? "powerful" : "fast"; if (saveAiModel(choice)) { setAiModel(choice); setPreferenceFeedback("AI modeli kaydedildi."); } else setPreferenceFeedback("AI modeli kaydedilemedi."); }}><option value="fast">Hızlı</option><option value="powerful">Güçlü</option></select><small>ACK AI'da yaptığın son model seçimi de hatırlanır.</small></label>
-      <form onSubmit={save} className="api-key-form">
-        <label htmlFor="gemini-key">Gemini API Anahtarı</label>
-        <input id="gemini-key" ref={inputRef} type="password" placeholder={hasKey ? "•••••••••••••••" : "API anahtarını gir"} autoComplete="new-password" spellCheck={false} disabled={action !== null} />
-        <p>Anahtar Windows Kimlik Bilgisi Yöneticisi'nde saklanır. Kayıtlı anahtarın değeri uygulamada gösterilmez.</p>
-        <div className="settings-actions">
-          <button className="button button-primary" type="submit" disabled={action !== null}>{action === "save" ? "Kaydediliyor..." : "Kaydet"}</button>
-          <button className="button button-secondary" type="button" onClick={test} disabled={action !== null || !hasKey}>{action === "test" ? "Test ediliyor..." : "Bağlantıyı Test Et"}</button>
-          <ActionMenu label="Gemini anahtarı işlemleri"><button className="danger-action" type="button" onClick={remove} disabled={action !== null || !hasKey}>Kayıtlı anahtarı sil</button></ActionMenu>
+          ))}
         </div>
-      </form>
-      {feedback && <div className={"feedback " + feedback.kind} role="status">{feedback.text}</div>}
-      <GeminiModelSettings hasKey={hasKey === true} />
-    </section>
-</section>
-      <section role="tabpanel" id="settings-panel-phone" aria-labelledby="settings-tab-phone" hidden={selectedSection !== "phone"} className="settings-section-panel"><PhoneSettings /></section>
-      <section role="tabpanel" id="settings-panel-data" aria-labelledby="settings-tab-data" hidden={selectedSection !== "data"} className="settings-section-panel"><BackupSettings desktop={desktop} /><TrashSettings/>        <section className="settings-card surface local-settings"><h2>İnternet kullanan özellikler</h2><dl className="system-check-list"><div><dt>ACK AI</dt><dd>Yalnızca mesaj gönderdiğinde Gemini ile iletişim kurar.</dd></div><div><dt>Dosya Analizi</dt><dd>Yalnızca seçip gönderdiğin dosya Gemini'ye iletilir.</dd></div><div><dt>Genel IP</dt><dd>IP sayfasını açtığında veya yenilediğinde public IP hizmetine istek gönderir.</dd></div><div><dt>Hız Testi</dt><dd>Yalnızca başlattığında Cloudflare altyapısını kullanır.</dd></div></dl><p>Kayıtlar ve sohbetler bu bilgisayarda yerel olarak tutulur. İzleme veya kullanım istatistikleri toplanmaz. Telefon eşitlemesi yalnızca açık onayınızla çalışır.</p></section></section>
-      <section role="tabpanel" id="settings-panel-updates" aria-labelledby="settings-tab-updates" hidden={selectedSection !== "updates"} className="settings-section-panel"><UpdateSettings version={desktop?.version} /><AboutSettings version={desktop?.version} /></section>
-    </div></div>
-  </div>;
+
+        <div className="settings-panels">
+          {/* 1. SEKME: GENEL */}
+          <section
+            role="tabpanel"
+            id="settings-panel-general"
+            aria-labelledby="settings-tab-general"
+            hidden={selectedSection !== "general"}
+            className="settings-section-panel"
+          >
+            {/* Kart 1: Görünüm (Tema & Arayüz Ölçeği Birleşik) */}
+            <section className="surface settings-card local-settings" aria-labelledby="theme-settings-title">
+              <h2 id="theme-settings-title">Görünüm</h2>
+              <p>Göz yormayan koyu çalışma alanı veya yumuşak taş tonlu açık tema arasında geçiş yapabilirsin.</p>
+              <div className="theme-toggle-options" role="radiogroup" aria-label="Tema seçimi">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={(preferences.theme ?? "dark") === "dark"}
+                  className={`theme-choice-card ${(preferences.theme ?? "dark") === "dark" ? "is-selected" : ""}`}
+                  onClick={() => changePreference({ ...preferences, theme: "dark" })}
+                >
+                  <span className="theme-preview-swatch swatch-dark" aria-hidden="true" />
+                  <div>
+                    <strong>Koyu Tema</strong>
+                    <small>Gece mavisi ve derin koyu yüzeyler</small>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={preferences.theme === "light"}
+                  className={`theme-choice-card ${preferences.theme === "light" ? "is-selected" : ""}`}
+                  onClick={() => changePreference({ ...preferences, theme: "light" })}
+                >
+                  <span className="theme-preview-swatch swatch-light" aria-hidden="true" />
+                  <div>
+                    <strong>Açık Tema</strong>
+                    <small>Göz almayan yumuşak gri-taş tonları</small>
+                  </div>
+                </button>
+              </div>
+
+              {/* Ölçek Seçimi Kartın İçinde Zarif Bir Şekilde Yer Alır */}
+              <DisplayScaleControls />
+            </section>
+
+            {/* Kart 2: Şehir ve Konum (Tek Seçim 81 İl) */}
+            <CitySettings />
+
+            {/* Kart 3: Windows Davranışı */}
+            <DesktopSettings status={desktop} onChange={onDesktopChange} />
+          </section>
+
+          {/* 2. SEKME: BİLDİRİMLER */}
+          <section
+            role="tabpanel"
+            id="settings-panel-notifications"
+            aria-labelledby="settings-tab-notifications"
+            hidden={selectedSection !== "notifications"}
+            className="settings-section-panel"
+          >
+            <NotificationSettings />
+          </section>
+
+          {/* 3. SEKME: BAĞLANTILAR (Telefon & ACK AI) */}
+          <section
+            role="tabpanel"
+            id="settings-panel-connections"
+            aria-labelledby="settings-tab-connections"
+            hidden={selectedSection !== "connections"}
+            className="settings-section-panel"
+          >
+            {/* Telefon Eşitleme Kartı */}
+            <PhoneSettings />
+
+            {/* ACK AI Gemini Kartı */}
+            <section className="settings-card surface local-settings" aria-labelledby="ai-settings-heading">
+              <div className="settings-card-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <h2 id="ai-settings-heading" style={{ margin: 0 }}>ACK AI (Gemini)</h2>
+                  <p className="task-hint" style={{ marginTop: "0.25rem" }}>
+                    ACK AI sohbeti ve akıllı asistan için Google Gemini API bağlantısı.
+                  </p>
+                </div>
+                <span className={"key-status " + (hasKey ? "saved" : "")}>
+                  {hasKey === null ? "Kontrol ediliyor" : hasKey ? "● Anahtar Kayıtlı" : "Anahtar Yok"}
+                </span>
+              </div>
+
+              <form onSubmit={saveKey} className="api-key-form" style={{ marginTop: "1rem" }}>
+                <label htmlFor="gemini-key">Gemini API Anahtarı</label>
+                <input
+                  id="gemini-key"
+                  ref={inputRef}
+                  type="password"
+                  placeholder={hasKey ? "••••••••••••••••••••••••••••••••" : "AIzaSy... API anahtarını girin"}
+                  autoComplete="new-password"
+                  spellCheck={false}
+                  disabled={action !== null}
+                />
+                <p className="task-hint" style={{ fontSize: "0.78rem", marginTop: "0.4rem" }}>
+                  API anahtarınız yerel Windows Kimlik Bilgisi Yöneticisi'nde şifreli olarak korunur; asla dışarıya sızdırılmaz.
+                </p>
+                <div className="settings-actions" style={{ marginTop: "0.75rem", display: "flex", gap: "0.5rem" }}>
+                  <button className="button button-primary" type="submit" disabled={action !== null}>
+                    {action === "save" ? "Kaydediliyor..." : "Kaydet"}
+                  </button>
+                  <button className="button button-secondary" type="button" onClick={testKey} disabled={action !== null || !hasKey}>
+                    {action === "test" ? "Test ediliyor..." : "Bağlantıyı Test Et"}
+                  </button>
+                  <ActionMenu label="İşlemler">
+                    <button className="danger-action" type="button" onClick={removeKey} disabled={action !== null || !hasKey}>
+                      Kayıtlı Anahtarı Sil
+                    </button>
+                  </ActionMenu>
+                </div>
+              </form>
+
+              {feedback && (
+                <div className={"feedback " + feedback.kind} role="status" style={{ marginTop: "0.75rem" }}>
+                  {feedback.text}
+                </div>
+              )}
+            </section>
+          </section>
+
+          {/* 4. SEKME: VERİ & GÜNCELLEME (En Son Sekme) */}
+          <section
+            role="tabpanel"
+            id="settings-panel-data"
+            aria-labelledby="settings-tab-data"
+            hidden={selectedSection !== "data"}
+            className="settings-section-panel"
+          >
+            {/* Kart 1: Yedekleme */}
+            <BackupSettings desktop={desktop} />
+
+            {/* Kart 2: Çöp Kutusu */}
+            <TrashSettings />
+
+            {/* Kart 3: Uygulama Güncellemesi */}
+            <UpdateSettings version={desktop?.version} />
+          </section>
+        </div>
+      </div>
+    </div>
+  );
 }

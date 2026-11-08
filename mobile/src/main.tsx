@@ -73,7 +73,7 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const { weather, weatherModalOpen, setWeatherModalOpen, handleMobileChangeCity } = useMobileWeather(setNotice);
+  const { weather, weatherModalOpen, setWeatherModalOpen } = useMobileWeather(setNotice);
 
   const [form, setForm] = useState<"task" | "note" | "text" | "link" | "ai_prompt" | null>(null);
   const [editing, setEditing] = useState<CloudRecord | null>(null);
@@ -1277,8 +1277,7 @@ function App() {
         <MobileWeatherModal
           weather={weather}
           onClose={() => setWeatherModalOpen(false)}
-          onChangeCity={handleMobileChangeCity}
-        />
+          />
       )}
 
       <MobileNav page={page} onChange={changePage} />

@@ -134,7 +134,7 @@ export function MobileSettings({
     .sort((a, b) => a.city.localeCompare(b.city, "tr"));
 
   function handleCityChange(selectedCityName: string) {
-    const found = Object.values(TURKEY_CITIES).find(c => c.city === selectedCityName);
+    const found = (Object.values(TURKEY_CITIES) as { city: string; lat: number; lng: number }[]).find(c => c.city === selectedCityName);
     if (!found) return;
     const next: PrayerTimesConfig = {
       ...prayerConfig,
@@ -147,6 +147,7 @@ export function MobileSettings({
     try {
       localStorage.setItem("ack-deck.weather-city.v1", JSON.stringify(found.city));
     } catch {}
+    void api(state, "prayer-config", json({ prayerConfig: next })).catch(() => {});
     window.dispatchEvent(new Event("ack-prayer-config-changed"));
     window.dispatchEvent(new Event("ack-weather-city-changed"));
     onNotice(`Konum ve hava durumu ${found.city} olarak güncellendi.`);
