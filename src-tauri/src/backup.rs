@@ -148,26 +148,24 @@ pub async fn save_auto_backup(
     if !valid_envelope(&content) {
         return Err("Yedek verileri geçersiz veya gizli anahtar içeriyor.".into());
     }
-    use tauri::Manager;
-    let base_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|_| "Uygulama veri dizinine erişilemedi.")?
-        .join("auto-backups");
-
-    std::fs::create_dir_all(&base_dir).map_err(|_| "Yedekleme dizini oluşturulamadı.")?;
-
+    let base_dir = get_backup_dir(&app);
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    let file_name = format!("ACKDeck-AutoBackup-{}.json", now);
+    let file_name = format!("ACKDeck-AutoBackup-{}.zip", now);
     let target_path = base_dir.join(&file_name);
 
-    std::fs::write(&target_path, content.as_bytes())
-        .map_err(|_| "Otomatik yedek dosyası yazılamadı.")?;
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::portable_backup::write_zip(&content, &target_path, |id| {
+            crate::phone_media::read_cached(&app_handle, id)
+        })
+    })
+    .await
+    .map_err(|_| "Otomatik yedek işlemi tamamlanamadı.".to_string())??;
 
-    // Rotate: keep at most 7 recent backups
+    // Rotate: keep at most 7 recent backups (supporting both .zip and legacy .json)
     if let Ok(entries) = std::fs::read_dir(&base_dir) {
         let mut files: Vec<(std::path::PathBuf, std::time::SystemTime)> = Vec::new();
         for entry in entries.flatten() {
@@ -176,9 +174,15 @@ pub async fn save_auto_backup(
                 && path
                     .file_name()
                     .and_then(|n| n.to_str())
-                    .is_some_and(|name| name.starts_with("ACKDeck-AutoBackup-") && name.ends_with(".json"))
+                    .is_some_and(|name| {
+                        name.starts_with("ACKDeck-AutoBackup-")
+                            && (name.ends_with(".zip") || name.ends_with(".json"))
+                    })
             {
-                let modified = entry.metadata().and_then(|m| m.modified()).unwrap_or(std::time::UNIX_EPOCH);
+                let modified = entry
+                    .metadata()
+                    .and_then(|m| m.modified())
+                    .unwrap_or(std::time::UNIX_EPOCH);
                 files.push((path, modified));
             }
         }

@@ -91,7 +91,8 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
     const active = await env.DB.prepare("SELECT r.task_id FROM reminders r JOIN devices d ON d.id=? JOIN push_subscriptions p ON p.device_id=d.id WHERE r.task_id=? AND r.generation=? AND r.active=1 AND d.revoked_at IS NULL AND p.active=1").bind(row.device_id,row.task_id,row.generation).first();
     if (!active) { await env.DB.prepare("UPDATE reminder_deliveries SET state='cancelled' WHERE generation=? AND device_id=?").bind(row.generation,row.device_id).run(); continue; }
     try {
-      const response = await send(env,row.subscription,{ title:"ACKDeck", body:row.kind==="subscriptions"?`${task.name}: ${money(task.amount,task.currency)} ödeme hatırlatması` : task.text.slice(0,600), url:row.kind==="subscriptions"?"/#page=subscriptions":`/#task=${encodeURIComponent(row.task_id)}`, tag:row.generation });
+      const notifTitle = row.kind === "subscriptions" ? "💳 Abonelik Hatırlatması" : "📌 Görev Hatırlatması";
+      const response = await send(env,row.subscription,{ title: notifTitle, body:row.kind==="subscriptions"?`${task.name}: ${money(task.amount,task.currency)} ödeme hatırlatması` : task.text.slice(0,600), url:row.kind==="subscriptions"?"/#page=subscriptions":`/#task=${encodeURIComponent(row.task_id)}`, tag:row.generation });
       if ([404,410].includes(response.status)) await env.DB.prepare("UPDATE push_subscriptions SET active=0 WHERE device_id=?").bind(row.device_id).run();
       // Only explicit 429/5xx responses retry. Unknown transport outcomes stay uncertain
       // instead of repeatedly dispatching a notification that may already have arrived.
@@ -105,7 +106,7 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
     if (mobilePrayers && pcState?.prayer_config) {
       const cfg = JSON.parse(pcState.prayer_config);
       if (cfg && typeof cfg.latitude === "number" && typeof cfg.longitude === "number" && (cfg.notifyAtTime || (typeof cfg.notifyBeforeMinutes === "number" && cfg.notifyBeforeMinutes > 0))) {
-        const prayerAlerts: { id: string; text: string; dueAt: number }[] = [];
+        const prayerAlerts: { id: string; title: string; text: string; dueAt: number }[] = [];
         for (const offset of [0, 1]) {
           const target = new Date(now + offset * 86400000);
           const dayInfo = calculatePrayerTimes(cfg.latitude, cfg.longitude, target, cfg.city || "Ankara");
@@ -114,6 +115,7 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
             if (cfg.notifyAtTime) {
               prayerAlerts.push({
                 id: `prayer:${item.name}:${item.timestamp}`,
+                title: "🕌 Ezan Vakti",
                 text: `${item.label} vakti girdi (${item.time}).`,
                 dueAt: item.timestamp,
               });
@@ -122,6 +124,7 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
               const leadDue = item.timestamp - cfg.notifyBeforeMinutes * 60000;
               prayerAlerts.push({
                 id: `prayer-lead:${cfg.notifyBeforeMinutes}:${item.name}:${item.timestamp}`,
+                title: "🕌 Vakit Hatırlatması",
                 text: `${item.label} vaktine ${cfg.notifyBeforeMinutes} dakika kaldı (${item.time}).`,
                 dueAt: leadDue,
               });
@@ -137,7 +140,7 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
               if (!claim) continue;
               try {
                 const response = await send(env, device.subscription, {
-                  title: "ACKDeck",
+                  title: alert.title || "🕌 Vakit Hatırlatması",
                   body: alert.text,
                   url: "/#page=today",
                   tag: alert.id,

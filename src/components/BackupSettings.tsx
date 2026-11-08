@@ -2,14 +2,12 @@ import { useRef, useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { createFullBackup, parseBackup, restoreBackup, type Backup } from "../backupStore";
 import { getDesktopStatus, type DesktopStatus } from "../desktopClient";
-import { localDateKey } from "../taskStore";
 import { getAutoBackupInfo } from "../useAutoBackup";
 
 export function BackupSettings({ desktop }: { desktop: DesktopStatus | null }) {
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<Backup | null>(null);
   const busyRef = useRef(false);
-  const [kind, setKind] = useState("portable");
   const [token, setToken] = useState<string | null>(null);
   const [autoBackup, setAutoBackup] = useState(getAutoBackupInfo);
 
@@ -29,16 +27,14 @@ export function BackupSettings({ desktop }: { desktop: DesktopStatus | null }) {
     setBusy(true);
     try {
       const backup = await createFullBackup({ ...desktop.preferences, autoStart: desktop.autoStart }, desktop.version);
-      if (kind === "portable") {
-        const count = await invoke<number | null>("save_portable_backup", { content: JSON.stringify(backup) });
-        notify(count === null ? "Yedekleme iptal edildi." : `Dosyalı yedek kaydedildi (${count} ek dosya dahil).`);
-      } else {
-        const saved = await invoke<boolean>("save_backup", {
-          content: JSON.stringify(backup, null, 2),
-          fileName: "ACKDeck-Backup-" + localDateKey() + ".json",
-        });
-        notify(saved ? "JSON yedeği kaydedildi." : "Yedekleme iptal edildi.");
-      }
+      const res = await invoke<{ fileName: string; fileCount: number }>("save_portable_backup", {
+        content: JSON.stringify(backup),
+      });
+      notify(
+        res.fileCount > 0
+          ? `Yedek başarıyla oluşturuldu: ${res.fileName} (${res.fileCount} ek dosya dahil)`
+          : `Yedek başarıyla oluşturuldu: ${res.fileName}`
+      );
     } catch {
       notify("Yedek oluşturulamadı.");
     } finally {
@@ -109,23 +105,10 @@ export function BackupSettings({ desktop }: { desktop: DesktopStatus | null }) {
         <div>
           <h2 id="backup-title">Yedekleme</h2>
           <p className="task-hint">
-            Kayıtlarını, sohbetlerini ve tercihlerini sakla. Dosyalı yedek, not eklerini ve arşiv dosyalarını da güvenle paketler.
+            Kayıtlarını, sohbetlerini, not eklerini ve arşiv dosyalarını güvenle tam ZIP arşivi olarak sakla.
           </p>
         </div>
       </div>
-
-      <label className="archive-field backup-kind" style={{ marginTop: "0.75rem" }}>
-        Yedek türü
-        <select value={kind} disabled={busy || !!pending} onChange={(e) => setKind(e.target.value)}>
-          <option value="portable">Dosyalar dahil · ZIP</option>
-          <option value="json">Yalnız kayıtlar · JSON</option>
-        </select>
-        <small>
-          {kind === "portable"
-            ? "Dosya başına 100 MB, toplam 512 MB. Not ve arşiv ekleri dahildir."
-            : "Yalnızca JSON metin kayıtları saklanır; harici dosya içerikleri taşınmaz."}
-        </small>
-      </label>
 
       <div className="settings-actions" style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", marginTop: "1rem" }}>
         <button type="button" className="button button-primary" onClick={exportBackup} disabled={busy || !desktop || !!pending}>

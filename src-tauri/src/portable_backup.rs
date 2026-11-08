@@ -40,6 +40,12 @@ pub struct Preview {
     token: Option<String>,
     file_count: usize,
 }
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupResult {
+    pub file_name: String,
+    pub file_count: usize,
+}
 fn error() -> String {
     "Dosyalı yedek geçersiz veya okunamadı. Mevcut veriler değiştirilmedi.".into()
 }
@@ -183,7 +189,7 @@ fn open_archive(path: &Path) -> Result<(zip::ZipArchive<fs::File>, String, Manif
     }
     Ok((zip, content, manifest))
 }
-fn write_zip(
+pub(crate) fn write_zip(
     content: &str,
     path: &Path,
     read_media: impl Fn(&str) -> Result<crate::phone_media::Media, String>,
@@ -288,37 +294,24 @@ pub async fn save_portable_backup(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
     content: String,
-) -> Result<Option<usize>, String> {
+) -> Result<BackupResult, String> {
     main_only(&window)?;
     let default_dir = crate::backup::get_backup_dir(&app);
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    let default_file_name = format!("ACKDeck-Backup-{}.zip", now);
+    let file_name = format!("ACKDeck-Backup-{}.zip", now);
+    let path = default_dir.join(&file_name);
+    let app_handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let Some(file) = app
-            .dialog()
-            .file()
-            .add_filter("ACKDeck dosyalı yedek", &["zip"])
-            .set_file_name(default_file_name)
-            .set_directory(default_dir)
-            .set_title("Dosyalı ACKDeck yedeğini kaydet")
-            .blocking_save_file()
-        else {
-            return Ok(None);
-        };
-        let path = file.into_path().map_err(|_| error())?;
-        if path
-            .extension()
-            .is_none_or(|ext| !ext.eq_ignore_ascii_case("zip"))
-        {
-            return Err("Dosyalı yedek için .zip uzantısı seçin.".into());
-        }
-        write_zip(&content, &path, |id| {
-            crate::phone_media::read_cached(&app, id)
+        let file_count = write_zip(&content, &path, |id| {
+            crate::phone_media::read_cached(&app_handle, id)
+        })?;
+        Ok(BackupResult {
+            file_name,
+            file_count,
         })
-        .map(Some)
     })
     .await
     .map_err(|_| error())?

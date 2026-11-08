@@ -383,89 +383,88 @@
 }
 
 .send-view-container {
-  gap: 6px;
-  padding-top: 2px;
-  min-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 0;
 }
 .send-tab-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  min-height: 34px;
-  margin-bottom: 0;
+  gap: 8px;
+  min-height: 38px;
+  margin: 0 0 2px;
+  padding: 0;
 }
 .send-tab-header h2 {
   margin: 0;
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.025em;
-  color: var(--app-text);
+  color: var(--app-text, #ffffff);
   line-height: 1.2;
 }
-.send-tab-header .settings-open-btn {
+.send-tab-header .settings-open-btn,
+.settings-open-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   background: var(--app-surface, #1e293b);
-  border: 1px solid var(--app-border);
+  border: 1px solid var(--app-border, rgba(255, 255, 255, 0.12));
   color: var(--app-text);
-  padding: 5px 10px;
-  border-radius: 9px;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 650;
   cursor: pointer;
   white-space: nowrap;
-  min-height: 30px;
+  min-height: 34px;
+  height: 34px;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+}
+.send-tab-header .settings-open-btn:active,
+.settings-open-btn:active {
+  background: var(--app-hover);
+  transform: scale(0.97);
 }
 .send-toggle-bar {
   display: flex;
   width: 100%;
-  margin-top: 0;
-  margin-bottom: 2px;
+  margin: 0;
   padding: 3px;
   gap: 4px;
-  background: var(--app-surface);
-  border: 1px solid var(--app-border);
+  background: var(--app-surface, #1e293b);
+  border: 1px solid var(--app-border, rgba(255, 255, 255, 0.1));
   border-radius: 12px;
   box-sizing: border-box;
 }
 .send-toggle-bar .segment-btn {
   flex: 1;
-  padding: 6px 8px;
-  font-size: 12px;
+  padding: 7px 12px;
+  font-size: 13px;
   font-weight: 600;
   border-radius: 9px;
-  min-height: 32px;
+  min-height: 34px;
+  height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 6px;
   border: none;
   background: transparent;
   color: var(--app-muted);
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 .send-toggle-bar .segment-btn.is-active {
   background: var(--app-control, #253347);
   color: #ffffff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
-}
-.settings-open-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--app-surface, #1e293b);
-  border: 1px solid var(--app-border);
-  color: var(--app-text);
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 .settings-header-bar {
   display: flex;

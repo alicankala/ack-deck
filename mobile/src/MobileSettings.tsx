@@ -138,6 +138,7 @@ export function MobileSettings({
     try {
       localStorage.setItem("ack-deck.weather-city.v1", JSON.stringify(found.city));
     } catch {}
+    void api(state, "prayer-config", json({ prayerConfig: next })).catch(() => {});
     window.dispatchEvent(new Event("ack-prayer-config-changed"));
     window.dispatchEvent(new Event("ack-weather-city-changed"));
     onNotice(`Konum ve hava durumu ${found.city} olarak güncellendi.`);
@@ -147,6 +148,7 @@ export function MobileSettings({
     const next: PrayerTimesConfig = { ...prayerConfig, notifyAtTime: enabled };
     setPrayerConfig(next);
     savePrayerConfig(next);
+    void api(state, "prayer-config", json({ prayerConfig: next })).catch(() => {});
     window.dispatchEvent(new Event("ack-prayer-config-changed"));
     onNotice(enabled ? "Vakit bildirimleri açıldı." : "Vakit bildirimleri kapatıldı.");
   }
@@ -155,6 +157,7 @@ export function MobileSettings({
     const next: PrayerTimesConfig = { ...prayerConfig, notifyBeforeMinutes: minutes };
     setPrayerConfig(next);
     savePrayerConfig(next);
+    void api(state, "prayer-config", json({ prayerConfig: next })).catch(() => {});
     window.dispatchEvent(new Event("ack-prayer-config-changed"));
     onNotice(minutes > 0 ? `Vaktin ${minutes} dakika öncesinde hatırlatılacak.` : "Vakit öncesi hatırlatma kapatıldı.");
   }
