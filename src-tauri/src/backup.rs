@@ -177,6 +177,21 @@ pub async fn save_auto_backup(
 }
 
 #[tauri::command]
+pub async fn open_auto_backup_dir(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+    let base_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|_| "Uygulama veri dizinine erişilemedi.")?
+        .join("auto-backups");
+
+    std::fs::create_dir_all(&base_dir).map_err(|_| "Yedekleme dizini oluşturulamadı.")?;
+
+    tauri_plugin_opener::reveal_item_in_dir(base_dir)
+        .map_err(|_| "Yedekleme klasörü Explorer'da açılamadı.".to_string())
+}
+
+#[tauri::command]
 pub fn load_unlimited_store(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,

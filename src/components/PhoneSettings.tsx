@@ -7,7 +7,6 @@ type Device = { id: string; name: string; lastSeen: number; notifications: numbe
 
 export function PhoneSettings() {
   const [status, setStatus] = useState<PhoneStatus | null>(null);
-  const [feedback, setFeedback] = useState("");
   const [busy, setBusy] = useState(false);
   const [devices, setDevices] = useState<Device[]>([]);
   const [pair, setPair] = useState<{ url: string; code: string; expiresAt: number } | null>(null);
@@ -35,7 +34,7 @@ export function PhoneSettings() {
             .catch(() => {});
         }
       })
-      .catch(() => setFeedback("Telefon ayarları okunamadı."));
+      .catch(() => window.dispatchEvent(new CustomEvent("ack-settings-toast", { detail: "Telefon ayarları okunamadı." })));
 
     const configured = () => {
       void phoneStatus().then((val) => active && setStatus(val)).catch(() => {});
@@ -68,12 +67,11 @@ export function PhoneSettings() {
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
-    setFeedback("");
     try {
       await fn();
     } catch (error) {
       const msg = error instanceof Error ? error.message : typeof error === "string" ? error : "Telefon işlemi tamamlanamadı.";
-      setFeedback(msg);
+      window.dispatchEvent(new CustomEvent("ack-settings-toast", { detail: msg }));
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -98,7 +96,7 @@ export function PhoneSettings() {
     await action(async () => {
       await phoneRequest("revoke", { deviceId: device.id });
       setDevices(devices.filter((row) => row.id !== device.id));
-      setFeedback(`${device.name} cihazının bağlantısı kesildi.`);
+      window.dispatchEvent(new CustomEvent("ack-settings-toast", { detail: `${device.name} cihazının bağlantısı kesildi.` }));
     });
   }
 
@@ -135,7 +133,7 @@ export function PhoneSettings() {
           onClick={() => void action(async () => {
             await synchronizePhone();
             setSync(readPhoneSync());
-            setFeedback("Senkronizasyon tamamlandı.");
+            window.dispatchEvent(new CustomEvent("ack-settings-toast", { detail: "Senkronizasyon tamamlandı." }));
           })}
         >
           Şimdi Eşitle
@@ -261,7 +259,7 @@ export function PhoneSettings() {
         </div>
       )}
 
-      {feedback && <p className="feedback" role="status" style={{ marginTop: "0.75rem" }}>{feedback}</p>}
+      {/* toast handles feedback */}
     </section>
   );
 }

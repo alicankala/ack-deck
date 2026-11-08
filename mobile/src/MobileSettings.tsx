@@ -1,4 +1,3 @@
-import { loadActivityGoals, saveActivityGoals, type ActivityGoals } from "../../shared/activityOverview";
 import { useEffect, useState, type FormEvent } from "react";
 import { Icon } from "./Icon";
 import {
@@ -45,14 +44,6 @@ export function MobileSettings({
   onSync?: () => Promise<void>;
 }) {
   const [prayerConfig, setPrayerConfig] = useState<PrayerTimesConfig>(loadPrayerConfig);
-  const [activityGoals, setActivityGoals] = useState<ActivityGoals>(loadActivityGoals);
-
-  function handleGoalChange<K extends keyof ActivityGoals>(key: K, val: number) {
-    const nextGoals: ActivityGoals = { ...activityGoals, [key]: val };
-    setActivityGoals(nextGoals);
-    saveActivityGoals(nextGoals);
-    void api(state, "activity-goals", json({ activityGoals: nextGoals })).catch(() => {});
-  }
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     return (localStorage.getItem("ack-deck.mobile-theme") as "dark" | "light") || "dark";
   });
@@ -134,7 +125,7 @@ export function MobileSettings({
     .sort((a, b) => a.city.localeCompare(b.city, "tr"));
 
   function handleCityChange(selectedCityName: string) {
-    const found = (Object.values(TURKEY_CITIES) as { city: string; lat: number; lng: number }[]).find(c => c.city === selectedCityName);
+    const found = Object.values(TURKEY_CITIES).find(c => c.city === selectedCityName);
     if (!found) return;
     const next: PrayerTimesConfig = {
       ...prayerConfig,
@@ -147,7 +138,6 @@ export function MobileSettings({
     try {
       localStorage.setItem("ack-deck.weather-city.v1", JSON.stringify(found.city));
     } catch {}
-    void api(state, "prayer-config", json({ prayerConfig: next })).catch(() => {});
     window.dispatchEvent(new Event("ack-prayer-config-changed"));
     window.dispatchEvent(new Event("ack-weather-city-changed"));
     onNotice(`Konum ve hava durumu ${found.city} olarak güncellendi.`);
@@ -257,56 +247,6 @@ export function MobileSettings({
         </div>
         <p className="settings-hint">
           Vakitler Hanefi mezhebine göre Diyanet İşleri Başkanlığı takvimiyle tam uyumludur.
-        </p>
-      </section>
-
-      {/* Aktivite & Alışkanlık Hedefleri */}
-      <section className="settings-card">
-        <div className="settings-card-head">
-          <Icon name="activity" size={20} />
-          <h3>Aktivite & Alışkanlık Hedefleri</h3>
-        </div>
-        <div className="settings-row">
-          <label htmlFor="goal-prayer">🕌 Günlük Namaz Hedefi</label>
-          <select
-            id="goal-prayer"
-            className="settings-select"
-            value={activityGoals.prayerTarget}
-            onChange={e => handleGoalChange("prayerTarget", Number(e.target.value))}
-          >
-            {[1, 2, 3, 4, 5].map(n => (
-              <option key={n} value={n}>{n} vakit</option>
-            ))}
-          </select>
-        </div>
-        <div className="settings-row">
-          <label htmlFor="goal-pomodoro">⏱️ Günlük Odaklanma (Pomodoro)</label>
-          <select
-            id="goal-pomodoro"
-            className="settings-select"
-            value={activityGoals.pomodoroTarget}
-            onChange={e => handleGoalChange("pomodoroTarget", Number(e.target.value))}
-          >
-            {[1, 2, 3, 4, 5, 6, 8, 10, 12].map(n => (
-              <option key={n} value={n}>{n} seans ({n * 25} dk)</option>
-            ))}
-          </select>
-        </div>
-        <div className="settings-row">
-          <label htmlFor="goal-tasks">✅ Günlük Görev Hedefi</label>
-          <select
-            id="goal-tasks"
-            className="settings-select"
-            value={activityGoals.tasksTarget}
-            onChange={e => handleGoalChange("tasksTarget", Number(e.target.value))}
-          >
-            {[1, 2, 3, 4, 5, 6, 8, 10, 15, 20].map(n => (
-              <option key={n} value={n}>{n} görev</option>
-            ))}
-          </select>
-        </div>
-        <p className="settings-hint">
-          Hedefler masaüstü ACKDeck ile otomatik eşitlenir ve halkalarda gösterilir.
         </p>
       </section>
 

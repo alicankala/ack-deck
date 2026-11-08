@@ -42,15 +42,31 @@ export function Settings({
   onDesktopChange: (status: DesktopStatus) => void;
 }) {
   const [selectedSection, setSelectedSection] = useState("general");
-  const [preferenceFeedback, setPreferenceFeedback] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleToast = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      if (detail) {
+        setToast(detail);
+      }
+    };
+    window.addEventListener("ack-settings-toast", handleToast);
+    return () => window.removeEventListener("ack-settings-toast", handleToast);
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3200);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   function changePreference(value: Preferences) {
     if (savePreferences(value)) {
       onPreferencesChange(value);
-      setPreferenceFeedback("Tercihler kaydedildi.");
-      setTimeout(() => setPreferenceFeedback(""), 3000);
+      setToast("Tercihler kaydedildi.");
     } else {
-      setPreferenceFeedback("Tercihler kaydedilemedi.");
+      setToast("Tercihler kaydedilemedi.");
     }
   }
 
@@ -132,7 +148,34 @@ export function Settings({
         <p>Değiştirmek istediğin bölümü seç.</p>
       </header>
 
-      {preferenceFeedback && <p className="feedback" role="status">{preferenceFeedback}</p>}
+      {/* Floating toast pop-up instead of pushing the page down */}
+      {toast && (
+        <div
+          role="status"
+          style={{
+            position: "fixed",
+            bottom: "2.5rem",
+            right: "2.5rem",
+            background: "rgba(15, 23, 42, 0.95)",
+            border: "1px solid rgba(56, 189, 248, 0.4)",
+            color: "#f8fafc",
+            padding: "0.75rem 1.25rem",
+            borderRadius: "0.75rem",
+            boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.5)",
+            fontSize: "0.88rem",
+            fontWeight: 500,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.6rem",
+            zIndex: 9999,
+            backdropFilter: "blur(8px)",
+            animation: "livePulse 0.3s ease-out",
+          }}
+        >
+          <span style={{ color: "#38bdf8" }}>✓</span>
+          <span>{toast}</span>
+        </div>
+      )}
 
       <div className="settings-layout">
         <div className="settings-navigation" role="tablist" aria-label="Ayar bölümleri" aria-orientation="vertical">

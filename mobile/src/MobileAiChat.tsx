@@ -82,7 +82,9 @@ export function MobileAiChat({ state, online, onNotice, onError }: Props) {
 
   useEffect(() => {
     if (messages.length > 0 || sending) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      if (bottomRef.current?.parentElement) {
+        bottomRef.current.parentElement.scrollTop = bottomRef.current.parentElement.scrollHeight;
+      }
     }
   }, [messages, sending]);
 

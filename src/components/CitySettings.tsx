@@ -8,7 +8,6 @@ export function CitySettings() {
     const prayer = loadPrayerConfig();
     return prayer.city || loadWeatherCity() || "Ankara";
   });
-  const [feedback, setFeedback] = useState("");
 
   const cities = Object.values(TURKEY_CITIES)
     .filter((v, i, a) => a.findIndex((t) => t.city === v.city) === i)
@@ -44,8 +43,11 @@ export function CitySettings() {
     };
     savePrayerConfig(nextPrayer);
 
-    setFeedback(`Konum ${found.city} olarak güncellendi. Hava durumu ve namaz vakitleri senkronize edildi.`);
-    setTimeout(() => setFeedback(""), 4000);
+    window.dispatchEvent(
+      new CustomEvent("ack-settings-toast", {
+        detail: `Konum ${found.city} olarak güncellendi.`,
+      })
+    );
   }
 
   return (
@@ -54,7 +56,7 @@ export function CitySettings() {
         <div>
           <h2 id="city-settings-title">Şehir ve Konum</h2>
           <p className="task-hint">
-            Hava durumu ve namaz vakitleri için geçerli olan şehir. Seçtiğin il tüm uygulama ve bildirimlerle otomatik senkronize olur.
+            Hava durumu ve namaz vakitleri için geçerli olan şehir. Seçtiğin il tüm uygulama ile otomatik eşitlenir.
           </p>
         </div>
       </div>
@@ -74,7 +76,6 @@ export function CitySettings() {
           </select>
         </label>
       </div>
-      {feedback && <p className="feedback" role="status" style={{ marginTop: "0.5rem" }}>{feedback}</p>}
     </section>
   );
 }

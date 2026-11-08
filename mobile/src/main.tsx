@@ -124,8 +124,12 @@ function App() {
 
   function changePage(next: string) {
     setPage(next);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo(0, 0);
   }
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [page]);
 
   useEffect(() => {
     if (!notice) return;

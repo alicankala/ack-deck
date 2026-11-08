@@ -356,7 +356,7 @@
 
 @media(max-width: 360px) {
   .archive-form-grid, .recurrence-custom { grid-template-columns: minmax(0, 1fr); }
-  nav button { font-size: 10px; }
+  nav button { font-size: 11px; }
   .daily-focus { flex-wrap: wrap; }
 }
 

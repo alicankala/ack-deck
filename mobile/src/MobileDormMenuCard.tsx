@@ -21,7 +21,6 @@ export function MobileDormMenuCard({
   const [error, setError] = useState("");
 
   const refresh = async (force = false) => {
-    // If not a forced manual refresh and today's menu is already fresh in cache, skip network request
     if (!force && isDormMenuFresh(todayKey)) {
       const cached = findMenuForDate(loadDormMenuCache(), todayKey);
       setMenu(cached);
@@ -85,28 +84,17 @@ export function MobileDormMenuCard({
             </span>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+        {onToggleCollapse && (
           <button
             type="button"
-            className="mobile-dorm-refresh"
-            disabled={loading}
-            onClick={() => void refresh(true)}
-            aria-label="Yemek menüsünü yenile"
+            className="mobile-card-collapse-btn"
+            onClick={onToggleCollapse}
+            title="Kartı daralt"
+            aria-label="Yemek menüsü kartını daralt"
           >
-            {loading ? "…" : "↻"}
+            ⌃
           </button>
-          {onToggleCollapse && (
-            <button
-              type="button"
-              className="mobile-card-collapse-btn"
-              onClick={onToggleCollapse}
-              title="Kartı daralt"
-              aria-label="Yemek menüsü kartını daralt"
-            >
-              ⌃
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
       {menu && menu.dinnerDishes.length > 0 ? (

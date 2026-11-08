@@ -25,6 +25,10 @@ ACKDeck is a personal, local-first Windows desktop application and companion mob
 > 2. Kullanıcı açıkça **"rutinleri yap"** dediyse: Tüm adımları eksiksiz uygula:
 >    - **Testler:** Testleri çalıştır (`tests/`, `mobile/tests/`, `cloud/tests/`) (eğer az önce zaten koşulmadıysa).
 >    - **Sürüm Eşitlemesi (Version Bump):** Sürüm yükseltildiğinde 5 dosyada birden eşitlenmelidir: `package.json`, `mobile/package.json`, `cloud/package.json`, `src-tauri/tauri.conf.json` ve **`src-tauri/Cargo.toml`** (Cargo güncellenmezse masaüstü sürüm yanlış görünür).
+>      - **Sürüm Numaralandırma Kuralı (Ondalık / Tek Basamaklı İlerleme):** Sürümler daima ondalık sistem gibi tek basamaklı ilerler (`0`dan `9`a kadar):
+>        - `X.Y.0` ➔ `X.Y.1` ➔ ... ➔ `X.Y.9` olduktan sonra sonraki sürüm `X.(Y+1).0` olur (Örn: `2.0.9` ➔ `2.1.0` ➔ ... ➔ `2.1.9` ➔ `2.2.0`).
+>        - Ortadaki hane de `9`a ulaştığında (Örn: `1.9.9` veya `2.9.9`), sonraki sürüm doğrudan bir üst ana sürüme geçer (`1.9.9` ➔ `2.0.0`, `2.9.9` ➔ `3.0.0`).
+>        - Asla `1.9.10` veya `2.0.10` gibi iki basamaklı sürüm numarası kullanılmaz.
 >    - **Windows Installer & Release Derleme:**
 >      - İmza anahtarı: `$env:TAURI_SIGNING_PRIVATE_KEY = Join-Path $env:USERPROFILE '.tauri/ack-deck-updater.key'` ve `$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ''`
 >      - `npm run tauri build` ile NSIS ve MSI paketlerini derle.

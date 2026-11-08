@@ -71,15 +71,6 @@ export function DormMenuCard() {
             </small>
           </div>
         </div>
-        <button
-          type="button"
-          className="button button-secondary dorm-menu-refresh-btn"
-          disabled={loading}
-          onClick={refresh}
-          title="Menüyü yenile"
-        >
-          {loading ? "…" : "↻"}
-        </button>
       </div>
 
       {menu && menu.dinnerDishes.length > 0 ? (

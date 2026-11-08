@@ -385,14 +385,53 @@
 .send-view-container {
   gap: 8px;
   padding-top: 2px;
+  min-height: calc(100vh - 80px);
 }
 .send-tab-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  min-height: 38px;
+  gap: 8px;
+  min-height: 36px;
+  margin-bottom: 2px;
+}
+.send-tab-header .send-toggle-bar {
+  flex: 1;
+  display: flex;
   margin-bottom: 0;
+  padding: 3px;
+  gap: 4px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+}
+.send-tab-header .send-toggle-bar .segment-btn {
+  flex: 1;
+  padding: 6px 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 9px;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.send-tab-header .settings-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--app-surface, #1e293b);
+  border: 1px solid var(--app-border);
+  color: var(--app-text);
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: 32px;
 }
 .send-toggle-bar {
   margin-bottom: 2px;

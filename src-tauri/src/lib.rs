@@ -98,6 +98,7 @@ pub fn run() {
             backup::save_backup,
             backup::choose_backup,
             backup::save_auto_backup,
+            backup::open_auto_backup_dir,
             backup::load_unlimited_store,
             backup::save_unlimited_store,
             portable_backup::save_portable_backup,
