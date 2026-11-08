@@ -4,6 +4,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 
 export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const inTauri = isTauri();
 
   useEffect(() => {
@@ -34,6 +35,29 @@ export function TitleBar() {
       if (unlisten) unlisten();
     };
   }, [inTauri]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F5" || (e.ctrlKey && e.key.toLowerCase() === "r")) {
+        e.preventDefault();
+        setRefreshing(true);
+        setTimeout(() => {
+          window.location.reload();
+        }, 180);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const handleRefresh = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (refreshing) return;
+    setRefreshing(true);
+    setTimeout(() => {
+      window.location.reload();
+    }, 180);
+  };
 
   const handleMinimize = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -87,6 +111,18 @@ export function TitleBar() {
         className="window-controls-cluster"
         aria-label="Pencere Kontrolleri"
       >
+        <button
+          type="button"
+          className={`window-ctrl-btn btn-refresh ${refreshing ? "spinning" : ""}`}
+          onClick={handleRefresh}
+          title="Sayfayı Yenile (F5 / Ctrl+R)"
+          aria-label="Yenile"
+        >
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M14 8a6 6 0 1 1-6-6c1.68 0 3.29.67 4.5 1.83L14 5.3" />
+            <path d="M14 2v3.5h-3.5" />
+          </svg>
+        </button>
         <button
           type="button"
           className="window-ctrl-btn btn-min"

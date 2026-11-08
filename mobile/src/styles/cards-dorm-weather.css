@@ -408,8 +408,10 @@
   overflow-x: auto;
   padding-bottom: 6px;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 .mobile-weather-hour-box {
+  flex: 0 0 54px;
   min-width: 54px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -427,18 +429,37 @@
 }
 .mobile-weather-hour-box .hour-symbol {
   font-size: 18px;
+  line-height: 1;
 }
 .mobile-weather-hour-box .hour-temp {
   font-size: 13px;
   font-weight: 700;
+  color: var(--app-text, #fafafa);
 }
 .mobile-weather-footer {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  margin-top: 16px;
-  padding-top: 12px;
+  margin-top: 14px;
+  padding-top: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--app-text-muted, #a1a1aa);
+  font-size: 11.5px;
+}
+.mobile-weather-close-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--app-text, #fafafa);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+.mobile-weather-close-btn:active {
+  background: rgba(255, 255, 255, 0.12);
+  transform: scale(0.97);
 }
 .mobile-weather-city-form {
   display: flex;

@@ -37,43 +37,48 @@ export function MobileWeatherModal({
           </button>
         </div>
 
-        {/* 4 Metric Boxes */}
+        {/* 4 Metric Boxes (Hissedilen, Günün Değerleri, Nem, Rüzgar) */}
         <div className="mobile-weather-grid">
           <div className="mobile-weather-card">
             <span className="metric-label">Hissedilen</span>
-            <span className="metric-value">{apparent}°C</span>
+            <strong className="metric-val">{apparent}°C</strong>
           </div>
           <div className="mobile-weather-card">
-            <span className="metric-label">En Yüksek / En Düşük</span>
-            <span className="metric-value">
-              {tempMax !== null && tempMin !== null ? `${tempMax}° / ${tempMin}°` : "—"}
-            </span>
-          </div>
-          <div className="mobile-weather-card">
-            <span className="metric-label">Rüzgar Hızı</span>
-            <span className="metric-value">{weather.windSpeed !== undefined ? `${Math.round(weather.windSpeed)} km/s` : "—"}</span>
+            <span className="metric-label">Günün Değerleri</span>
+            <strong className="metric-val">
+              {tempMax !== null && tempMin !== null ? `↑${tempMax}° / ↓${tempMin}°` : "—"}
+            </strong>
           </div>
           <div className="mobile-weather-card">
             <span className="metric-label">Nem</span>
-            <span className="metric-value">{weather.humidity !== undefined ? `%${Math.round(weather.humidity)}` : "—"}</span>
+            <strong className="metric-val">{weather.humidity !== undefined ? `%${Math.round(weather.humidity)}` : "—"}</strong>
+          </div>
+          <div className="mobile-weather-card">
+            <span className="metric-label">Rüzgar</span>
+            <strong className="metric-val">{weather.windSpeed !== undefined ? `${Math.round(weather.windSpeed)} km/s` : "—"}</strong>
           </div>
         </div>
 
         {/* 24-Hour Forecast Scroll */}
         {weather.hourly && weather.hourly.length > 0 && (
-          <div className="mobile-weather-forecast-section">
-            <h4 className="forecast-title">24 Saatlik Tahmin</h4>
-            <div className="mobile-weather-hourly-scroll">
+          <div className="mobile-weather-hourly-wrap">
+            <span className="mobile-weather-hourly-title">Günün Saatlik Akışı</span>
+            <div className="mobile-weather-hourly-strip">
               {weather.hourly.map((h, i) => (
-                <div key={i} className="hourly-forecast-col">
-                  <span className="hourly-time">{h.time}</span>
-                  <span className="hourly-icon" aria-hidden="true">{weatherSymbol(h.code)}</span>
-                  <span className="hourly-temp">{Math.round(h.temperature)}°</span>
+                <div key={i} className="mobile-weather-hour-box">
+                  <span className="hour-time">{h.time}</span>
+                  <span className="hour-symbol" aria-hidden="true">{weatherSymbol(h.code)}</span>
+                  <strong className="hour-temp">{Math.round(h.temperature)}°</strong>
                 </div>
               ))}
             </div>
           </div>
         )}
+
+        {/* Footer */}
+        <div className="mobile-weather-footer">
+          <small>Open-Meteo · Gerçek Zamanlı Tahmin</small>
+        </div>
       </div>
     </div>
   );

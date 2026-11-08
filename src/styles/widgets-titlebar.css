@@ -694,3 +694,25 @@ dialog,
   font-size: 0.88rem;
 }
 
+
+
+/* Window Refresh Button */
+.window-ctrl-btn.btn-refresh {
+  width: 42px;
+}
+
+.window-ctrl-btn.btn-refresh svg {
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.window-ctrl-btn.btn-refresh:hover svg {
+  color: var(--app-accent, #38bdf8);
+}
+
+.window-ctrl-btn.btn-refresh.spinning svg {
+  transform: rotate(360deg);
+}
+
+:root[data-theme="light"] .window-ctrl-btn.btn-refresh:hover svg {
+  color: var(--app-accent, #0284c7);
+}

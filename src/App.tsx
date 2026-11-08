@@ -47,14 +47,38 @@ import "./styles/dashboard-schedule.css";
 import "./styles/widgets-titlebar.css";
 import "./styles/media-overview.css";
 
+const LAST_PAGE_KEY = "ack-deck.last-active-page.v1";
+
+function getSavedInitialTarget(): { page: Page; id?: string } {
+  try {
+    const raw = sessionStorage.getItem(LAST_PAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.page === "string") {
+        return parsed;
+      }
+    }
+  } catch {}
+  const pref = loadPreferences();
+  return { page: (pref.startPage as Page) || "home" };
+}
+
 function App() {
   const [preferences, setPreferences] = useState(loadPreferences);
   useEffect(() => {
     document.documentElement.dataset.theme = preferences.theme ?? "dark";
   }, [preferences.theme]);
-  const { route, navigate } = useNavigationHistory({ page: "home" }, () => restoring || aiBusy || history.mutating);
+  const { route, navigate } = useNavigationHistory(getSavedInitialTarget(), () => restoring || aiBusy || history.mutating);
   const page = route.target.page;
   const setPage = (page: Page) => navigate({ page });
+
+  useEffect(() => {
+    try {
+      if (route.target && route.target.page) {
+        sessionStorage.setItem(LAST_PAGE_KEY, JSON.stringify({ page: route.target.page, id: route.target.id }));
+      }
+    } catch {}
+  }, [route.target]);
   useEffect(() => {
     const handleNavigate = (event: Event) => {
       const detail = (event as CustomEvent).detail;
