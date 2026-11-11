@@ -456,3 +456,95 @@ test('Dashboard Görevler card lists all tasks across mobile-style filters witho
   assert.equal(cardSrc.includes('+ Görev'), false);
   assert.equal(cardSrc.includes('Görevler'), true);
 });
+
+test('updater streams live download progress events, tracks check time, and preserves retry state', async () => {
+  const listeners = new Map();
+  let unlistenCount = 0;
+  let nextCheckResult = null;
+  const phases = [];
+
+  const env = setupModules([], {
+    tauri: true,
+    listen: async (eventName, cb) => {
+      listeners.set(eventName, cb);
+      return () => {
+        unlistenCount += 1;
+        listeners.delete(eventName);
+      };
+    },
+    invoke: async (command) => {
+      if (command === 'check_update') {
+        if (nextCheckResult instanceof Error) throw nextCheckResult;
+        if (nextCheckResult === '2.0.5') {
+          const emit = listeners.get('ack-update-progress');
+          emit?.({ payload: { version: '2.0.5', phase: 'started', downloadedBytes: 0, totalBytes: null, percent: null } });
+          emit?.({ payload: { version: '2.0.5', phase: 'downloading', downloadedBytes: 3145728, totalBytes: 6291456, percent: 50 } });
+          // Ignore regressive stale progress
+          emit?.({ payload: { version: '2.0.5', phase: 'downloading', downloadedBytes: 1000, totalBytes: 6291456, percent: 15 } });
+          emit?.({ payload: { version: '2.0.5', phase: 'verifying', downloadedBytes: 6291456, totalBytes: 6291456, percent: 100 } });
+        }
+        return nextCheckResult;
+      }
+      if (command === 'install_update') {
+        throw new Error('simulated install failure');
+      }
+      return null;
+    },
+  });
+
+  const client = env.load('updateClient');
+  const unsubscribe = client.subscribeUpdates(() => {
+    phases.push(structuredClone(client.updateSnapshot()));
+  });
+
+  assert.equal(client.formatUpdateVersion('2.0.4'), 'v2.0.4');
+  assert.equal(client.formatUpdateVersion('v2.0.4'), 'v2.0.4');
+  assert.equal(client.formatUpdateVersion(''), '—');
+  assert.equal(client.formatUpdateBytes(512), '512 B');
+  assert.equal(client.formatUpdateBytes(2048), '2 KB');
+  assert.match(client.formatUpdateBytes(4089446), /^3[.,]9 MB$/);
+  const now = new Date(2026, 10, 11, 22, 10).getTime();
+  assert.match(client.formatUpdateCheckTime(new Date(2026, 10, 11, 21, 30).getTime(), now), /^Bugün 21:30$/);
+  assert.match(client.formatUpdateCheckTime(new Date(2026, 10, 10, 18, 15).getTime(), now), /^Dün 18:15$/);
+
+  // 1. Up-to-date check
+  nextCheckResult = null;
+  await client.checkUpdates();
+  assert.equal(client.updateSnapshot().phase, 'idle');
+  assert.equal(client.updateSnapshot().upToDate, true);
+  assert.equal(typeof client.updateSnapshot().checkedAt, 'number');
+  assert.equal(env.values.has('ack-deck.update-last-checked.v1'), true);
+  assert.equal(unlistenCount, 1);
+
+  // 2. Error check retains failure cleanly
+  nextCheckResult = new Error('network');
+  await client.checkUpdates();
+  assert.equal(client.updateSnapshot().phase, 'error');
+  assert.equal(unlistenCount, 2);
+
+  // 3. Full download -> verifying -> ready flow (with monotonic progress)
+  phases.length = 0;
+  nextCheckResult = '2.0.5';
+  await client.checkUpdates();
+  assert.equal(unlistenCount, 3);
+  assert.equal(client.updateSnapshot().phase, 'ready');
+  assert.equal(client.updateSnapshot().version, '2.0.5');
+
+  const downloadPhases = phases.filter(s => s.phase === 'downloading');
+  assert.equal(downloadPhases.length >= 2, true);
+  assert.equal(downloadPhases[downloadPhases.length - 1].progress.percent, 50);
+  assert.equal(downloadPhases[downloadPhases.length - 1].progress.downloadedBytes, 3145728);
+  assert.equal(phases.some(s => s.phase === 'verifying' && s.progress?.percent === 100), true);
+
+  unsubscribe();
+
+  // Verify UpdateSettings & UpdateNotice markup contract
+  const settingsSrc = readFileSync(new URL('../src/components/UpdateSettings.tsx', import.meta.url), 'utf8');
+  const noticeSrc = readFileSync(new URL('../src/components/UpdateNotice.tsx', import.meta.url), 'utf8');
+  assert.equal(settingsSrc.includes('update-status-pill'), true);
+  assert.equal(settingsSrc.includes('update-status-strip'), true);
+  assert.equal(settingsSrc.includes('role="progressbar"'), true);
+  assert.equal(settingsSrc.includes('Kur ve Yeniden Başlat'), true);
+  assert.equal(noticeSrc.includes('downloading'), true);
+  assert.equal(noticeSrc.includes('verifying'), true);
+});

@@ -47,6 +47,7 @@ import "./styles/dashboard-schedule.css";
 import "./styles/dashboard-tasks.css";
 import "./styles/widgets-titlebar.css";
 import "./styles/media-overview.css";
+import "./styles/update-settings.css";
 
 const LAST_PAGE_KEY = "ack-deck.last-active-page.v1";
 
