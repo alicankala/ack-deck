@@ -1,6 +1,6 @@
 import type { ReactNode, SVGProps } from "react";
 
-export type IconName = "grid" | "folder" | "tool" | "archive" | "settings" | "cpu" | "memory" | "drive" | "wifi" | "arrowRight" | "arrowUp" | "arrowDown" | "plus" | "check" | "trash" | "note" | "qr" | "files" | "globe" | "speed" | "layers" | "info" | "spark" | "bell" | "bellOff" | "activity" | "back";
+export type IconName = "grid" | "folder" | "tool" | "archive" | "settings" | "cpu" | "memory" | "drive" | "wifi" | "arrowRight" | "arrowUp" | "arrowDown" | "plus" | "check" | "checkCircle" | "trash" | "note" | "qr" | "files" | "globe" | "speed" | "layers" | "info" | "spark" | "bell" | "bellOff" | "activity" | "back";
 
 const paths: Record<IconName, ReactNode> = {
   grid: <><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></>,
@@ -17,6 +17,7 @@ const paths: Record<IconName, ReactNode> = {
   arrowDown: <path d="M12 5v14m-6-6 6 6 6-6"/>,
   plus: <path d="M12 5v14M5 12h14"/>,
   check: <path d="m5 12 4 4L19 6"/>,
+  checkCircle: <><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-5"/></>,
   trash: <><path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5"/></>,
   note: <><path d="M5 3h10l4 4v14H5zM15 3v4h4M8 12h8M8 16h6"/></>,
   qr: <><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM20 14v3m-3 3h4m-7 1v-2"/></>,

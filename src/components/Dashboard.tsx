@@ -1,8 +1,8 @@
-import { dailySummary } from "../productIntelligence";
 import { Subscriptions } from "./Subscriptions";
 import { PrayerWidget } from "./PrayerWidget";
 import { DormMenuCard } from "./DormMenuCard";
-import { completeOccurrence, scheduleDate, formatCompletedTime } from "../../shared/recurrence";
+import { DashboardTasksCard } from "./DashboardTasksCard";
+import { scheduleDate } from "../../shared/recurrence";
 import { loadStudyAttendance, setStudyBlockStatus, cycleAttendanceStatus } from "../../shared/studyAttendance";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Header } from "./Header";
@@ -10,7 +10,7 @@ import { PcStatus } from "./PcStatus";
 import { PomodoroTimer } from "./PomodoroTimer";
 import { Icon, type IconName } from "./Icon";
 import { loadDashboardData, relativeUseTime, todayTasks } from "../dashboardData";
-import { loadTasks, saveTasks, localDateKey } from "../taskStore";
+import { localDateKey } from "../taskStore";
 import { loadStudyPrograms } from "../studyProgramStore";
 import { studyBlocks, WEEKDAY_SHORT } from "../../shared/studyPrograms";
 import { weekDates } from "../../shared/weeklyPlan";
@@ -84,8 +84,6 @@ export function Dashboard({ refreshMs, onNavigate, onAskAi, targetId }: Props) {
     };
   }, []);
   const daily = todayTasks(data.tasks.entries, now);
-  function complete(id: string) { const current = loadTasks(); if (!saveTasks(current.entries.map(task => task.id === id ? completeOccurrence(task) : task), current)) setFeedback("Görev kaydedilemedi. Mevcut veriler korunuyor."); }
-  const summary = dailySummary();
   const allBlocks = studyBlocks(studyData.entries, now);
   const todayDateStr = localDateKey(now);
   const [selectedDate, setSelectedDate] = useState<string>(todayDateStr);
@@ -530,116 +528,19 @@ export function Dashboard({ refreshMs, onNavigate, onAskAi, targetId }: Props) {
           <PrayerWidget />
         </aside>
 
-        {/* Satır 2: Bugün ve ACK AI | Günün Yemek Menüsü */}
+        {/* Satır 2: Görevler ve ACK AI | Günün Yemek Menüsü */}
         <div className="dashboard-start-grid">
-            <section className="dashboard-today surface" aria-labelledby="dashboard-today-heading">
-              <div className="dashboard-section-top">
-                <div>
-                  <h2 id="dashboard-today-heading">Bugün</h2>
-                  <small className="today-date-subtitle">
-                    {now.toLocaleDateString("tr-TR", { day: "numeric", month: "long", weekday: "long" })}
-                  </small>
-                </div>
-                <button type="button" className="dashboard-text-button" onClick={() => onNavigate({ page: "tasks", intent: "new-task" })}>
-                  + Görev
-                </button>
-              </div>
+          <DashboardTasksCard
+            todayDateStr={todayDateStr}
+            tasksLoad={data.tasks}
+            todayStudyBlocks={todayStudyBlocks}
+            allBlocks={allBlocks}
+            attendance={attendance}
+            onToggleStudyBlock={toggleStudyBlock}
+            onError={setFeedback}
+          />
 
-              <div className="daily-summary-counts">
-                <button type="button" className="today-badge-btn" onClick={() => onNavigate({ page: "tasks" })}>
-                  <Icon name="check" size={13} />
-                  <span>
-                    <strong>{summary.today}</strong> görev
-                    {todayStudyBlocks.length > 0 && ` · ${todayStudyBlocks.filter(b => !attendance[b.id]?.status).length}/${todayStudyBlocks.length} ders`}
-                    {summary.overdue > 0 && <em className="overdue-count"> ({summary.overdue} geciken)</em>}
-                  </span>
-                </button>
-                <button type="button" className="today-badge-btn" onClick={() => onNavigate({ page: "inbox" })}>
-                  <Icon name="files" size={13} />
-                  <span><strong>{summary.unhandledInbox ?? "0"}</strong> gelen</span>
-                </button>
-                <button type="button" className="today-badge-btn" onClick={() => onNavigate({ page: "subscriptions" })}>
-                  <Icon name="archive" size={13} />
-                  <span><strong>{summary.subscriptions.length}</strong> abonelik</span>
-                </button>
-              </div>
-
-              {data.tasks.warning && <p className="dashboard-empty" role="status">{data.tasks.warning}</p>}
-
-              <div className="dashboard-daily-list">
-                {todayStudyBlocks.map(block => {
-                  const att = attendance[block.id];
-                  const status = att?.status;
-                  return (
-                    <div
-                      className={`dashboard-daily-task study-daily-row ${status === "attended" ? "is-study-attended" : status === "skipped" ? "is-study-skipped" : ""}`}
-                      key={block.id}
-                    >
-                      <button
-                        type="button"
-                        className={`task-toggle study-status-toggle ${status === "attended" ? "is-attended" : status === "skipped" ? "is-skipped" : ""}`}
-                        onClick={() => toggleStudyBlock(block.id)}
-                        title="1 tık: Çalıştım · 2 tık: Çalışmadım · 3 tık: Sıfırla"
-                        aria-label={`${block.label}: ${status === undefined ? "Çalıştım olarak işaretle" : status === "attended" ? "Çalışmadım olarak işaretle" : "Durumu sıfırla"}`}
-                      >
-                        {status === "attended" ? (
-                          <Icon name="check" size={12} />
-                        ) : status === "skipped" ? (
-                          <span className="study-toggle-x" aria-hidden="true">✕</span>
-                        ) : null}
-                      </button>
-                      <button
-                        type="button"
-                        className="dashboard-task-open"
-                        onClick={() => toggleStudyBlock(block.id)}
-                      >
-                        <strong>{block.label}{block.topic ? ` · ${block.topic}` : ""}</strong>
-                        <small>
-                          📚 Ders · {block.time} – {block.endTime}
-                          {status === "attended" ? (
-                            <span className="study-att-inline is-attended">
-                              {" · ✓ Çalışıldı"}{formatCompletedTime(att?.at) ? ` (${formatCompletedTime(att?.at)})` : ""}
-                            </span>
-                          ) : status === "skipped" ? (
-                            <span className="study-att-inline is-skipped">
-                              {" · ✗ Çalışılmadı"}{formatCompletedTime(att?.at) ? ` (${formatCompletedTime(att?.at)})` : ""}
-                            </span>
-                          ) : (
-                            <span className="study-att-hint"> · 1 tık ✓ · 2 tık ✕</span>
-                          )}
-                        </small>
-                      </button>
-                    </div>
-                  );
-                })}
-                {daily.map(({ task, label }) => (
-                  <div className="dashboard-daily-task" key={task.id}>
-                    <button
-                      type="button"
-                      className="task-toggle"
-                      onClick={() => complete(task.id)}
-                      aria-label={task.text + ": tamamlandı işaretle"}
-                    />
-                    <button type="button" className="dashboard-task-open" onClick={() => onNavigate({ page: "tasks", id: task.id })}>
-                      <strong>{task.text}</strong>
-                      <small className={label === "Zamanı geçti" ? "overdue" : ""}>
-                        {label}{task.dueTime && " · " + task.dueTime}
-                      </small>
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              {!daily.length && !todayStudyBlocks.length && !data.tasks.locked && (
-                <div className="dashboard-empty-state">
-                  <span><Icon name="check" size={26} /></span>
-                  <strong>Günün açık</strong>
-                  <p>Bekleyen tarihli görev veya ders yok.</p>
-                </div>
-              )}
-            </section>
-
-            <AiStart onAskAi={onAskAi} />
+          <AiStart onAskAi={onAskAi} />
         </div>
         <aside className="dashboard-grid-rail rail-dorm dashboard-right-rail" aria-label="Günün yemek menüsü">
           <DormMenuCard />

@@ -44,6 +44,7 @@ import "./content-polish.css";
 import "./desktop-layout.css";
 import "./styles/light-theme.css";
 import "./styles/dashboard-schedule.css";
+import "./styles/dashboard-tasks.css";
 import "./styles/widgets-titlebar.css";
 import "./styles/media-overview.css";
 

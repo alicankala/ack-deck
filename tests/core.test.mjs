@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { setupModules } from './helpers.mjs';
 import * as adhanModule from 'adhan';
 
@@ -381,4 +382,77 @@ test('media items validate IMDb ratings, IDs and timestamps safely', () => {
 
   // Disallowed arbitrary properties rejected
   assert.equal(media.validMediaItem({ ...validMovie, maliciousField: 'hack' }), false);
+});
+
+test('Dashboard Görevler card lists all tasks across mobile-style filters without top-right + Görev shortcut', () => {
+  const env = setupModules();
+  const taskStore = env.load('taskStore');
+  const actions = env.load('taskActions');
+  const today = '2026-11-11';
+  const make = (id, text, dueDate, dueTime = null, completed = false) => ({
+    id,
+    text,
+    completed,
+    dueDate,
+    dueTime,
+    priority: 'normal',
+    reminder: false,
+    ...(completed ? { lastCompletedAt: 1000 } : {}),
+  });
+
+  // 7 active tasks across overdue, today, future (>2 days), undated + 1 completed
+  const seed = [
+    make('t1', 'Geciken iş', '2026-11-10', '09:00'),
+    make('t2', 'Bugün saat 20', '2026-11-11', '20:00'),
+    make('t3', 'Vize Elektronik II', '2026-11-13', '11:00'),
+    make('t4', 'Uzak sınav', '2026-11-25', '10:00'),
+    make('t5', 'Tarihsiz A', null),
+    make('t6', 'Tarihsiz B', null),
+    make('t7', 'Tarihsiz C', null),
+    make('t8', 'Biten iş', '2026-11-09', '12:00', true),
+  ];
+  assert.equal(taskStore.saveTasks(seed, taskStore.loadTasks()), true);
+
+  assert.deepEqual(plain(actions.TASK_FILTERS.map(([, l]) => l)), ['Aktif', 'Bugün', 'Yaklaşan', 'Tarihsiz', 'Tamamlanan']);
+
+  // 'all' (Aktif) returns ALL 7 active tasks without 5-item cap or 2-day lookahead cap
+  assert.deepEqual(
+    plain(actions.filterAndSortTasks(seed, 'all', today).map(t => t.id)),
+    ['t1', 't2', 't3', 't4', 't5', 't6', 't7']
+  );
+  assert.deepEqual(plain(actions.filterAndSortTasks(seed, 'today', today).map(t => t.id)), ['t1', 't2']);
+  assert.deepEqual(plain(actions.filterAndSortTasks(seed, 'upcoming', today).map(t => t.id)), ['t3', 't4']);
+  assert.deepEqual(plain(actions.filterAndSortTasks(seed, 'undated', today).map(t => t.id)), ['t5', 't6', 't7']);
+  assert.deepEqual(plain(actions.filterAndSortTasks(seed, 'completed', today).map(t => t.id)), ['t8']);
+
+  // Complete & reopen round-trip
+  const doneRes = actions.toggleTaskRecordCompletion('t2');
+  assert.equal(doneRes.ok, true);
+  assert.equal(doneRes.next.find(t => t.id === 't2').completed, true);
+  const reopenRes = actions.toggleTaskRecordCompletion('t2');
+  assert.equal(reopenRes.ok, true);
+  assert.equal(reopenRes.next.find(t => t.id === 't2').completed, false);
+
+  // Edit via saveTaskDraft
+  const originalT3 = taskStore.loadTasks().entries.find(t => t.id === 't3');
+  const saveRes = actions.saveTaskDraft({ ...originalT3, text: 'Vize Elektronik II (Güncel)' }, originalT3);
+  assert.equal(saveRes.ok, true);
+  assert.equal(taskStore.loadTasks().entries.find(t => t.id === 't3').text, 'Vize Elektronik II (Güncel)');
+
+  // Snooze & Delete with undo
+  const snoozeRes = actions.snoozeTaskRecord(originalT3, 15);
+  assert.equal(snoozeRes.ok, true);
+  assert.equal(Boolean(taskStore.loadTasks().entries.find(t => t.id === 't3').snoozedUntil), true);
+
+  const delRes = actions.deleteTaskRecord(taskStore.loadTasks().entries.find(t => t.id === 't5'));
+  assert.equal(delRes.ok, true);
+  assert.equal(taskStore.loadTasks().entries.some(t => t.id === 't5'), false);
+
+  // Verify Dashboard uses DashboardTasksCard and does not have + Görev shortcut
+  const dashboardSrc = readFileSync(new URL('../src/components/Dashboard.tsx', import.meta.url), 'utf8');
+  const cardSrc = readFileSync(new URL('../src/components/DashboardTasksCard.tsx', import.meta.url), 'utf8');
+  assert.equal(dashboardSrc.includes('<DashboardTasksCard'), true);
+  assert.equal(dashboardSrc.includes('+ Görev'), false);
+  assert.equal(cardSrc.includes('+ Görev'), false);
+  assert.equal(cardSrc.includes('Görevler'), true);
 });
