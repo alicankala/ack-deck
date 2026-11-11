@@ -602,25 +602,3 @@
   background: rgba(0, 0, 0, 0.06);
   color: #0f172a;
 }
-
-
-
-/* Mobile Activity Overview (Apple Fitness inspired) */
-.mobile-head-action-btn {
-  background: var(--app-field, rgba(255, 255, 255, 0.05));
-  border: 1px solid var(--app-border, rgba(255, 255, 255, 0.1));
-  color: var(--app-secondary, #cbd5e1);
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  cursor: pointer;
-}
-.mobile-head-action-btn.is-active {
-  background: rgba(56, 189, 248, 0.15);
-  border-color: #38bdf8;
-  color: #38bdf8;
-}

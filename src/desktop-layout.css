@@ -12,33 +12,6 @@
 .gemini-model-settings summary { cursor: pointer; padding: .4rem 0; font-weight: 600; }
 .gemini-model-settings .archive-form-grid { margin-block: 1rem; }
 .dashboard-header-actions { display:flex; align-items:center; gap:0.75rem; }
-.dashboard-overview-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: var(--app-surface, rgba(15, 23, 42, 0.65));
-  border: 1px solid var(--app-border, rgba(255, 255, 255, 0.1));
-  color: var(--app-secondary, #cbd5e1);
-  padding: 0.55rem 1rem;
-  border-radius: 9999px;
-  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.35);
-  font-size: 0.88rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  backdrop-filter: blur(8px);
-}
-.dashboard-overview-btn:hover {
-  background: var(--app-accent-soft, rgba(56, 189, 248, 0.12));
-  border-color: var(--app-accent-border, rgba(56, 189, 248, 0.35));
-  color: var(--app-accent, #38bdf8);
-  transform: translateY(-1px);
-}
-.dashboard-overview-btn .overview-btn-icon {
-  display: flex;
-  align-items: center;
-  color: var(--app-accent, #38bdf8);
-}
 .dashboard-weather-wrapper { position: relative; }
 .dashboard-weather-btn {
   display: inline-flex;
@@ -325,7 +298,7 @@
 .main-content :is(.feature-heading,.section-heading) p { margin:.5rem 0 0; line-height:1.6; max-width:48rem; }
 .main-content :is(.projects-page,.subscriptions-page,.tasks-page,.tools-page,.hub-page,.archive-page,.notes-page,.settings-page,.ai-history-layout) { min-width:0; }
 .main-content :is(.project-card,.hub-card,.archive-card) { padding:var(--card-padding); }
-.main-content :is(.project-grid,.hub-grid,.archive-grid,.inbox-grid) { gap:1rem; align-items:start; }
+.main-content :is(.project-grid,.hub-grid,.archive-grid) { gap:1rem; align-items:start; }
 .main-content :is(.hub-actions,.project-actions,.archive-card-actions,.settings-actions,.archive-detail-actions) { gap:.65rem; align-items:center; flex-wrap:wrap; }
 .main-content :is(.task-text,.project-info,.tool-copy,.subscription-info,.ai-message-body,.settings-panels) { min-width:0; overflow-wrap:anywhere; }
 .main-content :is(input:not([type=checkbox]):not([type=radio]),select,textarea) { min-width:0; max-width:100%; }
@@ -412,12 +385,6 @@
 .main-content .notes-page .notes-editor .notes-title { font-size:1.7rem; padding:1.1rem 0 .65rem; }
 .main-content .notes-page .notes-editor .notes-content { min-height:22rem; font-size:1rem; line-height:1.8; }
 .main-content .notes-page .notes-save-info { margin:.85rem 0 0; line-height:1.6; }
-.main-content .inbox-page { width: 100% !important; max-width: 100% !important; margin: 0 !important; }
-.main-content .inbox-grid { width: 100% !important; max-width: 100% !important; display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,22rem),1fr)); }
-.main-content .inbox-grid .hub-card { display:flex; flex-direction:column; gap:.75rem; margin:0; min-width:0; }
-.main-content .inbox-grid .hub-card :is(h2,p) { margin:0; line-height:1.6; }
-.main-content .inbox-grid .hub-actions { margin-top:auto; padding-top:.4rem; }
-.main-content .phone-inbox-content { max-height:16rem; overflow:auto; white-space:pre-wrap; }
 .main-content .settings-page { width: 100% !important; max-width: 100% !important; margin: 0 !important; }
 .main-content .tasks-page { width: 100% !important; max-width: 100% !important; margin: 0 !important; }
 .main-content .settings-layout { grid-template-columns:15rem minmax(0,1fr); gap:1.25rem; }
@@ -470,12 +437,6 @@
 @container (max-width:48rem) { .main-content :is(.ai-history-layout,.settings-layout), .main-content .notes-page .notes-layout { grid-template-columns:minmax(0,1fr); } .main-content .conversation-history { max-height:15rem; } .main-content .notes-list { max-height:16rem; } .main-content .settings-navigation { position:static; grid-template-columns:repeat(3,minmax(0,1fr)); } .main-content .settings-navigation small { display:none; } .main-content .tools-page .tool-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .main-content .display-scale-controls { grid-template-columns:minmax(0,1fr); } }
 @container (max-width:34rem) { .main-content .tools-page .tool-grid,.editor-dialog .archive-form-grid { grid-template-columns:minmax(0,1fr); } .main-content .settings-navigation { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 
-.main-content .inbox-card { display:flex; flex-direction:column; gap:.8rem; padding:1.25rem; min-width:0; }
-.main-content .inbox-card :is(h2,p) { margin:0; }
-.inbox-card-heading { display:flex; justify-content:space-between; gap:1rem; font-size:.8rem; color:var(--app-muted); }
-.inbox-kind { color:var(--app-accent); font-weight:650; }
-.inbox-card>time { font-size:.8rem; color:var(--app-muted); }
-.inbox-card .hub-actions { margin-top:auto; padding-top:.5rem; justify-content:space-between; }
 .phone-media { display:grid; gap:.75rem; min-width:0; padding:.85rem; background:var(--app-field); border:1px solid var(--app-border); border-radius:.75rem; }
 .phone-media audio { width:100%; min-width:0; color-scheme:dark; }
 .phone-media img { max-width:100%; max-height:22rem; object-fit:contain; border-radius:.5rem; justify-self:center; }
@@ -746,5 +707,3 @@
 .dashboard-ai-send {
   margin-top: 0.85rem;
 }
-
-.main-content .activity-overview-page { width: 100%; max-width: 1080px; margin: 0 auto; }

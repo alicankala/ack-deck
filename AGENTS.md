@@ -107,19 +107,14 @@ ACKDeck is a personal, local-first Windows desktop application and companion mob
    - iOS otomatik zoom'unu önlemek için tüm mobil form elemanlarında `font-size: 16px !important` kullanılır; alt sayfalarda `autoFocus` kullanılmaz.
 2. **Başlık ve Hava Durumu Düzeni**:
    - Mobil tepe karşılama şeridinde sol tarafta karşılama metni ("İyi günler, Alican"), sağ tarafta hava durumu butonu yer alır; araya ekstra buton konularak hava durumunun görünümü bozulmaz.
-   - Aktivite Özeti'ne mobil başlığın sağındaki aktivite butonuyla erişilir.
 3. **Tek Seferlik Otomatik Face ID**:
    - Biyometrik kilit devredeyken açılışta yalnızca 1 kez Face ID sorulur, kullanıcıyı tekrar tekrar onaylamaya zorlayan ayar düğmeleri veya çift prompt bulunmaz.
 4. **Altınkalem Yemek Menüsü 2-Kademeli Önbellek**:
    - 1. Kademe: Cloudflare Worker KV `dorm-menu:cache` (3 saat TTL).
    - 2. Kademe: İstemci içi tazelik kontrolü (`isDormMenuFresh()`, 2.5 saat). Kullanıcı günde onlarca kez girse bile dış siteye gereksiz istek gitmez.
-5. **Aktivite Hedefleri Senkronizasyonu**:
-   - Günlük Namaz, Pomodoro ve Görev hedefleri Masaüstü ve Mobil arasında Cloudflare Worker üzerinden otomatik eşitlenir. Hem masaüstünden hem de mobil Ayarlar/Özet üzerinden düzenlenebilir.
 
 ---
 
-## 9. Masaüstü Arayüz & Genel Özet Kuralları
+## 9. Masaüstü Tasarım Dili
 
-- **Genel Aktivite ve Alışkanlık Özeti:** Sol kenar çubuğunda (sidebar) sekme olarak yer almaz. Dashboard başlığında, hava durumu widget'ının hemen solundaki özel aktivite butonuyla tam ekran olarak açılır.
-- **Tam Ekran Görünüm:** Genel Özet sayfası `.tasks-page` gibi ana içerik alanının tamamına (%100 genişlik) yayılır; yapay `max-width: 1080px` veya kenar siyah boşlukları içermez. Sayfa başında "← Geri Dön" butonuyla rahatça çıkılabilir.
-- **Tasarım Dili:** Sakin, göz yormayan koyu antrasit tonlar, hafif mavi vurgular, Apple Fitness halkaları tarzı zümrüt yeşili (namaz), turuncu (odaklanma), mavi (görevler) paleti.
+- Sakin, göz yormayan koyu antrasit tonlar, hafif mavi vurgular; yerel öncelikli sade ve odaklanmaya uygun arayüz düzeni korunur.

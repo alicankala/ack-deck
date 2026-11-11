@@ -126,17 +126,6 @@ test('strict owner/device auth, same-origin policy and credential-free status',a
   const result=await call('status',undefined,phone);assert.equal(result.response.status,200);assert.ok(!JSON.stringify(result.data).includes(ownerSecret));assert.equal(result.response.headers.get('X-Content-Type-Options'),'nosniff');assert.equal(result.response.headers.get('Access-Control-Allow-Origin'),null);
   await call('heartbeat',{prayerConfig:{city:'Karabük',latitude:41.20488,longitude:32.62768,notifyAtTime:true,notifyBeforeMinutes:15}});
   const updatedStatus=await call('status',undefined,phone);assert.equal(updatedStatus.data.prayerConfig.city,'Karabük');
-  // Activity goals sync test via heartbeat
-  await call('heartbeat', { activityGoals: { prayerTarget: 4, pomodoroTarget: 5, tasksTarget: 2 } });
-  const statusWithGoals = await call('status', undefined, phone);
-  assert.equal(statusWithGoals.data.activityGoals.prayerTarget, 4);
-  assert.equal(statusWithGoals.data.activityGoals.pomodoroTarget, 5);
-  // Activity goals update from mobile via /api/activity-goals
-  const mobileUpdate = await call('activity-goals', { activityGoals: { prayerTarget: 5, pomodoroTarget: 6, tasksTarget: 3 } }, phone, 'POST');
-  assert.equal(mobileUpdate.response.status, 200);
-  assert.equal(mobileUpdate.data.activityGoals.pomodoroTarget, 6);
-  const statusAfterMobile = await call('status', undefined, phone);
-  assert.equal(statusAfterMobile.data.activityGoals.pomodoroTarget, 6);
 });
 test('pairing is single-use, expired codes fail, tokens are hashed and revocation disables access/push',async()=>{
   assert.equal((await call('pair/exchange',{code:owner.data.code,name:'Again'},null)).response.status,400);

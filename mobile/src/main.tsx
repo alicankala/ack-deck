@@ -54,13 +54,11 @@ import "./styles/cards-dorm-weather.css";
 import "./styles/media-ai.css";
 import "./styles/prayer-guide.css";
 import "./styles/prayer-guide-details.css";
+import "./styles/prayer-month.css";
 import "./styles/lock-pomodoro.css";
-import "./styles/activity-overview.css";
-import { saveActivityGoals, type ActivityGoals } from "../../shared/activityOverview";
 import "./notes.css";
 import { createAttachmentSender } from "./sendFlow";
 import { MobileSettings } from "./MobileSettings";
-import { MobileActivityOverview } from "./MobileActivityOverview";
 import { MobileNav } from "./MobileNav";
 import { MobileLockScreen } from "./MobileLockScreen";
 import { isSecurityLocked, initAutoLockListener } from "./mobileSecurity";
@@ -295,7 +293,6 @@ function App() {
           notifications: boolean;
           prayerConfig?: PrayerTimesConfig;
           studyReminders?: { id: string; leadMinutes: number | null }[];
-          activityGoals?: ActivityGoals;
         }>(next, "status"),
         api<{ items: MobileInboxItem[] }>(next, "inbox"),
       ]);
@@ -311,9 +308,6 @@ function App() {
         try {
           localStorage.setItem("ack-deck.study-reminders.v1", JSON.stringify(status.studyReminders));
         } catch {}
-      }
-      if (status.activityGoals && typeof status.activityGoals === "object") {
-        saveActivityGoals(status.activityGoals);
       }
       if (!silent) {
         const elapsed = Date.now() - startTime;
@@ -835,9 +829,7 @@ function App() {
       <div className="mobile-content" inert={!!form || !!subscriptionDraft}>
         <MobileAppHeader
           online={online}
-          page={page}
           busy={busy}
-          onToggleOverview={() => setPage(page === "overview" ? "today" : "overview")}
           onRefresh={() => void refresh()}
         />
 
@@ -851,7 +843,6 @@ function App() {
               unfinishedCount={unfinished.length}
               todayStudyCount={todayStudyBlocks.length}
               notesCount={notesCount}
-              onOpenOverview={() => setPage("overview")}
               onOpenWeatherModal={() => setWeatherModalOpen(true)}
               onOpenPlanCalendar={() => {
                 changePage("plan");
@@ -1031,10 +1022,6 @@ function App() {
             onBack={() => changePage("send")}
             onSync={() => refresh()}
           />
-        )}
-
-        {page === "overview" && (
-          <MobileActivityOverview onBack={() => changePage("today")} records={state.records} state={state} />
         )}
 
         <MobileConflictCards

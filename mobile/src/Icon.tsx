@@ -1,4 +1,4 @@
-export type IconName = "check" | "files" | "folder" | "grid" | "note" | "archive" | "settings" | "refresh" | "link" | "mic" | "spark" | "trash" | "compose" | "search" | "back" | "calendar" | "clock" | "chevron" | "plus" | "checkCircle" | "send" | "activity";
+export type IconName = "check" | "files" | "folder" | "grid" | "note" | "archive" | "settings" | "refresh" | "link" | "mic" | "spark" | "trash" | "compose" | "search" | "back" | "calendar" | "clock" | "chevron" | "plus" | "checkCircle" | "send";
 
 export function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   const paths = {
@@ -23,7 +23,6 @@ export function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
     chevron: <path d="m9 18 6-6-6-6" />,
     plus: <path d="M12 5v14M5 12h14" />,
     checkCircle: <><circle cx="12" cy="12" r="9" /><path d="m8 12 3 3 5-5" /></>,
-    activity: <path d="M22 12h-4l-3 9L9 3l-3 9H2" />,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }

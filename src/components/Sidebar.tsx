@@ -2,7 +2,6 @@ import { Icon, type IconName } from "./Icon";
 
 export type Page =
   | "home"
-  | "overview"
   | "tasks"
   | "calendar"
   | "notes"

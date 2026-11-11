@@ -352,7 +352,7 @@ export function Dashboard({ refreshMs, onNavigate, onAskAi, targetId }: Props) {
 
   return (
     <div className="dashboard work-dashboard">
-      <Header onOpenOverview={() => onNavigate({ page: "overview" })} />
+      <Header />
       <div className="dashboard-workbench">
         {/* Satır 1: Canlı Durum & Haftalık Çizelge | Namaz Vakitleri */}
         <div className="dashboard-grid-row row-overview-schedule">

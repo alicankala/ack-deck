@@ -341,18 +341,13 @@ async function handle(request: Request, env: Env): Promise<Response> {
     if (pc?.notification_preferences) {
       try { notificationPreferences = JSON.parse(pc.notification_preferences); } catch {}
     }
-    let activityGoals = null;
-    try {
-      const goalsRow = await env.DB.prepare("SELECT value FROM app_settings WHERE key='activity_goals'").first<{ value: string }>();
-      if (goalsRow?.value) activityGoals = JSON.parse(goalsRow.value);
-    } catch {}
     let cloudAiUsage = null;
     try {
       const usageRow = await env.DB.prepare("SELECT value FROM app_settings WHERE key='ai_cloud_usage'").first<{ value: string }>();
       if (usageRow?.value) cloudAiUsage = JSON.parse(usageRow.value);
     } catch {}
     const aiConfigured = await hasEncryptedGeminiKey(env);
-    return reply({ online:now-(pc?.last_seen ?? 0)<DESKTOP_ONLINE_THRESHOLD_MS, notifications:!!notification?.active, vapidPublicKey:env.VAPID_PUBLIC_KEY ?? "", prayerConfig, studyReminders, notificationPreferences, activityGoals, cloudAiUsage, aiConfigured, now });
+    return reply({ online:now-(pc?.last_seen ?? 0)<DESKTOP_ONLINE_THRESHOLD_MS, notifications:!!notification?.active, vapidPublicKey:env.VAPID_PUBLIC_KEY ?? "", prayerConfig, studyReminders, notificationPreferences, cloudAiUsage, aiConfigured, now });
   }
   if (path === "/api/pair" && request.method === "POST") {
     owner(actor); const code = randomToken();
@@ -437,24 +432,12 @@ async function handle(request: Request, env: Env): Promise<Response> {
         await env.DB.prepare("UPDATE desktop_state SET notification_preferences=? WHERE id=1").bind(rawNotif).run();
       } catch {}
     }
-    let currentGoals = null;
-    try {
-      const goalsRow = await env.DB.prepare("SELECT value FROM app_settings WHERE key='activity_goals'").first<{ value: string }>();
-      if (goalsRow?.value) currentGoals = JSON.parse(goalsRow.value);
-    } catch {}
-    const rawGoals = body && typeof body === "object" && (body as Record<string, unknown>).activityGoals && typeof (body as Record<string, unknown>).activityGoals === "object" ? JSON.stringify((body as Record<string, unknown>).activityGoals) : null;
-    if (!currentGoals && rawGoals) {
-      try {
-        await env.DB.prepare("INSERT INTO app_settings(key,value,updated_at) VALUES('activity_goals',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(rawGoals, now).run();
-        currentGoals = JSON.parse(rawGoals);
-      } catch {}
-    }
     let cloudAiUsage = null;
     try {
       const usageRow = await env.DB.prepare("SELECT value FROM app_settings WHERE key='ai_cloud_usage'").first<{ value: string }>();
       if (usageRow?.value) cloudAiUsage = JSON.parse(usageRow.value);
     } catch {}
-    return reply({ok:true, activityGoals: currentGoals, cloudAiUsage});
+    return reply({ok:true, cloudAiUsage});
   }
   if (path === "/api/study-reminders" && request.method === "POST") {
     const body = await jsonBody(request);
@@ -579,21 +562,6 @@ async function handle(request: Request, env: Env): Promise<Response> {
     }
     await env.DB.prepare("UPDATE desktop_state SET prayer_config=? WHERE id=1").bind(JSON.stringify(body.prayerConfig)).run();
     return reply({ ok: true });
-  }
-  if (path === "/api/activity-goals" && request.method === "POST") {
-    await ensureSyncTables(env);
-    const body = await jsonBody(request);
-    if (!object(body) || !exact(body, ["activityGoals"]) || !object(body.activityGoals)) {
-      throw new ApiError(400, "Aktivite hedefleri geçersiz.");
-    }
-    const goals = body.activityGoals as Record<string, unknown>;
-    const sanitized = {
-      prayerTarget: Math.min(5, Math.max(1, Math.round(Number(goals.prayerTarget) || 5))),
-      pomodoroTarget: Math.min(30, Math.max(1, Math.round(Number(goals.pomodoroTarget) || 4))),
-      tasksTarget: Math.min(50, Math.max(1, Math.round(Number(goals.tasksTarget) || 3))),
-    };
-    await env.DB.prepare("INSERT INTO app_settings(key,value,updated_at) VALUES('activity_goals',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(JSON.stringify(sanitized), now).run();
-    return reply({ ok: true, activityGoals: sanitized });
   }
   if (path === "/api/workspaces" && request.method === "GET") return reply({ workspaces:(await env.DB.prepare("SELECT id,name,icon,description FROM workspace_mirrors ORDER BY name LIMIT 100").all()).results });
   if (path === "/api/workspaces" && request.method === "POST") {

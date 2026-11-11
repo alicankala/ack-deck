@@ -548,3 +548,169 @@ test('updater streams live download progress events, tracks check time, and pres
   assert.equal(noticeSrc.includes('downloading'), true);
   assert.equal(noticeSrc.includes('verifying'), true);
 });
+
+test('prayer widgets omit the expandable 0/5 stats toggle and dropdown panel on desktop and mobile', () => {
+  const desktopPrayerSrc = readFileSync(new URL('../src/components/PrayerWidget.tsx', import.meta.url), 'utf8');
+  const mobilePrayerSrc = readFileSync(new URL('../mobile/src/MobilePrayerCard.tsx', import.meta.url), 'utf8');
+
+  assert.equal(desktopPrayerSrc.includes('prayer-stats-toggle'), false);
+  assert.equal(desktopPrayerSrc.includes('prayer-stats-box'), false);
+  assert.equal(desktopPrayerSrc.includes('Toplam Kılınan'), false);
+  assert.equal(desktopPrayerSrc.includes('Namaz Rehberi'), true);
+
+  assert.equal(mobilePrayerSrc.includes('mobile-prayer-stats-btn'), false);
+  assert.equal(mobilePrayerSrc.includes('mobile-prayer-stats-panel'), false);
+  assert.equal(mobilePrayerSrc.includes('Rehber'), true);
+});
+
+test('Genel Özet page and trigger buttons are removed on desktop and mobile while keeping live header layout', () => {
+  const headerSrc = readFileSync(new URL('../src/components/Header.tsx', import.meta.url), 'utf8');
+  const appSrc = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  const dashboardSrc = readFileSync(new URL('../src/components/Dashboard.tsx', import.meta.url), 'utf8');
+  const sidebarSrc = readFileSync(new URL('../src/components/Sidebar.tsx', import.meta.url), 'utf8');
+  const mobileShellSrc = readFileSync(new URL('../mobile/src/MobileShellParts.tsx', import.meta.url), 'utf8');
+  const mobileMainSrc = readFileSync(new URL('../mobile/src/main.tsx', import.meta.url), 'utf8');
+  const mobileNavSrc = readFileSync(new URL('../mobile/src/MobileNav.tsx', import.meta.url), 'utf8');
+
+  assert.equal(headerSrc.includes('Genel Özet'), false);
+  assert.equal(headerSrc.includes('dashboard-overview-btn'), false);
+  assert.equal(headerSrc.includes('<WeatherWidget />'), true);
+  assert.equal(appSrc.includes('ActivityOverview'), false);
+  assert.equal(sidebarSrc.includes('"overview"'), false);
+  assert.equal(dashboardSrc.includes('live-status-overview'), true);
+
+  assert.equal(mobileShellSrc.includes('Genel Özet'), false);
+  assert.equal(mobileShellSrc.includes('mobile-head-action-btn'), false);
+  assert.match(mobileShellSrc, /mobile-connection-pill[\s\S]*refresh-button/);
+  assert.equal(mobileMainSrc.includes('MobileActivityOverview'), false);
+  assert.equal(mobileNavSrc.includes('"overview"'), false);
+});
+
+test('monthly prayer summary computes weekday offset, leap years, elapsed counts and hybrid modal wiring', () => {
+  const env = setupModules();
+  const prayer = env.load('../shared/prayerTimes');
+
+  assert.equal(prayer.shiftYearMonth('2026-01', -1), '2025-12');
+  assert.equal(prayer.shiftYearMonth('2026-12', 1), '2027-01');
+
+  const leapFeb = prayer.buildPrayerMonthSummary('2024-02', [], '2024-03-01');
+  assert.equal(leapFeb.days.length, 29);
+  assert.equal(leapFeb.leadingEmptyDays, 3); // 2024-02-01 Perşembe (Pzt=0..Per=3)
+  assert.equal(leapFeb.elapsedDaysCount, 29);
+  assert.equal(leapFeb.totalExpected, 145);
+
+  const nonLeapFeb = prayer.buildPrayerMonthSummary('2025-02', [], '2025-02-10');
+  assert.equal(nonLeapFeb.days.length, 28);
+  assert.equal(nonLeapFeb.elapsedDaysCount, 10);
+  assert.equal(nonLeapFeb.days[9].isToday, true);
+  assert.equal(nonLeapFeb.days[10].isFuture, true);
+  assert.equal(nonLeapFeb.totalExpected, 50);
+
+  const novLogs = [
+    {
+      id: '2026-11-01',
+      date: '2026-11-01',
+      prayers: { fajr: 'prayed', dhuhr: 'prayed', asr: 'prayed', maghrib: 'prayed', isha: 'prayed' },
+      notes: [],
+      updatedAt: 1,
+    },
+    {
+      id: '2026-11-05',
+      date: '2026-11-05',
+      prayers: { fajr: 'prayed', dhuhr: 'missed', asr: 'prayed', maghrib: 'prayed', isha: 'missed' },
+      notes: [],
+      updatedAt: 2,
+    },
+  ];
+  const nov = prayer.buildPrayerMonthSummary('2026-11', novLogs, '2026-11-12');
+  assert.equal(nov.days.length, 30);
+  assert.equal(nov.leadingEmptyDays, 6); // 2026-11-01 Pazar (Pzt=0..Paz=6)
+  assert.equal(nov.elapsedDaysCount, 12);
+  assert.equal(nov.fullDaysCount, 1);
+  assert.equal(nov.incompleteDaysCount, 11);
+  assert.equal(nov.totalPrayed, 8);
+  assert.equal(nov.totalExpected, 60);
+  assert.equal(nov.totalMissed, 52);
+  assert.equal(nov.days[0].prayedCount, 5);
+  assert.equal(nov.days[4].prayedCount, 3);
+  assert.equal(nov.days[11].isToday, true);
+  assert.equal(nov.days[12].isFuture, true);
+
+  const desktopPrayerSrc = readFileSync(new URL('../src/components/PrayerWidget.tsx', import.meta.url), 'utf8');
+  const mobilePrayerSrc = readFileSync(new URL('../mobile/src/MobilePrayerCard.tsx', import.meta.url), 'utf8');
+  const monthModalSrc = readFileSync(new URL('../src/components/PrayerMonthModal.tsx', import.meta.url), 'utf8');
+
+  assert.equal(desktopPrayerSrc.includes('prayer-date-modal-trigger'), true);
+  assert.equal(desktopPrayerSrc.includes('<PrayerMonthModal'), true);
+  assert.equal(desktopPrayerSrc.includes('togglePrayerForDate'), true);
+
+  assert.equal(mobilePrayerSrc.includes('mobile-date-modal-trigger'), true);
+  assert.equal(mobilePrayerSrc.includes('<PrayerMonthModal'), true);
+  assert.equal(mobilePrayerSrc.includes('currentRow?.version'), false);
+  assert.equal(mobilePrayerSrc.includes('targetRow?.version'), true);
+
+  assert.equal(monthModalSrc.includes('Aylık Namaz Çetelesi'), true);
+  assert.equal(monthModalSrc.includes('pm-calendar-grid'), true);
+  assert.equal(monthModalSrc.includes('pm-ledger-list'), true);
+});
+
+test('PhoneInbox helpers and modern grid layout support smart tabs, filtering, expiry and copy state', () => {
+  const env = setupModules();
+  const inbox = env.load('inboxHelpers');
+
+  const now = 1_794_440_000_000;
+  const sampleItems = [
+    { id: '1', kind: 'text', title: 'Not 1', content: 'Şu özet işini hallet', mime: null, size: null, expiresAt: null, handled: 1, createdAt: now - 5000 },
+    { id: '2', kind: 'link', title: 'Repo', content: 'https://example.com', mime: null, size: null, expiresAt: null, handled: 1, createdAt: now - 3000 },
+    { id: '3', kind: 'file', title: 'ses.m4a', content: '', mime: 'audio/mp4', size: 2048, expiresAt: now + 2 * 86400_000, handled: 0, createdAt: now - 1000 },
+    { id: '4', kind: 'file', title: 'resim.png', content: '', mime: 'image/png', size: 4096, expiresAt: now - 1000, handled: 1, createdAt: now - 8000 },
+  ];
+
+  // Smart tab selection
+  assert.equal(inbox.resolveInitialInboxTab(sampleItems), 'pending');
+  assert.equal(inbox.resolveInitialInboxTab(sampleItems.filter(i => i.handled === 1)), 'all');
+  assert.equal(inbox.resolveInitialInboxTab([]), 'pending');
+  assert.equal(inbox.resolveInitialInboxTab(sampleItems, '1'), 'all');
+
+  // Summary & latest detection
+  const summary = inbox.summarizeInboxItems(sampleItems, now);
+  assert.equal(summary.total, 4);
+  assert.equal(summary.pending, 1);
+  assert.equal(summary.handled, 3);
+  assert.equal(summary.counts.text, 1);
+  assert.equal(summary.counts.link, 1);
+  assert.equal(summary.counts.audio, 1);
+  assert.equal(summary.counts.image, 1);
+  assert.equal(summary.expiringSoon, 1);
+  assert.equal(summary.expiredCount, 1);
+  assert.equal(summary.latestItem.id, '3');
+
+  // Search & type filtering
+  const audioOnly = inbox.filterInboxItems(sampleItems, 'all', 'audio', '');
+  assert.equal(audioOnly.filteredItems.length, 1);
+  assert.equal(audioOnly.filteredItems[0].id, '3');
+  assert.equal(audioOnly.typeCounts.link, 1);
+
+  const searchRes = inbox.filterInboxItems(sampleItems, 'handled', 'all', 'özet');
+  assert.equal(searchRes.filteredItems.length, 1);
+  assert.equal(searchRes.filteredItems[0].id, '1');
+
+  // UI & CSS contract checks
+  const inboxSrc = readFileSync(new URL('../src/components/PhoneInbox.tsx', import.meta.url), 'utf8');
+  const inboxCss = readFileSync(new URL('../src/components/phoneInbox.css', import.meta.url), 'utf8');
+  const desktopLayoutCss = readFileSync(new URL('../src/desktop-layout.css', import.meta.url), 'utf8');
+
+  assert.equal(inboxSrc.includes('inbox-kpi-grid'), true);
+  assert.equal(inboxSrc.includes('inbox-toolbar'), true);
+  assert.equal(inboxSrc.includes('✓ Kopyalandı'), true);
+  assert.equal(inboxSrc.includes('Devamını gör'), true);
+  assert.equal(inboxSrc.includes('İşlenenleri Temizle'), true);
+  assert.equal(inboxSrc.includes("ACK AI'a Gönder"), false);
+  assert.equal(inboxSrc.includes('opacity: item.handled'), false);
+
+  assert.equal(inboxCss.includes('align-items: stretch;'), true);
+  assert.equal(inboxCss.includes('repeat(4, minmax(0, 1fr))'), true);
+  assert.equal(inboxCss.includes('repeat(3, minmax(0, 1fr))'), true);
+  assert.equal(inboxCss.includes(':root[data-theme="light"] .main-content .inbox-card'), true);
+  assert.equal(desktopLayoutCss.includes('.inbox-grid'), false);
+});

@@ -111,3 +111,15 @@ test('face id auto-prompt on launch is direct, single-prompt and settings toggle
   const sec = readFileSync(new URL('../src/mobileSecurity.ts', import.meta.url), 'utf8');
   assert.doesNotMatch(sec, /autoPromptBiometrics:\s*existing\.autoPromptBiometrics/);
 });
+
+test('mobile monthly prayer modal styles and per-date queued sync handler are wired', () => {
+  const mainTsx = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
+  assert.match(mainTsx, /import\s+["']\.\/styles\/prayer-month\.css["']/);
+
+  const prayerCard = readFileSync(new URL('../src/MobilePrayerCard.tsx', import.meta.url), 'utf8');
+  assert.match(prayerCard, /mobile-date-modal-trigger/);
+  assert.match(prayerCard, /<PrayerMonthModal/);
+  assert.match(prayerCard, /commitLogWithRetry/);
+  assert.match(prayerCard, /writeQueueRef/);
+  assert.doesNotMatch(prayerCard, /currentRow\?\.version/);
+});

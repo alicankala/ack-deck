@@ -240,51 +240,123 @@ export function createEmptyPrayerLog(dateStr: string): PrayerLogDay {
   };
 }
 
-export function calculatePrayerStats(logs: PrayerLogDay[], todayDate: string) {
-  const map = new Map(logs.map(l => [l.date, l]));
+export type PrayerMonthDayCell = {
+  date: string;
+  dayOfMonth: number;
+  weekdayShort: string;
+  fullLabel: string;
+  isToday: boolean;
+  isFuture: boolean;
+  hasLog: boolean;
+  prayedCount: number;
+  missedCount: number;
+  prayers: Record<TrackedPrayerName, PrayerStatus>;
+};
+
+export type PrayerMonthSummary = {
+  yearMonth: string;
+  year: number;
+  month: number;
+  monthLabel: string;
+  leadingEmptyDays: number;
+  days: PrayerMonthDayCell[];
+  elapsedDaysCount: number;
+  totalPrayed: number;
+  totalExpected: number;
+  totalMissed: number;
+  fullDaysCount: number;
+  incompleteDaysCount: number;
+};
+
+export function shiftYearMonth(yearMonth: string, deltaMonths: number): string {
+  const [yRaw, mRaw] = yearMonth.split("-");
+  const y = Number(yRaw) || 2026;
+  const m = Number(mRaw) || 1;
+  const shifted = new Date(y, m - 1 + deltaMonths, 1, 12, 0, 0);
+  return `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export function buildPrayerMonthSummary(
+  yearMonth: string,
+  logs: PrayerLogDay[],
+  todayDate: string
+): PrayerMonthSummary {
+  const [yRaw, mRaw] = yearMonth.split("-");
+  const year = Number(yRaw) || Number(todayDate.slice(0, 4)) || 2026;
+  const month = Math.min(12, Math.max(1, Number(mRaw) || 1));
+  const normalizedYm = `${year}-${String(month).padStart(2, "0")}`;
+
+  const logByDate = new Map(logs.map(l => [l.date, l]));
+  const firstDay = new Date(year, month - 1, 1, 12, 0, 0);
+  const leadingEmptyDays = (firstDay.getDay() + 6) % 7; // Monday = 0 ... Sunday = 6
+  const daysInMonth = new Date(year, month, 0, 12, 0, 0).getDate();
+  const monthLabel = firstDay.toLocaleDateString("tr-TR", { month: "long", year: "numeric" });
+
+  const days: PrayerMonthDayCell[] = [];
+  let elapsedDaysCount = 0;
   let totalPrayed = 0;
-  let totalMissed = 0;
-  let fullDays = 0;
+  let fullDaysCount = 0;
 
-  for (const log of logs) {
-    let dayPrayed = 0;
-    for (const tp of TRACKED_PRAYERS) {
-      const s = log.prayers[tp.name] ?? "missed";
-      if (s === "prayed") {
-        totalPrayed++;
-        dayPrayed++;
-      } else if (log.date < todayDate) {
-        totalMissed++;
-      }
-    }
-    if (dayPrayed === 5) fullDays++;
-  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${normalizedYm}-${String(d).padStart(2, "0")}`;
+    const dt = new Date(year, month - 1, d, 12, 0, 0);
+    const existing = logByDate.get(dateStr);
+    const isFuture = dateStr > todayDate;
+    const isToday = dateStr === todayDate;
 
-  // Last 7 days summary
-  const last7Days: { date: string; label: string; prayedCount: number; missedCount: number }[] = [];
-  const base = new Date(todayDate + "T12:00:00");
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(base);
-    d.setDate(d.getDate() - i);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    const log = map.get(key);
+    const prayers: Record<TrackedPrayerName, PrayerStatus> = {
+      fajr: existing?.prayers.fajr ?? "missed",
+      dhuhr: existing?.prayers.dhuhr ?? "missed",
+      asr: existing?.prayers.asr ?? "missed",
+      maghrib: existing?.prayers.maghrib ?? "missed",
+      isha: existing?.prayers.isha ?? "missed",
+    };
+
     let prayedCount = 0;
-    let missedCount = 0;
-    if (log) {
-      for (const tp of TRACKED_PRAYERS) {
-        if (log.prayers[tp.name] === "prayed") prayedCount++;
-        else missedCount++;
+    for (const tp of TRACKED_PRAYERS) {
+      if (prayers[tp.name] === "prayed") prayedCount++;
+    }
+    const missedCount = TRACKED_PRAYERS.length - prayedCount;
+
+    if (!isFuture) {
+      elapsedDaysCount++;
+      totalPrayed += prayedCount;
+      if (prayedCount === TRACKED_PRAYERS.length) {
+        fullDaysCount++;
       }
     }
-    const label = i === 0 ? "Bugün" : d.toLocaleDateString("tr-TR", { weekday: "short" });
-    last7Days.push({ date: key, label, prayedCount, missedCount });
+
+    days.push({
+      date: dateStr,
+      dayOfMonth: d,
+      weekdayShort: dt.toLocaleDateString("tr-TR", { weekday: "short" }),
+      fullLabel: dt.toLocaleDateString("tr-TR", { day: "numeric", month: "long", weekday: "long" }),
+      isToday,
+      isFuture,
+      hasLog: Boolean(existing),
+      prayedCount,
+      missedCount,
+      prayers,
+    });
   }
+
+  const totalExpected = elapsedDaysCount * TRACKED_PRAYERS.length;
+  const totalMissed = Math.max(0, totalExpected - totalPrayed);
+  const incompleteDaysCount = Math.max(0, elapsedDaysCount - fullDaysCount);
 
   return {
+    yearMonth: normalizedYm,
+    year,
+    month,
+    monthLabel,
+    leadingEmptyDays,
+    days,
+    elapsedDaysCount,
     totalPrayed,
+    totalExpected,
     totalMissed,
-    fullDays,
-    last7Days,
+    fullDaysCount,
+    incompleteDaysCount,
   };
 }
 

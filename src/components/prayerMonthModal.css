@@ -1,0 +1,548 @@
+/* ==========================================================================
+   Aylık Namaz Çetelesi & Takvim Modalı (Masaüstü)
+   ========================================================================== */
+
+.prayer-date-modal-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  padding: 0.14rem 0.45rem !important;
+  min-height: 1.55rem !important;
+  color: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+
+.prayer-date-modal-trigger:hover {
+  background: var(--app-hover, rgba(255, 255, 255, 0.08));
+  border-color: var(--app-border-strong, rgba(56, 189, 248, 0.35));
+}
+
+.prayer-date-cal-icon {
+  font-size: 0.78rem;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+.prayer-month-modal {
+  max-width: 940px;
+}
+
+.prayer-month-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--app-border, #243547);
+  background: rgba(15, 23, 42, 0.25);
+  flex-shrink: 0;
+}
+
+.prayer-month-switcher {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.prayer-month-nav-btn {
+  background: var(--app-field, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--app-border, #243547);
+  color: var(--app-text, #f1f5f9);
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  min-height: 30px !important;
+  padding: 0 !important;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.prayer-month-nav-btn:hover:not(:disabled) {
+  border-color: var(--app-accent, #38bdf8);
+  color: var(--app-accent, #38bdf8);
+}
+
+.prayer-month-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.prayer-month-label {
+  min-width: 120px;
+  text-align: center;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  color: var(--app-text, #f8fafc);
+}
+
+.prayer-month-today-pill {
+  background: var(--app-accent-soft, rgba(56, 189, 248, 0.14));
+  border: 1px solid var(--app-accent-border, rgba(56, 189, 248, 0.35));
+  color: var(--app-accent, #38bdf8);
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem !important;
+  min-height: 26px !important;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.prayer-month-stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.pm-stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  padding: 0.24rem 0.62rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  background: var(--app-field, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--app-border, #243547);
+  color: var(--app-secondary, #cbd5e1);
+}
+
+.pm-stat-chip.is-prayed strong,
+.pm-stat-chip.is-clean strong {
+  color: #34d399;
+}
+
+.pm-stat-chip.is-full strong {
+  color: #38bdf8;
+}
+
+.pm-stat-chip.is-missed strong {
+  color: #fbbf24;
+}
+
+.prayer-month-mobile-tabs {
+  display: none;
+}
+
+/* Desktop Hybrid Split Layout */
+.prayer-month-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.prayer-month-calendar-panel {
+  padding: 14px 16px;
+  border-right: 1px solid var(--app-border, #243547);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pm-weekdays-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 650;
+  color: var(--app-muted, #94a3b8);
+}
+
+.pm-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.pm-day-spacer {
+  min-height: 48px;
+}
+
+.pm-day-cell {
+  min-height: 48px !important;
+  padding: 5px 3px !important;
+  border-radius: 10px;
+  border: 1px solid var(--app-border, #243547);
+  background: var(--app-field, rgba(255, 255, 255, 0.03));
+  color: var(--app-text, #e2e8f0);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.pm-day-cell:hover:not(:disabled) {
+  border-color: var(--app-accent-border, rgba(56, 189, 248, 0.45));
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.pm-day-cell.is-full {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(52, 211, 153, 0.32);
+}
+
+.pm-day-cell.is-today {
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.65);
+}
+
+.pm-day-cell.is-selected {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.16);
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.45);
+}
+
+.pm-day-cell.is-future {
+  opacity: 0.36;
+  cursor: default;
+}
+
+.pm-day-num {
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-day-dots {
+  display: flex;
+  align-items: center;
+  gap: 2.5px;
+}
+
+.pm-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+.pm-dot.is-prayed {
+  background: #10b981;
+}
+
+.pm-dot.is-missed {
+  background: rgba(248, 113, 113, 0.45);
+}
+
+.pm-dot.is-future {
+  background: rgba(148, 163, 184, 0.3);
+}
+
+.pm-day-editor {
+  border: 1px solid var(--app-border, #243547);
+  background: rgba(15, 23, 42, 0.45);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.pm-day-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pm-day-editor-head strong {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--app-text, #f8fafc);
+}
+
+.pm-day-editor-head small {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--app-muted, #94a3b8);
+}
+
+.pm-jump-card-btn {
+  background: transparent;
+  border: 1px solid var(--app-accent-border, rgba(56, 189, 248, 0.32));
+  color: var(--app-accent, #38bdf8);
+  border-radius: 8px;
+  padding: 0.25rem 0.55rem !important;
+  min-height: 28px !important;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pm-jump-card-btn:hover {
+  background: var(--app-accent-soft, rgba(56, 189, 248, 0.14));
+}
+
+.pm-day-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.pm-prayer-toggle-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 3px !important;
+  min-height: 44px !important;
+  border-radius: 9px;
+  border: 1px solid var(--app-border, rgba(255, 255, 255, 0.1));
+  background: var(--app-field, rgba(255, 255, 255, 0.03));
+  color: var(--app-secondary, #cbd5e1);
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.pm-prayer-toggle-btn.is-prayed {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(52, 211, 153, 0.45);
+  color: #34d399;
+}
+
+.pm-toggle-mark {
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.pm-toggle-name {
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+/* Right Panel: Ledger (Çetele) */
+.prayer-month-ledger-panel {
+  padding: 14px 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pm-ledger-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pm-ledger-head h3 {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--app-text, #f8fafc);
+}
+
+.pm-ledger-filters {
+  display: flex;
+  gap: 4px;
+}
+
+.pm-filter-btn {
+  background: var(--app-field, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--app-border, #243547);
+  color: var(--app-muted, #94a3b8);
+  border-radius: 999px;
+  padding: 0.22rem 0.6rem !important;
+  min-height: 26px !important;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pm-filter-btn.is-active {
+  background: var(--app-accent-soft, rgba(56, 189, 248, 0.16));
+  border-color: var(--app-accent, #38bdf8);
+  color: var(--app-accent, #38bdf8);
+}
+
+.pm-ledger-empty {
+  border: 1px dashed var(--app-border, #243547);
+  border-radius: 12px;
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--app-muted, #94a3b8);
+}
+
+.pm-ledger-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pm-ledger-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--app-border, #243547);
+  background: var(--app-field, rgba(255, 255, 255, 0.025));
+}
+
+.pm-ledger-row.is-focused {
+  border-color: rgba(56, 189, 248, 0.45);
+}
+
+.pm-ledger-row.is-full {
+  background: rgba(16, 185, 129, 0.06);
+}
+
+.pm-ledger-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pm-ledger-date-btn {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 0 !important;
+  min-height: auto !important;
+  color: var(--app-text, #f1f5f9);
+  cursor: pointer;
+  text-align: left;
+}
+
+.pm-ledger-date-btn strong {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.pm-ledger-date-btn span {
+  font-size: 0.7rem;
+  color: var(--app-muted, #94a3b8);
+}
+
+.pm-ledger-score {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #fbbf24;
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-ledger-score.is-full {
+  color: #34d399;
+}
+
+.pm-ledger-score.is-zero {
+  color: var(--app-muted, #94a3b8);
+}
+
+.pm-ledger-pills {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.pm-ledger-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 28px !important;
+  padding: 2px 4px !important;
+  border-radius: 7px;
+  border: 1px solid var(--app-border, rgba(255, 255, 255, 0.09));
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--app-muted, #94a3b8);
+  font-size: 0.68rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.pm-ledger-pill:hover {
+  border-color: var(--app-accent-border, rgba(56, 189, 248, 0.4));
+}
+
+.pm-ledger-pill.is-prayed {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(52, 211, 153, 0.45);
+  color: #34d399;
+}
+
+.pm-pill-icon {
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+/* Narrow Window Responsive Hybrid Fallback */
+@media (max-width: 760px) {
+  .prayer-month-mobile-tabs {
+    display: flex;
+    gap: 6px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--app-border, #243547);
+    background: rgba(15, 23, 42, 0.35);
+    flex-shrink: 0;
+  }
+
+  .prayer-month-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .prayer-month-calendar-panel {
+    border-right: none;
+  }
+
+  .prayer-month-body.mobile-tab-calendar .prayer-month-ledger-panel {
+    display: none;
+  }
+
+  .prayer-month-body.mobile-tab-ledger .prayer-month-calendar-panel {
+    display: none;
+  }
+}
+
+/* Light Theme Support */
+:root[data-theme="light"] .prayer-month-toolbar,
+:root[data-theme="light"] .prayer-month-mobile-tabs {
+  background: #f8fafc;
+}
+
+:root[data-theme="light"] .prayer-month-label,
+:root[data-theme="light"] .pm-day-editor-head strong,
+:root[data-theme="light"] .pm-ledger-head h3,
+:root[data-theme="light"] .pm-ledger-date-btn {
+  color: var(--app-text, #0f172a);
+}
+
+:root[data-theme="light"] .pm-day-cell,
+:root[data-theme="light"] .pm-day-editor,
+:root[data-theme="light"] .pm-ledger-row,
+:root[data-theme="light"] .pm-ledger-pill,
+:root[data-theme="light"] .pm-prayer-toggle-btn {
+  background: #ffffff;
+  color: var(--app-text, #0f172a);
+}
+
+:root[data-theme="light"] .pm-day-cell.is-full,
+:root[data-theme="light"] .pm-ledger-row.is-full {
+  background: rgba(16, 185, 129, 0.08);
+}
+
+:root[data-theme="light"] .pm-day-cell.is-selected {
+  background: rgba(2, 132, 199, 0.12);
+}

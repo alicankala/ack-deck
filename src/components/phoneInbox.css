@@ -1,0 +1,610 @@
+/* Gelenler Sekmesi — Modern Masaüstü Görünüm (Seçenek A + 3'lü KPI Şeridi) */
+.main-content .inbox-page {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.inbox-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0;
+}
+
+.inbox-page-header h1 {
+  margin: 0;
+}
+
+.inbox-page-header p {
+  margin: 0.35rem 0 0;
+  color: var(--app-muted);
+  line-height: 1.55;
+}
+
+.inbox-header-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.inbox-clear-handled-btn {
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.25);
+}
+
+.inbox-clear-handled-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+/* Üstte 3'lü Kompakt Durum Şeridi (Abonelikler çizgisinde) */
+.inbox-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  width: 100%;
+}
+
+.inbox-kpi-card {
+  padding: 1.15rem 1.35rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  background: linear-gradient(180deg, rgba(23, 32, 42, 0.72) 0%, rgba(15, 23, 31, 0.92) 100%);
+  min-width: 0;
+}
+
+.inbox-kpi-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.inbox-kpi-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8da4b5;
+}
+
+.inbox-kpi-badge {
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.18rem 0.58rem;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.inbox-kpi-badge.is-clean {
+  background: rgba(34, 197, 94, 0.14);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.28);
+}
+
+.inbox-kpi-badge.is-pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.inbox-kpi-badge.is-info {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.inbox-kpi-badge.is-warn {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.inbox-kpi-value {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-height: 2rem;
+  min-width: 0;
+}
+
+.inbox-kpi-number {
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: #f8fafc;
+  letter-spacing: -0.02em;
+}
+
+.inbox-kpi-number small {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #8da4b5;
+  margin-left: 0.25rem;
+}
+
+.inbox-kpi-date-val {
+  font-size: 1.15rem;
+  font-weight: 650;
+  color: #f8fafc;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inbox-kpi-empty-val {
+  font-size: 0.98rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+.inbox-kpi-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #8da4b5;
+  line-height: 1.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Tek Satırlık Kontrol Barı (Sekmeler + Arama + Tür Filtreleri) */
+.inbox-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.95rem;
+  border: 1px solid var(--app-border);
+  background: rgba(18, 25, 34, 0.78);
+}
+
+.inbox-tab-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.inbox-tab-btn {
+  padding: 0.45rem 0.85rem;
+  border-radius: 0.6rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  min-height: 2.2rem;
+}
+
+.inbox-controls-right {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  flex: 1 1 28rem;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.inbox-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 1 15.5rem;
+  min-width: 11rem;
+}
+
+.inbox-search-icon {
+  position: absolute;
+  left: 0.72rem;
+  color: var(--app-muted);
+  pointer-events: none;
+  display: inline-flex;
+}
+
+.inbox-search-input {
+  width: 100%;
+  padding: 0.42rem 2rem 0.42rem 2.15rem !important;
+  min-height: 2.2rem !important;
+  font-size: 0.85rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--app-border);
+  background: var(--app-field);
+  color: var(--app-text);
+}
+
+.inbox-search-clear {
+  position: absolute;
+  right: 0.35rem;
+  background: transparent;
+  border: 0;
+  color: var(--app-muted);
+  cursor: pointer;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.inbox-search-clear:hover {
+  color: var(--app-text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.inbox-type-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.inbox-type-chip {
+  appearance: none;
+  border: 1px solid var(--app-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--app-secondary);
+  border-radius: 9999px;
+  padding: 0.3rem 0.68rem;
+  font-size: 0.79rem;
+  font-weight: 550;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.inbox-type-chip:hover {
+  border-color: var(--app-accent-border);
+  color: var(--app-text);
+}
+
+.inbox-type-chip.is-active {
+  background: var(--app-accent-soft);
+  border-color: var(--app-accent-border);
+  color: var(--app-accent);
+  font-weight: 650;
+}
+
+.inbox-type-chip.is-empty:not(.is-active) {
+  opacity: 0.55;
+}
+
+.inbox-chip-count {
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+
+/* Seçenek A — Eşit 3–4 Sütunlu Kart Grid'i (align-items: stretch) */
+.main-content .inbox-grid {
+  width: 100%;
+  max-width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.main-content .inbox-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1.15rem 1.25rem;
+  margin: 0;
+  min-width: 0;
+  min-height: 13.75rem;
+  border-radius: 1rem;
+  border: 1px solid var(--app-border);
+  background: linear-gradient(180deg, rgba(22, 30, 40, 0.84) 0%, rgba(16, 22, 30, 0.96) 100%);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.main-content .inbox-card:hover {
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.main-content .inbox-card.is-pending {
+  border-color: rgba(56, 189, 248, 0.32);
+  box-shadow: inset 3px 0 0 var(--app-accent);
+}
+
+.main-content .inbox-card :is(h2, p) {
+  margin: 0;
+}
+
+.inbox-card-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.8rem;
+}
+
+.inbox-kind-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.79rem;
+  font-weight: 650;
+  color: var(--app-accent);
+}
+
+.inbox-status-pill {
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 0.16rem 0.55rem;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.inbox-status-pill.is-handled {
+  background: rgba(16, 185, 129, 0.14);
+  color: #34d399;
+}
+
+.inbox-status-pill.is-pending {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fbbf24;
+}
+
+.inbox-card-time {
+  font-size: 0.77rem;
+  color: var(--app-muted);
+  display: block;
+}
+
+.inbox-card-title {
+  font-size: 1.03rem;
+  font-weight: 650;
+  line-height: 1.38;
+  color: var(--app-text);
+  overflow-wrap: anywhere;
+}
+
+.inbox-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.main-content .phone-inbox-content {
+  font-size: 0.92rem;
+  line-height: 1.56;
+  color: var(--app-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.main-content .phone-inbox-content.is-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-height: none;
+}
+
+.main-content .phone-inbox-content.is-expanded {
+  max-height: 22rem;
+  overflow: auto;
+}
+
+.inbox-expand-btn {
+  align-self: flex-start;
+  background: transparent;
+  border: 0;
+  padding: 0.15rem 0;
+  color: var(--app-accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.inbox-expand-btn:hover {
+  text-decoration: underline;
+}
+
+.inbox-file-meta {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--app-secondary);
+}
+
+.inbox-file-meta.is-expired {
+  color: #fca5a5;
+}
+
+.inbox-card .hub-actions {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--app-border);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.inbox-card .hub-actions .button {
+  padding: 0.4rem 0.78rem;
+  min-height: 2.05rem;
+  font-size: 0.84rem;
+}
+
+.inbox-copy-btn.is-copied {
+  background: rgba(16, 185, 129, 0.16) !important;
+  border-color: rgba(16, 185, 129, 0.42) !important;
+  color: #34d399 !important;
+}
+
+.inbox-delete-btn {
+  margin-left: auto;
+  color: #f87171 !important;
+}
+
+/* Zengin Boş Durum Kartı */
+.inbox-empty-card {
+  padding: 2.75rem 1.5rem;
+  border-radius: 1rem;
+  border: 1px dashed var(--app-border-strong, var(--app-border));
+  background: linear-gradient(180deg, rgba(22, 30, 40, 0.55) 0%, rgba(15, 22, 30, 0.8) 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.65rem;
+}
+
+.inbox-empty-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.inbox-empty-card h2 {
+  margin: 0.15rem 0 0;
+  font-size: 1.08rem;
+  font-weight: 650;
+  color: var(--app-text);
+}
+
+.inbox-empty-card p {
+  margin: 0;
+  max-width: 30rem;
+  font-size: 0.9rem;
+  color: var(--app-muted);
+  line-height: 1.55;
+}
+
+.inbox-empty-actions {
+  margin-top: 0.5rem;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Responsive Breakpoints (3–4 okunaklı sütun düzeni) */
+@media (max-width: 1479px) {
+  .main-content .inbox-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1099px) {
+  .inbox-kpi-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .main-content .inbox-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .inbox-controls-right {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 739px) {
+  .main-content .inbox-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Light Theme Uyum */
+:root[data-theme="light"] .inbox-kpi-card {
+  background: #ffffff;
+  border-color: var(--app-border);
+}
+
+:root[data-theme="light"] .inbox-kpi-label,
+:root[data-theme="light"] .inbox-kpi-hint,
+:root[data-theme="light"] .inbox-kpi-number small {
+  color: var(--app-muted);
+}
+
+:root[data-theme="light"] .inbox-kpi-number,
+:root[data-theme="light"] .inbox-kpi-date-val {
+  color: var(--app-text);
+}
+
+:root[data-theme="light"] .inbox-kpi-badge.is-clean {
+  background: rgba(22, 163, 74, 0.1);
+  color: #15803d;
+  border-color: rgba(22, 163, 74, 0.28);
+}
+
+:root[data-theme="light"] .inbox-kpi-badge.is-pending,
+:root[data-theme="light"] .inbox-kpi-badge.is-warn {
+  background: rgba(217, 119, 6, 0.1);
+  color: #b45309;
+  border-color: rgba(217, 119, 6, 0.28);
+}
+
+:root[data-theme="light"] .inbox-toolbar {
+  background: #f8fafc;
+  border-color: var(--app-border);
+}
+
+:root[data-theme="light"] .inbox-type-chip {
+  background: #ffffff;
+  border-color: var(--app-border);
+  color: var(--app-secondary);
+}
+
+:root[data-theme="light"] .inbox-type-chip.is-active {
+  background: var(--app-accent-soft);
+  border-color: var(--app-accent-border);
+  color: var(--app-accent);
+}
+
+:root[data-theme="light"] .main-content .inbox-card {
+  background: #ffffff;
+  border-color: var(--app-border);
+}
+
+:root[data-theme="light"] .main-content .inbox-card:hover {
+  border-color: var(--app-border-strong);
+}
+
+:root[data-theme="light"] .inbox-status-pill.is-handled {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
+:root[data-theme="light"] .inbox-status-pill.is-pending {
+  background: rgba(217, 119, 6, 0.12);
+  color: #b45309;
+}
+
+:root[data-theme="light"] .inbox-copy-btn.is-copied {
+  background: rgba(22, 163, 74, 0.12) !important;
+  border-color: rgba(22, 163, 74, 0.35) !important;
+  color: #15803d !important;
+}
+
+:root[data-theme="light"] .inbox-clear-handled-btn,
+:root[data-theme="light"] .inbox-delete-btn {
+  color: #dc2626 !important;
+}
+
+:root[data-theme="light"] .inbox-empty-card {
+  background: #ffffff;
+  border-color: var(--app-border-strong);
+}

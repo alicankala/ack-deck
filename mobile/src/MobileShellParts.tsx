@@ -49,12 +49,10 @@ export function MobilePairingScreen(props: {
 
 export function MobileAppHeader(props: {
   online: boolean;
-  page: string;
   busy: boolean;
-  onToggleOverview: () => void;
   onRefresh: () => void;
 }) {
-  const { online, page, busy, onToggleOverview, onRefresh } = props;
+  const { online, busy, onRefresh } = props;
   return (
     <header className="mobile-header">
       <div className="mobile-brand">
@@ -69,15 +67,6 @@ export function MobileAppHeader(props: {
           <span className="pill-dot" />
           <span>{online ? "PC Açık" : "Çevrimdışı"}</span>
         </div>
-        <button
-          type="button"
-          className={`mobile-head-action-btn ${page === "overview" ? "is-active" : ""}`}
-          aria-label="Genel Aktivite ve Alışkanlık Özeti"
-          title="Genel Özet"
-          onClick={onToggleOverview}
-        >
-          <Icon name="activity" size={19} />
-        </button>
         <button
           type="button"
           className={`refresh-button ${busy ? "is-busy" : ""}`}
@@ -98,7 +87,6 @@ export function MobileTodayHero(props: {
   unfinishedCount: number;
   todayStudyCount: number;
   notesCount: number;
-  onOpenOverview: () => void;
   onOpenWeatherModal: () => void;
   onOpenPlanCalendar: () => void;
   onOpenNotes: () => void;
@@ -109,7 +97,6 @@ export function MobileTodayHero(props: {
     unfinishedCount,
     todayStudyCount,
     notesCount,
-    onOpenOverview,
     onOpenWeatherModal,
     onOpenPlanCalendar,
     onOpenNotes,

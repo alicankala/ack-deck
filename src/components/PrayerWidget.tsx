@@ -5,7 +5,6 @@ import {
   formatRemainingTime,
   TRACKED_PRAYERS,
   createEmptyPrayerLog,
-  calculatePrayerStats,
   type PrayerDayInfo,
   type PrayerItem,
   type PrayerLogDay,
@@ -13,8 +12,10 @@ import {
   type PrayerStatus,
 } from "../../shared/prayerTimes";
 import { PrayerGuideModal } from "./PrayerGuideModal";
+import { PrayerMonthModal } from "./PrayerMonthModal";
 import "./prayerTimes.css";
 import "./prayerGuideModal.css";
+import "./prayerMonthModal.css";
 
 function shiftDate(dateStr: string, deltaDays: number): string {
   const d = new Date(dateStr + "T12:00:00");
@@ -36,9 +37,9 @@ export function PrayerWidget() {
   const todayStr = localDateKey();
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [noteDraft, setNoteDraft] = useState("");
-  const [showStats, setShowStats] = useState(false);
   const [showCompletedNotes, setShowCompletedNotes] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [showMonthModal, setShowMonthModal] = useState(false);
   const [, setTick] = useState(0);
 
   useEffect(() => {
@@ -81,17 +82,24 @@ export function PrayerWidget() {
     }
   }
 
-  function cyclePrayerStatus(name: TrackedPrayerName) {
-    const current = currentLog.prayers[name] ?? "missed";
+  function togglePrayerForDate(dateStr: string, name: TrackedPrayerName) {
+    const latest = loadPrayerLogs();
+    if (latest.locked) return;
+    const baseLog = latest.entries.find(l => l.date === dateStr) ?? createEmptyPrayerLog(dateStr);
+    const current = baseLog.prayers[name] ?? "missed";
     const nextStatus: PrayerStatus = current === "prayed" ? "missed" : "prayed";
     saveDayLog({
-      ...currentLog,
+      ...baseLog,
       prayers: {
-        ...currentLog.prayers,
+        ...baseLog.prayers,
         [name]: nextStatus,
       },
       updatedAt: Date.now(),
     });
+  }
+
+  function cyclePrayerStatus(name: TrackedPrayerName) {
+    togglePrayerForDate(selectedDate, name);
   }
 
   // Persistent notes across all logs: uncompleted notes carry forward forever
@@ -161,8 +169,6 @@ export function PrayerWidget() {
   }
 
   const kerahat = info.kerahat;
-  const prayedTodayCount = TRACKED_PRAYERS.filter(tp => currentLog.prayers[tp.name] === "prayed").length;
-  const stats = calculatePrayerStats(logsState.entries, todayStr);
 
   return (
     <section id="prayer-widget" className="dashboard-prayer surface" aria-labelledby="dashboard-prayer-heading">
@@ -174,24 +180,14 @@ export function PrayerWidget() {
             <small className="prayer-city-label">{info.city}</small>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <button
-            type="button"
-            className="prayer-guide-btn"
-            onClick={() => setShowGuide(true)}
-            title="Namaz kılavuzu: Kamet, Ayet-el Kürsi, rekatlar ve zamm-ı sureler"
-          >
-            📖 Namaz Rehberi
-          </button>
-          <button
-            type="button"
-            className="prayer-stats-toggle"
-            onClick={() => setShowStats(v => !v)}
-            title="Namaz takip geçmişi ve istatistikler"
-          >
-            {prayedTodayCount}/5 Kılındı {showStats ? "▴" : "▾"}
-          </button>
-        </div>
+        <button
+          type="button"
+          className="prayer-guide-btn"
+          onClick={() => setShowGuide(true)}
+          title="Namaz kılavuzu: Kamet, Ayet-el Kürsi, rekatlar ve zamm-ı sureler"
+        >
+          📖 Namaz Rehberi
+        </button>
       </div>
 
       {/* Kerahat Alert Bar */}
@@ -243,7 +239,16 @@ export function PrayerWidget() {
             ‹
           </button>
           <div className="prayer-date-center">
-            <strong>{formatDayLabel(selectedDate, todayStr)}</strong>
+            <button
+              type="button"
+              className="prayer-date-modal-trigger"
+              onClick={() => setShowMonthModal(true)}
+              aria-label="Aylık namaz çetelesini aç"
+              title="Aylık namaz çetelesini aç"
+            >
+              <strong>{formatDayLabel(selectedDate, todayStr)}</strong>
+              <span className="prayer-date-cal-icon" aria-hidden="true">📅</span>
+            </button>
             {selectedDate !== todayStr && (
               <button type="button" className="prayer-today-jump" onClick={() => setSelectedDate(todayStr)}>
                 Bugüne dön
@@ -284,38 +289,6 @@ export function PrayerWidget() {
             );
           })}
         </div>
-
-        {showStats && (
-          <div className="prayer-stats-box">
-            <div className="prayer-stats-totals">
-              <div>
-                <strong>{stats.totalPrayed}</strong>
-                <small>Toplam Kılınan</small>
-              </div>
-              <div>
-                <strong>{stats.fullDays}</strong>
-                <small>5/5 Tam Gün</small>
-              </div>
-              <div>
-                <strong>{stats.totalMissed}</strong>
-                <small>Kılınmayan / Kaza</small>
-              </div>
-            </div>
-            <div className="prayer-week-strip">
-              {stats.last7Days.map(day => (
-                <button
-                  key={day.date}
-                  type="button"
-                  className={`week-strip-day ${selectedDate === day.date ? "is-selected" : ""} ${day.prayedCount === 5 ? "is-full" : ""}`}
-                  onClick={() => setSelectedDate(day.date)}
-                >
-                  <small>{day.label}</small>
-                  <strong>{day.prayedCount}/5</strong>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Daily Spiritual / Prayer Notes (e.g., Şükür namazı kıl) */}
         <div className="prayer-notes-section">
@@ -404,6 +377,16 @@ export function PrayerWidget() {
       </div>
 
       {showGuide && <PrayerGuideModal onClose={() => setShowGuide(false)} />}
+      {showMonthModal && (
+        <PrayerMonthModal
+          logs={logsState.entries}
+          todayDate={todayStr}
+          initialDate={selectedDate}
+          onTogglePrayer={togglePrayerForDate}
+          onJumpToDate={setSelectedDate}
+          onClose={() => setShowMonthModal(false)}
+        />
+      )}
     </section>
   );
 }

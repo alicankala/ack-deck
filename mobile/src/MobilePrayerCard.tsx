@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { hapticSuccess, hapticLight } from "./haptics";
 import {
   calculatePrayerTimes,
@@ -6,7 +6,6 @@ import {
   loadPrayerConfig,
   TRACKED_PRAYERS,
   createEmptyPrayerLog,
-  calculatePrayerStats,
   type PrayerDayInfo,
   type PrayerTimesConfig,
   type PrayerLogDay,
@@ -14,6 +13,7 @@ import {
   type PrayerStatus,
 } from "../../shared/prayerTimes";
 import { PrayerGuideModal } from "../../src/components/PrayerGuideModal";
+import { PrayerMonthModal } from "../../src/components/PrayerMonthModal";
 import type { CloudRecord, Mutation } from "../../shared/phone";
 
 const dateKey = (date = new Date()) =>
@@ -48,9 +48,16 @@ export function MobilePrayerCard({
   const todayStr = dateKey();
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [noteDraft, setNoteDraft] = useState("");
-  const [showStats, setShowStats] = useState(false);
   const [showCompletedNotes, setShowCompletedNotes] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [showMonthModal, setShowMonthModal] = useState(false);
+  const [optimisticPrayers, setOptimisticPrayers] = useState<Record<string, PrayerStatus>>({});
+  const recordsRef = useRef(records);
+  recordsRef.current = records;
+  const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const optimisticRef = useRef<Record<string, PrayerStatus>>({});
+  const opTokensRef = useRef<Record<string, number>>({});
+  const lastWrittenByDateRef = useRef<Record<string, PrayerLogDay>>({});
 
   useEffect(() => {
     function handleConfigChange() {
@@ -70,45 +77,142 @@ export function MobilePrayerCard({
     return () => clearInterval(timer);
   }, [config]);
 
-  const prayerLogs = records
+  const basePrayerLogs = records
     .filter(r => r.kind === "prayerLogs" && !r.deleted && r.data)
     .map(r => r.data as PrayerLogDay);
 
-  const currentRow = records.find(r => r.kind === "prayerLogs" && r.id === selectedDate && !r.deleted);
-  const currentLog: PrayerLogDay = (currentRow?.data as PrayerLogDay | undefined) ?? createEmptyPrayerLog(selectedDate);
-
-  async function saveDayLog(nextLog: PrayerLogDay) {
-    await onSave({
-      mutationId: crypto.randomUUID(),
-      kind: "prayerLogs",
-      id: nextLog.id,
-      baseVersion: currentRow?.version ?? 0,
-      deleted: false,
-      data: nextLog,
+  const effectiveLogsMap = new Map<string, PrayerLogDay>();
+  for (const log of basePrayerLogs) {
+    effectiveLogsMap.set(log.date, log);
+  }
+  for (const [key, status] of Object.entries(optimisticPrayers)) {
+    const sep = key.lastIndexOf(":");
+    if (sep <= 0) continue;
+    const dateStr = key.slice(0, sep);
+    const prayerName = key.slice(sep + 1) as TrackedPrayerName;
+    const existing = effectiveLogsMap.get(dateStr) ?? createEmptyPrayerLog(dateStr);
+    effectiveLogsMap.set(dateStr, {
+      ...existing,
+      prayers: {
+        ...existing.prayers,
+        [prayerName]: status,
+      },
     });
   }
+  const effectivePrayerLogs = Array.from(effectiveLogsMap.values());
+  const currentLog: PrayerLogDay = effectiveLogsMap.get(selectedDate) ?? createEmptyPrayerLog(selectedDate);
 
-  function cyclePrayerStatus(name: TrackedPrayerName) {
-    const current = currentLog.prayers[name] ?? "missed";
+  function resolveBaseLog(dateStr: string): PrayerLogDay {
+    const targetRow = recordsRef.current.find(
+      r => r.kind === "prayerLogs" && r.id === dateStr && !r.deleted,
+    );
+    const rowLog = targetRow?.data as PrayerLogDay | undefined;
+    const cached = lastWrittenByDateRef.current[dateStr];
+    if (cached && cached.updatedAt > (rowLog?.updatedAt ?? 0)) {
+      return cached;
+    }
+    return rowLog ?? createEmptyPrayerLog(dateStr);
+  }
+
+  async function commitLogWithRetry(nextLog: PrayerLogDay): Promise<void> {
+    const maxAttempts = 8;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const targetRow = recordsRef.current.find(
+        r => r.kind === "prayerLogs" && r.id === nextLog.id && !r.deleted,
+      );
+      try {
+        await onSave({
+          mutationId: crypto.randomUUID(),
+          kind: "prayerLogs",
+          id: nextLog.id,
+          baseVersion: targetRow?.version ?? 0,
+          deleted: false,
+          data: nextLog,
+        });
+        return;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("Eşitleme sürüyor") && attempt < maxAttempts - 1) {
+          await new Promise(resolve => setTimeout(resolve, 250));
+          continue;
+        }
+        throw err;
+      }
+    }
+  }
+
+  function saveDayLog(nextLog: PrayerLogDay) {
+    const normalized: PrayerLogDay = {
+      ...nextLog,
+      updatedAt: Math.max(nextLog.updatedAt || Date.now(), (resolveBaseLog(nextLog.id).updatedAt ?? 0) + 1),
+    };
+    lastWrittenByDateRef.current[normalized.id] = normalized;
+    writeQueueRef.current = writeQueueRef.current.then(async () => {
+      try {
+        await commitLogWithRetry(normalized);
+        await new Promise(resolve => setTimeout(resolve, 20));
+      } catch (err) {
+        console.warn("Namaz kaydı kaydedilemedi:", err);
+      }
+    });
+    return writeQueueRef.current;
+  }
+
+  function togglePrayerForDate(dateStr: string, name: TrackedPrayerName) {
+    const key = `${dateStr}:${name}`;
+    const existingEffective = effectiveLogsMap.get(dateStr) ?? resolveBaseLog(dateStr);
+    const current = optimisticRef.current[key] ?? existingEffective.prayers[name] ?? "missed";
     const nextStatus: PrayerStatus = current === "prayed" ? "missed" : "prayed";
     if (nextStatus === "prayed") {
       hapticSuccess();
     } else {
       hapticLight();
     }
-    void saveDayLog({
-      ...currentLog,
-      prayers: {
-        ...currentLog.prayers,
-        [name]: nextStatus,
-      },
-      updatedAt: Date.now(),
+
+    const opId = (opTokensRef.current[key] ?? 0) + 1;
+    opTokensRef.current[key] = opId;
+    optimisticRef.current = { ...optimisticRef.current, [key]: nextStatus };
+    setOptimisticPrayers(prev => ({ ...prev, [key]: nextStatus }));
+
+    writeQueueRef.current = writeQueueRef.current.then(async () => {
+      const latestLog = resolveBaseLog(dateStr);
+      const nextLog: PrayerLogDay = {
+        ...latestLog,
+        prayers: {
+          ...latestLog.prayers,
+          [name]: nextStatus,
+        },
+        updatedAt: Math.max(Date.now(), (latestLog.updatedAt ?? 0) + 1),
+      };
+      lastWrittenByDateRef.current[dateStr] = nextLog;
+      try {
+        await commitLogWithRetry(nextLog);
+        await new Promise(resolve => setTimeout(resolve, 20));
+      } catch (err) {
+        console.warn("Namaz kaydı kaydedilemedi:", err);
+      } finally {
+        if (opTokensRef.current[key] === opId) {
+          const nextOpt = { ...optimisticRef.current };
+          delete nextOpt[key];
+          optimisticRef.current = nextOpt;
+          setOptimisticPrayers(prev => {
+            if (!(key in prev)) return prev;
+            const copy = { ...prev };
+            delete copy[key];
+            return copy;
+          });
+        }
+      }
     });
+  }
+
+  function cyclePrayerStatus(name: TrackedPrayerName) {
+    togglePrayerForDate(selectedDate, name);
   }
 
   // Persistent notes across all logs: uncompleted notes carry forward
   const allNotesMap = new Map<string, { note: { id: string; text: string; done: boolean }; logId: string }>();
-  for (const log of prayerLogs) {
+  for (const log of effectivePrayerLogs) {
     for (const note of log.notes) {
       if (!allNotesMap.has(note.id)) {
         allNotesMap.set(note.id, { note, logId: log.id });
@@ -177,7 +281,6 @@ export function MobilePrayerCard({
   if (!info) return null;
   const kerahat = info.kerahat;
   const prayedCount = TRACKED_PRAYERS.filter(tp => currentLog.prayers[tp.name] === "prayed").length;
-  const stats = calculatePrayerStats(prayerLogs, todayStr);
 
   if (isCollapsed) {
     return (
@@ -221,14 +324,6 @@ export function MobilePrayerCard({
             title="Namaz Kılavuzu: Kamet, Ayet-el Kürsi, rekatlar ve zamm-ı sureler"
           >
             📖 Rehber
-          </button>
-          <button
-            type="button"
-            className="mobile-prayer-stats-btn"
-            onClick={() => setShowStats(v => !v)}
-            title="Namaz takip ve istatistikleri"
-          >
-            {prayedCount}/5 {showStats ? "▴" : "▾"}
           </button>
           {onToggleCollapse && (
             <button
@@ -288,7 +383,16 @@ export function MobilePrayerCard({
             ‹
           </button>
           <div className="mobile-date-label">
-            <strong>{formatDayLabel(selectedDate, todayStr)}</strong>
+            <button
+              type="button"
+              className="mobile-date-modal-trigger"
+              onClick={() => setShowMonthModal(true)}
+              aria-label="Aylık namaz çetelesini aç"
+              title="Aylık namaz çetelesini aç"
+            >
+              <strong>{formatDayLabel(selectedDate, todayStr)}</strong>
+              <span className="mobile-date-cal-icon" aria-hidden="true">📅</span>
+            </button>
             {selectedDate !== todayStr && (
               <button
                 type="button"
@@ -333,38 +437,6 @@ export function MobilePrayerCard({
             );
           })}
         </div>
-
-        {showStats && (
-          <div className="mobile-prayer-stats-panel">
-            <div className="mobile-stats-summary">
-              <div>
-                <strong>{stats.totalPrayed}</strong>
-                <small>Kılınan</small>
-              </div>
-              <div>
-                <strong>{stats.fullDays}</strong>
-                <small>5/5 Tam Gün</small>
-              </div>
-              <div>
-                <strong>{stats.totalMissed}</strong>
-                <small>Kılınmayan</small>
-              </div>
-            </div>
-            <div className="mobile-stats-week">
-              {stats.last7Days.map(day => (
-                <button
-                  key={day.date}
-                  type="button"
-                  className={`mobile-week-chip ${selectedDate === day.date ? "is-selected" : ""} ${day.prayedCount === 5 ? "is-full" : ""}`}
-                  onClick={() => setSelectedDate(day.date)}
-                >
-                  <small>{day.label}</small>
-                  <strong>{day.prayedCount}/5</strong>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Daily Spiritual / Prayer Notes */}
         <div className="mobile-prayer-notes">
@@ -452,6 +524,16 @@ export function MobilePrayerCard({
       </div>
 
       {showGuide && <PrayerGuideModal onClose={() => setShowGuide(false)} />}
+      {showMonthModal && (
+        <PrayerMonthModal
+          logs={effectivePrayerLogs}
+          todayDate={todayStr}
+          initialDate={selectedDate}
+          onTogglePrayer={togglePrayerForDate}
+          onJumpToDate={setSelectedDate}
+          onClose={() => setShowMonthModal(false)}
+        />
+      )}
     </article>
   );
 }
