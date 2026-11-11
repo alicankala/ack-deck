@@ -2,8 +2,9 @@
 .dashboard-tasks-card {
   display: flex;
   flex-direction: column;
-  padding: 1.25rem 1.4rem;
+  padding: 0.85rem 1.15rem;
   min-width: 0;
+  min-height: 0;
   box-sizing: border-box;
 }
 
@@ -11,21 +12,21 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.85rem;
+  gap: 0.65rem;
+  margin-bottom: 0.45rem;
 }
 
 .dashboard-tasks-title-group {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.55rem;
   min-width: 0;
 }
 
 .dashboard-tasks-icon-box {
-  width: 2.15rem;
-  height: 2.15rem;
-  border-radius: 0.6rem;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 0.5rem;
   background: var(--app-accent-soft, rgba(56, 189, 248, 0.14));
   color: var(--app-accent, #38bdf8);
   display: grid;
@@ -35,17 +36,17 @@
 
 .dashboard-tasks-title-group h2 {
   margin: 0;
-  font-size: 1.08rem;
+  font-size: 1rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--app-text, #f1f5f9);
 }
 
 .dashboard-tasks-remaining-pill {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  padding: 0.24rem 0.6rem;
+  padding: 0.18rem 0.52rem;
   border-radius: 9999px;
   background: var(--app-accent-soft, rgba(56, 189, 248, 0.15));
   color: var(--app-accent, #38bdf8);
@@ -57,15 +58,16 @@
 .dashboard-task-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-bottom: 0.85rem;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
 }
 
 .dashboard-task-filter-btn {
-  padding: 0.34rem 0.8rem;
+  padding: 0.22rem 0.65rem;
   border-radius: 9999px;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 550;
+  min-height: 0;
   background: var(--app-control, rgba(255, 255, 255, 0.04));
   border: 1px solid var(--app-border, rgba(255, 255, 255, 0.1));
   color: var(--app-muted, #94a3b8);
@@ -90,10 +92,11 @@
 .dashboard-tasks-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.32rem;
   flex: 1 1 auto;
   min-height: 0;
-  max-height: 17.5rem;
+  max-height: 8.8rem;
+  margin-bottom: 0.35rem;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 0.2rem;
@@ -115,13 +118,13 @@
 }
 
 .dashboard-tasks-empty {
-  padding: 1.5rem 0.75rem;
+  padding: 0.9rem 0.75rem;
   text-align: center;
   color: var(--app-muted, #94a3b8);
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   background: var(--app-control, rgba(255, 255, 255, 0.02));
   border: 1px dashed var(--app-border, rgba(255, 255, 255, 0.09));
-  border-radius: 0.75rem;
+  border-radius: 0.6rem;
 }
 
 .dashboard-tasks-empty p {
@@ -131,12 +134,29 @@
 .dashboard-tasks-item {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
+  gap: 0.55rem;
   background: var(--app-control, #151c25);
   border: 1px solid var(--app-border, #2c3846);
-  border-radius: 0.75rem;
-  padding: 0.62rem 0.8rem;
+  border-radius: 0.58rem;
+  padding: 0.34rem 0.65rem;
   transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+}
+
+.dashboard-tasks-item .task-toggle {
+  width: 1.15rem;
+  height: 1.15rem;
+  min-width: 1.15rem;
+  min-height: 1.15rem;
+  border-radius: 0.34rem;
+}
+
+.dashboard-tasks-item .record-menu-trigger {
+  width: 1.65rem;
+  height: 1.65rem;
+  min-height: 0;
+  font-size: 1rem;
+  border-radius: 0.45rem;
+  flex-shrink: 0;
 }
 
 .dashboard-tasks-item:hover {
@@ -184,19 +204,20 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.25rem;
 }
 
 .dashboard-tasks-content {
   flex: 1;
   width: 100%;
   min-width: 0;
+  min-height: 0;
   background: transparent;
   border: 0;
   text-align: left;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.08rem;
   cursor: pointer;
   padding: 0;
   color: var(--app-text, #f1f5f9);
@@ -207,21 +228,23 @@
 }
 
 .dashboard-tasks-content strong {
-  font-size: 0.87rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.25;
   color: var(--app-text, #f1f5f9);
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  display: block;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dashboard-tasks-content small {
-  font-size: 0.74rem;
+  font-size: 0.69rem;
   color: var(--app-secondary, #94a3b8);
-  line-height: 1.4;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dashboard-task-done-inline {
@@ -236,10 +259,11 @@
 
 .dashboard-task-reopen-btn {
   flex-shrink: 0;
-  padding: 0.28rem 0.65rem;
-  font-size: 0.74rem;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.71rem;
   font-weight: 600;
-  border-radius: 0.5rem;
+  min-height: 0;
+  border-radius: 0.45rem;
   background: var(--app-field, rgba(255, 255, 255, 0.06));
   color: var(--app-accent, #38bdf8);
   border: 1px solid var(--app-border, rgba(255, 255, 255, 0.12));
@@ -255,9 +279,9 @@
 
 .dashboard-tasks-footer-stats {
   margin-top: auto;
-  padding-top: 0.75rem;
+  padding-top: 0.4rem;
   border-top: 1px solid var(--app-border, rgba(255, 255, 255, 0.08));
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   color: var(--app-muted, #94a3b8);
   display: flex;
   align-items: center;
