@@ -13,21 +13,33 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void,
   useEffect(()=>{
     let active=true,enabled=false,timer:ReturnType<typeof setInterval>|undefined,heartbeatTimer:ReturnType<typeof setInterval>|undefined,changeTimer:ReturnType<typeof setTimeout>|undefined;
     let inFlight=false,lastErrorAlert=0,consecutiveFailures=0;
+    let lastSentConfigHash = "";
 
-    async function sendHeartbeat(forceOffline=false){
+    async function sendHeartbeat(forceOffline=false, forceFull=false){
       if(!active||!enabled)return;
       if(forceOffline||paused){
         try{await phoneRequest("heartbeat",{offline:true});}catch{}
         return;
       }
       try{
-        const studyRem=loadStudyReminders();
-        const notif=loadNotificationPreferences();
-        const res = await phoneRequest<{ ok: boolean; cloudAiUsage?: { date: string; fast: number; powerful: number } }>("heartbeat",{
-          prayerConfig:loadPrayerConfig(),
-          ...(!studyRem.locked?{studyReminders:studyRem.entries}:{}),
-          notificationPreferences:notif,
-        });
+        const prayer = loadPrayerConfig();
+        const studyRem = loadStudyReminders();
+        const notif = loadNotificationPreferences();
+        const payloadStr = JSON.stringify({ prayer, study: !studyRem.locked ? studyRem.entries : null, notif });
+
+        let body: Record<string, unknown>;
+        if (forceFull || payloadStr !== lastSentConfigHash) {
+          body = {
+            prayerConfig: prayer,
+            ...(!studyRem.locked ? { studyReminders: studyRem.entries } : {}),
+            notificationPreferences: notif,
+          };
+          lastSentConfigHash = payloadStr;
+        } else {
+          body = { keepalive: true };
+        }
+
+        const res = await phoneRequest<{ ok: boolean; cloudAiUsage?: { date: string; fast: number; powerful: number } }>("heartbeat", body);
         if (res?.cloudAiUsage) {
           syncCloudAiUsage(res.cloudAiUsage);
         }
@@ -78,7 +90,7 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void,
         clearInterval(heartbeatTimer);
         pausePhoneSync(paused||!enabled);
         if(enabled&&!paused){
-          void sendHeartbeat();
+          void sendHeartbeat(false,true);
           heartbeatTimer=setInterval(()=>void sendHeartbeat(),20000);
           void run();
           timer=setInterval(()=>void run(),30000);
@@ -91,8 +103,8 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void,
     }
     const pauseForRestore=(event:Event)=>{if((event as CustomEvent).detail===true)pausePhoneSync(true);};
     const restored=()=>{pausePhoneSync(true);enabled=false;clearInterval(timer);clearInterval(heartbeatTimer);try{window.localStorage.setItem("ack-deck.phone-restore-review.v1","true");}catch{}void phoneStatus().then(status=>status.enabled?configurePhone(status.url,false):undefined).then(()=>window.dispatchEvent(new Event("ack-phone-configured"))).catch(()=>{});};
-    const onPrayerLogsChanged=()=>{if(active&&enabled&&!paused&&!isPhoneSyncRunning()){void sendHeartbeat();void run();}};
-    const onNotifChanged=()=>{if(active&&enabled&&!paused)void sendHeartbeat();};
+    const onPrayerLogsChanged=()=>{if(active&&enabled&&!paused&&!isPhoneSyncRunning()){void sendHeartbeat(false,true);void run();}};
+    const onNotifChanged=()=>{if(active&&enabled&&!paused)void sendHeartbeat(false,true);};
     window.addEventListener("ack-notification-preferences-changed",onNotifChanged);
     const onDataChanged=()=>{
       if(active&&enabled&&!paused&&!isPhoneSyncRunning()){

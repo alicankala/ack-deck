@@ -48,6 +48,8 @@ function istanbulMinutesOfDay(ms: number): number {
   }
 }
 
+let lastMaintenanceRun = 0;
+
 export async function runReminders(env: Env, send = sendNotification, now = Date.now(), menuFetch: typeof fetch = fetch) {
   let pcState: { prayer_config?: string | null; study_reminders?: string | null; notification_preferences?: string | null } | null = null;
   try {
@@ -349,10 +351,13 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
     const occurrence=next?("paymentAt" in next?next.paymentAt:next.at):0;
     await env.DB.prepare("UPDATE reminders SET due_at=?,occurrence_at=?,generation=?,active=? WHERE task_id=? AND generation=? AND active=1").bind(next ? next.at-(row.kind==="tasks"?(task.reminderLeadMinutes??0)*60000:0) : 0,occurrence,row.task_id+":occ:"+occurrence,Number(!!next),row.task_id,row.generation).run();
   }
-  await env.DB.batch([
-    env.DB.prepare("DELETE FROM rate_limits WHERE reset_at<?").bind(now-3600000),
-    env.DB.prepare("DELETE FROM pairing_codes WHERE expires_at<?").bind(now-86400000),
-    env.DB.prepare("UPDATE remote_commands SET state='expired' WHERE state IN ('pending','claimed') AND expires_at<?").bind(now),
-  ]);
-  await env.DB.prepare("DELETE FROM ai_queries WHERE expires_at<?").bind(now - 300000).run().catch(() => {});
+  if (now - lastMaintenanceRun >= 15 * 60 * 1000) {
+    lastMaintenanceRun = now;
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM rate_limits WHERE reset_at<?").bind(now-3600000),
+      env.DB.prepare("DELETE FROM pairing_codes WHERE expires_at<?").bind(now-86400000),
+      env.DB.prepare("UPDATE remote_commands SET state='expired' WHERE state IN ('pending','claimed') AND expires_at<?").bind(now),
+    ]).catch(() => {});
+    await env.DB.prepare("DELETE FROM ai_queries WHERE expires_at<?").bind(now - 300000).run().catch(() => {});
+  }
 }

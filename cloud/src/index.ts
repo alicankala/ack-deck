@@ -406,7 +406,9 @@ async function handle(request: Request, env: Env): Promise<Response> {
     return reply({ token, device:{name:body.name} });
   }
   const actor = await authenticate(request,env);
-  await rate(env,`api:${actor.id}`,120);
+  if (path !== "/api/heartbeat" && request.method !== "GET") {
+    await rate(env,`api:${actor.id}`,120);
+  }
   if (path === "/api/status" && request.method === "GET") {
     let pc: { last_seen: number; prayer_config?: string | null; study_reminders?: string | null; notification_preferences?: string | null } | null = null;
     try {
@@ -499,28 +501,38 @@ async function handle(request: Request, env: Env): Promise<Response> {
       await env.DB.prepare("UPDATE desktop_state SET last_seen=0 WHERE id=1").run();
       return reply({ ok: true });
     }
-    const prayerConfig = body && typeof body === "object" && (body as Record<string, unknown>).prayerConfig && typeof (body as Record<string, unknown>).prayerConfig === "object" ? JSON.stringify((body as Record<string, unknown>).prayerConfig) : null;
-    const rawStudy = body && typeof body === "object" && Array.isArray((body as Record<string, unknown>).studyReminders) ? (body as { studyReminders: unknown[] }).studyReminders : null;
+    const hasPrayer = body && typeof body === "object" && "prayerConfig" in body && (body as any).prayerConfig;
+    const hasStudy = body && typeof body === "object" && "studyReminders" in body && Array.isArray((body as any).studyReminders);
+    const hasNotif = body && typeof body === "object" && "notificationPreferences" in body && (body as any).notificationPreferences;
+
+    const prayerConfig = hasPrayer && typeof (body as any).prayerConfig === "object" ? JSON.stringify((body as any).prayerConfig) : null;
+    const rawStudy = hasStudy ? (body as { studyReminders: unknown[] }).studyReminders : null;
     const studyReminders = rawStudy && rawStudy.length <= 200 ? JSON.stringify(rawStudy) : null;
-    const rawNotif = body && typeof body === "object" && (body as Record<string, unknown>).notificationPreferences && typeof (body as Record<string, unknown>).notificationPreferences === "object" ? JSON.stringify((body as Record<string, unknown>).notificationPreferences) : null;
-    try {
-      if (prayerConfig && studyReminders) {
-        await env.DB.prepare("UPDATE desktop_state SET last_seen=?, prayer_config=?, study_reminders=? WHERE id=1").bind(now, prayerConfig, studyReminders).run();
-      } else if (prayerConfig) {
-        await env.DB.prepare("UPDATE desktop_state SET last_seen=?, prayer_config=? WHERE id=1").bind(now, prayerConfig).run();
-      } else if (studyReminders) {
-        await env.DB.prepare("UPDATE desktop_state SET last_seen=?, study_reminders=? WHERE id=1").bind(now, studyReminders).run();
-      } else {
-        await env.DB.prepare("UPDATE desktop_state SET last_seen=? WHERE id=1").bind(now).run();
-      }
-    } catch {
-      if (prayerConfig) await env.DB.prepare("UPDATE desktop_state SET last_seen=?, prayer_config=? WHERE id=1").bind(now, prayerConfig).run();
-      else await env.DB.prepare("UPDATE desktop_state SET last_seen=? WHERE id=1").bind(now).run();
-    }
-    if (rawNotif) {
+    const rawNotif = hasNotif && typeof (body as any).notificationPreferences === "object" ? JSON.stringify((body as any).notificationPreferences) : null;
+
+    if (!prayerConfig && !studyReminders && !rawNotif) {
+      // Lightweight keepalive: zero config rewriting, minimal single-cell last_seen update
+      await env.DB.prepare("UPDATE desktop_state SET last_seen=? WHERE id=1").bind(now).run();
+    } else {
       try {
-        await env.DB.prepare("UPDATE desktop_state SET notification_preferences=? WHERE id=1").bind(rawNotif).run();
-      } catch {}
+        if (prayerConfig && studyReminders) {
+          await env.DB.prepare("UPDATE desktop_state SET last_seen=?, prayer_config=?, study_reminders=? WHERE id=1").bind(now, prayerConfig, studyReminders).run();
+        } else if (prayerConfig) {
+          await env.DB.prepare("UPDATE desktop_state SET last_seen=?, prayer_config=? WHERE id=1").bind(now, prayerConfig).run();
+        } else if (studyReminders) {
+          await env.DB.prepare("UPDATE desktop_state SET last_seen=?, study_reminders=? WHERE id=1").bind(now, studyReminders).run();
+        } else {
+          await env.DB.prepare("UPDATE desktop_state SET last_seen=? WHERE id=1").bind(now).run();
+        }
+      } catch {
+        if (prayerConfig) await env.DB.prepare("UPDATE desktop_state SET last_seen=?, prayer_config=? WHERE id=1").bind(now, prayerConfig).run();
+        else await env.DB.prepare("UPDATE desktop_state SET last_seen=? WHERE id=1").bind(now).run();
+      }
+      if (rawNotif) {
+        try {
+          await env.DB.prepare("UPDATE desktop_state SET notification_preferences=? WHERE id=1").bind(rawNotif).run();
+        } catch {}
+      }
     }
     let cloudAiUsage = null;
     try {
@@ -542,13 +554,11 @@ async function handle(request: Request, env: Env): Promise<Response> {
     return reply({ ok: true });
   }
   if (path === "/api/ai/status" && request.method === "GET") {
-    await ensureSyncTables(env);
     const pc = await env.DB.prepare("SELECT last_seen FROM desktop_state WHERE id=1").first<{ last_seen: number }>();
     const configured = await hasEncryptedGeminiKey(env);
     return reply({ configured, desktopOnline: now - (pc?.last_seen ?? 0) < DESKTOP_ONLINE_THRESHOLD_MS });
   }
   if (path === "/api/ai/key" && request.method === "GET") {
-    await ensureSyncTables(env);
     const configured = await hasEncryptedGeminiKey(env);
     return reply({ configured });
   }
@@ -625,14 +635,12 @@ async function handle(request: Request, env: Env): Promise<Response> {
   }
   const aiQueryMatch = path.match(/^\/api\/ai\/query\/([\w.-]{1,128})$/);
   if (aiQueryMatch && request.method === "GET") {
-    await ensureSyncTables(env);
     const row = await env.DB.prepare("SELECT state, reply, device_id FROM ai_queries WHERE id=?").bind(aiQueryMatch[1]).first<{ state: string; reply: string | null; device_id: string }>();
     if (!row || (!actor.owner && row.device_id !== actor.id)) throw new ApiError(404, "Sorgu bulunamadı.");
     return reply({ state: row.state, reply: row.reply });
   }
   if (path === "/api/ai/pending" && request.method === "GET") {
     owner(actor);
-    await ensureSyncTables(env);
     const rows = await env.DB.prepare(
       "SELECT id, prompt, history, model FROM ai_queries WHERE state='pending' AND expires_at>? ORDER BY created_at ASC LIMIT 3",
     )

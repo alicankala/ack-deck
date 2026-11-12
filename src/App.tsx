@@ -328,7 +328,7 @@ function App() {
     window.addEventListener("ack-inbox-updated", onChanged);
     const initialTimer = window.setTimeout(refreshInboxNow, 2000);
     const pollInterval = window.setInterval(refreshInboxNow, 25000);
-    const relayInterval = window.setInterval(processMobileRelayQueries, 4000);
+    const relayInterval = window.setInterval(processMobileRelayQueries, 12000);
 
     return () => {
       window.removeEventListener("ack-data-changed", onChanged);
