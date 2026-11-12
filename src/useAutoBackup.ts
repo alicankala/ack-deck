@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import { createFullBackup } from "./backupStore";
 import { getDesktopStatus } from "./desktopClient";
 
@@ -34,15 +35,20 @@ export function useAutoBackup() {
 
       inFlight.current = true;
       try {
+        const fallbackVersion = await getVersion().catch(() => "2.0.6");
         const desktop = await getDesktopStatus().catch(() => ({
           preferences: { closeToTray: false, startInTray: false },
           autoStart: false,
-          version: "1.7.0",
+          version: fallbackVersion,
         }));
 
         const backup = await createFullBackup(
-          { ...desktop.preferences, autoStart: desktop.autoStart },
-          desktop.version
+          {
+            closeToTray: Boolean(desktop.preferences?.closeToTray),
+            startInTray: Boolean(desktop.preferences?.startInTray),
+            autoStart: Boolean(desktop.autoStart),
+          },
+          desktop.version || fallbackVersion
         );
 
         const content = JSON.stringify(backup, null, 2);
@@ -58,6 +64,18 @@ export function useAutoBackup() {
         );
       } catch (err) {
         console.warn("[AutoBackup] Otomatik yerel yedekleme atlandı:", err);
+        const rawMessage =
+          err instanceof Error
+            ? err.message
+            : typeof err === "string"
+            ? err
+            : err && typeof err === "object" && "message" in err && typeof err.message === "string"
+            ? err.message
+            : "";
+        const message = rawMessage.trim() || "Otomatik yedekleme tamamlanamadı.";
+        window.dispatchEvent(
+          new CustomEvent("ack-auto-backup-failed", { detail: { message } })
+        );
       } finally {
         inFlight.current = false;
       }

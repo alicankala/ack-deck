@@ -4,7 +4,7 @@ use std::time::Duration;
 
 fn client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
-        .user_agent("ACKDeck/1.1 (Windows)")
+        .user_agent(concat!("ACKDeck/", env!("CARGO_PKG_VERSION"), " (Windows)"))
         .timeout(Duration::from_secs(10))
         .build()
         .map_err(|_| "Bağlantı kurulamadı.".into())
@@ -181,38 +181,57 @@ async fn fetch_crypto_rates(client: &reqwest::Client) -> (Option<Rate>, Option<R
     (None, None)
 }
 
+async fn fetch_tcmb_rates(client: &reqwest::Client) -> Option<Rates> {
+    let xml = client
+        .get("https://www.tcmb.gov.tr/kurlar/today.xml")
+        .send()
+        .await
+        .ok()?
+        .error_for_status()
+        .ok()?
+        .text()
+        .await
+        .ok()?;
+    parse_rates(&xml)
+}
+
+fn build_rates_result(
+    tcmb: Option<Rates>,
+    gold_rate: Option<Rate>,
+    btc_rate: Option<Rate>,
+    eth_rate: Option<Rate>,
+    xu100_rate: Option<Rate>,
+) -> Result<Rates, String> {
+    let mut date = String::new();
+    let mut rates = Vec::new();
+    if let Some(tcmb_rates) = tcmb {
+        date = tcmb_rates.date;
+        rates.extend(tcmb_rates.rates);
+    }
+    for extra in [gold_rate, btc_rate, eth_rate, xu100_rate]
+        .into_iter()
+        .flatten()
+    {
+        rates.push(extra);
+    }
+    if rates.is_empty() {
+        return Err("Kurlar alınamadı.".into());
+    }
+    Ok(Rates { date, rates })
+}
+
 #[tauri::command]
 pub async fn footer_rates() -> Result<Rates, String> {
     let c = client()?;
-    let tcmb_res = c
-        .get("https://www.tcmb.gov.tr/kurlar/today.xml")
-        .send()
-        .await;
-    let (gold_rate, xu100_rate) = fetch_truncgil_rates(&c).await;
+    let c_tcmb = c.clone();
+    let c_truncgil = c.clone();
+    let tcmb_task = tauri::async_runtime::spawn(async move { fetch_tcmb_rates(&c_tcmb).await });
+    let truncgil_task =
+        tauri::async_runtime::spawn(async move { fetch_truncgil_rates(&c_truncgil).await });
     let (btc_rate, eth_rate) = fetch_crypto_rates(&c).await;
-
-    let xml = tcmb_res
-        .map_err(|_| "Kurlar alınamadı.")?
-        .error_for_status()
-        .map_err(|_| "Kurlar alınamadı.")?
-        .text()
-        .await
-        .map_err(|_| "Kurlar alınamadı.")?;
-
-    let mut rates = parse_rates(&xml).ok_or_else(|| "Kurlar alınamadı.".to_string())?;
-    if let Some(gold) = gold_rate {
-        rates.rates.push(gold);
-    }
-    if let Some(btc) = btc_rate {
-        rates.rates.push(btc);
-    }
-    if let Some(eth) = eth_rate {
-        rates.rates.push(eth);
-    }
-    if let Some(xu100) = xu100_rate {
-        rates.rates.push(xu100);
-    }
-    Ok(rates)
+    let tcmb_rates = tcmb_task.await.ok().flatten();
+    let (gold_rate, xu100_rate) = truncgil_task.await.ok().unwrap_or((None, None));
+    build_rates_result(tcmb_rates, gold_rate, btc_rate, eth_rate, xu100_rate)
 }
 
 #[derive(Serialize)]
@@ -353,5 +372,46 @@ mod tests {
         assert!(parse_rates(&xml.replace("40.25", "NaN")).is_none());
         assert!(parse_rates(&xml.replace("GBP", "XXX")).is_none());
         assert!(parse_rates("<html>Servis kullanılamıyor</html>").is_none());
+    }
+
+    #[test]
+    fn build_rates_allows_partial_market_rates_when_tcmb_fails_and_errors_if_all_empty() {
+        let gra = Rate {
+            code: "GRA".into(),
+            buying: 3100.0,
+            selling: 3150.0,
+        };
+        let btc = Rate {
+            code: "BTC".into(),
+            buying: 90000.0,
+            selling: 90000.0,
+        };
+        let partial = build_rates_result(None, Some(gra), Some(btc), None, None).unwrap();
+        assert_eq!(partial.date, "");
+        assert_eq!(partial.rates.len(), 2);
+        assert_eq!(partial.rates[0].code, "GRA");
+        assert_eq!(partial.rates[1].code, "BTC");
+
+        let empty_err = build_rates_result(None, None, None, None, None);
+        assert_eq!(empty_err.err().as_deref(), Some("Kurlar alınamadı."));
+
+        let tcmb = Rates {
+            date: "12.11.2026".into(),
+            rates: vec![Rate {
+                code: "USD".into(),
+                buying: 41.0,
+                selling: 41.2,
+            }],
+        };
+        let xu = Rate {
+            code: "XU100".into(),
+            buying: 9500.0,
+            selling: 9500.0,
+        };
+        let full = build_rates_result(Some(tcmb), None, None, None, Some(xu)).unwrap();
+        assert_eq!(full.date, "12.11.2026");
+        assert_eq!(full.rates.len(), 2);
+        assert_eq!(full.rates[0].code, "USD");
+        assert_eq!(full.rates[1].code, "XU100");
     }
 }

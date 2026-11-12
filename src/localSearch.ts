@@ -3,18 +3,18 @@ import { loadProjectSnapshot, type Project } from "./projectStore";
 import { loadNotes, type Note } from "./notesStore";
 import { type FileEntry } from "./fileStore";
 import { loadArchive, type ArchiveEntry } from "./archiveStore";
-import type { Page } from "./components/Sidebar";
+import type { RoutePage } from "./navigation";
 import { loadWorkspaces, loadShortcuts, type Workspace, type Shortcut } from "./workHubStore";
 import { rankMatch, usageFor } from "./usageStore";
 export type SearchSource = "tasks" | "projects" | "notes" | "files" | "archive" | "workspaces" | "shortcuts";
-export type SearchResult = { source: SearchSource; id: string; title: string; detail: string; page: Page; record: Task | Project | Note | FileEntry | ArchiveEntry | Workspace | Shortcut };
+export type SearchResult = { source: SearchSource; id: string; title: string; detail: string; page: RoutePage; record: Task | Project | Note | FileEntry | ArchiveEntry | Workspace | Shortcut };
 export const SEARCH_LABELS: Record<SearchSource, string> = { tasks: "Görev", projects: "Proje", notes: "Not", files: "Kısayol", archive: "Arşiv", workspaces: "Çalışma Alanı", shortcuts: "Kısayol" };
 export const normalizeSearch = (value: string) => value.toLocaleLowerCase("tr-TR").normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/ı/g, "i");
 export function searchLocal(query: string, sources: SearchSource[] = ["tasks", "projects", "notes", "files", "archive", "workspaces", "shortcuts"], limit = 40): { results: SearchResult[]; warnings: string[] } {
   const terms = normalizeSearch(query.trim().slice(0, 200)).split(/\s+/).filter(Boolean);
   if (!terms.length) return { results: [], warnings: [] };
   const results: SearchResult[] = [], warnings: string[] = [];
-  function add(source: SearchSource, page: Page, records: SearchResult["record"][], fields: (record: SearchResult["record"]) => [string, string]) {
+  function add(source: SearchSource, page: RoutePage, records: SearchResult["record"][], fields: (record: SearchResult["record"]) => [string, string]) {
     for (const record of records) {
       const [title, detail] = fields(record), text = normalizeSearch(title + " " + detail);
       if (terms.every((term) => text.includes(term))) results.push({ source, page, id: record.id, title, detail: detail.slice(0, 240), record });

@@ -8,12 +8,14 @@ import {
   loadDormMenuCache,
 } from "../shared/dormMenu";
 import { notifyDesktop } from "./desktopClient";
+import { ensureDesktopDormFetcher } from "./dormMenuDesktop";
 import { isTauri } from "@tauri-apps/api/core";
 import { loadNotificationPreferences } from "./notificationStore";
 
 export function useDormMealReminder(setNotice: (text: string) => void) {
   useEffect(() => {
     let active = true;
+    ensureDesktopDormFetcher();
 
     async function checkMealNotification() {
       const notif = loadNotificationPreferences();
@@ -27,6 +29,7 @@ export function useDormMealReminder(setNotice: (text: string) => void) {
         let records = loadDormMenuCache();
         let todayMenu = findMenuForDate(records, todayKey);
         if (!todayMenu || todayMenu.isFallback || !todayMenu.isToday || todayMenu.dinnerDishes.length === 0) {
+          ensureDesktopDormFetcher();
           records = await fetchDormMenu();
           todayMenu = findMenuForDate(records, todayKey);
         }

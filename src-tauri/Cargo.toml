@@ -1,6 +1,6 @@
 [package]
 name = "ack-deck"
-version = "2.0.6"
+version = "2.0.7"
 description = "ACKDeck personal desktop dashboard"
 authors = ["Alican"]
 edition = "2021"
@@ -36,7 +36,6 @@ tauri-plugin-autostart = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-single-instance = "2"
 tokio = { version = "1", features = ["time", "sync"] }
-tauri-plugin-global-shortcut = "2"
 tauri-plugin-updater = "2"
 zip = { version = "4.6", default-features = false, features = ["deflate"] }
 

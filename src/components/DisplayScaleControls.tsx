@@ -10,8 +10,8 @@ export function DisplayScaleControls() {
     <div className="display-scale-embedded" style={{ marginTop: "1.25rem", paddingTop: "1rem", borderTop: "1px solid var(--app-border)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
         <div>
-          <strong style={{ fontSize: "0.95rem", display: "block" }}>Arayüz Ölçeği</strong>
-          <small style={{ color: "#94a3b8", fontSize: "0.78rem" }}>
+          <strong style={{ fontSize: "0.95rem", display: "block", color: "var(--app-text)" }}>Arayüz Ölçeği</strong>
+          <small style={{ color: "var(--app-muted)", fontSize: "0.78rem" }}>
             Geçerli ekran: {display.label || "Birincil Ekran"} (Ölçek pencereyi taşıdığında otomatik uygulanır)
           </small>
         </div>

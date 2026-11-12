@@ -372,9 +372,26 @@ export function formatRemainingTime(ms: number): string {
 
 export const PRAYER_STORAGE_KEY = "ack-deck.prayer-config.v1";
 
+type PrayerStorageLike = {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+};
+
+type PrayerBrowserTarget = {
+  localStorage?: PrayerStorageLike;
+  dispatchEvent?: (event: unknown) => unknown;
+  window?: PrayerBrowserTarget;
+  Event?: new (type: string) => unknown;
+};
+
+const getPrayerBrowserTarget = (): PrayerBrowserTarget => {
+  const g = globalThis as unknown as PrayerBrowserTarget;
+  return g.window ?? g;
+};
+
 export function loadPrayerConfig(): PrayerTimesConfig {
   try {
-    const raw = typeof window !== "undefined" ? window.localStorage.getItem(PRAYER_STORAGE_KEY) : null;
+    const raw = getPrayerBrowserTarget().localStorage?.getItem(PRAYER_STORAGE_KEY) ?? null;
     if (!raw) return { ...DEFAULT_PRAYER_CONFIG };
     const parsed = JSON.parse(raw);
     if (
@@ -400,9 +417,11 @@ export function loadPrayerConfig(): PrayerTimesConfig {
 
 export function savePrayerConfig(config: PrayerTimesConfig): boolean {
   try {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(PRAYER_STORAGE_KEY, JSON.stringify(config));
-      window.dispatchEvent(new Event("ack-prayer-config-changed"));
+    const target = getPrayerBrowserTarget();
+    target.localStorage?.setItem(PRAYER_STORAGE_KEY, JSON.stringify(config));
+    const EventCtor = (globalThis as unknown as PrayerBrowserTarget).Event;
+    if (target.dispatchEvent && EventCtor) {
+      target.dispatchEvent(new EventCtor("ack-prayer-config-changed"));
     }
     return true;
   } catch {
@@ -530,11 +549,13 @@ export async function geocodeCityWeb(cityName: string): Promise<{ city: string; 
       `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=tr`
     );
     if (!res.ok) return null;
-    const data = await res.json();
-    const result = data.results?.[0];
+    const data = (await res.json()) as {
+      results?: Array<{ name?: unknown; latitude?: unknown; longitude?: unknown }>;
+    } | null;
+    const result = Array.isArray(data?.results) ? data.results[0] : undefined;
     if (result && typeof result.latitude === "number" && typeof result.longitude === "number") {
       return {
-        city: result.name || query,
+        city: typeof result.name === "string" && result.name ? result.name : query,
         lat: result.latitude,
         lng: result.longitude,
       };

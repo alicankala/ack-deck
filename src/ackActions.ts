@@ -10,10 +10,9 @@ import { loadNotes, saveNotes } from "./notesStore";
 import { ARCHIVE_CATEGORIES, loadArchive, saveArchive, type ArchiveCategory } from "./archiveStore";
 import { loadProjectSnapshot } from "./projectStore";
 import { normalizeSearch } from "./localSearch";
-import { openRegisteredProject } from "./commandPalette";
+import { openRegisteredProject } from "./hubLaunch";
 import { redactSecrets } from "./privacy";
-import type { NavigationTarget } from "./navigation";
-import type { Page } from "./components/Sidebar";
+import type { NavigationTarget, RoutePage } from "./navigation";
 import { loadWorkspaces, loadShortcuts } from "./workHubStore";
 import { launchWorkspace, launchShortcut } from "./hubLaunch";
 import { loadStudyPrograms, saveStudyPrograms } from "./studyProgramStore";
@@ -35,9 +34,9 @@ export type AckAction =
   | { type: "delete_study_program"; programId: string }
   | { type: "create_media_item"; mediaType: MediaType; title: string; mediaStatus?: MediaStatus; rating?: number; progress?: string; review?: string; year?: string; creator?: string }
   | {type:"update_project";projectId:string;nextStep?:string;workspaceId?:string|null;inboxIds?:string[];}
-  | { type: "open_project"; projectId: string; mode: "folder" | "vscode" } | { type: "open_workspace"; workspaceId: string } | { type: "open_shortcut"; shortcutId: string } | { type: "navigate"; page: Page } | { type: "start_speed_test" };
+  | { type: "open_project"; projectId: string; mode: "folder" | "vscode" } | { type: "open_workspace"; workspaceId: string } | { type: "open_shortcut"; shortcutId: string } | { type: "navigate"; page: RoutePage } | { type: "start_speed_test" };
 export type AckProposal = { action: AckAction; question: string; expected?: string };
-const pages: Page[] = ["home", "tasks", "ai", "projects", "workspaces", "notes", "tools", "qr", "ip", "files", "speed", "pc", "archive", "settings", "inbox", "subscriptions", "calendar", "media"];
+const pages: RoutePage[] = ["home", "tasks", "ai", "projects", "workspaces", "notes", "tools", "qr", "ip", "files", "speed", "pc", "archive", "settings", "inbox", "subscriptions", "calendar", "media"];
 const shapes: Record<AckAction["type"], string[]> = {
   batch:["actions"], create_tasks:["texts","projectId"],
   create_task: ["text", "dueDate", "dueTime", "priority", "reminder", "checklist", "projectId", "workspaceId", "sourceInboxId", "reminderLeadMinutes", "recurrence", "occurrenceAt", "timezone"], update_task: ["taskId", "text", "dueDate", "dueTime", "priority", "reminder", "checklist", "projectId", "workspaceId", "reminderLeadMinutes", "recurrence", "occurrenceAt", "timezone"], complete_task: ["taskId"], delete_task: ["taskId"],
@@ -117,7 +116,7 @@ export function validateAckAction(value: unknown): AckAction {
   }
   if (type.startsWith("update_") && Object.keys(item).length <= 2) invalid();
   if (type === "open_project" && item.mode !== "folder" && item.mode !== "vscode") invalid();
-  if (type === "navigate" && !pages.includes(item.page as Page)) invalid();
+  if (type === "navigate" && !pages.includes(item.page as RoutePage)) invalid();
   return item as AckAction;
 }
 function patch<T extends object>(action: T, keys: string[]): Record<string, unknown> { return Object.fromEntries(Object.entries(action).filter(([key, value]) => keys.includes(key) && value !== undefined)); }
@@ -219,7 +218,7 @@ export function proposeAckAction(text: string, now = new Date()): AckProposal | 
   const capture=parseSmartCapture(text,loadProjectSnapshot().entries,now);
   if(capture){const {kind,...fields}=capture;return prepareAckProposal(kind==="note"?{type:"create_note",...fields}:{type:"create_task",...fields});}
   const nextStep=text.match(/^(.+?)\s+projesinin\s+sıradaki\s+adımını\s*(?:değiştir|yap)\s*:\s*(.+)$/iu);if(nextStep){const matches=loadProjectSnapshot().entries.filter(p=>normalizeSearch(p.name)===normalizeSearch(nextStep[1]));if(matches.length===1)return prepareAckProposal({type:"update_project",projectId:matches[0].id,nextStep:nextStep[2]});}
-  const nav: [RegExp, Page][] = [[/\bqr\b.*(?:ac|git)/, "qr"], [/notlara git/, "notes"], [/koleksiyon.*(?:ac|git)/, "media"], [/ayarlari ac|ayarlara git/, "settings"], [/arsivi ac|arsive git/, "archive"], [/gorevlere git/, "tasks"], [/haftalik plan.*(?:ac|git)|takvim.*(?:ac|git)/, "calendar"], [/ana sayfa.*(?:ac|git)/, "home"]];
+  const nav: [RegExp, RoutePage][] = [[/\bqr\b.*(?:ac|git)/, "qr"], [/notlara git/, "notes"], [/koleksiyon.*(?:ac|git)/, "media"], [/ayarlari ac|ayarlara git/, "settings"], [/arsivi ac|arsive git/, "archive"], [/gorevlere git/, "tasks"], [/haftalik plan.*(?:ac|git)|takvim.*(?:ac|git)/, "calendar"], [/ana sayfa.*(?:ac|git)/, "home"]];
   for (const [pattern, page] of nav) if (pattern.test(normalized)) return prepareAckProposal({ type: "navigate", page });
   if (/internetimi test et|hiz testini baslat|hiz testi baslat/.test(normalized)) return prepareAckProposal({ type: "start_speed_test" });
   if (/\bac\b|acar misin/.test(normalized)) {

@@ -30,12 +30,157 @@ async function rate(env: Env, bucket: string, limit: number, seconds = 60) {
   if (!result || result.count > limit) throw new ApiError(429,"Çok sık istek gönderildi. Biraz sonra tekrar deneyin.");
 }
 const DESKTOP_ONLINE_THRESHOLD_MS = 45_000;
+const MAX_PROXY_IMAGE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_PROXY_HOSTS = [
+  "m.media-amazon.com",
+  "images-na.ssl-images-amazon.com",
+  "images-amazon.com",
+  "ia.media-imdb.com",
+  "imdb.com",
+  "static.tvmaze.com",
+  "api.tvmaze.com",
+  "image.tmdb.org",
+  "themoviedb.org",
+  "books.google.com",
+  "googleusercontent.com",
+  "covers.openlibrary.org",
+  "openlibrary.org",
+  "archive.org",
+  "images.igdb.com",
+  "steamstatic.com",
+  "steampowered.com",
+  "akamaihd.net",
+  "rawg.io",
+  "wikimedia.org",
+  "wikipedia.org",
+] as const;
+const ALLOWED_IMAGE_MIMES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+  "image/gif",
+]);
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
+async function clientIpHash(request: Request, env: Env): Promise<string> {
+  return hash((request.headers.get("CF-Connecting-IP") ?? "local") + (env.OWNER_SECRET ?? ""));
+}
+
+function corsReply(data: unknown, status = 200): Response {
+  const resp = reply(data, status);
+  resp.headers.set("Access-Control-Allow-Origin", "*");
+  return resp;
+}
+
+function isAllowedProxyHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return ALLOWED_PROXY_HOSTS.some((h) => host === h || host.endsWith("." + h));
+}
+
+function isAllowedProxyUrl(target: URL): boolean {
+  return (
+    target.protocol === "https:" &&
+    target.port === "" &&
+    !target.username &&
+    !target.password &&
+    isAllowedProxyHost(target.hostname)
+  );
+}
+
+async function fetchAllowedImage(startUrl: URL, method: string, timeoutMs = 10_000): Promise<Response> {
+  if (!isAllowedProxyUrl(startUrl)) {
+    throw new ApiError(403, "İzin verilmeyen görsel kaynağı");
+  }
+  let currentUrl = startUrl;
+  for (let hop = 0; hop <= 2; hop++) {
+    let res: Response;
+    try {
+      res = await fetch(currentUrl.toString(), {
+        method,
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "image/avif,image/webp,image/png,image/jpeg,image/gif,*/*;q=0.5",
+        },
+        redirect: "manual",
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch {
+      throw new ApiError(502, "Görsele ulaşılamadı");
+    }
+    if (!REDIRECT_STATUSES.has(res.status)) return res;
+    await res.body?.cancel().catch(() => {});
+    if (hop === 2) {
+      throw new ApiError(502, "Çok fazla görsel yönlendirmesi.");
+    }
+    const location = res.headers.get("Location");
+    if (!location) {
+      throw new ApiError(502, "Geçersiz görsel yönlendirmesi.");
+    }
+    let nextUrl: URL;
+    try {
+      nextUrl = new URL(location, currentUrl);
+    } catch {
+      throw new ApiError(502, "Geçersiz görsel yönlendirmesi.");
+    }
+    if (!isAllowedProxyUrl(nextUrl)) {
+      throw new ApiError(403, "İzin verilmeyen görsel yönlendirmesi");
+    }
+    currentUrl = nextUrl;
+  }
+  throw new ApiError(502, "Çok fazla görsel yönlendirmesi.");
+}
+
+async function boundedImageBytes(response: Response, max = MAX_PROXY_IMAGE_BYTES): Promise<Uint8Array> {
+  const rawLength = response.headers.get("content-length");
+  if (rawLength !== null) {
+    const contentLength = Number(rawLength);
+    if (Number.isFinite(contentLength) && contentLength > max) {
+      await response.body?.cancel().catch(() => {});
+      throw new ApiError(413, "Görsel en fazla 5 MB olabilir.");
+    }
+  }
+  const reader = response.body?.getReader();
+  if (!reader) return new Uint8Array();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value || value.byteLength === 0) continue;
+      length += value.byteLength;
+      if (length > max) {
+        await reader.cancel().catch(() => {});
+        throw new ApiError(413, "Görsel en fazla 5 MB olabilir.");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const data = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    data.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return data;
+}
 
 async function handle(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url), path = url.pathname, now = Date.now();
   if (url.protocol !== "https:" && !["localhost","127.0.0.1"].includes(url.hostname)) throw new ApiError(400,"Güvenli bağlantı gereklidir.");
   if (path === "/api/dorm-menu" && request.method === "GET") {
     const force = url.searchParams.get("force") === "1";
+    try {
+      const ipHash = await clientIpHash(request, env);
+      await rate(env, `dorm-menu:${ipHash}`, 30, 60);
+      if (force) await rate(env, `dorm-menu-force:${ipHash}`, 4, 300);
+    } catch (err) {
+      if (err instanceof ApiError) return corsReply({ ok: false, error: err.message }, err.status);
+      throw err;
+    }
     try {
       const cached = (await env.ATTACHMENTS.get("dorm-menu:cache", "json")) as {
         fetchedAt: number;
@@ -50,8 +195,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
         cached.records.length > 0 &&
         now - cached.fetchedAt < 3 * 3600 * 1000
       ) {
-        const resp = reply({ ok: true, records: cached.records, cached: true });
-        resp.headers.set("Access-Control-Allow-Origin", "*");
+        const resp = corsReply({ ok: true, records: cached.records, cached: true });
         resp.headers.set("Cache-Control", "public, max-age=3600");
         return resp;
       }
@@ -71,14 +215,11 @@ async function handle(request: Request, env: Env): Promise<Response> {
             );
           } catch {}
         }
-        const resp = reply({ ok: true, records });
-        resp.headers.set("Access-Control-Allow-Origin", "*");
+        const resp = corsReply({ ok: true, records });
         resp.headers.set("Cache-Control", "public, max-age=3600");
         return resp;
       } else if (cached && Array.isArray(cached.records) && cached.records.length > 0) {
-        const resp = reply({ ok: true, records: cached.records, cached: true });
-        resp.headers.set("Access-Control-Allow-Origin", "*");
-        return resp;
+        return corsReply({ ok: true, records: cached.records, cached: true });
       }
     } catch {
       try {
@@ -87,172 +228,121 @@ async function handle(request: Request, env: Env): Promise<Response> {
           records: any[];
         } | null;
         if (cached && Array.isArray(cached.records) && cached.records.length > 0) {
-          const resp = reply({ ok: true, records: cached.records, cached: true });
-          resp.headers.set("Access-Control-Allow-Origin", "*");
-          return resp;
+          return corsReply({ ok: true, records: cached.records, cached: true });
         }
       } catch {}
     }
-    const resp = reply({ ok: false, records: [] });
-    resp.headers.set("Access-Control-Allow-Origin", "*");
-    return resp;
+    return corsReply({ ok: false, records: [] });
   }
   if (path === "/api/media-search" && request.method === "GET") {
     const type = url.searchParams.get("type") || "movie";
     const q = url.searchParams.get("q") || "";
     if (!["movie", "series", "book", "game"].includes(type) || q.trim().length < 2) {
-      const empty = reply({ ok: true, results: [] });
-      empty.headers.set("Access-Control-Allow-Origin", "*");
-      return empty;
+      return corsReply({ ok: true, results: [] });
     }
     try {
-      await rate(env, `media-search:${await hash((request.headers.get("CF-Connecting-IP") ?? "local") + (env.OWNER_SECRET ?? ""))}`, 40, 60);
+      await rate(env, `media-search:${await clientIpHash(request, env)}`, 40, 60);
       const results = await searchPublicMedia(type, q);
-      const resp = reply({ ok: true, results });
-      resp.headers.set("Access-Control-Allow-Origin", "*");
-      return resp;
+      return corsReply({ ok: true, results });
     } catch (err) {
-      if (err instanceof ApiError && err.status === 429) throw err;
-      const resp = reply({ ok: false, results: [] });
-      resp.headers.set("Access-Control-Allow-Origin", "*");
-      return resp;
+      if (err instanceof ApiError && err.status === 429) return corsReply({ ok: false, error: err.message }, 429);
+      return corsReply({ ok: false, results: [] });
     }
   }
   if (path === "/api/media-rating" && request.method === "GET") {
     const imdbId = (url.searchParams.get("imdbId") || "").trim();
     if (!/^tt\d{5,12}$/.test(imdbId)) {
-      const err = reply({ ok: false, error: "Geçersiz IMDb ID" }, 400);
-      err.headers.set("Access-Control-Allow-Origin", "*");
-      return err;
+      return corsReply({ ok: false, error: "Geçersiz IMDb ID" }, 400);
     }
     try {
-      await rate(
-        env,
-        `media-rating:${await hash((request.headers.get("CF-Connecting-IP") ?? "local") + (env.OWNER_SECRET ?? ""))}`,
-        60,
-        60
-      );
+      await rate(env, `media-rating:${await clientIpHash(request, env)}`, 60, 60);
 
       const cacheKey = `imdb-rating:${imdbId}`;
       const cached = await env.ATTACHMENTS.get(cacheKey);
       if (cached) {
         const ratingNum = parseFloat(cached);
         if (!isNaN(ratingNum) && ratingNum > 0) {
-          const resp = reply({ ok: true, imdbId, rating: ratingNum, cached: true });
-          resp.headers.set("Access-Control-Allow-Origin", "*");
-          return resp;
+          return corsReply({ ok: true, imdbId, rating: ratingNum, cached: true });
         }
       }
 
       const rating = await fetchImdbRating(imdbId);
       if (typeof rating === "number" && rating > 0) {
         await env.ATTACHMENTS.put(cacheKey, String(rating), { expirationTtl: 14 * 86400 });
-        const resp = reply({ ok: true, imdbId, rating, cached: false });
-        resp.headers.set("Access-Control-Allow-Origin", "*");
-        return resp;
+        return corsReply({ ok: true, imdbId, rating, cached: false });
       }
 
-      const empty = reply({ ok: false, imdbId, rating: null });
-      empty.headers.set("Access-Control-Allow-Origin", "*");
-      return empty;
+      return corsReply({ ok: false, imdbId, rating: null });
     } catch (err) {
-      if (err instanceof ApiError && err.status === 429) throw err;
-      const resp = reply({ ok: false, imdbId, rating: null });
-      resp.headers.set("Access-Control-Allow-Origin", "*");
-      return resp;
+      if (err instanceof ApiError && err.status === 429) return corsReply({ ok: false, error: err.message }, 429);
+      return corsReply({ ok: false, imdbId, rating: null });
     }
   }
   if (path === "/api/image-proxy" && (request.method === "GET" || request.method === "HEAD")) {
-    const rawUrl = (url.searchParams.get("url") || "").trim();
-    const cleanUrl = rawUrl.replace(/^http:\/\//i, "https://");
-    let parsed: URL;
     try {
-      parsed = new URL(cleanUrl);
-    } catch {
-      const err = reply({ ok: false, error: "Geçersiz URL" }, 400);
-      err.headers.set("Access-Control-Allow-Origin", "*");
-      return err;
-    }
-    const allowedHosts = [
-      "m.media-amazon.com",
-      "images-na.ssl-images-amazon.com",
-      "images-amazon.com",
-      "ia.media-imdb.com",
-      "imdb.com",
-      "static.tvmaze.com",
-      "api.tvmaze.com",
-      "image.tmdb.org",
-      "themoviedb.org",
-      "books.google.com",
-      "googleusercontent.com",
-      "covers.openlibrary.org",
-      "openlibrary.org",
-      "archive.org",
-      "images.igdb.com",
-      "steamstatic.com",
-      "steampowered.com",
-      "akamaihd.net",
-      "rawg.io",
-      "wikimedia.org",
-      "wikipedia.org",
-    ];
-    const isAllowed =
-      parsed.protocol === "https:" &&
-      allowedHosts.some(h => parsed.hostname === h || parsed.hostname.endsWith("." + h));
-    if (!isAllowed) {
-      const forbidden = reply({ ok: false, error: "İzin verilmeyen görsel kaynağı" }, 403);
-      forbidden.headers.set("Access-Control-Allow-Origin", "*");
-      return forbidden;
-    }
-    try {
-      let imgRes = await fetch(parsed.toString(), {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-        },
-        redirect: "follow",
-        signal: AbortSignal.timeout(10000),
-      });
+      await rate(env, `image-proxy:${await clientIpHash(request, env)}`, 80, 60);
+      const rawUrl = (url.searchParams.get("url") || "").trim();
+      let parsed: URL;
+      try {
+        parsed = new URL(rawUrl);
+      } catch {
+        return corsReply({ ok: false, error: "Geçersiz URL" }, 400);
+      }
 
-      // Steam fallback: if library_600x900.jpg 404s, try header.jpg
+      let imgRes = await fetchAllowedImage(parsed, request.method, 10_000);
+
+      // Steam fallback: if library_600x900.jpg fails, try header.jpg through the same redirect/host checks
       if (!imgRes.ok && parsed.pathname.endsWith("/library_600x900.jpg")) {
+        await imgRes.body?.cancel().catch(() => {});
+        const fallbackTarget = new URL(parsed.toString());
+        fallbackTarget.pathname = fallbackTarget.pathname.replace(/\/library_600x900\.jpg$/, "/header.jpg");
         try {
-          const headerUrl = parsed.toString().replace(/\/library_600x900\.jpg$/, "/header.jpg");
-          const fallbackRes = await fetch(headerUrl, {
-            headers: {
-              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-              "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-            },
-            redirect: "follow",
-            signal: AbortSignal.timeout(8000),
-          });
+          const fallbackRes = await fetchAllowedImage(fallbackTarget, request.method, 8_000);
           if (fallbackRes.ok) {
             imgRes = fallbackRes;
+          } else {
+            await fallbackRes.body?.cancel().catch(() => {});
           }
-        } catch {}
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 403) throw err;
+        }
       }
 
       if (!imgRes.ok) {
-        const fail = reply({ ok: false, error: "Görsel indirilemedi" }, 502);
-        fail.headers.set("Access-Control-Allow-Origin", "*");
-        return fail;
+        await imgRes.body?.cancel().catch(() => {});
+        throw new ApiError(502, "Görsel indirilemedi");
       }
-      const contentType = imgRes.headers.get("content-type") || "image/jpeg";
-      const headers = new Headers();
-      headers.set("Content-Type", contentType);
-      headers.set("Cache-Control", "public, max-age=604800, stale-while-revalidate=86400");
-      headers.set("Access-Control-Allow-Origin", "*");
-      return new Response(imgRes.body, { status: 200, headers });
-    } catch {
-      const fail = reply({ ok: false, error: "Görsele ulaşılamadı" }, 502);
-      fail.headers.set("Access-Control-Allow-Origin", "*");
-      return fail;
+
+      const mime = (imgRes.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
+      if (!ALLOWED_IMAGE_MIMES.has(mime)) {
+        await imgRes.body?.cancel().catch(() => {});
+        throw new ApiError(415, "Desteklenmeyen görsel türü.");
+      }
+
+      const bytes = await boundedImageBytes(imgRes, MAX_PROXY_IMAGE_BYTES);
+      return secure(
+        new Response(request.method === "HEAD" ? null : bytes, {
+          status: 200,
+          headers: {
+            "Content-Type": mime,
+            "Cache-Control": "public, max-age=604800",
+            "Access-Control-Allow-Origin": "*",
+          },
+        }),
+        false,
+      );
+    } catch (err) {
+      if (err instanceof ApiError) {
+        return corsReply({ ok: false, error: err.message }, err.status);
+      }
+      return corsReply({ ok: false, error: "Görsele ulaşılamadı" }, 502);
     }
   }
   const origin = request.headers.get("Origin");
   if (origin && origin !== url.origin) throw new ApiError(403,"Bu kaynaktan erişime izin verilmiyor.");
   if (!path.startsWith("/api/")) return secure(await env.ASSETS.fetch(request),false);
   if (path === "/api/weather" && request.method === "GET") {
+    await rate(env, `weather:${await clientIpHash(request, env)}`, 60, 60);
     const query = url.searchParams.get("city") || "Karabük";
     const cityData = lookupTurkeyCity(query) || { city: query, lat: 41.20488, lng: 32.62768 };
     try {
@@ -457,7 +547,13 @@ async function handle(request: Request, env: Env): Promise<Response> {
     const configured = await hasEncryptedGeminiKey(env);
     return reply({ configured, desktopOnline: now - (pc?.last_seen ?? 0) < DESKTOP_ONLINE_THRESHOLD_MS });
   }
+  if (path === "/api/ai/key" && request.method === "GET") {
+    await ensureSyncTables(env);
+    const configured = await hasEncryptedGeminiKey(env);
+    return reply({ configured });
+  }
   if (path === "/api/ai/key" && (request.method === "POST" || request.method === "DELETE")) {
+    owner(actor);
     await ensureSyncTables(env);
     await rate(env, `ai-key:${actor.id}`, 10, 60);
     if (request.method === "DELETE") {
@@ -506,7 +602,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
 
     const direct = await runCloudMobileAiChat(env, prompt, history, modelChoice);
     if (direct) {
-      await recordCloudAiUsage(env, direct.modelUsed || modelChoice);
+      await recordCloudAiUsage(env, direct.modelTier);
       return reply({ ok: true, mode: "cloud", reply: direct.reply, modelUsed: direct.modelUsed });
     }
 
@@ -515,7 +611,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
     if (!desktopOnline) {
       throw new ApiError(
         400,
-        "PC şu an kapalı ve bulut AI anahtarı kayıtlı değil. PC kapalıyken de 7/24 sohbet etmek için sağ üstteki Anahtar düğmesinden Gemini API anahtarınızı bir kez kaydedin.",
+        "PC şu an kapalı ve bulut AI anahtarı kayıtlı değil. 7/24 mobil AI kullanmak için bilgisayarında ACKDeck Masaüstü › Ayarlar › Telefon ekranından etkinleştirebilirsin.",
       );
     }
 
@@ -523,7 +619,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
     await env.DB.prepare(
       "INSERT INTO ai_queries(id, device_id, prompt, history, model, state, created_at, expires_at) VALUES(?, ?, ?, ?, ?, 'pending', ?, ?)",
     )
-      .bind(queryId, actor.id, prompt, JSON.stringify(history), modelChoice, now, now + 90_000)
+      .bind(queryId, actor.id, prompt, JSON.stringify(history), modelChoice, now, now + 150_000)
       .run();
     return reply({ ok: true, mode: "relay", queryId });
   }
@@ -552,7 +648,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
       throw new ApiError(400, "Yanıt bilgileri geçersiz.");
     }
     const nextState = body.failed === true ? "failed" : "done";
-    await env.DB.prepare("UPDATE ai_queries SET state=?, reply=? WHERE id=?").bind(nextState, body.reply, body.id).run();
+    await env.DB.prepare("UPDATE ai_queries SET state=?, reply=? WHERE id=? AND state='pending'").bind(nextState, body.reply, body.id).run();
     return reply({ ok: true });
   }
   if (path === "/api/prayer-config" && request.method === "POST") {

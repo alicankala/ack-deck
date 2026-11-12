@@ -14,6 +14,7 @@
   --app-accent-border: rgba(2, 132, 199, 0.32);
   --app-on-accent: #ffffff;
   --app-hover: #e2e8f0;
+  --app-danger: #b91c1c;
   color-scheme: light;
   color: var(--app-text);
   background: var(--app-bg);
@@ -186,7 +187,6 @@
 }
 
 :root[data-theme="light"] .editor-dialog,
-:root[data-theme="light"] .command-dialog,
 :root[data-theme="light"] .record-menu-panel {
   background: #eef2f6;
   color: var(--app-text);
@@ -195,16 +195,14 @@
 
 :root[data-theme="light"] .editor-dialog-body input:not([type="checkbox"]),
 :root[data-theme="light"] .editor-dialog-body select,
-:root[data-theme="light"] .editor-dialog-body textarea,
-:root[data-theme="light"] .command-dialog > input {
+:root[data-theme="light"] .editor-dialog-body textarea {
   background: #f8fafc;
   color: var(--app-text);
   border-color: var(--app-border-strong);
 }
 
 :root[data-theme="light"] .editor-dialog-body label,
-:root[data-theme="light"] .record-menu-panel button,
-:root[data-theme="light"] .command-result {
+:root[data-theme="light"] .record-menu-panel button {
   color: var(--app-text);
 }
 

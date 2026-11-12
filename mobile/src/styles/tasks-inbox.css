@@ -40,7 +40,7 @@
   border-radius: 14px;
   margin-top: 8px;
 }
-.capture-preview strong { font-size: 14px; color: #ffffff; }
+.capture-preview strong { font-size: 14px; color: var(--app-text); }
 .capture-preview p { font-size: 12px; color: var(--app-muted); }
 .mobile-capture-tools .mobile-new-record {
   min-height: 46px;
@@ -123,7 +123,7 @@
   font-size: 15px;
   font-weight: 600;
   line-height: 1.4;
-  color: #ffffff;
+  color: var(--app-text);
   margin: 0;
 }
 .mobile-task-meta {
@@ -487,6 +487,40 @@
   text-align: center;
 }
 
+.send-inline-panel {
+  margin-top: 0.75rem;
+  background: var(--app-control);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.send-inline-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--app-text);
+}
+
+.send-inline-textarea {
+  width: 100%;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 16px;
+  box-sizing: border-box;
+  background: var(--app-field);
+  color: var(--app-text);
+  border: 1px solid var(--app-border-strong);
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+:root[data-theme="light"] .send-ai-badge {
+  background: rgba(139, 92, 246, 0.14);
+  color: #6b21a8;
+  border-color: rgba(139, 92, 246, 0.32);
+}
+
 .send-file-panel, .send-audio-panel {
   display: grid;
   gap: 14px;
@@ -704,7 +738,7 @@
   font-size: 24px;
   font-weight: 750;
   letter-spacing: -0.03em;
-  color: #ffffff;
+  color: var(--app-text);
 }
 .subscription-add-btn {
   flex-shrink: 0;

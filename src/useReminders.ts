@@ -9,6 +9,21 @@ import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { loadTasks, reminderKey, saveTasks, taskDueAt, type Task } from "./taskStore";
+const MAX_REMINDER_TEXT_CHARS = 160;
+export function clampReminderText(value: string, maxChars = MAX_REMINDER_TEXT_CHARS): string {
+  const trimmed = value.trim();
+  if (maxChars <= 0) return "";
+  const chars = Array.from(trimmed);
+  if (chars.length <= maxChars) return trimmed;
+  if (maxChars === 1) return chars[0] ?? "";
+  return chars.slice(0, maxChars - 1).join("").trimEnd() + "…";
+}
+function clampReminderItems<T extends { text: string }>(items: T[]): T[] {
+  return items.flatMap((item) => {
+    const text = clampReminderText(item.text);
+    return text ? [{ ...item, text }] : [];
+  });
+}
 export function pendingReminders(tasks: Task[]) {
   const now = Date.now();
   return tasks.filter(t=>!t.completed&&t.reminder&&taskDueAt(t)!==null).flatMap(task=>{
@@ -16,7 +31,9 @@ export function pendingReminders(tasks: Task[]) {
     if(task.recurrence&&delivered>=due){const next=nextOccurrence(task.recurrence,Math.max(delivered+lead,now+lead-1));if(!next)return [];due=next.at-lead;}
     if(task.remindedFor===task.id+"|"+due)return [];
     if(due < now - 15 * 60000) return [];
-    return [{id:task.id,text:task.text,dueAt:due}];
+    const text = clampReminderText(task.text);
+    if (!text) return [];
+    return [{id:task.id,text,dueAt:due}];
   });
 }
 export function useReminders(onError: (message: string) => void) {
@@ -28,10 +45,10 @@ export function useReminders(onError: (message: string) => void) {
       try { while (dirty && active && !paused) {
         dirty = false; const loaded = loadTasks();
         const notif = loadNotificationPreferences();
-        const studyItems = notif.desktopMaster && notif.desktopStudy ? pendingStudyReminders(loadStudyPrograms().entries, loadStudyReminders().entries, studyDelivered) : [];
+        const studyItems = notif.desktopMaster && notif.desktopStudy ? clampReminderItems(pendingStudyReminders(loadStudyPrograms().entries, loadStudyReminders().entries, studyDelivered)) : [];
         const taskItems = notif.desktopMaster && notif.desktopTasks ? pendingReminders(loaded.entries) : [];
-        const prayerItems = notif.desktopMaster && notif.desktopPrayers ? pendingPrayerReminders(loadPrayerConfig()) : [];
-        const subItems = notif.desktopMaster && notif.desktopSubscriptions ? loadSubscriptions().entries.flatMap(s => { const next = subscriptionReminder(s); return next ? [{ id: "subscription:" + s.id, text: s.name + " ödeme hatırlatması", dueAt: next.at }] : []; }) : [];
+        const prayerItems = notif.desktopMaster && notif.desktopPrayers ? clampReminderItems(pendingPrayerReminders(loadPrayerConfig())) : [];
+        const subItems = notif.desktopMaster && notif.desktopSubscriptions ? clampReminderItems(loadSubscriptions().entries.flatMap(s => { const next = subscriptionReminder(s); return next ? [{ id: "subscription:" + s.id, text: s.name + " ödeme hatırlatması", dueAt: next.at }] : []; })) : [];
         const allReminders = loaded.locked || !notif.desktopMaster ? [] : [...studyItems, ...taskItems, ...prayerItems, ...subItems];
         const delivered = await invoke<string[]>("sync_task_reminders", { reminders: allReminders });
         if (!active) return;

@@ -16,7 +16,7 @@ pub async fn geocode_city(city: String) -> Result<GeoLocation, String> {
         return Err("Geçerli bir şehir girin.".into());
     }
     let client = reqwest::Client::builder()
-        .user_agent("ACKDeck/1.1 (Windows)")
+        .user_agent(concat!("ACKDeck/", env!("CARGO_PKG_VERSION"), " (Windows)"))
         .timeout(Duration::from_secs(10))
         .build()
         .map_err(|_| "Bağlantı kurulamadı.".to_string())?;

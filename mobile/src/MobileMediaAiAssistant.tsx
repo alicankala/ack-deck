@@ -242,7 +242,7 @@ YALNIZCA geçerli bir JSON dizisi formatında yanıt ver:
             <span style={{ fontSize: "22px" }}>✨</span>
             <div>
               <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>ACK AI Asistanı</h3>
-              <span style={{ fontSize: "11px", color: "var(--app-text-muted)" }}>Listenden seç veya yeni yapıt keşfet</span>
+              <span className="mobile-media-muted" style={{ fontSize: "11px" }}>Listenden seç veya yeni yapıt keşfet</span>
             </div>
           </div>
           <button type="button" className="mobile-modal-close" onClick={onClose} aria-label="Kapat">
@@ -310,10 +310,10 @@ YALNIZCA geçerli bir JSON dizisi formatında yanıt ver:
         {activeMode === "pick" && (
           <div>
             {plannedItems.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "20px 10px", background: "rgba(255,255,255,0.03)", borderRadius: "12px", border: "1px dashed var(--app-border)" }}>
+              <div className="mobile-media-empty-box" style={{ padding: "20px 10px" }}>
                 <span style={{ fontSize: "28px" }}>📭</span>
                 <h4 style={{ margin: "8px 0 4px", fontSize: "14px" }}>Listende Eser Bulunmuyor</h4>
-                <p style={{ margin: 0, fontSize: "12px", color: "var(--app-text-muted)" }}>
+                <p className="mobile-media-muted" style={{ margin: 0, fontSize: "12px" }}>
                   {typeFilter === "all"
                     ? "İzleme veya okuma listene henüz planlanan eser eklemedin."
                     : `Listende ${MEDIA_TYPE_LABELS[typeFilter]} türünde bekleyen eser yok.`}
@@ -330,7 +330,7 @@ YALNIZCA geçerli bir JSON dizisi formatında yanıt ver:
                 </button>
               </div>
             ) : pickedItem ? (
-              <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: "14px", padding: "12px", border: "1px solid rgba(96,165,250,0.3)" }}>
+              <div className="mobile-media-pick-card">
                 <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
                   {pickedItem.posterUrl ? (
                     <img
@@ -340,32 +340,32 @@ YALNIZCA geçerli bir JSON dizisi formatında yanıt ver:
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <div style={{ width: "52px", height: "76px", borderRadius: "8px", background: "rgba(255,255,255,0.06)", display: "grid", placeItems: "center", fontSize: "20px", flexShrink: 0 }}>
+                    <div className="mobile-media-pick-placeholder">
                       {MEDIA_TYPE_ICONS[pickedItem.type]}
                     </div>
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "rgba(96,165,250,0.18)", color: "#93c5fd", fontWeight: 700 }}>
+                      <span className="mobile-media-type-chip">
                         {MEDIA_TYPE_ICONS[pickedItem.type]} {MEDIA_TYPE_LABELS[pickedItem.type]}
                       </span>
-                      <small style={{ fontSize: "10px", color: "var(--app-text-muted)" }}>
+                      <small className="mobile-media-muted" style={{ fontSize: "10px" }}>
                         {plannedItems.length} eser arasından
                       </small>
                     </div>
                     <h4 style={{ margin: "4px 0 2px", fontSize: "14px", fontWeight: 700 }}>{pickedItem.title}</h4>
                     {(pickedItem.year || pickedItem.creator) && (
-                      <p style={{ margin: 0, fontSize: "11px", color: "var(--app-text-muted)" }}>
+                      <p className="mobile-media-muted" style={{ margin: 0, fontSize: "11px" }}>
                         {[pickedItem.year, pickedItem.creator].filter(Boolean).join(" · ")}
                       </p>
                     )}
                     {pickedItem.progress && (
-                      <p style={{ margin: "4px 0 0", fontSize: "11px", color: "#38bdf8" }}>
+                      <p className="mobile-media-progress-text" style={{ margin: "4px 0 0", fontSize: "11px" }}>
                         📌 {pickedItem.progress}
                       </p>
                     )}
                     {pickedItem.review && (
-                      <p style={{ margin: "4px 0 0", fontSize: "11px", fontStyle: "italic", color: "var(--app-text-muted)" }}>
+                      <p className="mobile-media-muted" style={{ margin: "4px 0 0", fontSize: "11px", fontStyle: "italic" }}>
                         "{pickedItem.review}"
                       </p>
                     )}
@@ -373,7 +373,7 @@ YALNIZCA geçerli bir JSON dizisi formatında yanıt ver:
                 </div>
 
                 {pickedFeedback && (
-                  <div style={{ margin: "8px 0", padding: "6px", background: "rgba(34,197,94,0.15)", borderRadius: "8px", color: "#4ade80", fontSize: "11px", textAlign: "center", fontWeight: 600 }}>
+                  <div className="mobile-media-feedback-ok">
                     {pickedFeedback}
                   </div>
                 )}
@@ -381,8 +381,7 @@ YALNIZCA geçerli bir JSON dizisi formatında yanıt ver:
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "10px" }}>
                   <button
                     type="button"
-                    className="mobile-button-primary"
-                    style={{ padding: "8px 6px", fontSize: "12px", background: "#10b981", borderColor: "#10b981" }}
+                    className="mobile-button-primary mobile-media-start-btn"
                     onClick={() => void handleStartItem(pickedItem)}
                   >
                     ▶ Hemen Başla
@@ -406,7 +405,7 @@ YALNIZCA geçerli bir JSON dizisi formatında yanıt ver:
           <div>
             {activeMode === "recommend" && (
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", gap: "6px" }}>
-                <span style={{ fontSize: "11px", color: "var(--app-text-muted)" }}>
+                <span className="mobile-media-muted" style={{ fontSize: "11px" }}>
                   {typeFilter === "all" ? "Tüm türlerde analiz:" : `${MEDIA_TYPE_LABELS[typeFilter]} analizi:`}
                 </span>
                 <button
@@ -429,11 +428,12 @@ YALNIZCA geçerli bir JSON dizisi formatında yanıt ver:
               <div style={{ display: "flex", gap: "6px", marginBottom: "12px" }}>
                 <input
                   type="text"
+                  className="mobile-media-field-input"
                   value={customQuery}
                   onChange={(e) => setCustomQuery(e.target.value)}
                   placeholder="örn. 90 dk komedi filmi, zengin açık dünya RPG..."
                   maxLength={180}
-                  style={{ flex: 1, padding: "8px 10px", borderRadius: "8px", border: "1px solid var(--app-border-strong)", background: "var(--app-surface)", color: "#fff", fontSize: "16px" }}
+                  style={{ flex: 1 }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && customQuery.trim()) {
                       void handleGetRecommendations(customQuery);
@@ -453,19 +453,19 @@ YALNIZCA geçerli bir JSON dizisi formatında yanıt ver:
             )}
 
             {loading ? (
-              <div style={{ textAlign: "center", padding: "24px 0", color: "#93c5fd", fontSize: "13px" }}>
+              <div className="mobile-media-loading-box">
                 <span style={{ display: "inline-block", animation: "spin 1s linear infinite", fontSize: "20px", marginBottom: "6px" }}>⏳</span>
                 <p style={{ margin: 0 }}>Zevkine göre nokta atışı yapıtlar seçiliyor…</p>
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 {activeMode === "recommend" && recs.length === 0 && !errorMessage && (
-                  <div style={{ textAlign: "center", padding: "18px 10px", background: "rgba(255,255,255,0.02)", borderRadius: "12px", border: "1px dashed var(--app-border)" }}>
+                  <div className="mobile-media-empty-box">
                     <span style={{ fontSize: "24px" }}>🎯</span>
                     <h4 style={{ margin: "6px 0 2px", fontSize: "13px" }}>
                       {typeFilter === "all" ? "Zevkine Göre Yeni Eserler" : `Zevkine Göre Yeni ${MEDIA_TYPE_LABELS[typeFilter]}`}
                     </h4>
-                    <p style={{ margin: "0 0 10px", fontSize: "11px", color: "var(--app-text-muted)" }}>
+                    <p className="mobile-media-muted" style={{ margin: "0 0 10px", fontSize: "11px" }}>
                       {typeFilter === "all"
                         ? "Koleksiyonundaki yüksek puanlı kayıtlar incelenerek yeni eserler önerilir."
                         : `Yüksek puan verdiğin ${MEDIA_TYPE_LABELS[typeFilter].toLowerCase()} kayıtların incelenerek önerilir.`}
@@ -481,7 +481,7 @@ YALNIZCA geçerli bir JSON dizisi formatında yanıt ver:
                   </div>
                 )}
                 {errorMessage && (
-                  <div style={{ padding: "8px 10px", borderRadius: "8px", background: "rgba(239, 68, 68, 0.12)", border: "1px solid rgba(239, 68, 68, 0.3)", color: "#fca5a5", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <div className="mobile-media-error-box">
                     <span>⚠️</span>
                     <div>
                       <strong>Cevap Verilemiyor:</strong> {errorMessage}
@@ -489,36 +489,23 @@ YALNIZCA geçerli bir JSON dizisi formatında yanıt ver:
                   </div>
                 )}
                 {recs.map((rec, idx) => (
-                  <div
-                    key={`${rec.title}-${idx}`}
-                    style={{ background: "rgba(255,255,255,0.04)", borderRadius: "12px", padding: "10px", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: "4px" }}
-                  >
+                  <div key={`${rec.title}-${idx}`} className="mobile-media-rec-card">
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: "10px", padding: "2px 5px", borderRadius: "4px", background: "rgba(168,85,247,0.2)", color: "#c084fc", fontWeight: 700 }}>
+                      <span className="mobile-media-rec-badge">
                         {MEDIA_TYPE_ICONS[rec.type]} {MEDIA_TYPE_LABELS[rec.type]}
                       </span>
-                      {rec.year && <small style={{ fontSize: "11px", color: "var(--app-text-muted)" }}>{rec.year}</small>}
+                      {rec.year && <small className="mobile-media-muted" style={{ fontSize: "11px" }}>{rec.year}</small>}
                     </div>
-                    <strong style={{ fontSize: "13px", color: "#fff" }}>{rec.title}</strong>
-                    {rec.creator && <small style={{ fontSize: "11px", color: "var(--app-text-muted)" }}>{rec.creator}</small>}
-                    <p style={{ margin: "2px 0 6px", fontSize: "11.5px", color: "#e2e8f0", lineHeight: 1.35 }}>
+                    <strong className="mobile-media-title-text" style={{ fontSize: "13px" }}>{rec.title}</strong>
+                    {rec.creator && <small className="mobile-media-muted" style={{ fontSize: "11px" }}>{rec.creator}</small>}
+                    <p className="mobile-media-body" style={{ margin: "2px 0 6px", fontSize: "11.5px", lineHeight: 1.35 }}>
                       {rec.reason}
                     </p>
                     <button
                       type="button"
                       disabled={rec.added}
+                      className={`mobile-media-rec-btn ${rec.added ? "is-added" : ""}`}
                       onClick={() => void handleAddRecToBacklog(rec, idx)}
-                      style={{
-                        padding: "6px 10px",
-                        borderRadius: "8px",
-                        border: rec.added ? "1px solid #10b981" : "1px solid rgba(96,165,250,0.4)",
-                        background: rec.added ? "rgba(16,185,129,0.15)" : "rgba(96,165,250,0.15)",
-                        color: rec.added ? "#34d399" : "#93c5fd",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        cursor: rec.added ? "default" : "pointer",
-                        alignSelf: "flex-end",
-                      }}
                     >
                       {rec.added ? "✓ Listeme Eklendi" : "+ Listeme Ekle"}
                     </button>

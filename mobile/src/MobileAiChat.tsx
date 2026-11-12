@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, json, type MobileState } from "./store";
 
 type ChatMsg = {
@@ -61,8 +61,6 @@ export function MobileAiChat({ state, online, onNotice, onError }: Props) {
   const [sending, setSending] = useState(false);
   const [cloudKeyConfigured, setCloudKeyConfigured] = useState<boolean | null>(null);
   const [showKeySetup, setShowKeySetup] = useState(false);
-  const [keyInput, setKeyInput] = useState("");
-  const [savingKey, setSavingKey] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const mountedRef = useRef(true);
 
@@ -117,40 +115,6 @@ export function MobileAiChat({ state, online, onNotice, onError }: Props) {
       setMessages([]);
     }
     onNotice("Sohbet silindi.");
-  }
-
-  async function saveCloudKey(e: FormEvent) {
-    e.preventDefault();
-    const trimmed = keyInput.trim();
-    if (!trimmed || savingKey) return;
-    setSavingKey(true);
-    onError("");
-    try {
-      await api(state, "ai/key", json({ apiKey: trimmed }));
-      setKeyInput("");
-      setCloudKeyConfigured(true);
-      setShowKeySetup(false);
-      onNotice("7/24 Bulut ACK AI etkinleştirildi.");
-    } catch (err) {
-      onError(err instanceof Error ? err.message : "Anahtar kaydedilemedi.");
-    } finally {
-      setSavingKey(false);
-    }
-  }
-
-  async function removeCloudKey() {
-    if (savingKey || !window.confirm("Buluttaki şifreli Gemini anahtarı kaldırılsın mı?")) return;
-    setSavingKey(true);
-    try {
-      await api(state, "ai/key", { method: "DELETE" });
-      setCloudKeyConfigured(false);
-      setShowKeySetup(false);
-      onNotice("Bulut AI anahtarı kaldırıldı.");
-    } catch (err) {
-      onError(err instanceof Error ? err.message : "Anahtar silinemedi.");
-    } finally {
-      setSavingKey(false);
-    }
   }
 
   async function sendPrompt(textToSend: string) {
@@ -226,22 +190,29 @@ export function MobileAiChat({ state, online, onNotice, onError }: Props) {
       }
 
       if (res.mode === "relay" && res.queryId) {
-        const deadline = Date.now() + 36000;
+        const deadline = Date.now() + (model === "powerful" ? 140000 : 55000);
         while (Date.now() < deadline && mountedRef.current) {
           await new Promise((r) => setTimeout(r, 1200));
-          const poll = await api<{ status: string; reply?: string | null; error?: string | null }>(
+          if (!mountedRef.current) return;
+          const poll = await api<{ state: "pending" | "done" | "failed"; reply?: string | null }>(
             state,
             "ai/query/" + encodeURIComponent(res.queryId)
           );
-          if (poll.status === "done" && poll.reply) {
-            persistReply(poll.reply);
-            return;
+          if (poll.state === "done") {
+            if (typeof poll.reply === "string" && poll.reply.trim().length > 0) {
+              persistReply(poll.reply);
+              return;
+            }
+            throw new Error("Masaüstü ACK AI yanıt üretemedi.");
           }
-          if (poll.status === "error") {
-            throw new Error(poll.error || "Masaüstü ACK AI yanıt üretemedi.");
+          if (poll.state === "failed") {
+            throw new Error(poll.reply?.trim() || "Masaüstü ACK AI yanıt üretemedi.");
           }
         }
-        throw new Error("Masaüstü zamanında yanıt vermedi. 7/24 kullanım için Bulut AI anahtarı ekleyebilirsin.");
+        if (!mountedRef.current) return;
+        throw new Error(
+          "Masaüstü zamanında yanıt vermedi. 7/24 kullanım için bilgisayarında ACKDeck Masaüstü › Ayarlar › Telefon › Mobil ACK AI (7/24) Etkinleştir adımını kullanabilirsin.",
+        );
       }
     } catch (err) {
       if (mountedRef.current) {
@@ -256,7 +227,7 @@ export function MobileAiChat({ state, online, onNotice, onError }: Props) {
     ? "☁️ 7/24 Bulut"
     : online
       ? "💻 PC Canlı"
-      : "🔑 7/24 Aç";
+      : "🔑 7/24 Durum";
 
   return (
     <section className="mobile-ai-chat-card" aria-label="Mobil ACK AI Sohbeti">
@@ -269,7 +240,7 @@ export function MobileAiChat({ state, online, onNotice, onError }: Props) {
               setShowKeySetup((v) => !v);
               setShowHistory(false);
             }}
-            title={cloudKeyConfigured ? "7/24 Bulut Anahtarı Yönetimi için tıkla" : "7/24 Bulut Yapılandırması"}
+            title="7/24 Bulut ACK AI durumunu görüntüle"
           >
             {readyModeLabel}
           </button>
@@ -282,7 +253,7 @@ export function MobileAiChat({ state, online, onNotice, onError }: Props) {
                 setShowHistory(false);
               }}
             >
-              🔑 7/24 Aç
+              ℹ️ 7/24 Bilgi
             </button>
           )}
         </div>
@@ -369,33 +340,18 @@ export function MobileAiChat({ state, online, onNotice, onError }: Props) {
       )}
 
       {showKeySetup && (
-        <div className="mobile-ai-key-drawer">
-          <p className="mobile-work-hint" style={{ margin: "0 0 8px" }}>
-            PC kapalıyken de 7/24 doğrudan yanıt almak için Gemini API anahtarını AES-GCM şifreli bulut kasasına kaydedebilir veya masaüstünde <strong>Ayarlar → Telefon → Mobil ACK AI (7/24) Etkinleştir</strong> düğmesine basabilirsin. Anahtar telefonda saklanmaz.
+        <div className="mobile-ai-key-drawer" role="status">
+          <p className="mobile-ai-status-line">
+            {cloudKeyConfigured === true
+              ? "Durum: ☁️ 7/24 Bulut AI etkin. Bilgisayarın kapalıyken bile telefondan doğrudan yanıt alabilirsin."
+              : cloudKeyConfigured === false
+                ? "Durum: 💻 Yalnızca PC canlı bağlantısı etkin (7/24 Bulut AI kapalı)."
+                : "Durum kontrol ediliyor…"}
           </p>
-          <form onSubmit={(e) => void saveCloudKey(e)} className="mobile-ai-key-form">
-            <input
-              type="password"
-              autoComplete="off"
-              placeholder="Gemini API anahtarı..."
-              value={keyInput}
-              onChange={(e) => setKeyInput(e.target.value)}
-            />
-            <button type="submit" disabled={savingKey || !keyInput.trim()}>
-              {savingKey ? "…" : "Kaydet"}
-            </button>
-          </form>
-          {cloudKeyConfigured && (
-            <button
-              type="button"
-              className="danger-action"
-              style={{ marginTop: "6px", fontSize: "12px", minHeight: "34px" }}
-              disabled={savingKey}
-              onClick={() => void removeCloudKey()}
-            >
-              Buluttaki Anahtarı Kaldır
-            </button>
-          )}
+          <p className="mobile-work-hint" style={{ margin: 0 }}>
+            Güvenlik nedeniyle 7/24 Bulut AI anahtarı yalnızca sahip masaüstünden yönetilir. Etkinleştirmek veya kaldırmak için bilgisayarında{" "}
+            <strong>ACKDeck Masaüstü › Ayarlar › Telefon › Mobil ACK AI (7/24) Etkinleştir</strong> bölümünü kullan. Gemini API anahtarı telefonda saklanmaz.
+          </p>
         </div>
       )}
 

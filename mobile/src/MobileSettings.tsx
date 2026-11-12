@@ -396,7 +396,7 @@ export function MobileSettings({
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <span style={{ fontSize: "1.4rem" }}>🔒</span>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: "16px", color: "#f8fafc" }}>
+                  <h3 style={{ margin: 0, fontSize: "16px", color: "var(--app-text)" }}>
                     {securityConfig.enabled ? "Şifreyi Değiştir" : "Uygulama Şifresi Belirleyin"}
                   </h3>
                   <small style={{ color: "var(--app-muted)" }}>En az 4 basamaklı bir şifre girin</small>
@@ -433,7 +433,7 @@ export function MobileSettings({
                     borderRadius: "10px",
                     background: "var(--app-field)",
                     border: "1px solid var(--app-border)",
-                    color: "#fff",
+                    color: "var(--app-text)",
                     fontSize: "18px",
                     letterSpacing: "0.2em",
                     textAlign: "center",
@@ -458,7 +458,7 @@ export function MobileSettings({
                     borderRadius: "10px",
                     background: "var(--app-field)",
                     border: "1px solid var(--app-border)",
-                    color: "#fff",
+                    color: "var(--app-text)",
                     fontSize: "18px",
                     letterSpacing: "0.2em",
                     textAlign: "center",
@@ -467,7 +467,7 @@ export function MobileSettings({
               </label>
 
               {pinError && (
-                <p style={{ color: "#f87171", margin: "2px 0", fontSize: "12px", textAlign: "center" }} role="alert">
+                <p style={{ color: "var(--app-danger)", margin: "2px 0", fontSize: "12px", textAlign: "center" }} role="alert">
                   {pinError}
                 </p>
               )}

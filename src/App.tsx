@@ -23,6 +23,7 @@ const WeeklyPlan = lazy(() => import("./components/WeeklyPlan").then(module => (
 const Tasks = lazy(() => import("./components/Tasks").then(module => ({ default: module.Tasks })));
 const PhoneInbox = lazy(() => import("./components/PhoneInbox").then(module => ({ default: module.PhoneInbox })));
 import { Sidebar, type Page } from "./components/Sidebar";
+import { normalizeRoute, type NavigationTarget, type NormalizedNavigationTarget } from "./navigation";
 const Settings = lazy(() => import("./components/Settings").then(module => ({ default: module.Settings })));
 const Notes = lazy(() => import("./components/Notes").then(module => ({ default: module.Notes })));
 const MediaTracker = lazy(() => import("./components/MediaTracker").then(module => ({ default: module.MediaTracker })));
@@ -34,6 +35,7 @@ import { sendGeminiMessage, getGeminiKeyStatus, type AiMessage } from "./geminiC
 import { redactSecrets } from "./privacy";
 import { saveConversation, type Conversation } from "./conversationStore";
 import { phoneRequest } from "./phoneClient";
+import { executeRelayQuery, type RelayPendingQuery } from "./mobileRelay";
 import { recordActivity } from "./activityStore";
 import { saveInboxIndex, loadInboxIndex, type InboxReference } from "./productIntelligence";
 
@@ -46,22 +48,24 @@ import "./styles/dashboard-schedule.css";
 import "./styles/dashboard-tasks.css";
 import "./styles/widgets-titlebar.css";
 import "./styles/media-overview.css";
+import "./styles/media-tracker.css";
+import "./styles/media-modals.css";
 import "./styles/update-settings.css";
 
 const LAST_PAGE_KEY = "ack-deck.last-active-page.v1";
 
-function getSavedInitialTarget(): { page: Page; id?: string } {
+function getSavedInitialTarget(): NormalizedNavigationTarget {
   try {
     const raw = sessionStorage.getItem(LAST_PAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed.page === "string") {
-        return parsed;
+        return normalizeRoute(parsed as NavigationTarget);
       }
     }
   } catch {}
   const pref = loadPreferences();
-  return { page: (pref.startPage as Page) || "home" };
+  return normalizeRoute({ page: (pref.startPage as Page) || "home" });
 }
 
 function App() {
@@ -71,12 +75,19 @@ function App() {
   }, [preferences.theme]);
   const { route, navigate } = useNavigationHistory(getSavedInitialTarget(), () => restoring || aiBusy || history.mutating);
   const page = route.target.page;
-  const setPage = (page: Page) => navigate({ page });
+  const setPage = (nextPage: Page) => navigate({ page: nextPage });
 
   useEffect(() => {
     try {
       if (route.target && route.target.page) {
-        sessionStorage.setItem(LAST_PAGE_KEY, JSON.stringify({ page: route.target.page, id: route.target.id }));
+        sessionStorage.setItem(
+          LAST_PAGE_KEY,
+          JSON.stringify({
+            page: route.target.page,
+            id: route.target.id,
+            ...(route.target.tool ? { tool: route.target.tool } : {}),
+          }),
+        );
       }
     } catch {}
   }, [route.target]);
@@ -84,7 +95,7 @@ function App() {
     const handleNavigate = (event: Event) => {
       const detail = (event as CustomEvent).detail;
       if (detail && typeof detail.page === "string") {
-        navigate({ page: detail.page as Page, ...detail });
+        navigate(normalizeRoute(detail as NavigationTarget));
       }
     };
     window.addEventListener("ack-navigate", handleNavigate);
@@ -179,18 +190,18 @@ function App() {
     if (processingAiIds.current.has(item.id)) return;
     processingAiIds.current.add(item.id);
 
-    const hasKey = await getGeminiKeyStatus().catch(() => false);
-    if (!hasKey) {
-      setNotice("Gemini API anahtarı ekli olmadığı için mobil not işlenemedi.");
-      return;
-    }
-
-    const noteContent = item.title || "Mobil İstek";
-    const userPrompt = noteContent.trim();
-
-    setNotice(`📲 Mobilden gelen not ACK AI ile işleniyor: "${userPrompt.slice(0, 40)}"`);
-
     try {
+      const hasKey = await getGeminiKeyStatus().catch(() => false);
+      if (!hasKey) {
+        setNotice("Gemini API anahtarı ekli olmadığı için mobil not işlenemedi.");
+        return;
+      }
+
+      const noteContent = item.title || "Mobil İstek";
+      const userPrompt = noteContent.trim();
+
+      setNotice(`📲 Mobilden gelen not ACK AI ile işleniyor: "${userPrompt.slice(0, 40)}"`);
+
       const { context } = await collectAckContext(userPrompt);
       const userMsg: AiMessage = { role: "user", text: redactSecrets(userPrompt) };
       const reply = await sendGeminiMessage([userMsg], "fast", context, false, []);
@@ -231,6 +242,8 @@ function App() {
       setNotice(`🤖 ACK AI: Mobilden attığın "${userPrompt.slice(0, 35)}" işlendi! Çıktı sohbette hazır.`);
     } catch (err) {
       setNotice(`ACK AI mobil notunu işleyemedi: ${err instanceof Error ? err.message : "Hata oluştu"}`);
+    } finally {
+      processingAiIds.current.delete(item.id);
     }
   };
 
@@ -271,25 +284,22 @@ function App() {
     const processMobileRelayQueries = async () => {
       if (!phoneOnline) return;
       try {
-        const res = await phoneRequest<{ queries: { id: string; messages: AiMessage[]; model: "fast" | "powerful" }[] }>("ai_pending");
+        const res = await phoneRequest<{ queries: RelayPendingQuery[] }>("ai_pending");
         if (!res?.queries?.length) return;
         const hasKey = await getGeminiKeyStatus().catch(() => false);
         for (const q of res.queries) {
           if (processingAiIds.current.has(q.id)) continue;
           processingAiIds.current.add(q.id);
-          if (!hasKey) {
-            await phoneRequest("ai_reply", { id: q.id, error: "Masaüstünde Gemini API anahtarı ekli değil." }).catch(() => {});
-            continue;
-          }
           void (async () => {
             try {
-              const lastText = q.messages[q.messages.length - 1]?.text ?? "";
-              const { context } = await collectAckContext(lastText);
-              const reply = await sendGeminiMessage(q.messages, q.model, context, false, []);
-              await phoneRequest("ai_reply", { id: q.id, reply: redactSecrets(reply.text.trim()) });
-            } catch (err) {
-              const msg = err instanceof Error ? err.message : "ACK AI yanıt üretemedi.";
-              await phoneRequest("ai_reply", { id: q.id, error: redactSecrets(msg).slice(0, 300) }).catch(() => {});
+              await executeRelayQuery(q, {
+                hasKey,
+                collectContext: collectAckContext,
+                sendMessage: sendGeminiMessage,
+                sendReply: (payload) => phoneRequest("ai_reply", payload),
+              });
+            } finally {
+              processingAiIds.current.delete(q.id);
             }
           })();
         }
@@ -327,8 +337,17 @@ function App() {
     };
   }, []);
 
-  const currentTool: "converter" | "speed" | "ip" | "qr" = page === "files" ? "converter" : page === "ip" ? "ip" : page === "qr" ? "qr" : "speed";
-  const projectsView = <Projects projects={projects} onChange={changeProjects} fullPage initialId={route.target.id} initialTool={currentTool} onNavigate={navigate} onAskAi={askAi} />;
+  const projectsView = (
+    <Projects
+      projects={projects}
+      onChange={changeProjects}
+      fullPage
+      initialId={route.target.id}
+      initialTool={route.target.tool ?? "speed"}
+      onNavigate={navigate}
+      onAskAi={askAi}
+    />
+  );
 
   const pageViews: Record<Page, ReactNode> = {
     home: <Dashboard targetId={route.target.id} projects={projects} refreshMs={preferences.pcRefreshMs} onNavigate={navigate} onAskAi={askAi} />,
@@ -341,27 +360,13 @@ function App() {
     projects: projectsView,
     notes: <Notes initialId={route.target.id} createNew={route.target.intent === "new-note"} />,
     media: <MediaTracker />,
-    workspaces: projectsView,
-    tools: projectsView,
-    qr: projectsView,
-    ip: projectsView,
-    files: projectsView,
-    speed: projectsView,
-    pc: <Dashboard projects={projects} refreshMs={preferences.pcRefreshMs} onNavigate={navigate} onAskAi={askAi} />,
-    archive: <Dashboard projects={projects} refreshMs={preferences.pcRefreshMs} onNavigate={navigate} onAskAi={askAi} />,
   };
-
-  const activeSidebarPage = (["qr", "ip", "speed", "tools", "workspaces", "files"].includes(page)
-    ? "projects"
-    : ["pc", "archive"].includes(page)
-    ? "home"
-    : page) as Page;
 
   return (
     <>
       <div className="desktop-window-container">
         <div className="app-shell" inert={restoring}>
-          <Sidebar activePage={activeSidebarPage} onNavigate={setPage} />
+          <Sidebar activePage={page} onNavigate={setPage} />
           <div className="main-column">
             <TitleBar />
             <UpdateNotice blocked={restoring || aiBusy} hidden={page === "settings"} />

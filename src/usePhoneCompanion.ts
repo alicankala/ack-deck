@@ -9,14 +9,14 @@ import { syncCloudAiUsage } from "./aiQuotaStore";
 
 const PAUSE_MESSAGE=/güvenli biçimde duraklatıldı/;
 
-export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void,visible=true){
+export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void,_visible=true){
   useEffect(()=>{
     let active=true,enabled=false,timer:ReturnType<typeof setInterval>|undefined,heartbeatTimer:ReturnType<typeof setInterval>|undefined,changeTimer:ReturnType<typeof setTimeout>|undefined;
     let inFlight=false,lastErrorAlert=0,consecutiveFailures=0;
 
     async function sendHeartbeat(forceOffline=false){
       if(!active||!enabled)return;
-      if(forceOffline||!visible||paused){
+      if(forceOffline||paused){
         try{await phoneRequest("heartbeat",{offline:true});}catch{}
         return;
       }
@@ -79,9 +79,7 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void,
         pausePhoneSync(paused||!enabled);
         if(enabled&&!paused){
           void sendHeartbeat();
-          if(visible){
-            heartbeatTimer=setInterval(()=>void sendHeartbeat(),20000);
-          }
+          heartbeatTimer=setInterval(()=>void sendHeartbeat(),20000);
           void run();
           timer=setInterval(()=>void run(),30000);
         }
@@ -138,5 +136,5 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void,
       window.removeEventListener("online",run);
       window.removeEventListener("beforeunload",onBeforeUnload);
     };
-  },[paused,onError,visible]);
+  },[paused,onError]);
 }

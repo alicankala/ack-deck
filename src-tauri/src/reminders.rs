@@ -93,13 +93,42 @@ fn show_reminder(app: &tauri::AppHandle, reminder: &Reminder) -> Result<(), ()> 
         .show()
         .map_err(|_| ())
 }
+const MAX_TEXT_CHARS: usize = 160;
+
+fn clamp_text(raw: &str, max_chars: usize) -> String {
+    let trimmed = raw.trim();
+    if max_chars == 0 {
+        return String::new();
+    }
+    if trimmed.chars().count() <= max_chars {
+        return trimmed.to_string();
+    }
+    if max_chars == 1 {
+        return trimmed.chars().take(1).collect();
+    }
+    let prefix: String = trimmed.chars().take(max_chars - 1).collect();
+    let mut clamped = prefix.trim_end().to_string();
+    clamped.push('…');
+    clamped
+}
+
+fn normalize_reminders(items: Vec<Reminder>) -> Vec<Reminder> {
+    items
+        .into_iter()
+        .map(|mut item| {
+            item.text = clamp_text(&item.text, MAX_TEXT_CHARS);
+            item
+        })
+        .collect()
+}
+
 fn validate(items: &[Reminder]) -> bool {
     items.len() <= 10000
         && items.iter().all(|item| {
             !item.id.is_empty()
                 && item.id.len() <= 512
                 && !item.text.trim().is_empty()
-                && item.text.chars().count() <= 160
+                && item.text.chars().count() <= MAX_TEXT_CHARS
                 && item.due_at <= 8_640_000_000_000_000
         })
         && items
@@ -199,11 +228,11 @@ pub fn setup(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     });
     Ok(())
 }
-#[tauri::command]
-pub fn sync_task_reminders(
-    state: tauri::State<Arc<ReminderState>>,
+fn sync_reminders_inner(
+    state: &ReminderState,
     reminders: Vec<Reminder>,
 ) -> Result<Vec<String>, String> {
+    let reminders = normalize_reminders(reminders);
     if !validate(&reminders) {
         return Err("Hatırlatma bilgileri geçersiz.".into());
     }
@@ -218,6 +247,13 @@ pub fn sync_task_reminders(
     let delivered = queue.delivered.iter().cloned().collect();
     state.wake.notify_one();
     Ok(delivered)
+}
+#[tauri::command]
+pub fn sync_task_reminders(
+    state: tauri::State<Arc<ReminderState>>,
+    reminders: Vec<Reminder>,
+) -> Result<Vec<String>, String> {
+    sync_reminders_inner(&state, reminders)
 }
 #[cfg(test)]
 mod tests {
@@ -282,5 +318,136 @@ mod tests {
             text: "x".into(),
             due_at: 0
         }]));
+    }
+    #[test]
+    fn normalizes_long_unicode_task_alongside_study_prayer_and_subscription_items() {
+        let long_text = format!(
+            "  📚Vize_Hazırlık_{}{}  ",
+            "ğüşiöç".repeat(38),
+            "🚀".repeat(10)
+        );
+        assert!(long_text.trim().chars().count() > 200);
+
+        let raw = vec![
+            Reminder {
+                id: "task-long".into(),
+                text: long_text,
+                due_at: 1_800_000_000_000,
+            },
+            Reminder {
+                id: "study:p1:s1".into(),
+                text: "Devre 1 · Vize Çalışma Programı".into(),
+                due_at: 1_800_000_100_000,
+            },
+            Reminder {
+                id: "prayer:dhuhr:1".into(),
+                text: "Öğle vakti girdi (12:45).".into(),
+                due_at: 1_800_000_200_000,
+            },
+            Reminder {
+                id: "subscription:sub-1".into(),
+                text: "Bulut Depolama ödeme hatırlatması".into(),
+                due_at: 1_800_000_300_000,
+            },
+        ];
+
+        assert!(!validate(&raw));
+        let normalized = normalize_reminders(raw);
+        assert!(validate(&normalized));
+        assert_eq!(normalized.len(), 4);
+        assert_eq!(normalized[0].text.chars().count(), 160);
+        assert!(normalized[0].text.ends_with('…'));
+        assert_eq!(normalized[1].text, "Devre 1 · Vize Çalışma Programı");
+        assert_eq!(normalized[2].text, "Öğle vakti girdi (12:45).");
+        assert_eq!(normalized[3].text, "Bulut Depolama ödeme hatırlatması");
+
+        assert_eq!(clamp_text("x", 0), "");
+        assert_eq!(clamp_text("🚀abc", 1), "🚀");
+        assert_eq!(clamp_text(&format!("abc   {}", "x".repeat(20)), 6), "abc…");
+    }
+    #[test]
+    fn sync_reminders_normalizes_long_text_and_rejects_structural_errors_in_turkish() {
+        let state = ReminderState {
+            inner: Mutex::new(Queue {
+                items: vec![],
+                delivered: HashSet::new(),
+                readable: true,
+            }),
+            wake: tokio::sync::Notify::new(),
+            path: std::path::PathBuf::new(),
+        };
+
+        let long_text = format!("📝Sınav_{}", "ğüşiöç🚀".repeat(40));
+        let valid_batch = vec![
+            Reminder {
+                id: "task-250".into(),
+                text: long_text,
+                due_at: 1_800_000_000_000,
+            },
+            Reminder {
+                id: "study:p1:s1".into(),
+                text: "EMD · Haftalık Plan".into(),
+                due_at: 1_800_000_100_000,
+            },
+        ];
+        assert!(sync_reminders_inner(&state, valid_batch).is_ok());
+        {
+            let queue = state.inner.lock().unwrap();
+            assert_eq!(queue.items.len(), 2);
+            assert_eq!(queue.items[0].text.chars().count(), 160);
+            assert!(queue.items[0].text.ends_with('…'));
+        }
+
+        let empty_text_err = sync_reminders_inner(
+            &state,
+            vec![Reminder {
+                id: "empty-text".into(),
+                text: "   \n\t ".into(),
+                due_at: 1_800_000_000_000,
+            }],
+        )
+        .unwrap_err();
+        assert_eq!(empty_text_err, "Hatırlatma bilgileri geçersiz.");
+
+        let dup_item = Reminder {
+            id: "dup-1".into(),
+            text: "Tekrar".into(),
+            due_at: 1_800_000_000_000,
+        };
+        let dup_err = sync_reminders_inner(&state, vec![dup_item.clone(), dup_item]).unwrap_err();
+        assert_eq!(dup_err, "Hatırlatma bilgileri geçersiz.");
+
+        let empty_id_err = sync_reminders_inner(
+            &state,
+            vec![Reminder {
+                id: "".into(),
+                text: "Geçersiz id".into(),
+                due_at: 1_800_000_000_000,
+            }],
+        )
+        .unwrap_err();
+        assert_eq!(empty_id_err, "Hatırlatma bilgileri geçersiz.");
+
+        let long_id_err = sync_reminders_inner(
+            &state,
+            vec![Reminder {
+                id: "i".repeat(513),
+                text: "Uzun id".into(),
+                due_at: 1_800_000_000_000,
+            }],
+        )
+        .unwrap_err();
+        assert_eq!(long_id_err, "Hatırlatma bilgileri geçersiz.");
+
+        let overflow_due_err = sync_reminders_inner(
+            &state,
+            vec![Reminder {
+                id: "overflow-due".into(),
+                text: "Geçersiz zaman".into(),
+                due_at: 8_640_000_000_000_001,
+            }],
+        )
+        .unwrap_err();
+        assert_eq!(overflow_due_err, "Hatırlatma bilgileri geçersiz.");
     }
 }

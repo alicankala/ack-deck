@@ -14,9 +14,24 @@ export type WeatherData = {
 
 export const WEATHER_CACHE_KEY = "ack-deck.mobile-weather-cache.v1";
 
+type WeatherStorageLike = {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+};
+
+type WeatherBrowserTarget = {
+  localStorage?: WeatherStorageLike;
+  window?: WeatherBrowserTarget;
+};
+
+const getWeatherStorage = (): WeatherStorageLike | undefined => {
+  const g = globalThis as unknown as WeatherBrowserTarget;
+  return (g.window ?? g).localStorage;
+};
+
 export function loadWeatherCache(): WeatherData | null {
   try {
-    const raw = localStorage.getItem(WEATHER_CACHE_KEY);
+    const raw = getWeatherStorage()?.getItem(WEATHER_CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed.city === "string" && typeof parsed.temperature === "number") {
@@ -28,7 +43,7 @@ export function loadWeatherCache(): WeatherData | null {
 
 export function saveWeatherCache(data: WeatherData): void {
   try {
-    localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify(data));
+    getWeatherStorage()?.setItem(WEATHER_CACHE_KEY, JSON.stringify(data));
   } catch {}
 }
 

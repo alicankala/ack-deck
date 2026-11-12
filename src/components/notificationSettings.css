@@ -1,0 +1,314 @@
+.notifications-settings-container {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.notification-overview-head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.notification-overview-icon {
+  display: grid;
+  place-items: center;
+}
+
+.notification-overview-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-overview-copy h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--app-text);
+}
+
+.notification-subtitle {
+  margin: 0.25rem 0 0;
+  color: var(--app-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.notification-overview-badge {
+  white-space: nowrap;
+}
+
+.notification-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding: 0.85rem 1rem;
+  background: var(--app-control);
+  border: 1px solid var(--app-border);
+  border-radius: 0.6rem;
+}
+
+.notification-status-summary {
+  font-size: 0.88rem;
+  color: var(--app-secondary);
+}
+
+.notification-status-chip.is-desktop-on {
+  color: #4ade80;
+  font-weight: 600;
+}
+
+.notification-status-chip.is-mobile-on {
+  color: var(--app-accent);
+  font-weight: 600;
+}
+
+.notification-status-chip.is-off {
+  color: var(--app-muted);
+}
+
+.notification-status-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.notification-action-btn {
+  font-size: 0.84rem;
+  padding: 0.35rem 0.75rem;
+}
+
+.notification-action-btn.is-danger {
+  color: #fca5a5;
+}
+
+.notification-feedback {
+  margin-top: 1rem;
+}
+
+.notification-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--app-border);
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.notification-section-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--app-text);
+}
+
+.notification-section-header .notification-subtitle {
+  margin-top: 0.2rem;
+  font-size: 0.85rem;
+}
+
+.notification-master-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--app-text);
+  background: var(--app-control);
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--app-border-strong);
+}
+
+.notification-master-toggle input {
+  width: 17px;
+  height: 17px;
+  cursor: pointer;
+}
+
+.notification-master-toggle.is-desktop-active {
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.38);
+}
+
+.notification-master-toggle.is-mobile-active {
+  background: var(--app-accent-soft);
+  border-color: var(--app-accent-border);
+}
+
+.notification-warning-banner {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.85rem;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.24);
+  border-radius: 0.5rem;
+  color: #fca5a5;
+  font-size: 0.84rem;
+}
+
+.notification-channel-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.notification-channel-list.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.notification-channel-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--app-field);
+  border: 1px solid var(--app-border);
+  cursor: pointer;
+}
+
+.notification-channel-row input {
+  margin-top: 0.2rem;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.notification-channel-copy {
+  flex: 1;
+}
+
+.notification-channel-copy strong {
+  display: block;
+  font-size: 0.92rem;
+  color: var(--app-text);
+}
+
+.notification-channel-copy small {
+  color: var(--app-muted);
+  display: block;
+  margin-top: 0.15rem;
+  line-height: 1.4;
+}
+
+.notification-test-row {
+  margin-top: 1.25rem;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.notification-test-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.notification-inline-hint {
+  color: var(--app-muted);
+}
+
+.notification-devices-section {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--app-border);
+  padding-top: 1rem;
+}
+
+.notification-devices-section h3 {
+  font-size: 0.98rem;
+  margin: 0 0 0.5rem;
+  color: var(--app-text);
+}
+
+.notification-device-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.notification-device-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.5rem;
+  background: var(--app-field);
+  border: 1px solid var(--app-border);
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.notification-device-name {
+  font-size: 0.9rem;
+  color: var(--app-text);
+}
+
+.notification-device-meta {
+  font-size: 0.78rem;
+  color: var(--app-muted);
+  margin-top: 0.1rem;
+}
+
+.notification-device-state.is-allowed {
+  color: #4ade80;
+  font-weight: 600;
+}
+
+.notification-device-state.is-missing {
+  color: #f87171;
+  font-weight: 600;
+}
+
+.notification-device-test-btn {
+  font-size: 0.82rem;
+  padding: 0.3rem 0.7rem;
+}
+
+.notification-empty-devices {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--app-muted);
+}
+
+.notification-tips-card {
+  background: var(--app-control);
+  border: 1px solid var(--app-border);
+  padding: 1rem 1.25rem;
+}
+
+.notification-tips-card h3 {
+  font-size: 0.94rem;
+  margin: 0 0 0.4rem;
+  color: var(--app-accent);
+}
+
+.notification-tips-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 0.84rem;
+  color: var(--app-secondary);
+  line-height: 1.6;
+}
+
+:root[data-theme="light"] .notification-status-chip.is-desktop-on,
+:root[data-theme="light"] .notification-device-state.is-allowed {
+  color: #15803d;
+}
+
+:root[data-theme="light"] .notification-action-btn.is-danger,
+:root[data-theme="light"] .notification-device-state.is-missing,
+:root[data-theme="light"] .notification-warning-banner {
+  color: #b91c1c;
+}
+
+:root[data-theme="light"] .notification-warning-banner {
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.25);
+}
+
+:root[data-theme="light"] .notification-master-toggle.is-desktop-active {
+  background: rgba(21, 128, 61, 0.1);
+  border-color: rgba(21, 128, 61, 0.32);
+}

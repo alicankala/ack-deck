@@ -43,11 +43,15 @@ function localTask(record:CloudRecord):Task {
   if(data.dueAt!==null&&!data.recurrence){const local=new Date(data.dueAt);date=localDateKey(local);time=`${String(local.getHours()).padStart(2,"0")}:${String(local.getMinutes()).padStart(2,"0")}`;}
   return{...productMetadata(data),id:record.id,text:data.text,completed:data.completed,dueDate:date,dueTime:time,priority:data.priority,reminder:data.reminder,timezone:data.recurrence?data.timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,...(data.recurrence!==undefined?{recurrence:data.recurrence,occurrenceAt:data.occurrenceAt??null,lastCompletedAt:data.lastCompletedAt??null,snoozedUntil:data.snoozedUntil??null}:{})};
 }
-function snapshot():Map<string, {kind:Kind;id:string;data:PhoneTask|PhoneNote|Subscription|PhoneProject|StudyProgram|PrayerLogDay|MediaItem|StudyAttendanceDay}> {
+type SnapshotData = PhoneTask|PhoneNote|Subscription|PhoneProject|StudyProgram|PrayerLogDay|MediaItem|StudyAttendanceDay;
+type SnapshotItem = {kind:Kind;id:string;data:SnapshotData};
+const safeText=(s:string)=>/(?:\b[A-Za-z]:[\\/]|\\\\)/.test(s)?"":s;
+const projectSnapshotData=(p:{name:string;description:string;nextStep?:string;workspaceId?:string|null;inboxIds?:string[]}):PhoneProject=>({name:safeText(p.name)||"Proje",description:safeText(p.description),nextStep:safeText(p.nextStep??""),workspaceId:p.workspaceId??null,inboxIds:p.inboxIds??[]});
+const noteSnapshotData=(note:{title:string;content:string;updatedAt:number;attachments?:PhoneNote["attachments"];projectId?:string|null;workspaceId?:string|null;sourceInboxId?:string|null}):PhoneNote=>({...productMetadata(note),...(note.attachments?{attachments:note.attachments}:{}),title:note.title,content:note.content,updatedAt:note.updatedAt});
+function snapshot():Map<string, SnapshotItem> {
   const tasks=loadTasks(),notes=loadNotes(),subscriptions=loadSubscriptions(),projects=loadProjectSnapshot(),programs=loadStudyPrograms(),prayerLogs=loadPrayerLogs(),media=loadMedia(),attendance=loadStudyAttendanceSnapshot();if(media.locked||attendance.locked||prayerLogs.locked||programs.locked||tasks.locked||notes.error||subscriptions.locked||projects.locked)throw new Error("Görev veya not kayıtları okunamadı; eşitleme durduruldu.");
-  const safeText=(s:string)=>/(?:\b[A-Za-z]:[\\/]|\\\\)/.test(s)?"":s;
   const attendanceDays=groupStudyAttendanceByDay(attendance.map);
-  return new Map([...media.entries.map(data=>({kind:"mediaItems" as const,id:data.id,data})),...attendanceDays.map(data=>({kind:"studyAttendance" as const,id:data.id,data})),...prayerLogs.entries.map(data=>({kind:"prayerLogs" as const,id:data.id,data})),...programs.entries.map(data=>({kind:"studyPrograms" as const,id:data.id,data})),...projects.entries.map(p=>({kind:"projects" as const,id:p.id,data:{name:safeText(p.name)||"Proje",description:safeText(p.description),nextStep:safeText(p.nextStep??""),workspaceId:p.workspaceId??null,inboxIds:p.inboxIds??[]}})),...tasks.entries.map(task=>({kind:"tasks" as const,id:task.id,data:phoneTask(task)})),...subscriptions.entries.map(data=>({kind:"subscriptions" as const,id:data.id,data})),...notes.notes.map(note=>({kind:"notes" as const,id:note.id,data:{...productMetadata(note),...(note.attachments?{attachments:note.attachments}:{}),title:note.title,content:note.content,updatedAt:note.updatedAt}}))].map(item=>[key(item.kind,item.id),{...item,data:scrubSync(item.data)}]));
+  return new Map([...media.entries.map(data=>({kind:"mediaItems" as const,id:data.id,data})),...attendanceDays.map(data=>({kind:"studyAttendance" as const,id:data.id,data})),...prayerLogs.entries.map(data=>({kind:"prayerLogs" as const,id:data.id,data})),...programs.entries.map(data=>({kind:"studyPrograms" as const,id:data.id,data})),...projects.entries.map(p=>({kind:"projects" as const,id:p.id,data:projectSnapshotData(p)})),...tasks.entries.map(task=>({kind:"tasks" as const,id:task.id,data:phoneTask(task)})),...subscriptions.entries.map(data=>({kind:"subscriptions" as const,id:data.id,data})),...notes.notes.map(note=>({kind:"notes" as const,id:note.id,data:noteSnapshotData(note)}))].map(item=>[key(item.kind,item.id),{...item,data:scrubSync(item.data)}]));
 }
 function fingerprint(record:CloudRecord){
   if(record.deleted)return null;
@@ -59,38 +63,47 @@ function replaceRecord<T extends {id:string}>(entries:T[],id:string,next:T|null)
   if(!next)return entries.filter(item=>item.id!==id);
   return entries.some(item=>item.id===id)?entries.map(item=>item.id===id?next:item):[...entries,next];
 }
-function apply(record:CloudRecord) {
+function apply(record:CloudRecord):SnapshotItem|null {
   if(record.kind==="mediaItems"){
-    const loaded=loadMedia();
-    if(!saveMedia(replaceRecord(loaded.entries,record.id,record.deleted?null:record.data as MediaItem),loaded))throw new Error("Koleksiyon kaydı eşitlenemedi; mevcut kayıtlar korunuyor.");
+    const loaded=loadMedia(),next=record.deleted?null:record.data as MediaItem;
+    if(!saveMedia(replaceRecord(loaded.entries,record.id,next),loaded))throw new Error("Koleksiyon kaydı eşitlenemedi; mevcut kayıtlar korunuyor.");
+    return next?{kind:"mediaItems",id:record.id,data:scrubSync(next)}:null;
   }else if(record.kind==="studyAttendance"){
-    if(!applyStudyAttendanceDay(record.id,record.deleted?null:record.data as StudyAttendanceDay))throw new Error("Ders katılım kaydı eşitlenemedi; mevcut kayıtlar korunuyor.");
+    const next=record.deleted?null:record.data as StudyAttendanceDay;
+    if(!applyStudyAttendanceDay(record.id,next))throw new Error("Ders katılım kaydı eşitlenemedi; mevcut kayıtlar korunuyor.");
+    return next?{kind:"studyAttendance",id:record.id,data:scrubSync(canonicalAttendanceDay(next.date,next.entries,next.updatedAt))}:null;
   }else if(record.kind==="prayerLogs"){
-    const loaded=loadPrayerLogs();
-    if(!savePrayerLogs(replaceRecord(loaded.entries,record.id,record.deleted?null:record.data as PrayerLogDay),loaded))throw new Error("Namaz kaydı eşitlenemedi; mevcut kayıtlar korunuyor.");
+    const loaded=loadPrayerLogs(),next=record.deleted?null:record.data as PrayerLogDay;
+    if(!savePrayerLogs(replaceRecord(loaded.entries,record.id,next),loaded))throw new Error("Namaz kaydı eşitlenemedi; mevcut kayıtlar korunuyor.");
+    return next?{kind:"prayerLogs",id:record.id,data:scrubSync(next)}:null;
   }else if(record.kind==="studyPrograms"){
-    const loaded=loadStudyPrograms();
-    if(!saveStudyPrograms(replaceRecord(loaded.entries,record.id,record.deleted?null:record.data as StudyProgram),loaded))throw new Error("Ders programı eşitlenemedi; mevcut kayıtlar korunuyor.");
+    const loaded=loadStudyPrograms(),next=record.deleted?null:record.data as StudyProgram;
+    if(!saveStudyPrograms(replaceRecord(loaded.entries,record.id,next),loaded))throw new Error("Ders programı eşitlenemedi; mevcut kayıtlar korunuyor.");
+    return next?{kind:"studyPrograms",id:record.id,data:scrubSync(next)}:null;
   }else if(record.kind==="projects"){
     if(!record.deleted&&!validProject(record.data))throw new Error("Bulut projesi geçersiz.");
     const loaded=loadProjectSnapshot(),previous=loaded.entries.find(p=>p.id===record.id),data=record.data as PhoneProject;
     const localOnly=previous?Object.fromEntries(["name","description","nextStep"].filter(key=>/(?:\b[A-Za-z]:[\\/]|\\\\)/.test(String(previous[key as keyof typeof previous]??""))).map(key=>[key,previous[key as keyof typeof previous]])):{};
     const next=record.deleted?null:{...previous,id:record.id,folderPath:previous?.folderPath??"",...data,...localOnly};
     if(!saveProjects(replaceRecord(loaded.entries,record.id,next),loaded))throw new Error("Proje eşitlenemedi.");
+    return next?{kind:"projects",id:record.id,data:scrubSync(projectSnapshotData(next))}:null;
   }else if(record.kind==="tasks"){
     if(!record.deleted&&!validTask(record.data))throw new Error("Bulut görevi geçersiz. Yerel kayıtlar korunuyor.");
     const loaded=loadTasks(),existing=loaded.entries.find(t=>t.id===record.id);
     const next=record.deleted?null:{...localTask(record),...(existing?.remindedFor?{remindedFor:existing.remindedFor}:{})};
     if(!saveTasks(replaceRecord(loaded.entries,record.id,next),loaded))throw new Error("Bulut görevi kaydedilemedi. Yerel kayıtlar korunuyor.");
+    return next?{kind:"tasks",id:record.id,data:scrubSync(phoneTask(next))}:null;
   }else if(record.kind==="subscriptions"){
-    const loaded=loadSubscriptions();
-    if(!saveSubscriptions(replaceRecord(loaded.entries,record.id,record.deleted?null:record.data as Subscription),loaded))throw new Error("Abonelik eşitlenemedi. Kayıtlar korunuyor.");
+    const loaded=loadSubscriptions(),next=record.deleted?null:record.data as Subscription;
+    if(!saveSubscriptions(replaceRecord(loaded.entries,record.id,next),loaded))throw new Error("Abonelik eşitlenemedi. Kayıtlar korunuyor.");
+    return next?{kind:"subscriptions",id:record.id,data:scrubSync(next)}:null;
   }else{
     if(!record.deleted&&!validNote(record.data))throw new Error("Bulut notu geçersiz. Yerel kayıtlar korunuyor.");
     const loaded=loadNotes(),localAttachments=loaded.notes.find(n=>n.id===record.id)?.attachments,cloudAttachments=(record.data as PhoneNote|null)?.attachments;
     const attachments=cloudAttachments===undefined?localAttachments:[...cloudAttachments,...(localAttachments??[]).filter(a=>!cloudAttachments.some(b=>b.id===a.id))].slice(0,20);
     const next=record.deleted?null:{id:record.id,...record.data as PhoneNote,...(attachments?{attachments}:{})};
     if(loaded.error||!saveNotes(replaceRecord(loaded.notes,record.id,next)))throw new Error("Bulut notu kaydedilemedi. Yerel kayıtlar korunuyor.");
+    return next?{kind:"notes",id:record.id,data:scrubSync(noteSnapshotData(next))}:null;
   }
 }
 let running:Promise<SyncState>|null=null;
@@ -145,31 +158,37 @@ async function sync(request:typeof phoneRequest):Promise<SyncState> {
   while(more&&pages++<10){
     guard();const response=await request<{records:CloudRecord[];cursor:number;more:boolean}>("sync",{cursor:state.cursor});guard();
     if(!Array.isArray(response.records)||response.records.length>40||!Number.isSafeInteger(response.cursor)||response.cursor<state.cursor||typeof response.more!=="boolean")throw new Error("Telefon eşitleme yanıtı geçersiz.");
-    for(const record of response.records){
-      if(!validCloudRecord(record))throw new Error("Telefon eşitleme yanıtı geçersiz.");
-      const reference=key(record.kind,record.id),previous=state.base[reference],current=snapshot().get(reference),currentText=current?JSON.stringify(current.data):null;
-      const conflict=state.conflicts.find(row=>key(row.local.kind,row.local.id)===reference);
-      if(conflict){conflict.server=record;save(state);continue;}
-      if(state.queue.some(row=>key(row.kind,row.id)===reference))continue;
-      if(previous&&record.version<=previous.version)continue;
-      if((previous&&currentText!==previous.local)||(!previous&&current)){
-        if(record.kind==="notes"&&!record.deleted&&record.data&&previous?.local&&current?.data){
-          try{
-            const merged=tryMergeNoteRecords(JSON.parse(previous.local) as PhoneNote,current.data as PhoneNote,record.data as PhoneNote);
-            if(merged){
-              const cleanMerged=scrubSync(merged);
-              apply({...record,data:cleanMerged});
-              state.base[reference]={version:record.version,local:fingerprint(record)};
-              state.queue.push({mutationId:crypto.randomUUID(),kind:"notes",id:record.id,baseVersion:record.version,data:cleanMerged,deleted:false});
-              save(state);continue;
-            }
-          }catch{}
+    if(response.records.length>0){
+      const localRecords=snapshot();
+      for(const record of response.records){
+        if(!validCloudRecord(record))throw new Error("Telefon eşitleme yanıtı geçersiz.");
+        const reference=key(record.kind,record.id),previous=state.base[reference],current=localRecords.get(reference),currentText=current?JSON.stringify(current.data):null;
+        const conflict=state.conflicts.find(row=>key(row.local.kind,row.local.id)===reference);
+        if(conflict){conflict.server=record;save(state);continue;}
+        if(state.queue.some(row=>key(row.kind,row.id)===reference))continue;
+        if(previous&&record.version<=previous.version)continue;
+        if((previous&&currentText!==previous.local)||(!previous&&current)){
+          if(record.kind==="notes"&&!record.deleted&&record.data&&previous?.local&&current?.data){
+            try{
+              const merged=tryMergeNoteRecords(JSON.parse(previous.local) as PhoneNote,current.data as PhoneNote,record.data as PhoneNote);
+              if(merged){
+                const cleanMerged=scrubSync(merged);
+                const applied=apply({...record,data:cleanMerged});
+                if(applied)localRecords.set(reference,applied);else localRecords.delete(reference);
+                state.base[reference]={version:record.version,local:fingerprint(record)};
+                state.queue.push({mutationId:crypto.randomUUID(),kind:"notes",id:record.id,baseVersion:record.version,data:cleanMerged,deleted:false});
+                save(state);continue;
+              }
+            }catch{}
+          }
+          state.conflicts.push({local:{mutationId:crypto.randomUUID(),kind:record.kind,id:record.id,baseVersion:previous?.version??0,data:current?.data??null,deleted:!current},server:record});save(state);continue;
         }
-        state.conflicts.push({local:{mutationId:crypto.randomUUID(),kind:record.kind,id:record.id,baseVersion:previous?.version??0,data:current?.data??null,deleted:!current},server:record});save(state);continue;
+        // Journal the prior fingerprint before applying; interrupted writes are detected as
+        // conflicts on retry instead of silently overwriting an intervening local edit.
+        const applied=apply(record);
+        if(applied)localRecords.set(reference,applied);else localRecords.delete(reference);
+        state.base[reference]={version:record.version,local:fingerprint(record)};save(state);
       }
-      // Journal the prior fingerprint before applying; interrupted writes are detected as
-      // conflicts on retry instead of silently overwriting an intervening local edit.
-      apply(record);state.base[reference]={version:record.version,local:fingerprint(record)};save(state);
     }
     state.cursor=response.cursor;more=response.more;save(state);
   }

@@ -140,6 +140,13 @@ pub async fn choose_backup(app: tauri::AppHandle) -> Result<Option<String>, Stri
     .await
     .map_err(|_| "Yedek dosyası seçilemedi.".to_string())?
 }
+fn ensure_main_window(label: &str) -> Result<(), String> {
+    if label != "main" {
+        return Err("Bu işlem ana pencereden yapılmalıdır.".into());
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn save_auto_backup(
     app: tauri::AppHandle,
@@ -158,7 +165,7 @@ pub async fn save_auto_backup(
 
     let app_handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        crate::portable_backup::write_zip(&content, &target_path, |id| {
+        crate::portable_backup::write_zip_with_mode(&content, &target_path, true, |id| {
             crate::phone_media::read_cached(&app_handle, id)
         })
     })
@@ -196,7 +203,11 @@ pub async fn save_auto_backup(
 }
 
 #[tauri::command]
-pub async fn open_auto_backup_dir(app: tauri::AppHandle) -> Result<(), String> {
+pub async fn open_auto_backup_dir(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<(), String> {
+    ensure_main_window(window.label())?;
     let base_dir = get_backup_dir(&app);
 
     #[cfg(target_os = "windows")]
@@ -307,5 +318,14 @@ mod tests {
             r#"{{"ack-deck.notes.v1":"{}"}}"#,
             ["AI", "za"].concat()
         )));
+    }
+
+    #[test]
+    fn open_auto_backup_dir_requires_main_window() {
+        assert!(ensure_main_window("main").is_ok());
+        assert_eq!(
+            ensure_main_window("secondary").err().as_deref(),
+            Some("Bu işlem ana pencereden yapılmalıdır.")
+        );
     }
 }

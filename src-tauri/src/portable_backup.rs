@@ -23,6 +23,8 @@ struct PackedFile {
 struct Manifest {
     format_version: u8,
     files: Vec<PackedFile>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    skipped_sources: Vec<String>,
 }
 struct Selected {
     token: String,
@@ -133,23 +135,30 @@ fn allowed_file(path: &Path) -> bool {
 fn validate_archive(content: &str, manifest: &Manifest, names: &[String]) -> Result<(), String> {
     if !crate::backup::valid_envelope(content)
         || manifest.format_version != 1
-        || manifest.files.len() > 2000
+        || manifest.files.len() + manifest.skipped_sources.len() > 2000
     {
         return Err(error());
     }
     let value: Value = serde_json::from_str(content).map_err(|_| error())?;
     let refs = references(&value)?;
     let sources: HashSet<_> = manifest.files.iter().map(|f| f.source.clone()).collect();
+    let skipped: HashSet<_> = manifest.skipped_sources.iter().cloned().collect();
     let entries: HashSet<_> = manifest.files.iter().map(|f| f.entry.clone()).collect();
     if sources.len() != manifest.files.len()
+        || skipped.len() != manifest.skipped_sources.len()
+        || !sources.is_disjoint(&skipped)
         || entries.len() != manifest.files.len()
-        || sources != refs.keys().cloned().collect()
         || manifest
             .files
             .iter()
             .enumerate()
             .any(|(i, f)| f.entry != format!("files/{i}"))
     {
+        return Err(error());
+    }
+    let union: HashSet<_> = sources.union(&skipped).cloned().collect();
+    let expected_refs: HashSet<_> = refs.keys().cloned().collect();
+    if union != expected_refs {
         return Err(error());
     }
     let mut expected = entries;
@@ -194,6 +203,15 @@ pub(crate) fn write_zip(
     path: &Path,
     read_media: impl Fn(&str) -> Result<crate::phone_media::Media, String>,
 ) -> Result<usize, String> {
+    write_zip_with_mode(content, path, false, read_media)
+}
+
+pub(crate) fn write_zip_with_mode(
+    content: &str,
+    path: &Path,
+    tolerate_missing: bool,
+    read_media: impl Fn(&str) -> Result<crate::phone_media::Media, String>,
+) -> Result<usize, String> {
     if !crate::backup::valid_envelope(content) {
         return Err(error());
     }
@@ -215,41 +233,74 @@ pub(crate) fn write_zip(
         let mut manifest = Manifest {
             format_version: 1,
             files: vec![],
+            skipped_sources: vec![],
         };
         let mut total = 0u64;
         let mut refs = refs.into_iter().collect::<Vec<_>>();
         refs.sort_by(|a, b| a.0.cmp(&b.0));
-        for (i, (source, target)) in refs.into_iter().enumerate() {
+        for (source, target) in refs {
             let bytes = if source.starts_with("media:") {
-                serde_json::to_vec(&read_media(&target)?).map_err(|_| error())?
+                let media = match read_media(&target) {
+                    Ok(media) => media,
+                    Err(err) => {
+                        if tolerate_missing {
+                            manifest.skipped_sources.push(source);
+                            continue;
+                        }
+                        return Err(err);
+                    }
+                };
+                serde_json::to_vec(&media).map_err(|_| error())?
             } else {
                 let target = Path::new(&target);
                 if !target.is_absolute()
                     || target.to_string_lossy().starts_with(['\\', '/'])
                     || !allowed_file(target)
                 {
+                    if tolerate_missing {
+                        manifest.skipped_sources.push(source);
+                        continue;
+                    }
                     return Err("Dosyalı yedeğe çalıştırılabilir veya gizli anahtar dosyası eklenemez. JSON yedeğini kullanabilirsin.".into());
                 }
-                let file = fs::File::open(target).map_err(|_| {
-                    "Bir ek dosya bulunamadı. Eksik dosyayı düzelt veya JSON yedeğini kullan."
-                        .to_string()
-                })?;
-                let metadata = file.metadata().map_err(|_| error())?;
+                let file = match fs::File::open(target) {
+                    Ok(file) => file,
+                    Err(_) => {
+                        if tolerate_missing {
+                            manifest.skipped_sources.push(source);
+                            continue;
+                        }
+                        return Err(
+                            "Bir ek dosya bulunamadı. Eksik dosyayı düzelt veya JSON yedeğini kullan."
+                                .to_string(),
+                        );
+                    }
+                };
+                let Ok(metadata) = file.metadata() else {
+                    if tolerate_missing {
+                        manifest.skipped_sources.push(source);
+                        continue;
+                    }
+                    return Err(error());
+                };
                 if !metadata.is_file() || metadata.len() > MAX_FILE {
+                    if tolerate_missing {
+                        manifest.skipped_sources.push(source);
+                        continue;
+                    }
                     return Err(error());
                 }
                 let mut bytes = Vec::new();
-                file.take(MAX_FILE + 1)
-                    .read_to_end(&mut bytes)
-                    .map_err(|_| error())?;
+                if file.take(MAX_FILE + 1).read_to_end(&mut bytes).is_err() {
+                    if tolerate_missing {
+                        manifest.skipped_sources.push(source);
+                        continue;
+                    }
+                    return Err(error());
+                }
                 bytes
             };
-            total += bytes.len() as u64;
-            if bytes.len() as u64 > MAX_FILE || total > MAX_TOTAL {
-                return Err(
-                    "Dosyalı yedek sınırı aşıldı: dosya başına 100 MB, toplam 512 MB.".into(),
-                );
-            }
+            // Never suppress secret-scan failures even when tolerate_missing == true.
             let text = String::from_utf8_lossy(&bytes);
             if text.contains("AIza") || crate::privacy::has_credentials(&text) {
                 return Err("Ek dosya gizli anahtar içeriyor; dosyalı yedek oluşturulmadı.".into());
@@ -263,7 +314,17 @@ pub(crate) fn write_zip(
                     );
                 }
             }
-            let entry = format!("files/{i}");
+            if bytes.len() as u64 > MAX_FILE || total + bytes.len() as u64 > MAX_TOTAL {
+                if tolerate_missing {
+                    manifest.skipped_sources.push(source);
+                    continue;
+                }
+                return Err(
+                    "Dosyalı yedek sınırı aşıldı: dosya başına 100 MB, toplam 512 MB.".into(),
+                );
+            }
+            total += bytes.len() as u64;
+            let entry = format!("files/{}", manifest.files.len());
             zip.start_file(&entry, options).map_err(|_| error())?;
             zip.write_all(&bytes).map_err(|_| error())?;
             manifest.files.push(PackedFile { entry, source });
@@ -444,13 +505,21 @@ fn extract(selected: &Selected, destination: &Path) -> Result<String, String> {
             return Err(error());
         }
     }
+    let skipped_media: HashSet<&str> = manifest
+        .skipped_sources
+        .iter()
+        .filter_map(|s| s.strip_prefix("media:"))
+        .collect();
     for kind in ["notes", "archive"] {
         for row in value["data"][kind].as_array_mut().ok_or_else(error)? {
             if let Some(files) = row.get_mut("attachments") {
                 for file in files.as_array_mut().ok_or_else(error)? {
                     let old = file["id"].as_str().ok_or_else(error)?;
-                    let new = media_ids.get(old).ok_or_else(error)?;
-                    file["id"] = Value::String(new.clone());
+                    if let Some(new) = media_ids.get(old) {
+                        file["id"] = Value::String(new.clone());
+                    } else if !skipped_media.contains(old) {
+                        return Err(error());
+                    }
                 }
             }
         }
@@ -534,6 +603,7 @@ mod tests {
                 entry: "files/0".into(),
                 source: "archive:a".into(),
             }],
+            skipped_sources: vec![],
         };
         assert!(validate_archive(
             content,
@@ -640,5 +710,121 @@ mod tests {
         assert!(write_zip(&content, &package, |_| Ok(media.clone())).is_err());
         assert!(!package.exists());
         fs::remove_dir_all(root).unwrap();
+    }
+    struct TempDirGuard(PathBuf);
+    impl Drop for TempDirGuard {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+    #[test]
+    fn auto_backup_skips_missing_and_disallowed_sources_but_never_skips_secrets() {
+        use base64::{engine::general_purpose::STANDARD, Engine};
+        let guard = TempDirGuard(
+            std::env::temp_dir().join(format!("ackdeck-auto-portable-test-{}", token().unwrap())),
+        );
+        let root = &guard.0;
+        fs::create_dir_all(root).unwrap();
+        let valid_pdf = root.join("valid.pdf");
+        fs::write(&valid_pdf, b"%PDF-auto-valid").unwrap();
+        let missing_pdf = root.join("missing.pdf");
+        let disallowed_exe = root.join("tool.exe");
+        fs::write(&disallowed_exe, b"MZfake").unwrap();
+
+        let content = serde_json::json!({
+            "formatVersion": 2,
+            "data": {
+                "notes": [
+                    { "id": "n1", "attachments": [{ "id": "uncached-media", "name": "a.txt", "mime": "text/plain", "size": 3 }] }
+                ],
+                "archive": [
+                    { "id": "valid", "file": { "path": valid_pdf.to_string_lossy(), "fileName": "valid.pdf" } },
+                    { "id": "missing", "file": { "path": missing_pdf.to_string_lossy(), "fileName": "missing.pdf" } },
+                    { "id": "bad_ext", "file": { "path": disallowed_exe.to_string_lossy(), "fileName": "tool.exe" } }
+                ]
+            }
+        })
+        .to_string();
+
+        let package = root.join("auto-backup.zip");
+        let packed_count =
+            write_zip_with_mode(&content, &package, true, |_| Err("uncached".into())).unwrap();
+        assert_eq!(packed_count, 1);
+
+        let (_, loaded_content, manifest) = open_archive(&package).unwrap();
+        assert_eq!(manifest.files.len(), 1);
+        assert_eq!(manifest.files[0].entry, "files/0");
+        assert_eq!(manifest.files[0].source, "archive:valid");
+        assert_eq!(
+            manifest.skipped_sources,
+            vec![
+                "archive:bad_ext".to_string(),
+                "archive:missing".to_string(),
+                "media:uncached-media".to_string()
+            ]
+        );
+
+        let selected = Selected {
+            token: token().unwrap(),
+            path: package.clone(),
+            content: loaded_content,
+            manifest: manifest.clone(),
+            restored: None,
+        };
+        let restore_target = root.join("restored");
+        let restored: Value =
+            serde_json::from_str(&extract(&selected, &restore_target).unwrap()).unwrap();
+        assert_eq!(
+            fs::read(
+                restored["data"]["archive"][0]["file"]["path"]
+                    .as_str()
+                    .unwrap()
+            )
+            .unwrap(),
+            b"%PDF-auto-valid"
+        );
+
+        // validate_archive must reject overlapping or duplicate skipped_sources
+        let mut overlapping = manifest;
+        overlapping.skipped_sources.push("archive:valid".into());
+        assert!(validate_archive(
+            &content,
+            &overlapping,
+            &["records.json".into(), "manifest.json".into(), "files/0".into()]
+        )
+        .is_err());
+
+        // Secret-scan invariant: tolerant mode MUST STILL FAIL if a readable attachment or media holds credentials
+        let secret = ["AI", "za", &"x".repeat(35)].concat();
+        let secret_txt = root.join("notes.txt");
+        fs::write(&secret_txt, secret.as_bytes()).unwrap();
+        let secret_archive_json = serde_json::json!({
+            "formatVersion": 2,
+            "data": {
+                "notes": [],
+                "archive": [
+                    { "id": "sec", "file": { "path": secret_txt.to_string_lossy(), "fileName": "notes.txt" } }
+                ]
+            }
+        })
+        .to_string();
+        let secret_pkg = root.join("secret.zip");
+        assert!(write_zip_with_mode(&secret_archive_json, &secret_pkg, true, |_| Err(error())).is_err());
+        assert!(!secret_pkg.exists());
+
+        let secret_media = crate::phone_media::Media {
+            id: "m-sec".into(),
+            name: "note.txt".into(),
+            mime: "text/plain".into(),
+            size: secret.len(),
+            base64: STANDARD.encode(secret),
+        };
+        let secret_media_json = serde_json::json!({
+            "formatVersion": 2,
+            "data": { "notes": [{ "attachments": [{ "id": "m-sec" }] }], "archive": [] }
+        })
+        .to_string();
+        assert!(write_zip_with_mode(&secret_media_json, &secret_pkg, true, |_| Ok(secret_media.clone())).is_err());
+        assert!(!secret_pkg.exists());
     }
 }

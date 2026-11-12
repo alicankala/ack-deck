@@ -13,6 +13,8 @@ import {
   type MobileSecurityConfig,
 } from "./mobileSecurity";
 
+const MAX_PIN_DIGITS = 12;
+
 let globalBiometricsPrompted = false;
 
 if (typeof window !== "undefined") {
@@ -28,9 +30,33 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
   const [pin, setPin] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isShaking, setIsShaking] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [isAuthenticatingBio, setIsAuthenticatingBio] = useState(false);
   const [lockoutSec, setLockoutSec] = useState(() => getLockoutRemainingSeconds());
   const titleId = useId();
+
+  const pinRef = useRef("");
+  const verifySeqRef = useRef(0);
+  const verifyingRef = useRef(false);
+  const unlockedRef = useRef(false);
+  const mountedRef = useRef(true);
+  const shakeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const setPinSync = useCallback((next: string) => {
+    pinRef.current = next;
+    setPin(next);
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (shakeTimerRef.current) {
+        clearTimeout(shakeTimerRef.current);
+        shakeTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const handleSecChange = () => setConfig(loadSecurityConfig());
@@ -40,16 +66,16 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
 
   useEffect(() => {
     if (lockoutSec <= 0) return;
-    const timer = setInterval(() => {
-      setLockoutSec(s => {
-        if (s <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return s - 1;
-      });
+    const timer = setTimeout(() => {
+      if (!mountedRef.current) return;
+      if (lockoutSec <= 1) {
+        setLockoutSec(0);
+        setErrorMsg("");
+      } else {
+        setLockoutSec(s => Math.max(0, s - 1));
+      }
     }, 1000);
-    return () => clearInterval(timer);
+    return () => clearTimeout(timer);
   }, [lockoutSec]);
 
   const onUnlockRef = useRef(onUnlock);
@@ -59,13 +85,14 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
   const autoPromptedRef = useRef(false);
 
   const performBioAuth = useCallback(async (credentialId?: string): Promise<boolean> => {
-    if (bioInFlightRef.current || getLockoutRemainingSeconds() > 0) return false;
+    if (bioInFlightRef.current || unlockedRef.current || getLockoutRemainingSeconds() > 0) return false;
     bioInFlightRef.current = true;
     setIsAuthenticatingBio(true);
     setErrorMsg("");
     try {
       const ok = await authenticateBiometrics(credentialId);
-      if (ok) {
+      if (ok && !unlockedRef.current) {
+        unlockedRef.current = true;
         resetFailedAttempts();
         unlockSecurity();
         onUnlockRef.current();
@@ -77,7 +104,9 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
       return false;
     } finally {
       bioInFlightRef.current = false;
-      setIsAuthenticatingBio(false);
+      if (mountedRef.current) {
+        setIsAuthenticatingBio(false);
+      }
     }
   }, []);
 
@@ -93,37 +122,68 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
     if (!cfg.enabled || !cfg.biometricsEnabled || getLockoutRemainingSeconds() > 0) return;
 
     autoPromptedRef.current = true;
+    globalBiometricsPrompted = true;
     let cancelled = false;
+    let promptStarted = false;
 
     // Prompt once on initial mount after view transition
     const timer = setTimeout(async () => {
       if (cancelled) return;
+      promptStarted = true;
       await performBioAuth(cfg.biometricsCredentialId);
     }, 280);
 
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      if (!promptStarted) {
+        globalBiometricsPrompted = false;
+      }
     };
   }, [performBioAuth]);
 
-  const handleNumberPress = async (digit: string) => {
-    if (lockoutSec > 0 || pin.length >= 8) return;
-    const nextPin = pin + digit;
-    setPin(nextPin);
-    setErrorMsg("");
+  const expectedLength =
+    config.pinLength && config.pinLength >= 4 && config.pinLength <= MAX_PIN_DIGITS
+      ? config.pinLength
+      : null;
+  const maxDigits = expectedLength ?? MAX_PIN_DIGITS;
+  const busy = isVerifying || verifyingRef.current || isShaking || shakeTimerRef.current !== null;
+  const isBusyNow = () =>
+    isVerifying || verifyingRef.current || isShaking || shakeTimerRef.current !== null;
 
-    // If it reaches standard PIN length (4 or 6), try verifying
-    if (nextPin.length >= 4) {
-      const ok = await verifySecurityPasscode(nextPin);
-      if (ok) {
-        resetFailedAttempts();
-        unlockSecurity();
-        onUnlock();
-        return;
+  const verifyAttempt = useCallback(
+    async (candidate: string, triggerErrorOnMismatch: boolean): Promise<boolean> => {
+      if (
+        unlockedRef.current ||
+        candidate.length < 4 ||
+        getLockoutRemainingSeconds() > 0 ||
+        (triggerErrorOnMismatch && verifyingRef.current)
+      ) {
+        return false;
       }
-      // If it reached max 6 digits and still not valid
-      if (nextPin.length >= 6) {
+
+      const seq = ++verifySeqRef.current;
+      if (triggerErrorOnMismatch) {
+        verifyingRef.current = true;
+        setIsVerifying(true);
+      }
+
+      try {
+        const ok = await verifySecurityPasscode(candidate);
+        if (!mountedRef.current || unlockedRef.current) return false;
+
+        if (ok) {
+          unlockedRef.current = true;
+          resetFailedAttempts();
+          unlockSecurity();
+          onUnlockRef.current();
+          return true;
+        }
+
+        if (!triggerErrorOnMismatch || seq !== verifySeqRef.current) {
+          return false;
+        }
+
         const { remainingLockout } = recordFailedAttempt();
         setIsShaking(true);
         if (remainingLockout > 0) {
@@ -132,18 +192,57 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
         } else {
           setErrorMsg("Hatalı şifre. Tekrar deneyin.");
         }
-        setTimeout(() => {
-          setPin("");
+        if (shakeTimerRef.current) clearTimeout(shakeTimerRef.current);
+        shakeTimerRef.current = setTimeout(() => {
+          shakeTimerRef.current = null;
+          if (!mountedRef.current) return;
+          setPinSync("");
           setIsShaking(false);
         }, 500);
+        return false;
+      } finally {
+        if (triggerErrorOnMismatch) {
+          verifyingRef.current = false;
+          if (mountedRef.current) {
+            setIsVerifying(false);
+          }
+        }
       }
+    },
+    [setPinSync]
+  );
+
+  const handleNumberPress = (digit: string) => {
+    const currentPin = pinRef.current;
+    if (lockoutSec > 0 || isBusyNow() || currentPin.length >= maxDigits) return;
+    const nextPin = currentPin + digit;
+    verifySeqRef.current += 1;
+    setPinSync(nextPin);
+    setErrorMsg("");
+
+    if (expectedLength !== null) {
+      if (nextPin.length === expectedLength) {
+        void verifyAttempt(nextPin, true);
+      }
+      return;
+    }
+
+    if (nextPin.length >= 4) {
+      void verifyAttempt(nextPin, nextPin.length >= MAX_PIN_DIGITS);
     }
   };
 
   const handleDelete = () => {
-    if (lockoutSec > 0) return;
-    setPin(p => p.slice(0, -1));
+    if (lockoutSec > 0 || isBusyNow()) return;
+    verifySeqRef.current += 1;
+    setPinSync(pinRef.current.slice(0, -1));
     setErrorMsg("");
+  };
+
+  const handleConfirm = () => {
+    const currentPin = pinRef.current;
+    if (currentPin.length < 4 || isBusyNow() || lockoutSec > 0 || getLockoutRemainingSeconds() > 0) return;
+    void verifyAttempt(currentPin, true);
   };
 
   const handleReset = async () => {
@@ -161,8 +260,8 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
     }
   };
 
-  const pinLength = Math.max(4, pin.length);
-  const dots = Array.from({ length: Math.min(6, Math.max(4, pinLength)) });
+  const dotCount = expectedLength ?? Math.max(4, Math.min(MAX_PIN_DIGITS, pin.length));
+  const dots = Array.from({ length: dotCount });
 
   return (
     <div
@@ -190,7 +289,10 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
         </div>
 
         {/* PIN Dots Display */}
-        <div className={`lock-dots-display ${isShaking ? "is-shaking" : ""}`}>
+        <div
+          className={`lock-dots-display ${dotCount > 6 ? "is-compact" : ""} ${isShaking ? "is-shaking" : ""}`.trim()}
+          aria-label={`Girilen basamak: ${pin.length}${expectedLength ? ` / ${expectedLength}` : ""}`}
+        >
           {dots.map((_, i) => (
             <span
               key={i}
@@ -268,6 +370,17 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
             <span className="key-action-icon">⌫</span>
           </button>
         </div>
+
+        {/* Explicit PIN Confirm */}
+        <button
+          type="button"
+          className="lock-confirm-btn"
+          disabled={pin.length < 4 || busy || lockoutSec > 0}
+          onClick={handleConfirm}
+        >
+          <span aria-hidden="true">✓</span>
+          <span>{isVerifying ? "PIN doğrulanıyor..." : "Onayla"}</span>
+        </button>
 
         {/* Reset / Forgot PIN */}
         <div className="lock-footer">

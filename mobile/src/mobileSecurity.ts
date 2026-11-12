@@ -2,6 +2,7 @@ export interface MobileSecurityConfig {
   enabled: boolean;
   salt: string;
   passcodeHash: string;
+  pinLength?: number;
   biometricsEnabled: boolean;
   biometricsCredentialId?: string;
   autoPromptBiometrics?: boolean; // legacy compatibility
@@ -26,10 +27,18 @@ export function loadSecurityConfig(): MobileSecurityConfig {
       };
     }
     const parsed = JSON.parse(raw) as Partial<MobileSecurityConfig>;
+    const validPinLength =
+      typeof parsed.pinLength === "number" &&
+      Number.isInteger(parsed.pinLength) &&
+      parsed.pinLength >= 4 &&
+      parsed.pinLength <= 12
+        ? parsed.pinLength
+        : undefined;
     return {
       enabled: Boolean(parsed.enabled),
       salt: String(parsed.salt || ""),
       passcodeHash: String(parsed.passcodeHash || ""),
+      ...(validPinLength !== undefined ? { pinLength: validPinLength } : {}),
       biometricsEnabled: Boolean(parsed.biometricsEnabled),
       biometricsCredentialId: parsed.biometricsCredentialId,
       autoPromptBiometrics: Boolean(parsed.autoPromptBiometrics),
@@ -232,6 +241,10 @@ export async function setSecurityPasscode(
   passcode: string,
   enableBiometrics = false
 ): Promise<MobileSecurityConfig> {
+  if (typeof passcode !== "string" || !/^\d{4,12}$/.test(passcode)) {
+    throw new Error("Şifre 4 ile 12 basamaklı rakamlardan oluşmalıdır.");
+  }
+
   const saltBytes = crypto.getRandomValues(new Uint8Array(16));
   const salt = bufferToBase64(saltBytes);
   const passcodeHash = await hashPasscode(passcode, salt);
@@ -250,6 +263,7 @@ export async function setSecurityPasscode(
     enabled: true,
     salt,
     passcodeHash,
+    pinLength: passcode.length,
     biometricsEnabled: Boolean(biometricsCredentialId),
     biometricsCredentialId,
     autoLockTimeoutSeconds: existing.autoLockTimeoutSeconds,
@@ -264,21 +278,34 @@ export async function verifySecurityPasscode(passcode: string): Promise<boolean>
   const cfg = loadSecurityConfig();
   if (!cfg.enabled) return true;
   const computedHash = await hashPasscode(passcode, cfg.salt);
-  if (computedHash === cfg.passcodeHash) return true;
+  let matched = computedHash === cfg.passcodeHash;
+  let upgradedHash = false;
 
   // Backward compatibility: If stored hash is legacy single-round SHA-256
-  if (cfg.passcodeHash && !cfg.passcodeHash.startsWith("pbkdf2$")) {
+  if (!matched && cfg.passcodeHash && !cfg.passcodeHash.startsWith("pbkdf2$")) {
     const enc = new TextEncoder();
     const digest = await crypto.subtle.digest("SHA-256", enc.encode(`${cfg.salt}:${passcode}`));
     const legacyHash = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, "0")).join("");
     if (legacyHash === cfg.passcodeHash) {
-      // Seamlessly upgrade stored hash to PBKDF2:
-      cfg.passcodeHash = computedHash;
-      saveSecurityConfig(cfg);
-      return true;
+      matched = true;
+      upgradedHash = true;
     }
   }
-  return false;
+
+  if (!matched) return false;
+
+  const validLength =
+    passcode.length >= 4 && passcode.length <= 12 ? passcode.length : undefined;
+  if (upgradedHash || (!cfg.pinLength && validLength !== undefined)) {
+    const nextPinLength = cfg.pinLength ?? validLength;
+    saveSecurityConfig({
+      ...cfg,
+      passcodeHash: upgradedHash ? computedHash : cfg.passcodeHash,
+      ...(nextPinLength !== undefined ? { pinLength: nextPinLength } : {}),
+    });
+  }
+
+  return true;
 }
 
 export function disableSecurity(): void {

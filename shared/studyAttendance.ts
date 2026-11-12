@@ -89,11 +89,23 @@ export function groupStudyAttendanceByDay(map: Record<string, AttendanceEntry>):
     .map(([date, entries]) => canonicalAttendanceDay(date, entries));
 }
 
-const getStorageTarget = () =>
-  (typeof window !== "undefined" ? window : globalThis) as unknown as {
-    localStorage?: Storage;
-    dispatchEvent?: (e: Event) => boolean;
-  };
+type StorageLike = {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+};
+
+type BrowserTarget = {
+  localStorage?: StorageLike;
+  dispatchEvent?: (event: unknown) => unknown;
+  window?: BrowserTarget;
+  Event?: new (type: string) => unknown;
+  CustomEvent?: new (type: string, init?: { detail?: unknown }) => unknown;
+};
+
+const getStorageTarget = (): BrowserTarget => {
+  const g = globalThis as unknown as BrowserTarget;
+  return g.window ?? g;
+};
 
 export function loadStudyAttendanceSnapshot(): { map: Record<string, AttendanceEntry>; locked: boolean } {
   try {
@@ -120,9 +132,14 @@ export function saveStudyAttendance(data: Record<string, AttendanceEntry>): bool
   try {
     const g = getStorageTarget();
     g.localStorage?.setItem(STUDY_ATTENDANCE_KEY, JSON.stringify(data));
-    if (typeof Event !== "undefined") {
-      g.dispatchEvent?.(typeof CustomEvent !== "undefined" ? new CustomEvent("ack-study-attendance-changed", { detail: data }) : new Event("ack-study-attendance-changed"));
-      g.dispatchEvent?.(new Event("ack-data-changed"));
+    const globals = globalThis as unknown as BrowserTarget;
+    if (globals.Event && g.dispatchEvent) {
+      g.dispatchEvent(
+        globals.CustomEvent
+          ? new globals.CustomEvent("ack-study-attendance-changed", { detail: data })
+          : new globals.Event("ack-study-attendance-changed")
+      );
+      g.dispatchEvent(new globals.Event("ack-data-changed"));
     }
     return true;
   } catch {

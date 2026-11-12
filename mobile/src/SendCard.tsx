@@ -99,16 +99,7 @@ export function SendCard({
       </div>
 
       {inlineKind && (
-        <div
-          className="send-inline-panel"
-          style={{
-            marginTop: "0.75rem",
-            background: "rgba(255, 255, 255, 0.03)",
-            border: "1px solid var(--app-border, rgba(255, 255, 255, 0.08))",
-            borderRadius: "10px",
-            padding: "10px",
-          }}
-        >
+        <div className="send-inline-panel">
           <div
             style={{
               display: "flex",
@@ -118,10 +109,8 @@ export function SendCard({
             }}
           >
             <span
+              className="send-inline-title"
               style={{
-                fontSize: "0.85rem",
-                fontWeight: 700,
-                color: "var(--app-text, #fff)",
                 display: "flex",
                 alignItems: "center",
                 gap: "6px",
@@ -146,7 +135,7 @@ export function SendCard({
           <textarea
             value={draftText}
             onChange={(e) => setDraftText(e.target.value)}
-            className="mobile-textarea"
+            className="mobile-textarea send-inline-textarea"
             rows={inlineKind === "link" ? 2 : 3}
             placeholder={
               inlineKind === "link"
@@ -155,19 +144,6 @@ export function SendCard({
                 ? "ACK AI'ın bilgisayarında yanıtlamasını veya işlemesini istediğin görevi yaz…"
                 : "Bilgisayarına iletmek istediğin notu veya metni yaz…"
             }
-            style={{
-              width: "100%",
-              borderRadius: "8px",
-              padding: "8px 10px",
-              fontSize: "16px",
-              boxSizing: "border-box",
-              background: "rgba(0, 0, 0, 0.25)",
-              color: "#fff",
-              border: "1px solid rgba(255, 255, 255, 0.12)",
-              resize: "vertical",
-              fontFamily: "inherit",
-              lineHeight: "1.4",
-            }}
             autoComplete="off"
           />
           <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "8px" }}>

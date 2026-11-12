@@ -10,15 +10,7 @@ export type Page =
   | "ai"
   | "subscriptions"
   | "inbox"
-  | "settings"
-  | "workspaces"
-  | "tools"
-  | "qr"
-  | "ip"
-  | "files"
-  | "speed"
-  | "pc"
-  | "archive";
+  | "settings";
 
 const navigationGroups: { label: string; items: { id: Page; label: string; icon: IconName }[] }[] = [
   {

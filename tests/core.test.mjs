@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
+import { webcrypto } from 'node:crypto';
+import { posix } from 'node:path';
+import ts from 'typescript';
+import { IDBFactory } from 'fake-indexeddb';
 import { setupModules } from './helpers.mjs';
 import * as adhanModule from 'adhan';
 
@@ -734,4 +739,1361 @@ test('desktop Notes redesign preserves persistence/shortcuts contract and uses m
   assert.equal(notesCss.includes(':root[data-theme="light"] .main-content .notes-page .notes-layout'), true);
 
   assert.equal(desktopLayoutCss.includes('.notes-layout'), false);
+});
+
+test('desktop mobileRelay parses history/messages safely, sends failed:true on missing key or errors, and App cleans processingAiIds in finally', async () => {
+  const env = setupModules();
+  const relay = env.load('mobileRelay');
+
+  // 1. Parses Worker { prompt, history } JSON string and appends prompt
+  const parsed1 = relay.parseRelayMessages({
+    id: 'q1',
+    prompt: 'Bugün ne var?',
+    history: JSON.stringify([
+      { role: 'user', text: 'Selam' },
+      { role: 'model', text: 'Merhaba!' },
+      { role: 'system', text: 'ignore me' },
+      { role: 'user', text: '   ' },
+    ]),
+    model: 'fast',
+  });
+  assert.deepEqual(plain(parsed1), [
+    { role: 'user', text: 'Selam' },
+    { role: 'model', text: 'Merhaba!' },
+    { role: 'user', text: 'Bugün ne var?' },
+  ]);
+
+  // 2. Malformed history JSON does not throw and preserves prompt
+  const parsed2 = relay.parseRelayMessages({
+    id: 'q2',
+    prompt: 'Tek soru',
+    history: '{broken-json',
+    model: 'fast',
+  });
+  assert.deepEqual(plain(parsed2), [{ role: 'user', text: 'Tek soru' }]);
+
+  // 3. Valid q.messages overrides history; empty/invalid q.messages falls back to prompt
+  const parsed3 = relay.parseRelayMessages({
+    id: 'q3',
+    prompt: 'Yedek soru',
+    messages: [{ role: 'user', text: 'Mesaj 1' }, { role: 'model', text: 'Cevap 1' }],
+  });
+  assert.deepEqual(plain(parsed3), [
+    { role: 'user', text: 'Mesaj 1' },
+    { role: 'model', text: 'Cevap 1' },
+  ]);
+  const parsed4 = relay.parseRelayMessages({
+    id: 'q4',
+    prompt: 'Yedek soru',
+    messages: [{ role: 'system', text: 'bad' }],
+  });
+  assert.deepEqual(plain(parsed4), [{ role: 'user', text: 'Yedek soru' }]);
+
+  // 4. executeRelayQuery handles missing key, valid reply, empty reply, and thrown errors with redaction + failed: true
+  const replies = [];
+  await relay.executeRelayQuery(
+    { id: 'q-nokey', prompt: 'Soru', history: '[]', model: 'fast' },
+    {
+      hasKey: false,
+      collectContext: async () => { throw new Error('Should not collect context'); },
+      sendMessage: async () => { throw new Error('Should not call Gemini'); },
+      sendReply: async (payload) => replies.push(payload),
+    },
+  );
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].id, 'q-nokey');
+  assert.equal(replies[0].failed, true);
+  assert.match(replies[0].reply, /Gemini API anahtarı/);
+
+  let seenModel = null;
+  let seenMessages = null;
+  await relay.executeRelayQuery(
+    { id: 'q-ok', prompt: 'Derslerim?', history: JSON.stringify([{ role: 'user', text: 'Merhaba' }]), model: 'powerful' },
+    {
+      hasKey: true,
+      collectContext: async () => ({ context: [] }),
+      sendMessage: async (msgs, model) => {
+        seenMessages = msgs;
+        seenModel = model;
+        return { text: 'Yanıt ' + 'AIza' + 'SyDummySecretValue123456789012345' };
+      },
+      sendReply: async (payload) => replies.push(payload),
+    },
+  );
+  assert.equal(seenModel, 'powerful');
+  assert.equal(seenMessages.length, 2);
+  assert.equal(replies[1].id, 'q-ok');
+  assert.equal(replies[1].failed, undefined);
+  assert.equal(replies[1].reply.includes('AIza'), false);
+
+  await relay.executeRelayQuery(
+    { id: 'q-empty', prompt: 'Boş', history: '[]', model: 'fast' },
+    {
+      hasKey: true,
+      collectContext: async () => ({ context: [] }),
+      sendMessage: async () => ({ text: '   ' }),
+      sendReply: async (payload) => replies.push(payload),
+    },
+  );
+  assert.equal(replies[2].id, 'q-empty');
+  assert.equal(replies[2].failed, true);
+  assert.ok(replies[2].reply.length > 0);
+
+  await relay.executeRelayQuery(
+    { id: 'q-err', prompt: 'Hata', history: '[]', model: 'fast' },
+    {
+      hasKey: true,
+      collectContext: async () => ({ context: [] }),
+      sendMessage: async () => { throw new Error('Hata ' + 'AIza' + 'SyDummySecretValue123456789012345 ' + 'x'.repeat(1200)); },
+      sendReply: async (payload) => replies.push(payload),
+    },
+  );
+  assert.equal(replies[3].id, 'q-err');
+  assert.equal(replies[3].failed, true);
+  assert.equal(replies[3].reply.includes('AIza'), false);
+  assert.ok(replies[3].reply.length <= 1000);
+
+  // 5. src/App.tsx uses executeRelayQuery / finally cleanup and never sends { error: ... }
+  const appTsx = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  assert.equal(appTsx.includes('executeRelayQuery'), true);
+  assert.equal(/phoneRequest\("ai_reply",\s*\{\s*id:\s*q\.id,\s*error:/.test(appTsx), false);
+  assert.equal((appTsx.match(/finally\s*\{[\s\S]{0,120}processingAiIds\.current\.delete\(/g) || []).length >= 2, true);
+});
+
+test('preferences normalizeStartPage and loadPreferences handle legacy and all 8 modern start pages', () => {
+  const env = setupModules();
+  const prefs = env.load('preferences');
+
+  assert.deepEqual(
+    plain(prefs.START_PAGES),
+    ['home', 'tasks', 'calendar', 'notes', 'projects', 'ai', 'subscriptions', 'inbox'],
+  );
+  assert.deepEqual(plain(prefs.PC_REFRESH_INTERVALS), [2500, 5000, 10000]);
+
+  assert.equal(prefs.normalizeStartPage('tools'), 'projects');
+  assert.equal(prefs.normalizeStartPage('archive'), 'home');
+  assert.equal(prefs.normalizeStartPage('unknown-page'), 'home');
+  assert.equal(prefs.normalizeStartPage(null), 'home');
+
+  for (const page of prefs.START_PAGES) {
+    assert.equal(prefs.normalizeStartPage(page), page);
+    env.storage.setItem(
+      'ack-deck.preferences.v1',
+      JSON.stringify({ startPage: page, pcRefreshMs: 5000, theme: 'dark' }),
+    );
+    assert.equal(prefs.loadPreferences().startPage, page);
+    assert.equal(prefs.loadPreferences().pcRefreshMs, 5000);
+  }
+
+  env.storage.setItem(
+    'ack-deck.preferences.v1',
+    JSON.stringify({ startPage: 'tools', pcRefreshMs: 10000, theme: 'light' }),
+  );
+  assert.deepEqual(plain(prefs.loadPreferences()), {
+    startPage: 'projects',
+    pcRefreshMs: 10000,
+    theme: 'light',
+  });
+
+  env.storage.setItem(
+    'ack-deck.preferences.v1',
+    JSON.stringify({ startPage: 'archive', pcRefreshMs: 9999 }),
+  );
+  assert.deepEqual(plain(prefs.loadPreferences()), {
+    startPage: 'home',
+    pcRefreshMs: 2500,
+    theme: 'dark',
+  });
+});
+
+test('backupStore round-trips modern startPage and 5 new HUB_BACKUP_KEYS while preserving legacy backup compatibility', async () => {
+  const env = setupModules();
+  const backup = env.load('backupStore');
+  const prefs = env.load('preferences');
+  const { DEFAULT_NOTIFICATION_PREFERENCES } = env.load('../shared/notificationPreferences');
+
+  assert.equal(backup.HUB_BACKUP_KEYS.prayerConfig, 'ack-deck.prayer-config.v1');
+  assert.equal(backup.HUB_BACKUP_KEYS.notificationPreferences, 'ack-deck.notification-preferences.v1');
+  assert.equal(backup.HUB_BACKUP_KEYS.displayScale, 'ack-deck.display-scale.v1');
+  assert.equal(backup.HUB_BACKUP_KEYS.weatherCity, 'ack-deck.weather-city.v1');
+  assert.equal(backup.HUB_BACKUP_KEYS.pomodoro, 'ack-deck.pomodoro.v1');
+
+  const desktop = { closeToTray: false, startInTray: false, autoStart: false };
+  const samplePrayerConfig = {
+    city: 'İstanbul',
+    latitude: 41.0082,
+    longitude: 28.9784,
+    notifyAtTime: true,
+    notifyBeforeMinutes: 15,
+  };
+  const sampleNotifPrefs = {
+    ...DEFAULT_NOTIFICATION_PREFERENCES,
+    mobileMaster: false,
+    desktopPomodoro: false,
+  };
+  const sampleDisplayScale = {
+    defaultScale: 110,
+    monitors: { 'name:Built-in': 105 },
+  };
+  const samplePomodoro = {
+    mode: 'pomodoro',
+    timeLeft: 900,
+    completedSessions: 2,
+    autoStartBreaks: true,
+    isRunning: false,
+    endTimeMs: null,
+  };
+
+  env.storage.setItem(
+    'ack-deck.preferences.v1',
+    JSON.stringify({ startPage: 'tasks', pcRefreshMs: 5000, theme: 'light' }),
+  );
+  env.storage.setItem('ack-deck.prayer-config.v1', JSON.stringify(samplePrayerConfig));
+  env.storage.setItem('ack-deck.notification-preferences.v1', JSON.stringify(sampleNotifPrefs));
+  env.storage.setItem('ack-deck.display-scale.v1', JSON.stringify(sampleDisplayScale));
+  env.storage.setItem('ack-deck.weather-city.v1', JSON.stringify('İstanbul'));
+  env.storage.setItem('ack-deck.pomodoro.v1', JSON.stringify(samplePomodoro));
+
+  const created = backup.createBackup(desktop, '2.0.6');
+  assert.equal(created.data.preferences.startPage, 'tasks');
+  assert.equal(created.data.preferences.pcRefreshMs, 5000);
+  assert.deepEqual(plain(created.data.prayerConfig), samplePrayerConfig);
+  assert.deepEqual(plain(created.data.notificationPreferences), sampleNotifPrefs);
+  assert.deepEqual(plain(created.data.displayScale), sampleDisplayScale);
+  assert.equal(created.data.weatherCity, 'İstanbul');
+  assert.deepEqual(plain(created.data.pomodoro), samplePomodoro);
+
+  const parsed = backup.parseBackup(JSON.stringify(created));
+  env.values.clear();
+
+  await backup.restoreBackup(parsed, true, desktop, env.storage, async () => {});
+  assert.deepEqual(plain(prefs.loadPreferences()), {
+    startPage: 'tasks',
+    pcRefreshMs: 5000,
+    theme: 'light',
+  });
+  assert.deepEqual(JSON.parse(env.storage.getItem('ack-deck.prayer-config.v1')), samplePrayerConfig);
+  assert.deepEqual(JSON.parse(env.storage.getItem('ack-deck.notification-preferences.v1')), sampleNotifPrefs);
+  assert.deepEqual(JSON.parse(env.storage.getItem('ack-deck.display-scale.v1')), sampleDisplayScale);
+  assert.equal(JSON.parse(env.storage.getItem('ack-deck.weather-city.v1')), 'İstanbul');
+  assert.deepEqual(JSON.parse(env.storage.getItem('ack-deck.pomodoro.v1')), samplePomodoro);
+
+  // Legacy v1 backup without the 5 new keys, with legacy startPage ("tools" / "archive") and legacy pomodoroHistory
+  const makeLegacyBackup = (startPage) => ({
+    formatVersion: 1,
+    appVersion: '1.9.0',
+    createdAt: '2026-10-01T10:00:00.000Z',
+    data: {
+      tasks: [],
+      projects: [],
+      notes: [],
+      files: [],
+      speedTest: null,
+      archive: [],
+      preferences: { startPage, pcRefreshMs: 2500 },
+      aiModel: 'fast',
+      desktop,
+      pomodoroHistory: { '2026-10-01': 3 },
+    },
+  });
+
+  const legacyToolsParsed = backup.parseBackup(JSON.stringify(makeLegacyBackup('tools')));
+  env.values.clear();
+  env.storage.setItem('ack-deck.weather-city.v1', JSON.stringify('Ankara'));
+  await backup.restoreBackup(legacyToolsParsed, true, desktop, env.storage, async () => {});
+  assert.equal(prefs.loadPreferences().startPage, 'projects');
+  // Unrelated / absent optional keys must remain untouched when omitted from backup
+  assert.equal(JSON.parse(env.storage.getItem('ack-deck.weather-city.v1')), 'Ankara');
+
+  const legacyArchiveParsed = backup.parseBackup(JSON.stringify(makeLegacyBackup('archive')));
+  await backup.restoreBackup(legacyArchiveParsed, true, desktop, env.storage, async () => {});
+  assert.equal(prefs.loadPreferences().startPage, 'home');
+
+  // Invalid startPage and invalid shapes for new keys must be rejected
+  const baseValid = plain(created);
+  assert.throws(
+    () => backup.parseBackup(JSON.stringify({
+      ...baseValid,
+      data: { ...baseValid.data, preferences: { startPage: 'unknown-page', pcRefreshMs: 2500, theme: 'dark' } },
+    })),
+    /geçersiz/i,
+  );
+  assert.throws(
+    () => backup.parseBackup(JSON.stringify({
+      ...baseValid,
+      data: { ...baseValid.data, weatherCity: 'Ankara\n' },
+    })),
+    /geçersiz/i,
+  );
+  assert.throws(
+    () => backup.parseBackup(JSON.stringify({
+      ...baseValid,
+      data: { ...baseValid.data, weatherCity: '   ' },
+    })),
+    /geçersiz/i,
+  );
+  assert.throws(
+    () => backup.parseBackup(JSON.stringify({
+      ...baseValid,
+      data: { ...baseValid.data, displayScale: { defaultScale: 120, monitors: {} } },
+    })),
+    /geçersiz/i,
+  );
+  assert.throws(
+    () => backup.parseBackup(JSON.stringify({
+      ...baseValid,
+      data: { ...baseValid.data, displayScale: { defaultScale: 100, monitors: { invalidKey: 100 } } },
+    })),
+    /geçersiz/i,
+  );
+  assert.throws(
+    () => backup.parseBackup(JSON.stringify({
+      ...baseValid,
+      data: { ...baseValid.data, prayerConfig: { ...samplePrayerConfig, latitude: 120 } },
+    })),
+    /geçersiz/i,
+  );
+  assert.throws(
+    () => backup.parseBackup(JSON.stringify({
+      ...baseValid,
+      data: { ...baseValid.data, notificationPreferences: { desktopMaster: 'yes' } },
+    })),
+    /geçersiz/i,
+  );
+  assert.throws(
+    () => backup.parseBackup(JSON.stringify({
+      ...baseValid,
+      data: { ...baseValid.data, pomodoro: { ...samplePomodoro, mode: 'focus' } },
+    })),
+    /geçersiz/i,
+  );
+  assert.throws(
+    () => backup.parseBackup(JSON.stringify({
+      ...baseValid,
+      data: { ...baseValid.data, pomodoro: { ...samplePomodoro, timeLeft: -5 } },
+    })),
+    /geçersiz/i,
+  );
+});
+
+test('Settings General tab exposes Başlangıç Sayfası and Sistem Durumu Yenileme Hızı controls', () => {
+  const settingsTsx = readFileSync(new URL('../src/components/Settings.tsx', import.meta.url), 'utf8');
+
+  assert.equal(settingsTsx.includes('Başlangıç Sayfası'), true);
+  assert.equal(settingsTsx.includes('Sistem Durumu Yenileme Hızı'), true);
+  assert.equal(settingsTsx.includes('START_PAGES'), true);
+  assert.equal(settingsTsx.includes('PC_REFRESH_INTERVALS'), true);
+  assert.equal(settingsTsx.includes('2,5 saniye'), true);
+  assert.equal(settingsTsx.includes('5 saniye'), true);
+  assert.equal(settingsTsx.includes('10 saniye'), true);
+  assert.equal(settingsTsx.includes('Aylık Plan'), true);
+  assert.equal(settingsTsx.includes('Gelenler'), true);
+  assert.equal(settingsTsx.includes('Projeler & Araçlar'), true);
+});
+
+test('clampReminderText, pendingReminders, and useReminders clamp >160 Unicode scalar texts and drop empty items across all reminder sources', async () => {
+  const events = [];
+  let cleanup = null;
+  const syncedBatches = [];
+  const env = setupModules([], {
+    adhan: adhanModule,
+    events,
+    react: {
+      useEffect: (effect) => {
+        cleanup = effect();
+      },
+    },
+    invoke: async (command, args) => {
+      if (command === 'sync_task_reminders') {
+        syncedBatches.push(args.reminders);
+        return [];
+      }
+      return null;
+    },
+  });
+
+  const remindersMod = env.load('useReminders');
+
+  // 1. Unit tests for clampReminderText (trim, ASCII, Turkish chars, emoji scalar counting, edge cases)
+  assert.equal(remindersMod.clampReminderText('  Kısa görev  '), 'Kısa görev');
+  assert.equal(remindersMod.clampReminderText('   \t\n  '), '');
+  assert.equal(remindersMod.clampReminderText('Deneme', 0), '');
+  assert.equal(remindersMod.clampReminderText('Deneme', -3), '');
+  assert.equal(remindersMod.clampReminderText('🚀Deneme', 1), '🚀');
+  assert.equal(remindersMod.clampReminderText('a'.repeat(160)), 'a'.repeat(160));
+
+  const longAscii = 'a'.repeat(200);
+  const clampedAscii = remindersMod.clampReminderText(longAscii);
+  assert.equal(Array.from(clampedAscii).length, 160);
+  assert.equal(clampedAscii, 'a'.repeat(159) + '…');
+
+  const longTurkish = 'ğüşiöçĞÜŞİÖÇ'.repeat(20); // 240 scalar chars
+  const clampedTurkish = remindersMod.clampReminderText(longTurkish);
+  assert.equal(Array.from(clampedTurkish).length, 160);
+  assert.equal(clampedTurkish.endsWith('…'), true);
+
+  // Surrogate-pair emojis count as 1 Unicode scalar each (matching Rust .chars().count()), NOT 2 UTF-16 units
+  const exactEmojiBoundary = '📌'.repeat(160); // .length === 320, scalar count === 160
+  assert.equal(remindersMod.clampReminderText(exactEmojiBoundary), exactEmojiBoundary);
+
+  const overEmoji = '🚀'.repeat(180); // .length === 360, scalar count === 180
+  const clampedEmoji = remindersMod.clampReminderText(overEmoji);
+  assert.equal(Array.from(clampedEmoji).length, 160);
+  assert.equal(clampedEmoji, '🚀'.repeat(159) + '…');
+
+  // Trailing whitespace before cut point is trimmed prior to ellipsis
+  assert.equal(remindersMod.clampReminderText('abc   ' + 'x'.repeat(10), 6), 'abc…');
+
+  // 2. pendingReminders clamps >250-char Unicode + emoji task alongside normal task and drops empty-text tasks
+  const future = new Date(Date.now() + 30 * 60 * 1000);
+  const pad = (n) => String(n).padStart(2, '0');
+  const dueDate = `${future.getFullYear()}-${pad(future.getMonth() + 1)}-${pad(future.getDate())}`;
+  const dueTime = `${pad(future.getHours())}:${pad(future.getMinutes())}`;
+  const longTaskText = '  📚Vize_Hazırlık_' + 'ğüşiöç'.repeat(38) + '🚀'.repeat(15) + '  '; // >250 scalar chars
+  const tasks = [
+    { id: 'task-long', text: longTaskText, completed: false, dueDate, dueTime, priority: 'important', reminder: true },
+    { id: 'task-ok', text: 'Kısa normal görev', completed: false, dueDate, dueTime, priority: 'normal', reminder: true },
+    { id: 'task-empty', text: '   ', completed: false, dueDate, dueTime, priority: 'normal', reminder: true },
+  ];
+
+  const pending = remindersMod.pendingReminders(tasks);
+  assert.equal(pending.length, 2);
+  const longPending = pending.find(r => r.id === 'task-long');
+  const okPending = pending.find(r => r.id === 'task-ok');
+  assert.ok(longPending);
+  assert.ok(okPending);
+  assert.equal(Array.from(longPending.text).length, 160);
+  assert.equal(longPending.text.endsWith('…'), true);
+  assert.equal(okPending.text, 'Kısa normal görev');
+
+  // 3. useReminders clamps all reminder sources (tasks, study, prayer, subscriptions) and filters empty items
+  const taskStore = env.load('taskStore');
+  assert.equal(taskStore.saveTasks(tasks, taskStore.loadTasks()), true);
+
+  const studyStore = env.load('studyProgramStore');
+  const studyReminderStore = env.load('studyReminderStore');
+  assert.equal(studyStore.saveStudyPrograms([{
+    ...sampleProgram,
+    id: 'study-long',
+    name: 'Program_' + 'Ö'.repeat(145),
+    startDate: '2020-01-01',
+    endDate: null,
+    sessions: [{ id: 'ses-1', subject: 'Elektronik_2_Çalışma', topic: 'Op-Amp', weekdays: [1, 2, 3, 4, 5, 6, 7], time: '19:00', minutes: 60 }],
+  }]), true);
+  assert.equal(studyReminderStore.saveStudyReminder('study-long', 15), true);
+
+  const subStore = env.load('subscriptionStore');
+  const payDate = new Date(Date.now() + 3 * 86400_000).toISOString().slice(0, 10);
+  assert.equal(subStore.saveSubscriptions([{
+    id: 'sub-long',
+    name: 'Bulut_Abonelik_' + 'Ü'.repeat(140), // 155 chars; + " ödeme hatırlatması" => 172 chars > 160!
+    category: 'Yazılım',
+    amount: 199,
+    currency: 'TRY',
+    cycle: 'monthly',
+    periodDays: 30,
+    nextPayment: payDate,
+    autoRenew: true,
+    status: 'active',
+    website: '',
+    note: '',
+    icon: '',
+    reminderDays: 1,
+    timezone: 'Europe/Istanbul',
+    createdAt: 1,
+    updatedAt: 1,
+  }]), true);
+
+  remindersMod.useReminders(() => {});
+  await new Promise(resolve => setTimeout(resolve, 20));
+  cleanup?.();
+
+  assert.equal(syncedBatches.length >= 1, true);
+  const batch = syncedBatches[syncedBatches.length - 1];
+  assert.equal(batch.some(r => r.id === 'task-long'), true);
+  assert.equal(batch.some(r => r.id === 'task-ok'), true);
+  assert.equal(batch.some(r => r.id === 'task-empty'), false);
+  assert.equal(batch.some(r => r.id === 'subscription:sub-long'), true);
+  assert.equal(batch.some(r => r.id === 'study:study-long:ses-1'), true);
+  assert.equal(batch.every(r => r.text.trim().length > 0 && Array.from(r.text).length <= 160), true);
+  const syncedSub = batch.find(r => r.id === 'subscription:sub-long');
+  assert.equal(Array.from(syncedSub.text).length, 160);
+  assert.equal(syncedSub.text.endsWith('…'), true);
+});
+
+test('backupStore removes runtime palette IPC while preserving legacy paletteShortcut backup and journal compatibility', async () => {
+  const sampleThreads = [
+    { id: 'c1', title: 'Sohbet', createdAt: 100, updatedAt: 200, messages: [{ role: 'user', text: 'Merhaba' }] },
+  ];
+  const mockIndexedDB = {
+    open: () => {
+      const req = {
+        result: {
+          createObjectStore: () => {},
+          transaction: () => {
+            const tx = {
+              objectStore: () => ({
+                getAll: () => ({ result: sampleThreads }),
+                get: () => ({ result: undefined }),
+                delete: () => ({}),
+                put: () => ({}),
+                clear: () => ({}),
+              }),
+              oncomplete: null,
+              onabort: null,
+              onerror: null,
+            };
+            queueMicrotask(() => tx.oncomplete?.());
+            return tx;
+          },
+          close: () => {},
+        },
+        onupgradeneeded: null,
+        onsuccess: null,
+        onerror: null,
+        onblocked: null,
+      };
+      queueMicrotask(() => req.onsuccess?.());
+      return req;
+    },
+  };
+
+  const env = setupModules([], {
+    indexedDB: mockIndexedDB,
+    invoke: async (command) => {
+      if (command.includes('palette')) {
+        throw new Error('Unexpected palette command: ' + command);
+      }
+      if (command === 'get_gemini_models') {
+        return { fast: 'gemini-3.5-flash-lite', powerful: 'gemini-3.8-flash' };
+      }
+      return undefined;
+    },
+  });
+
+  const backup = env.load('backupStore');
+  const tasks = env.load('taskStore');
+  const desktop = { closeToTray: false, startInTray: false, autoStart: false };
+  assert.equal(tasks.saveTasks([{ id: 't1', text: 'Palet testi', completed: false, priority: 'normal', reminder: false }], tasks.loadTasks()), true);
+
+  const basic = backup.createBackup(desktop, '2.0.6');
+  assert.equal('paletteShortcut' in basic.data, false);
+  assert.equal('paletteRegistered' in basic.data, false);
+
+  const full = await backup.createFullBackup(desktop, '2.0.6');
+  assert.equal('paletteShortcut' in full.data, false);
+  assert.equal('paletteRegistered' in full.data, false);
+  assert.equal(env.calls.some(c => c.command.includes('palette')), false);
+  assert.equal(env.calls.some(c => c.command === 'get_gemini_models'), true);
+
+  const legacyWithPalette = {
+    formatVersion: 1,
+    appVersion: '2.0.0',
+    createdAt: '2026-10-15T10:00:00.000Z',
+    data: {
+      tasks: [{ id: 'legacy-t1', text: 'Eski yedek görevi', completed: false, priority: 'normal', reminder: false }],
+      projects: [],
+      notes: [],
+      files: [],
+      speedTest: null,
+      archive: [],
+      preferences: { startPage: 'home', pcRefreshMs: 2500 },
+      aiModel: 'fast',
+      desktop,
+      paletteShortcut: 'Ctrl+Space',
+    },
+  };
+
+  const legacyParsed = backup.parseBackup(JSON.stringify(legacyWithPalette));
+  const legacyNullParsed = backup.parseBackup(JSON.stringify({
+    ...legacyWithPalette,
+    data: { ...legacyWithPalette.data, paletteShortcut: null },
+  }));
+  assert.equal(legacyNullParsed.formatVersion, 1);
+
+  const nativeCalls = [];
+  const strictNative = async (command, args) => {
+    nativeCalls.push({ command, args });
+    if (command.includes('palette')) {
+      throw new Error('Unexpected palette native command: ' + command);
+    }
+    return undefined;
+  };
+
+  env.values.clear();
+  await backup.restoreBackup(legacyParsed, true, desktop, env.storage, strictNative);
+  assert.equal(nativeCalls.some(c => c.command.includes('palette')), false);
+  assert.equal(tasks.loadTasks().entries.length, 1);
+  assert.equal(tasks.loadTasks().entries[0].id, 'legacy-t1');
+  assert.equal(env.storage.getItem('ack-deck.restore-journal.v1'), null);
+
+  // Legacy pending restore journal carrying paletteShortcut & paletteRegistered must recover cleanly without palette IPC
+  const snapshot = Object.fromEntries(
+    Object.values(backup.BACKUP_KEYS).map(k => [k, k === backup.BACKUP_KEYS.tasks ? '[]' : null]),
+  );
+  env.storage.setItem(
+    'ack-deck.restore-journal.v1',
+    JSON.stringify({
+      formatVersion: 1,
+      snapshot,
+      desktop,
+      paletteShortcut: 'Ctrl+Alt+Space',
+      paletteRegistered: false,
+    }),
+  );
+
+  nativeCalls.length = 0;
+  await backup.recoverPendingRestore(env.storage, strictNative);
+  assert.equal(nativeCalls.some(c => c.command.includes('palette')), false);
+  assert.equal(tasks.loadTasks().entries.length, 0);
+  assert.equal(env.storage.getItem('ack-deck.restore-journal.v1'), null);
+});
+
+test('hubLaunch.openRegisteredProject and ackActions work standalone after dead palette modules are removed', async () => {
+  const deadFiles = [
+    '../src/commandPalette.ts',
+    '../src/paletteActions.ts',
+    '../src/paletteRows.ts',
+    '../src/usePaletteBridge.ts',
+    '../src/components/LauncherPalette.tsx',
+    '../src/components/PaletteWindow.tsx',
+    '../src-tauri/src/palette.rs',
+    '../src-tauri/capabilities/palette.json',
+  ];
+  for (const rel of deadFiles) {
+    assert.equal(existsSync(new URL(rel, import.meta.url)), false, `Dead palette file still exists: ${rel}`);
+  }
+
+  const launched = [];
+  const env = setupModules([
+    ['ack-deck.projects.v1', JSON.stringify([
+      { id: 'proj-1', name: 'ACKDeck', description: 'Ana proje', folderPath: 'C:\\Projects\\ack-deck' },
+    ])],
+  ]);
+  const hubLaunch = env.load('hubLaunch');
+  const actions = env.load('ackActions');
+
+  assert.equal(typeof hubLaunch.openRegisteredProject, 'function');
+  assert.equal(typeof hubLaunch.launchProject, 'function');
+
+  const mockNative = async (command, args) => {
+    launched.push({ command, args });
+  };
+
+  await hubLaunch.openRegisteredProject('proj-1', 'folder', mockNative);
+  await hubLaunch.openRegisteredProject('proj-1', 'vscode', mockNative);
+  assert.deepEqual(plain(launched), [
+    { command: 'open_project_folder', args: { path: 'C:\\Projects\\ack-deck' } },
+    { command: 'open_project_in_vscode', args: { path: 'C:\\Projects\\ack-deck' } },
+  ]);
+
+  await assert.rejects(() => hubLaunch.openRegisteredProject('proj-1', 'terminal', mockNative), /Proje işlemi geçersiz/);
+  await assert.rejects(() => hubLaunch.openRegisteredProject('missing', 'folder', mockNative), /Kayıtlı proje klasörü bulunamadı/);
+  await assert.rejects(
+    () => hubLaunch.openRegisteredProject('proj-1', 'folder', async () => { throw new Error('boom'); }),
+    /Proje açılamadı/,
+  );
+
+  const actionResult = await actions.executeAckAction(
+    { type: 'open_project', projectId: 'proj-1', mode: 'vscode' },
+    true,
+    mockNative,
+  );
+  assert.equal(actionResult, "Kayıtlı proje VS Code'da açıldı.");
+  assert.equal(launched[2].command, 'open_project_in_vscode');
+});
+
+function createTask8Vm(options = {}) {
+  const values = new Map(options.initial ?? []);
+  const modules = {};
+  const events = options.events ?? [];
+  const listeners = new Map();
+  const intervals = [];
+  const timeouts = [];
+  const warnings = [];
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => { values.set(key, value); },
+    removeItem: (key) => values.delete(key),
+  };
+  const windowObj = {
+    localStorage: storage,
+    ...(options.windowFetch ? { fetch: options.windowFetch } : {}),
+    addEventListener: (type, fn) => {
+      if (!listeners.has(type)) listeners.set(type, new Set());
+      listeners.get(type).add(fn);
+    },
+    removeEventListener: (type, fn) => {
+      listeners.get(type)?.delete(fn);
+    },
+    dispatchEvent: (event) => {
+      events.push(event);
+      for (const fn of listeners.get(event.type) ?? []) fn(event);
+      return true;
+    },
+  };
+  let nextTimerId = 1;
+  function load(name) {
+    if (modules[name]) return modules[name];
+    const exports = {};
+    modules[name] = exports;
+    const source = ts.transpileModule(
+      readFileSync(new URL('../src/' + name + '.ts', import.meta.url), 'utf8'),
+      { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } },
+    ).outputText;
+    const context = {
+      exports,
+      require: (id) => {
+        if (id === 'adhan') return adhanModule;
+        if (id === 'react' && options.react) return options.react;
+        if (id === '@tauri-apps/api/core') return { invoke: options.invoke, isTauri: () => Boolean(options.tauri) };
+        if (id === '@tauri-apps/api/app') return { getVersion: options.getVersion };
+        if (id === '@tauri-apps/api/event') return { listen: async () => () => {} };
+        return load(posix.normalize(posix.join(posix.dirname(name), id)));
+      },
+      crypto: webcrypto,
+      URL,
+      TextEncoder,
+      structuredClone,
+      indexedDB: options.indexedDB ?? new IDBFactory(),
+      localStorage: storage,
+      window: windowObj,
+      document: options.document ?? { visibilityState: 'visible' },
+      console: { warn: (...args) => warnings.push(args), error: (...args) => warnings.push(args), log: () => {} },
+      Event,
+      CustomEvent,
+      Date,
+      setTimeout: (fn, ms) => {
+        const id = nextTimerId++;
+        timeouts.push({ id, fn, ms, cleared: false });
+        return id;
+      },
+      clearTimeout: (id) => {
+        const t = timeouts.find((x) => x.id === id);
+        if (t) t.cleared = true;
+      },
+      setInterval: (fn, ms) => {
+        const id = nextTimerId++;
+        intervals.push({ id, fn, ms, cleared: false });
+        return id;
+      },
+      clearInterval: (id) => {
+        const i = intervals.find((x) => x.id === id);
+        if (i) i.cleared = true;
+      },
+      ...(options.hasFetch ? { fetch: options.fetch } : {}),
+    };
+    runInNewContext(source, context);
+    return exports;
+  }
+  return { values, storage, window: windowObj, events, listeners, intervals, timeouts, warnings, load };
+}
+
+test('shared/dormMenu removes Tauri/CSP leaks, supports registerNativeDormFetcher and falls back to Worker cleanly', async () => {
+  const dormSrc = readFileSync(new URL('../shared/dormMenu.ts', import.meta.url), 'utf8');
+  assert.equal(dormSrc.includes('@tauri-apps/api/core'), false);
+  assert.equal(dormSrc.includes('altinkalemkarabuk.com'), false);
+  assert.equal(dormSrc.includes('__TAURI_INTERNALS__'), false);
+
+  const cardSrc = readFileSync(new URL('../src/components/DormMenuCard.tsx', import.meta.url), 'utf8');
+  const reminderSrc = readFileSync(new URL('../src/useDormMealReminder.ts', import.meta.url), 'utf8');
+  assert.equal(cardSrc.includes('ensureDesktopDormFetcher'), true);
+  assert.equal(reminderSrc.includes('ensureDesktopDormFetcher'), true);
+
+  const fetchedUrls = [];
+  const vm1 = createTask8Vm({
+    hasFetch: true,
+    fetch: async (url) => {
+      fetchedUrls.push(url);
+      if (url.startsWith('/api/dorm-menu')) {
+        return {
+          ok: true,
+          json: async () => ({
+            records: [{ id: 'w1', tarih: '2026-11-12', kahvalti: 'Peynir', aksam: 'Worker Çorba', yayinda: true }],
+          }),
+        };
+      }
+      return { ok: false, json: async () => ({}) };
+    },
+  });
+  const dorm1 = vm1.load('../shared/dormMenu');
+  assert.equal(typeof dorm1.registerNativeDormFetcher, 'function');
+
+  let nativeCalls = 0;
+  dorm1.registerNativeDormFetcher(async () => {
+    nativeCalls += 1;
+    return JSON.stringify({
+      records: [{ id: 'n1', tarih: '2026-11-12', kahvalti: 'Zeytin', aksam: 'Native Kebap', yayinda: true }],
+    });
+  });
+  const nativeRes = await dorm1.fetchDormMenu(true);
+  assert.equal(nativeCalls, 1);
+  assert.equal(nativeRes[0].aksam, 'Native Kebap');
+  assert.equal(fetchedUrls.length, 0);
+
+  // Without native fetcher, falls back to Worker /api/dorm-menu?force=1 first
+  dorm1.registerNativeDormFetcher(null);
+  const workerLocalRes = await dorm1.fetchDormMenu(true);
+  assert.equal(fetchedUrls[0], '/api/dorm-menu?force=1');
+  assert.equal(workerLocalRes[0].aksam, 'Worker Çorba');
+
+  // If /api/dorm-menu fails, falls back to workers.dev Worker URL without throwing
+  fetchedUrls.length = 0;
+  const vm2 = createTask8Vm({
+    hasFetch: true,
+    fetch: async (url) => {
+      fetchedUrls.push(url);
+      if (url.startsWith('https://ack-deck-phone.ack-deck-cloud.workers.dev/api/dorm-menu')) {
+        return {
+          ok: true,
+          json: async () => ({
+            records: [{ id: 'w2', tarih: '2026-11-12', kahvalti: '', aksam: 'Workers.dev Pilav', yayinda: true }],
+          }),
+        };
+      }
+      return { ok: false, json: async () => ({}) };
+    },
+  });
+  const dorm2 = vm2.load('../shared/dormMenu');
+  const workerRemoteRes = await dorm2.fetchDormMenu(true);
+  assert.deepEqual(fetchedUrls, [
+    '/api/dorm-menu?force=1',
+    'https://ack-deck-phone.ack-deck-cloud.workers.dev/api/dorm-menu?force=1',
+  ]);
+  assert.equal(workerRemoteRes[0].aksam, 'Workers.dev Pilav');
+
+  // Non-Tauri environment without fetch never throws
+  const vmNoFetch = createTask8Vm({ hasFetch: false });
+  const dormNoFetch = vmNoFetch.load('../shared/dormMenu');
+  const emptyRes = await dormNoFetch.fetchDormMenu(true);
+  assert.deepEqual(plain(emptyRes), []);
+
+  // Desktop registration helper wires invoke("fetch_dorm_menu") idempotently
+  let desktopInvokeCount = 0;
+  const vmDesktop = createTask8Vm({
+    tauri: true,
+    invoke: async (cmd) => {
+      if (cmd === 'fetch_dorm_menu') {
+        desktopInvokeCount += 1;
+        return JSON.stringify({
+          records: [{ id: 'd1', tarih: '2026-11-12', kahvalti: '', aksam: 'Desktop Menü', yayinda: true }],
+        });
+      }
+      return null;
+    },
+  });
+  const desktopDorm = vmDesktop.load('dormMenuDesktop');
+  const dormShared = vmDesktop.load('../shared/dormMenu');
+  desktopDorm.ensureDesktopDormFetcher();
+  desktopDorm.ensureDesktopDormFetcher();
+  const desktopRes = await dormShared.fetchDormMenu(true);
+  assert.equal(desktopInvokeCount, 1);
+  assert.equal(desktopRes[0].aksam, 'Desktop Menü');
+
+  // Strict-mode browser/WebView2 check: window.fetch requires `this === window` (WebIDL receiver brand check)
+  const vmBrand = createTask8Vm({
+    hasFetch: false,
+    windowFetch: async function (url) {
+      if (this !== vmBrand.window) {
+        throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation");
+      }
+      if (url.startsWith('/api/dorm-menu')) {
+        return {
+          ok: true,
+          json: async () => ({
+            records: [{ id: 'wb1', tarih: '2026-11-12', kahvalti: 'Simit', aksam: 'Brand Çorba', yayinda: true }],
+          }),
+        };
+      }
+      return { ok: false, json: async () => ({}) };
+    },
+  });
+  const dormBrand = vmBrand.load('../shared/dormMenu');
+  const brandRes = await dormBrand.fetchDormMenu(true);
+  assert.equal(brandRes.length, 1);
+  assert.equal(brandRes[0].aksam, 'Brand Çorba');
+});
+
+test('phoneSync snapshots once per sync page rather than once per incoming record and keeps multi-page state accurate', async () => {
+  const env = setupModules();
+  const phoneSync = env.load('phoneSync');
+  const taskStore = env.load('taskStore');
+
+  const origGetItem = env.storage.getItem;
+  const getItemCounts = new Map();
+  env.storage.getItem = (k) => {
+    getItemCounts.set(k, (getItemCounts.get(k) ?? 0) + 1);
+    return origGetItem(k);
+  };
+
+  const makeCloudTask = (id, text, version, deleted = false) => ({
+    kind: 'tasks',
+    id,
+    version,
+    deleted,
+    updatedAt: version * 1000,
+    data: deleted
+      ? null
+      : {
+          text,
+          completed: false,
+          dueDate: null,
+          dueTime: null,
+          priority: 'normal',
+          reminder: false,
+          dueAt: null,
+          timezone: 'Europe/Istanbul',
+        },
+  });
+
+  const page1 = [
+    makeCloudTask('sync-t1', 'Görev 1', 1),
+    makeCloudTask('sync-t2', 'Görev 2', 1),
+    makeCloudTask('sync-t3', 'Görev 3', 1),
+    makeCloudTask('sync-t4', 'Görev 4', 1),
+  ];
+
+  const mockRequest = async (op, body) => {
+    if (op === 'sync') {
+      if (body.cursor === 0) return { records: page1, cursor: 4, more: false };
+      return { records: [], cursor: body.cursor, more: false };
+    }
+    return { ok: true };
+  };
+
+  await phoneSync.synchronizePhone(mockRequest);
+  // snapshot() reads ack-deck.notes.v1 once at sync start + once for the 4-record page = 2 (NOT 1 + 4 = 5)
+  assert.equal(getItemCounts.get('ack-deck.notes.v1'), 2);
+  assert.equal(taskStore.loadTasks().entries.length, 4);
+
+  // Subsequent 2-page sync updating and deleting records keeps localRecords consistent (1 initial + 2 pages = 3 snapshots)
+  getItemCounts.clear();
+  const pagedRequest = async (op, body) => {
+    if (op === 'sync') {
+      if (body.cursor === 4) {
+        return {
+          records: [
+            makeCloudTask('sync-t1', 'Görev 1 Güncel', 2),
+            makeCloudTask('sync-t2', '', 2, true),
+            makeCloudTask('sync-t5', 'Görev 5', 2),
+          ],
+          cursor: 7,
+          more: true,
+        };
+      }
+      if (body.cursor === 7) {
+        return {
+          records: [
+            makeCloudTask('sync-t5', 'Görev 5 Revize', 3),
+            makeCloudTask('sync-t6', 'Görev 6', 3),
+            makeCloudTask('sync-t7', 'Görev 7', 3),
+          ],
+          cursor: 10,
+          more: false,
+        };
+      }
+    }
+    return { ok: true };
+  };
+
+  const finalState = await phoneSync.synchronizePhone(pagedRequest);
+  assert.equal(getItemCounts.get('ack-deck.notes.v1'), 3);
+  assert.equal(finalState.conflicts.length, 0);
+  const tasks = taskStore.loadTasks().entries;
+  assert.equal(tasks.find((t) => t.id === 'sync-t1')?.text, 'Görev 1 Güncel');
+  assert.equal(tasks.some((t) => t.id === 'sync-t2'), false);
+  assert.equal(tasks.find((t) => t.id === 'sync-t5')?.text, 'Görev 5 Revize');
+  assert.equal(tasks.length, 6);
+});
+
+test('usePhoneCompanion keeps heartbeat online while hidden/minimized and sends offline only on forceOffline or pause', async () => {
+  const heartbeats = [];
+  let cleanup = null;
+  const vm = createTask8Vm({
+    document: { visibilityState: 'hidden' },
+    react: {
+      useEffect: (fn) => {
+        cleanup = fn();
+      },
+    },
+    invoke: async (cmd, args) => {
+      if (cmd === 'phone_status') {
+        return { enabled: true, configured: true, url: 'https://my-custom.workers.dev' };
+      }
+      if (cmd === 'phone_request') {
+        if (args.operation === 'heartbeat') heartbeats.push(args.body);
+        if (args.operation === 'commands') return { commands: [] };
+        if (args.operation === 'inbox') return { items: [] };
+        if (args.operation === 'sync') return { records: [], cursor: 0, more: false };
+        return { ok: true };
+      }
+      return null;
+    },
+  });
+
+  const companion = vm.load('usePhoneCompanion');
+  // visible=false + document.visibilityState==='hidden' must STILL stay online and schedule 20s heartbeatTimer
+  companion.usePhoneCompanion(false, () => {}, false);
+  await new Promise((r) => setTimeout(r, 20));
+
+  assert.ok(heartbeats.length >= 1, 'Expected initial online heartbeat when hidden');
+  assert.equal(heartbeats.every((hb) => hb.offline !== true), true);
+
+  const hbInterval = vm.intervals.find((i) => i.ms === 20000 && !i.cleared);
+  assert.ok(hbInterval, 'Expected 20s heartbeatTimer to remain active while !visible');
+
+  const countBeforeTick = heartbeats.length;
+  hbInterval.fn();
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(heartbeats.length, countBeforeTick + 1);
+  assert.equal(heartbeats.at(-1).offline !== true, true);
+
+  // beforeunload triggers forceOffline
+  for (const fn of vm.listeners.get('beforeunload') ?? []) fn();
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(heartbeats.at(-1).offline, true);
+  cleanup?.();
+
+  // When paused=true (restore-lock), NO online heartbeat or 20s interval is scheduled
+  heartbeats.length = 0;
+  vm.intervals.length = 0;
+  companion.usePhoneCompanion(true, () => {}, false);
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(heartbeats.some((hb) => hb.offline !== true), false);
+  assert.equal(vm.intervals.some((i) => i.ms === 20000 && !i.cleared), false);
+});
+
+test('useAutoBackup resolves dynamic app version via getVersion and dispatches ack-auto-backup-failed on errors', async () => {
+  const savedPayloads = [];
+  let shouldFailSave = false;
+  let versionOverride = '2.0.9';
+  let versionShouldFail = false;
+
+  const createEnv = () =>
+    createTask8Vm({
+      tauri: true,
+      react: {
+        useEffect: (fn) => fn(),
+        useRef: (init) => ({ current: init }),
+      },
+      getVersion: async () => {
+        if (versionShouldFail) throw new Error('version unavailable');
+        return versionOverride;
+      },
+      invoke: async (cmd, args) => {
+        if (cmd === 'desktop_status') throw new Error('desktop_status failed');
+        if (cmd === 'get_gemini_models') return { fast: 'gemini-3.5-flash-lite', powerful: 'gemini-3.8-flash' };
+        if (cmd === 'save_auto_backup') {
+          if (shouldFailSave) throw new Error('Disk dolu');
+          savedPayloads.push(JSON.parse(args.content));
+          return 'ACKDeck-AutoBackup-100.zip';
+        }
+        return null;
+      },
+    });
+
+  // 1. Dynamic version from getVersion() used instead of hardcoded 1.7.0
+  const vm1 = createEnv();
+  vm1.load('useAutoBackup').useAutoBackup();
+  const timer1 = vm1.timeouts.find((t) => t.ms === 15000);
+  assert.ok(timer1);
+  await timer1.fn();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(savedPayloads.length, 1);
+  assert.equal(savedPayloads[0].appVersion, '2.0.9');
+  assert.equal(vm1.events.some((e) => e.type === 'ack-auto-backup-completed'), true);
+
+  // 2. When getVersion() also fails, fallback is 2.0.6 (never 1.7.0)
+  savedPayloads.length = 0;
+  versionShouldFail = true;
+  const vm2 = createEnv();
+  vm2.load('useAutoBackup').useAutoBackup();
+  const timer2 = vm2.timeouts.find((t) => t.ms === 15000);
+  await timer2.fn();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(savedPayloads.length, 1);
+  assert.equal(savedPayloads[0].appVersion, '2.0.6');
+
+  // 3. Failure keeps console.warn and dispatches ack-auto-backup-failed with detail.message
+  shouldFailSave = true;
+  const vm3 = createEnv();
+  vm3.load('useAutoBackup').useAutoBackup();
+  const timer3 = vm3.timeouts.find((t) => t.ms === 15000);
+  await timer3.fn();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(vm3.warnings.length >= 1, true);
+  const failEvent = vm3.events.find((e) => e.type === 'ack-auto-backup-failed');
+  assert.ok(failEvent, 'Expected ack-auto-backup-failed CustomEvent');
+  assert.match(failEvent.detail?.message ?? '', /Disk dolu/);
+});
+
+test('Task 9 Part A: NotificationSettings and DisplayScaleControls use modular semantic CSS tokens with zero hardcoded dark inline colors', () => {
+  const cssPath = new URL('../src/components/notificationSettings.css', import.meta.url);
+  assert.equal(existsSync(cssPath), true, 'Expected src/components/notificationSettings.css to exist');
+  const cssSrc = readFileSync(cssPath, 'utf8');
+  assert.match(cssSrc, /:root\[data-theme="light"\]/);
+  assert.match(cssSrc, /var\(--app-text\)/);
+  assert.match(cssSrc, /var\(--app-muted\)/);
+  assert.match(cssSrc, /var\(--app-border\)/);
+
+  const notifSrc = readFileSync(new URL('../src/components/NotificationSettings.tsx', import.meta.url), 'utf8');
+  assert.match(notifSrc, /import\s+["']\.\/notificationSettings\.css["']/);
+  for (const rel of [
+    '../src/components/NotificationSettings.tsx',
+    '../src/components/NotificationChannelGroup.tsx',
+    '../src/components/NotificationDevicesCard.tsx',
+  ]) {
+    const src = readFileSync(new URL(rel, import.meta.url), 'utf8');
+    assert.doesNotMatch(
+      src,
+      /#(f1f5f9|a0b2c6|94a3b8|becbd8|e2e8f0|f8fafc|7ed492|60a5fa|fca5a5|4ade80|f87171|93c5fd)\b/i,
+      `${rel} still contains hardcoded dark-theme inline hex color`,
+    );
+    assert.doesNotMatch(src, /rgba\(\s*255,\s*255,\s*255,\s*0\.0/, `${rel} still contains dark-theme white rgba`);
+    assert.doesNotMatch(src, /rgba\(\s*15,\s*23,\s*42,\s*0\.4/, `${rel} still contains dark-theme slate rgba`);
+  }
+
+  const scaleSrc = readFileSync(new URL('../src/components/DisplayScaleControls.tsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(scaleSrc, /#94a3b8\b/i);
+});
+
+test('Task 9 Part C: normalizeRoute maps legacy desktop routes cleanly and Sidebar/App drop dead pc/archive views', () => {
+  const navSrc = readFileSync(new URL('../src/navigation.ts', import.meta.url), 'utf8');
+  const navExports = {};
+  runInNewContext(
+    ts.transpileModule(navSrc, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    }).outputText,
+    { exports: navExports },
+  );
+
+  assert.equal(typeof navExports.normalizeRoute, 'function', 'Expected normalizeRoute export from src/navigation.ts');
+  assert.deepEqual(plain(navExports.normalizeRoute({ page: 'pc' })), { page: 'home' });
+  assert.deepEqual(plain(navExports.normalizeRoute({ page: 'archive' })), { page: 'home' });
+  assert.deepEqual(plain(navExports.normalizeRoute({ page: 'archive', id: 'a-1' })), { page: 'home', id: 'a-1' });
+  assert.deepEqual(plain(navExports.normalizeRoute({ page: 'projects' })), { page: 'projects', tool: 'speed' });
+  assert.deepEqual(plain(navExports.normalizeRoute({ page: 'projects', tool: 'ip', id: 'p-1' })), { page: 'projects', tool: 'ip', id: 'p-1' });
+  assert.deepEqual(plain(navExports.normalizeRoute({ page: 'workspaces', id: 'w-1' })), { page: 'projects', tool: 'speed', id: 'w-1' });
+  assert.deepEqual(plain(navExports.normalizeRoute({ page: 'tools' })), { page: 'projects', tool: 'speed' });
+  assert.deepEqual(plain(navExports.normalizeRoute({ page: 'speed', intent: 'start-speed' })), { page: 'projects', tool: 'speed', intent: 'start-speed' });
+  assert.deepEqual(plain(navExports.normalizeRoute({ page: 'qr' })), { page: 'projects', tool: 'qr' });
+  assert.deepEqual(plain(navExports.normalizeRoute({ page: 'ip' })), { page: 'projects', tool: 'ip' });
+  assert.deepEqual(plain(navExports.normalizeRoute({ page: 'files', id: 'f-1' })), { page: 'projects', tool: 'converter', id: 'f-1' });
+  assert.deepEqual(plain(navExports.normalizeRoute({ page: 'tasks', id: 't-1', intent: 'new-task' })), { page: 'tasks', id: 't-1', intent: 'new-task' });
+  assert.deepEqual(plain(navExports.normalizeRoute({ page: 'unknown-legacy' })), { page: 'home' });
+  assert.deepEqual(plain(navExports.normalizeRoute({ page: 'constructor' })), { page: 'home' });
+  assert.deepEqual(plain(navExports.normalizeRoute({ page: 'toString' })), { page: 'home' });
+
+  const sidebarSrc = readFileSync(new URL('../src/components/Sidebar.tsx', import.meta.url), 'utf8');
+  const pageTypeMatch = sidebarSrc.match(/export type Page\s*=([\s\S]*?);/);
+  assert.ok(pageTypeMatch, 'Expected export type Page in Sidebar.tsx');
+  for (const legacy of ['"pc"', '"archive"', '"workspaces"', '"tools"', '"qr"', '"ip"', '"files"', '"speed"']) {
+    assert.equal(pageTypeMatch[1].includes(legacy), false, `Sidebar Page union must not contain legacy route ${legacy}`);
+  }
+
+  const appSrc = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  assert.match(appSrc, /normalizeRoute/);
+  const pageViewsMatch = appSrc.match(/const pageViews:\s*Record<Page,\s*ReactNode>\s*=\s*\{([\s\S]*?)\};/);
+  assert.ok(pageViewsMatch, 'Expected pageViews map in App.tsx');
+  for (const key of ['pc:', 'archive:', 'workspaces:', 'tools:', 'qr:', 'ip:', 'files:', 'speed:']) {
+    assert.equal(pageViewsMatch[1].includes(key), false, `pageViews must not contain dead key ${key}`);
+  }
+  assert.equal(appSrc.includes('["qr", "ip", "speed", "tools", "workspaces", "files"]'), false);
+});
+
+test('Task 10 Fix Round 1: MediaFormModal suppresses initial lookup across StrictMode double-effect and does not swallow edits after identical-title candidate', async () => {
+  const modalSrc = readFileSync(new URL('../src/components/MediaFormModal.tsx', import.meta.url), 'utf8');
+  const compiled = ts.transpileModule(modalSrc, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+      jsx: ts.JsxEmit.React,
+      jsxFactory: 'h',
+      jsxFragmentFactory: 'fragment',
+    },
+  }).outputText;
+
+  function mountModal(initialEditor, initialSuppressLookup) {
+    const states = [];
+    const refs = [];
+    const effects = [];
+    const cleanups = [];
+    const pendingTimers = new Map();
+    let timerId = 1;
+    let stateIdx = 0;
+    let refIdx = 0;
+    let effectIdx = 0;
+    let currentEditor = initialEditor;
+    const lookupCalls = [];
+
+    const hooks = {
+      useState(init) {
+        const slot = stateIdx++;
+        if (!(slot in states)) states[slot] = typeof init === 'function' ? init() : init;
+        return [states[slot], (next) => { states[slot] = typeof next === 'function' ? next(states[slot]) : next; }];
+      },
+      useRef(init) {
+        const slot = refIdx++;
+        if (!(slot in refs)) refs[slot] = { current: init };
+        return refs[slot];
+      },
+      useEffect(fn, deps) {
+        const slot = effectIdx++;
+        const prev = effects[slot];
+        const changed = !prev || !deps || deps.some((d, i) => d !== prev.deps[i]);
+        effects[slot] = { fn, deps, changed };
+      },
+    };
+
+    const exports = {};
+    const h = (type, props, ...children) => ({ type, props: props ?? {}, children });
+    const fakeWindow = {
+      setTimeout(fn) {
+        const id = timerId++;
+        pendingTimers.set(id, fn);
+        return id;
+      },
+      clearTimeout(id) {
+        pendingTimers.delete(id);
+      },
+    };
+
+    runInNewContext(compiled, {
+      exports,
+      h,
+      fragment: 'fragment',
+      window: fakeWindow,
+      AbortController,
+      Date,
+      Promise,
+      require: (id) => {
+        if (id === 'react') return hooks;
+        if (id === '../../shared/media') {
+          return {
+            MEDIA_TYPE_ICONS: { movie: '🎬', series: '📺', book: '📚', game: '🎮' },
+            MEDIA_TYPE_LABELS: { movie: 'Film', series: 'Dizi', book: 'Kitap', game: 'Oyun' },
+          };
+        }
+        if (id === '../../shared/mediaSearch') {
+          return {
+            searchMediaCatalog: async (type, q) => {
+              lookupCalls.push({ type, q });
+              return [{ title: 'Dune', suggestedType: 'movie', year: '2021', creator: 'Denis Villeneuve' }];
+            },
+            fetchMediaRating: async () => null,
+          };
+        }
+        if (id === './MediaPoster') return { MediaPoster: () => null };
+        throw new Error('Unexpected import: ' + id);
+      },
+    });
+
+    const runEffects = (strictDouble = false) => {
+      for (let i = 0; i < effects.length; i++) {
+        if (!effects[i].changed) continue;
+        cleanups[i]?.();
+        cleanups[i] = effects[i].fn();
+        if (strictDouble) {
+          cleanups[i]?.();
+          cleanups[i] = effects[i].fn();
+        }
+      }
+    };
+
+    const render = (strictDouble = false) => {
+      stateIdx = 0;
+      refIdx = 0;
+      effectIdx = 0;
+      const tree = exports.MediaFormModal({
+        editor: currentEditor,
+        isEditingExisting: initialSuppressLookup,
+        initialSuppressLookup,
+        onChangeEditor: (updater) => {
+          currentEditor = typeof updater === 'function' ? updater(currentEditor) : updater;
+        },
+        onClose: () => {},
+        onSave: () => {},
+      });
+      runEffects(strictDouble);
+      return tree;
+    };
+
+    const flushTimers = async () => {
+      for (const [id, fn] of [...pendingTimers.entries()]) {
+        pendingTimers.delete(id);
+        fn();
+      }
+      await new Promise((r) => setImmediate(r));
+    };
+
+    return {
+      render,
+      flushTimers,
+      lookupCalls,
+      setEditorTitle: (title) => { currentEditor = { ...currentEditor, title }; },
+      setEditorType: (type) => { currentEditor = { ...currentEditor, type }; },
+    };
+  }
+
+  // 1. StrictMode double-effect on initial edit keeps lookup suppressed; changing title clears suppression
+  const m1 = mountModal({ id: 'm1', type: 'movie', title: 'Interstellar', status: 'completed', createdAt: 1, updatedAt: 1 }, true);
+  m1.render(true);
+  await m1.flushTimers();
+  assert.equal(m1.lookupCalls.length, 0, 'StrictMode double-effect must not fire initial lookup when suppressed');
+  m1.setEditorTitle('Interstellar 2');
+  m1.render(false);
+  await m1.flushTimers();
+  assert.deepEqual(m1.lookupCalls, [{ type: 'movie', q: 'Interstellar 2' }]);
+
+  // 2. Selecting candidate with identical type+title must not swallow subsequent user edit
+  const m2 = mountModal({ id: 'm2', type: 'movie', title: 'Dune', status: 'planned', createdAt: 1, updatedAt: 1 }, false);
+  m2.render(false);
+  await m2.flushTimers();
+  const tree2 = m2.render(false);
+  assert.equal(m2.lookupCalls.length, 1);
+
+  const findSuggestion = (node) => {
+    if (!node || typeof node !== 'object') return null;
+    if (String(node.props?.className ?? '').includes('media-suggestion-item')) return node;
+    for (const child of node.children?.flat(Infinity) ?? []) {
+      const hit = findSuggestion(child);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  const sugBtn = findSuggestion(tree2);
+  assert.ok(sugBtn, 'Expected suggestion button');
+  sugBtn.props.onClick();
+  m2.render(false);
+  await m2.flushTimers();
+  assert.equal(m2.lookupCalls.length, 1);
+
+  m2.setEditorTitle('Dune 2');
+  m2.render(false);
+  await m2.flushTimers();
+  assert.deepEqual(m2.lookupCalls, [
+    { type: 'movie', q: 'Dune' },
+    { type: 'movie', q: 'Dune 2' },
+  ]);
+});
+
+test('Final Cleanup Wave: MediaCollectionView single IMDb badge + semantic delete contrast, NotificationSettings ref timer cleanup', () => {
+  const mediaViewSrc = readFileSync(new URL('../src/components/MediaCollectionView.tsx', import.meta.url), 'utf8');
+  assert.equal((mediaViewSrc.match(/className="media-imdb-badge"/g) || []).length, 2, 'Expected 1 IMDb badge in list view and 1 in grid view');
+  assert.equal((mediaViewSrc.match(/media-delete-btn/g) || []).length, 2, 'Expected both Sil buttons to use .media-delete-btn');
+  assert.doesNotMatch(mediaViewSrc, /#f87171/i);
+
+  const appCss = readFileSync(new URL('../src/App.css', import.meta.url), 'utf8');
+  const lightCss = readFileSync(new URL('../src/styles/light-theme.css', import.meta.url), 'utf8');
+  const mediaTrackerCss = readFileSync(new URL('../src/styles/media-tracker.css', import.meta.url), 'utf8');
+  assert.match(appCss, /--app-danger:\s*#f87171;/);
+  assert.match(lightCss, /--app-danger:\s*#b91c1c;/);
+  assert.match(mediaTrackerCss, /\.media-delete-btn[\s\S]*var\(--app-danger/);
+
+  const notifSrc = readFileSync(new URL('../src/components/NotificationSettings.tsx', import.meta.url), 'utf8');
+  const notifLines = notifSrc.split(/\r?\n/).length;
+  assert.ok(notifLines < 260, `Expected NotificationSettings.tsx < 260 lines, got ${notifLines}`);
+  assert.match(notifSrc, /feedbackTimerRef\s*=\s*useRef/);
+  assert.match(notifSrc, /clearFeedbackTimer\(\)/);
+  assert.doesNotMatch(notifSrc, /return\s*\(\)\s*=>\s*clearTimeout\(timer\)/);
 });

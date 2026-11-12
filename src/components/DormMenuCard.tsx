@@ -6,6 +6,7 @@ import {
   type DailyMenu,
   loadDormMenuCache,
 } from "../../shared/dormMenu";
+import { ensureDesktopDormFetcher } from "../dormMenuDesktop";
 
 export function DormMenuCard() {
   const todayKey = turkeyDateKey();
@@ -17,6 +18,7 @@ export function DormMenuCard() {
     setLoading(true);
     setError("");
     try {
+      ensureDesktopDormFetcher();
       const records = await fetchDormMenu();
       const current = findMenuForDate(records, todayKey);
       setMenu(current);

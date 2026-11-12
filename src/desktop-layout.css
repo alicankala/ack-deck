@@ -267,7 +267,7 @@
 @container (max-width:56rem) { .work-dashboard .dashboard-workbench { grid-template-columns:minmax(0,1fr); } .dashboard-right-rail { position:static; grid-template-columns:repeat(2,minmax(0,1fr)); } .ai-history-layout { grid-template-columns:minmax(0,1fr); } }
 @container (max-width:45rem) { .dashboard-overview { gap:.5rem; } .dashboard-overview button { padding:.8rem; flex-wrap:wrap; } .dashboard-overview button>svg { display:none; } .dashboard-right-rail { grid-template-columns:minmax(0,1fr); } .task-capture-row { flex-wrap:wrap; } .task-capture-row .task-form { flex-basis:100%; } .task-create-button { width:100%; } .ai-starter-grid { grid-template-columns:minmax(0,1fr); } .ai-composer-help { flex-wrap:wrap; } .recurrence-ending { grid-template-columns:minmax(0,1fr); } }
 
-/* Shared desktop rhythm; the separate global palette keeps its own sizing. */
+/* Shared desktop rhythm. */
 .main-content { --section-gap:1.25rem; --card-padding:1.25rem; --control-height:2.75rem; padding:clamp(1rem,2vw,2rem); }
 .main-content>div { width:100%; max-width:100%; min-width:0; }
 .main-content :is(.feature-heading,.section-heading) { max-width:none; margin:0 0 1.25rem; gap:1rem; }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { productMetadata } from "../../shared/productivity";
-import { nextOccurrence, type Recurrence } from "../../shared/recurrence";
+import { isOccurrenceCompleted, nextOccurrence, scheduleDate, type Recurrence } from "../../shared/recurrence";
+import { studyBlocks, type StudyProgram } from "../../shared/studyPrograms";
 import {
   loadStudyAttendance,
   saveStudyAttendance,
@@ -12,7 +13,7 @@ import {
   type AttendanceEntry,
 } from "../../shared/studyAttendance";
 import { loadMedia } from "../../src/mediaStore";
-import { loadPrayerConfig, savePrayerConfig, lookupTurkeyCity } from "../../shared/prayerTimes";
+import { loadPrayerConfig, lookupTurkeyCity } from "../../shared/prayerTimes";
 import { fetchMobileWeather, loadWeatherCache, type WeatherData } from "../../shared/weather";
 import type { CloudRecord, Mutation, PhoneTask } from "../../shared/phone";
 import { enqueue, saveState, type MobileState } from "./store";
@@ -135,7 +136,7 @@ export function buildSnoozedTaskData(task: PhoneTask, minutes: number): PhoneTas
   };
 }
 
-export function useMobileWeather(onNotice: (msg: string) => void) {
+export function useMobileWeather() {
   const [weather, setWeather] = useState<WeatherData | null>(() => loadWeatherCache());
   const [weatherModalOpen, setWeatherModalOpen] = useState(false);
 
@@ -169,31 +170,6 @@ export function useMobileWeather(onNotice: (msg: string) => void) {
       window.removeEventListener("ack-weather-city-changed", updateWeather);
     };
   }, []);
-
-  async function handleMobileChangeCity(newCity: string) {
-    try {
-      localStorage.setItem("ack-deck.weather-city.v1", JSON.stringify(newCity));
-    } catch {}
-    const cityData = lookupTurkeyCity(newCity) || { city: newCity, lat: 41.20488, lng: 32.62768 };
-    const w = await fetchMobileWeather(cityData.city, cityData.lat, cityData.lng);
-    if (w) setWeather(w);
-
-    // Namaz vakitlerini de aynı şehre eşitle
-    try {
-      const currentPrayer = loadPrayerConfig();
-      const nextPrayer = {
-        ...currentPrayer,
-        city: cityData.city,
-        latitude: cityData.lat,
-        longitude: cityData.lng,
-      };
-      savePrayerConfig(nextPrayer);
-      window.dispatchEvent(new Event("ack-prayer-config-changed"));
-    } catch {}
-
-    window.dispatchEvent(new Event("ack-weather-city-changed"));
-    onNotice(`Konum ve hava durumu ${newCity} olarak güncellendi.`);
-  }
 
   return { weather, weatherModalOpen, setWeatherModalOpen };
 }
@@ -369,3 +345,52 @@ export function useMobileHashRouting(params: {
     };
   }, []);
 }
+
+export function deriveMobileAppData(records: CloudRecord[]) {
+  const tasks = records.filter(row => row.kind === "tasks" && !row.deleted && row.data);
+  const today = dateKey();
+  const displayedDate = (task: PhoneTask) => scheduleDate(task) ?? "";
+  const unfinished = tasks
+    .filter(row => !isOccurrenceCompleted(row.data as PhoneTask))
+    .sort(
+      (a, b) =>
+        (displayedDate(a.data as PhoneTask) || "9999").localeCompare(displayedDate(b.data as PhoneTask) || "9999") ||
+        ((a.data as PhoneTask).dueTime ?? "").localeCompare((b.data as PhoneTask).dueTime ?? "")
+    );
+
+  const todayTasks = unfinished.filter(row => {
+    const t = row.data as PhoneTask;
+    const d = displayedDate(t);
+    return !d || d === today || (!t.recurrence && d < today);
+  });
+
+  const studyPrograms = records
+    .filter(row => row.kind === "studyPrograms" && !row.deleted && row.data)
+    .map(row => row.data as StudyProgram);
+  const allWeekStudyBlocks = studyBlocks(studyPrograms, new Date());
+  const todayStudyBlocks = allWeekStudyBlocks.filter(b => b.date === today);
+
+  const currentHour = new Date().getHours();
+  const mobileGreeting =
+    currentHour >= 5 && currentHour < 12
+      ? "Günaydın, Alican"
+      : currentHour >= 12 && currentHour < 18
+      ? "İyi günler, Alican"
+      : currentHour >= 18 && currentHour < 24
+      ? "İyi akşamlar, Alican"
+      : "İyi geceler, Alican";
+
+  const notesCount = records.filter(r => r.kind === "notes" && !r.deleted).length;
+
+  return {
+    tasks,
+    today,
+    unfinished,
+    todayTasks,
+    allWeekStudyBlocks,
+    todayStudyBlocks,
+    mobileGreeting,
+    notesCount,
+  };
+}
+

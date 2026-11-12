@@ -28,14 +28,19 @@ fn read_config(app: &tauri::AppHandle) -> Result<PhoneConfig, String> {
         Err(_) => Err("Telefon ayarları okunamadı.".into()),
     }
 }
+const OFFLINE_BEACON_TIMEOUT: Duration = Duration::from_millis(450);
+
 fn valid_url(input: &str) -> bool {
     let Ok(url) = reqwest::Url::parse(input) else {
         return false;
     };
     url.scheme() == "https"
-        && url
-            .host_str()
-            .is_some_and(|host| host == "ack-deck-phone.ack-deck-cloud.workers.dev")
+        && url.host_str().is_some_and(|host| {
+            host.ends_with(".workers.dev")
+                && host.len() > ".workers.dev".len()
+                && !host.starts_with('.')
+                && !host.contains("..")
+        })
         && url.username().is_empty()
         && url.password().is_none()
         && url.query().is_none()
@@ -348,7 +353,7 @@ pub fn send_offline_beacon(app: &tauri::AppHandle) {
     if secret.is_empty() { return; }
     let base_url = config.url.trim_end_matches('/');
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_millis(1500))
+        .timeout(OFFLINE_BEACON_TIMEOUT)
         .build();
     if let Ok(client) = client {
         let req = client
@@ -357,7 +362,7 @@ pub fn send_offline_beacon(app: &tauri::AppHandle) {
             .bearer_auth(&secret)
             .json(&json!({ "offline": true }));
         tauri::async_runtime::block_on(async move {
-            let _ = req.send().await;
+            let _ = tokio::time::timeout(OFFLINE_BEACON_TIMEOUT, req.send()).await;
         });
     }
 }
@@ -367,15 +372,25 @@ mod tests {
     #[test]
     fn owner_routes_and_urls_are_bounded() {
         assert!(valid_url("https://ack-deck-phone.ack-deck-cloud.workers.dev"));
-        assert!(!valid_url("https://ack-deck-phone.example.workers.dev"));
+        assert!(valid_url("https://my-custom.workers.dev"));
+        assert!(valid_url("https://ack-deck-phone.example.workers.dev"));
         for url in [
+            "https://workers.dev",
+            "https://.workers.dev",
+            "https://a..workers.dev",
+            "http://my-custom.workers.dev",
             "http://example.workers.dev",
+            "https://evil.com",
             "https://example.com",
             "https://user:secret@example.workers.dev",
             "https://example.workers.dev/path",
+            "https://my-custom.workers.dev:8443",
+            "https://my-custom.workers.dev?a=1",
+            "https://my-custom.workers.dev#frag",
         ] {
-            assert!(!valid_url(url));
+            assert!(!valid_url(url), "Expected invalid URL: {url}");
         }
+        assert_eq!(OFFLINE_BEACON_TIMEOUT, Duration::from_millis(450));
         for operation in [
             "execute_command",
             "open_path",

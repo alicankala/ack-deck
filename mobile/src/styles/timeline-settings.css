@@ -742,6 +742,9 @@
   --app-on-accent: #ffffff;
   --app-hover: #e2e8f0;
   --app-nav: rgba(255, 255, 255, 0.95);
+  --app-success: #047857;
+  --app-warning: #b45309;
+  --app-danger: #dc2626;
   color-scheme: light;
 }
 

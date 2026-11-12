@@ -9,7 +9,7 @@ import {runInNewContext} from 'node:vm';
 import {posix} from 'node:path';
 import {Miniflare,convertV4MiniflareOptions} from 'miniflare';
 let mf,db,kv,owner,phone,deviceId,env,worker,reminders,security,shared;
-let providerStatus=201;const outbound=[];
+let providerStatus=201;let geminiHandler=null;const outbound=[];
 const root=new URL('../',import.meta.url),ownerSecret='local-test-owner-'+ 'x'.repeat(48);
 async function module(path){const result=await build({entryPoints:[fileURLToPath(new URL(path,root))],bundle:true,write:false,format:'esm',platform:'browser',target:'es2022'});return import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'));}
 async function call(path,body,token=ownerSecret,method=body===undefined?'GET':'POST',headers={}){const response=await mf.dispatchFetch('https://ack.example/api/'+path,{method,headers:{...(token?{Authorization:'Bearer '+token}:{}),'X-ACKDeck-Schema':'3',...(body!==undefined?{'Content-Type':'application/json'}:{}),...headers},...(body!==undefined?{body:JSON.stringify(body)}:{})});let data;try{data=await response.json();}catch{}return{response,data};}
@@ -63,7 +63,7 @@ before(async()=>{
   const result=await build({entryPoints:[fileURLToPath(new URL('src/index.ts',root))],bundle:true,write:false,format:'esm',platform:'browser',target:'es2022'});
   const keys=await webcrypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
   const bindings={OWNER_SECRET:ownerSecret,VAPID_PUBLIC_KEY:Buffer.from(await webcrypto.subtle.exportKey('raw',keys.publicKey)).toString('base64url'),VAPID_PRIVATE_KEY:(await webcrypto.subtle.exportKey('jwk',keys.privateKey)).d,VAPID_SUBJECT:'mailto:test@example.invalid'};
-  mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:result.outputFiles[0].text,compatibilityDate:'2026-10-04',d1Databases:['DB'],kvNamespaces:['ATTACHMENTS'],bindings,outboundService:async request=>{outbound.push({url:request.url,method:request.method,encoding:request.headers.get('content-encoding'),size:(await request.arrayBuffer()).byteLength});return new Response('',{status:providerStatus,headers:providerStatus===302?{Location:'https://attacker.example/'}:{}});},telemetry:{enabled:false},logRequests:false}));
+  mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:result.outputFiles[0].text,compatibilityDate:'2026-10-04',d1Databases:['DB'],kvNamespaces:['ATTACHMENTS'],bindings,outboundService:async request=>{if(geminiHandler&&request.url.startsWith('https://generativelanguage.googleapis.com/'))return geminiHandler(request);outbound.push({url:request.url,method:request.method,encoding:request.headers.get('content-encoding'),size:(await request.arrayBuffer()).byteLength});return new Response('',{status:providerStatus,headers:providerStatus===302?{Location:'https://attacker.example/'}:{}});},telemetry:{enabled:false},logRequests:false}));
   db=await mf.getD1Database('DB');kv=await mf.getKVNamespace('ATTACHMENTS');await db.exec(readFileSync(new URL('migrations/0001_phone.sql',root),'utf8'));
   await db.exec(readFileSync(new URL('migrations/0002_inbox_expiry.sql',root),'utf8'));
   await db.prepare("INSERT INTO records(kind,id,version,data,deleted,updated_at) VALUES('notes','migration-preserved',1,?,0,1)").bind(JSON.stringify({title:'Migration fixture',content:'Preserve',updatedAt:1})).run();
@@ -75,6 +75,9 @@ before(async()=>{
   await db.exec(readFileSync(new URL('migrations/0007_prayer_logs.sql',root),'utf8').replace(/^--.*$/gm,''));
   await db.exec(readFileSync(new URL('migrations/0008_media_and_attendance.sql',root),'utf8').replace(/^--.*$/gm,''));
   await db.exec(readFileSync(new URL('migrations/0009_study_reminders_and_mobile_ai.sql',root),'utf8').replace(/^--.*$/gm,''));
+  await db.exec(readFileSync(new URL('migrations/0010_notification_preferences.sql',root),'utf8').replace(/^--.*$/gm,''));
+  const desktopCols=await db.prepare('PRAGMA table_info(desktop_state)').all();
+  assert.ok(desktopCols.results.some(c=>c.name==='notification_preferences'),'0010_notification_preferences.sql migration must define desktop_state.notification_preferences');
   assert.equal((await db.prepare("SELECT data FROM records WHERE id='migration-preserved'").first()).data,JSON.stringify({title:'Migration fixture',content:'Preserve',updatedAt:1}));
   assert.equal((await db.prepare("SELECT state FROM reminder_deliveries WHERE generation='migration-fixture'").first()).state,'sent');
   env={...bindings,DB:db,ATTACHMENTS:kv};worker=await module('src/index.ts');reminders=await module('src/reminders.ts');security=await module('src/security.ts');shared=await module('../shared/phone.ts');
@@ -372,12 +375,12 @@ test('cron delivers study program push when PC is off, skips attended blocks, an
   // Encrypted Mobile AI key provisioning & relay queue
   const fakeKey='test-gemini-cloud-secret-value-123456';
   assert.equal((await call('ai/status',undefined,phone,'GET',headers)).data.configured,false);
-  assert.equal((await call('ai/key',{apiKey:fakeKey},phone,'POST',headers)).response.status,200);
+  assert.equal((await call('ai/key',{apiKey:fakeKey},ownerSecret,'POST',headers)).response.status,200);
   assert.equal((await call('ai/status',undefined,phone,'GET',headers)).data.configured,true);
   const cipherRow=await db.prepare('SELECT cipher FROM ai_secrets WHERE id=1').first();
   assert.ok(cipherRow&&!cipherRow.cipher.includes(fakeKey));
   assert.ok(!JSON.stringify((await call('status',undefined,phone,'GET',headers)).data).includes(fakeKey));
-  assert.equal((await call('ai/key',undefined,phone,'DELETE',headers)).response.status,200);
+  assert.equal((await call('ai/key',undefined,ownerSecret,'DELETE',headers)).response.status,200);
   assert.equal((await call('ai/status',undefined,phone,'GET',headers)).data.configured,false);
 
   // Public media search with IMDb suggestions and cross-type support
@@ -436,4 +439,653 @@ test('/api/media-rating validates IMDb IDs and serves from KV cache', async () =
   assert.equal(json.ok, true);
   assert.equal(json.rating, 8.8);
   assert.equal(json.cached, true);
+});
+
+test('mobile AI relay round-trip handles TTL, pending queue, failed/done replies, and prevents overwriting completed rows', async () => {
+  const headers = { 'X-ACKDeck-Schema': '5' };
+  await db.prepare('UPDATE devices SET revoked_at=NULL WHERE id=?').bind(deviceId).run();
+  await call('ai/key', {}, ownerSecret, 'DELETE', headers);
+
+  const offlineNoKeyRes = await call(
+    'ai/chat',
+    { prompt: 'PC kapalı mı?', model: 'fast' },
+    phone,
+    'POST',
+    headers,
+  );
+  assert.equal(offlineNoKeyRes.response.status, 400);
+  assert.equal(
+    offlineNoKeyRes.data.error,
+    'PC şu an kapalı ve bulut AI anahtarı kayıtlı değil. 7/24 mobil AI kullanmak için bilgisayarında ACKDeck Masaüstü › Ayarlar › Telefon ekranından etkinleştirebilirsin.',
+  );
+
+  await call('heartbeat', {});
+
+  const history = [
+    { role: 'user', text: 'Selam' },
+    { role: 'model', text: 'Merhaba Alican!' },
+  ];
+  const relayFailInit = await call(
+    'ai/chat',
+    { prompt: 'Bugün ne yapmalıyım?', history, model: 'powerful' },
+    phone,
+    'POST',
+    headers,
+  );
+  assert.equal(relayFailInit.response.status, 200);
+  assert.equal(relayFailInit.data.ok, true);
+  assert.equal(relayFailInit.data.mode, 'relay');
+  assert.ok(relayFailInit.data.queryId);
+
+  const row1 = await db.prepare('SELECT created_at, expires_at FROM ai_queries WHERE id=?').bind(relayFailInit.data.queryId).first();
+  assert.equal(row1.expires_at - row1.created_at, 150_000);
+
+  const pending1 = await call('ai/pending', undefined, ownerSecret, 'GET', headers);
+  assert.equal(pending1.response.status, 200);
+  const item1 = pending1.data.queries.find((q) => q.id === relayFailInit.data.queryId);
+  assert.ok(item1);
+  assert.equal(item1.prompt, 'Bugün ne yapmalıyım?');
+  assert.equal(item1.history, JSON.stringify(history));
+  assert.equal(item1.model, 'powerful');
+
+  // Legacy { id, error } payload must still be rejected with 400
+  const invalidReply = await call('ai/reply', { id: item1.id, error: 'Hata' }, ownerSecret, 'POST', headers);
+  assert.equal(invalidReply.response.status, 400);
+
+  // Desktop reports failure via { id, reply, failed: true }
+  const failReply = await call(
+    'ai/reply',
+    { id: item1.id, reply: 'Masaüstünde Gemini API anahtarı ekli değil.', failed: true },
+    ownerSecret,
+    'POST',
+    headers,
+  );
+  assert.equal(failReply.response.status, 200);
+  assert.equal(failReply.data.ok, true);
+
+  const polledFail = await call('ai/query/' + item1.id, undefined, phone, 'GET', headers);
+  assert.equal(polledFail.response.status, 200);
+  assert.equal(polledFail.data.state, 'failed');
+  assert.equal(polledFail.data.reply, 'Masaüstünde Gemini API anahtarı ekli değil.');
+
+  // Late/duplicate reply must NOT overwrite already failed row
+  const lateOverwrite = await call('ai/reply', { id: item1.id, reply: 'Geçersiz üzerine yazma' }, ownerSecret, 'POST', headers);
+  assert.equal(lateOverwrite.response.status, 200);
+  const polledAfterLate = await call('ai/query/' + item1.id, undefined, phone, 'GET', headers);
+  assert.equal(polledAfterLate.data.state, 'failed');
+  assert.equal(polledAfterLate.data.reply, 'Masaüstünde Gemini API anahtarı ekli değil.');
+
+  // Second query succeeds with 'done' and also ignores late duplicate replies
+  const relayDoneInit = await call(
+    'ai/chat',
+    {
+      prompt: 'Derslerim nasıl?',
+      messages: [
+        { role: 'user', text: 'Selam' },
+        { role: 'model', text: 'Merhaba!' },
+        { role: 'user', text: 'Derslerim nasıl?' },
+      ],
+      model: 'fast',
+    },
+    phone,
+    'POST',
+    headers,
+  );
+  assert.equal(relayDoneInit.response.status, 200);
+  const qid2 = relayDoneInit.data.queryId;
+  const pending2 = await call('ai/pending', undefined, ownerSecret, 'GET', headers);
+  const item2 = pending2.data.queries.find((q) => q.id === qid2);
+  assert.ok(item2);
+  assert.equal(item2.prompt, 'Derslerim nasıl?');
+  assert.equal(item2.model, 'fast');
+  assert.deepEqual(JSON.parse(item2.history), [
+    { role: 'user', text: 'Selam' },
+    { role: 'model', text: 'Merhaba!' },
+  ]);
+
+  const okReply = await call('ai/reply', { id: qid2, reply: 'Bugün Devre 1 çalışman var.' }, ownerSecret, 'POST', headers);
+  assert.equal(okReply.response.status, 200);
+  const polledDone = await call('ai/query/' + qid2, undefined, phone, 'GET', headers);
+  assert.equal(polledDone.data.state, 'done');
+  assert.equal(polledDone.data.reply, 'Bugün Devre 1 çalışman var.');
+
+  await call('ai/reply', { id: qid2, reply: 'Geç gelen hata', failed: true }, ownerSecret, 'POST', headers);
+  const polledDoneStable = await call('ai/query/' + qid2, undefined, phone, 'GET', headers);
+  assert.equal(polledDoneStable.data.state, 'done');
+  assert.equal(polledDoneStable.data.reply, 'Bugün Devre 1 çalışman var.');
+
+  const pendingAfter = await call('ai/pending', undefined, ownerSecret, 'GET', headers);
+  assert.equal(pendingAfter.data.queries.some((q) => q.id === item1.id || q.id === qid2), false);
+});
+
+test('direct cloud AI usage records fast vs powerful modelTier accurately including fallback', async () => {
+  const headers = { 'X-ACKDeck-Schema': '5' };
+  const fakeKey = 'test-gemini-cloud-secret-value-123456';
+  await db.prepare("DELETE FROM app_settings WHERE key='ai_cloud_usage'").run();
+  await call('ai/key', { apiKey: fakeKey }, ownerSecret, 'POST', headers);
+
+  let mode = 'normal';
+  geminiHandler = async (input) => {
+    const url = typeof input === 'string' ? input : input.url;
+    if (mode === 'powerful-fallback' && url.includes('gemini-3.8-flash')) {
+      return new Response('upstream error', { status: 503 });
+    }
+    const label = url.includes('gemini-3.8-flash') ? 'Güçlü yanıt' : 'Hızlı yanıt';
+    return new Response(
+      JSON.stringify({ candidates: [{ content: { parts: [{ text: label }] } }] }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    );
+  };
+
+  try {
+    // 1. Fast model increments fast (not powerful!)
+    const fastRes = await call('ai/chat', { prompt: 'Hızlı soru', model: 'fast' }, phone, 'POST', headers);
+    assert.equal(fastRes.response.status, 200);
+    assert.equal(fastRes.data.mode, 'cloud');
+    assert.equal(fastRes.data.modelUsed, 'gemini-3.5-flash-lite');
+
+    let usageRow = await db.prepare("SELECT value FROM app_settings WHERE key='ai_cloud_usage'").first();
+    let usage = JSON.parse(usageRow.value);
+    assert.equal(usage.fast, 1);
+    assert.equal(usage.powerful, 0);
+
+    // 2. Powerful model succeeding increments powerful
+    const powRes = await call('ai/chat', { prompt: 'Güçlü soru', model: 'powerful' }, phone, 'POST', headers);
+    assert.equal(powRes.response.status, 200);
+    assert.equal(powRes.data.modelUsed, 'gemini-3.8-flash');
+
+    usageRow = await db.prepare("SELECT value FROM app_settings WHERE key='ai_cloud_usage'").first();
+    usage = JSON.parse(usageRow.value);
+    assert.equal(usage.fast, 1);
+    assert.equal(usage.powerful, 1);
+
+    // 3. Powerful model falling back to fast increments fast
+    mode = 'powerful-fallback';
+    const fbRes = await call('ai/chat', { prompt: 'Fallback soru', model: 'powerful' }, phone, 'POST', headers);
+    assert.equal(fbRes.response.status, 200);
+    assert.equal(fbRes.data.modelUsed, 'gemini-3.5-flash-lite');
+    assert.equal(fbRes.data.reply, 'Hızlı yanıt');
+
+    usageRow = await db.prepare("SELECT value FROM app_settings WHERE key='ai_cloud_usage'").first();
+    usage = JSON.parse(usageRow.value);
+    assert.equal(usage.fast, 2);
+    assert.equal(usage.powerful, 1);
+
+    // 4. Direct helper return shape includes accurate modelTier
+    const mobileAi = await module('src/mobileAi.ts');
+    mode = 'normal';
+    const directPow = await mobileAi.runCloudMobileAiChat(env, 'Test', [], 'powerful', geminiHandler);
+    assert.equal(directPow.modelTier, 'powerful');
+    mode = 'powerful-fallback';
+    const directFb = await mobileAi.runCloudMobileAiChat(env, 'Test', [], 'powerful', geminiHandler);
+    assert.equal(directFb.modelUsed, 'gemini-3.5-flash-lite');
+    assert.equal(directFb.modelTier, 'fast');
+  } finally {
+    geminiHandler = null;
+    await call('ai/key', {}, ownerSecret, 'DELETE', headers);
+  }
+});
+
+test('collectCloudAiContext uses Europe/Istanbul date and serializeBoundedContext prevents mid-JSON truncation over 28 KB', async () => {
+  const mobileAi = await module('src/mobileAi.ts');
+  const noteIds = [];
+  const taskIds = [];
+  try {
+    // 2026-11-11T22:30:00Z is 2026-11-12 01:30 in Europe/Istanbul (next calendar day vs UTC)
+    const lateUtcMs = Date.parse('2026-11-11T22:30:00Z');
+    const emptyCtx = JSON.parse(await mobileAi.collectCloudAiContext(env, lateUtcMs));
+    assert.equal(emptyCtx.today, '2026-11-12');
+
+    // Insert 15 long notes (> 28 KB combined) + completed & open tasks into D1
+    for (let i = 0; i < 15; i++) {
+      const id = `bounded-note-${i}`;
+      noteIds.push(id);
+      await db
+        .prepare("INSERT INTO records(kind,id,version,data,deleted,updated_at) VALUES('notes',?,1,?,0,?)")
+        .bind(
+          id,
+          JSON.stringify({ title: `Not ${i}`, content: `Satır ${i} ` + 'A'.repeat(2500), updatedAt: 1000 + i }),
+          1000 + i,
+        )
+        .run();
+    }
+    const openTaskId = 'bounded-task-open';
+    const doneTaskId = 'bounded-task-done';
+    taskIds.push(openTaskId, doneTaskId);
+    await db
+      .prepare("INSERT INTO records(kind,id,version,data,deleted,updated_at) VALUES('tasks',?,1,?,0,?)")
+      .bind(openTaskId, JSON.stringify(task('Açık önemli görev')), 2000)
+      .run();
+    await db
+      .prepare("INSERT INTO records(kind,id,version,data,deleted,updated_at) VALUES('tasks',?,1,?,0,?)")
+      .bind(doneTaskId, JSON.stringify({ ...task('Tamamlanan görev'), completed: true }), 1900)
+      .run();
+
+    const oversizedRaw = await mobileAi.collectCloudAiContext(env, lateUtcMs);
+    assert.ok(oversizedRaw.length <= 28000, `Expected <= 28000 chars, got ${oversizedRaw.length}`);
+    const parsed = JSON.parse(oversizedRaw);
+    assert.equal(parsed.today, '2026-11-12');
+    assert.ok(Array.isArray(parsed.notes) && parsed.notes.length > 0);
+    assert.ok(parsed.tasks.some((t) => t.text === 'Açık önemli görev'));
+
+    // Direct serializeBoundedContext priority order & extreme single-field guard
+    const hugeNotesPayload = {
+      today: '2026-11-12',
+      tasks: [
+        { text: 'Açık görev', completed: false },
+        { text: 'Biten görev', completed: true },
+      ],
+      notes: Array.from({ length: 18 }, (_, idx) => ({
+        title: `Uzun Not ${idx}`,
+        content: 'B'.repeat(2400),
+      })),
+      studyPrograms: [{ name: 'Matematik', startDate: '2026-11-01', endDate: null, sessions: [] }],
+      thisWeekStudyAttendance: [{ date: '2026-11-12', time: '19:00-19:50', subject: 'Matematik', topic: 'Türev', status: 'pending' }],
+      koleksiyonMedia: [{ type: 'movie', title: 'Inception', status: 'completed' }],
+      subscriptions: [],
+    };
+    const boundedStr = mobileAi.serializeBoundedContext(hugeNotesPayload);
+    assert.ok(boundedStr.length <= 28000);
+    const boundedObj = JSON.parse(boundedStr);
+    assert.equal(boundedObj.today, '2026-11-12');
+    assert.equal(boundedObj.tasks.length, 2);
+    assert.equal(boundedObj.koleksiyonMedia.length, 1);
+
+    // Tighter cap trims completed tasks before open tasks and keeps valid JSON
+    const tightPayload = {
+      today: '2026-11-12',
+      tasks: [
+        { text: 'Açık görev ' + 'X'.repeat(120), completed: false },
+        { text: 'Tamamlanan görev ' + 'Y'.repeat(120), completed: true },
+      ],
+      notes: [{ title: 'N1', content: 'Z'.repeat(300) }],
+      studyPrograms: [],
+      thisWeekStudyAttendance: [{ date: '2026-11-12', time: '19:00-19:50', subject: 'Matematik', topic: 'Türev', status: 'pending' }],
+      koleksiyonMedia: [{ type: 'movie', title: 'M'.repeat(200), status: 'completed' }],
+      subscriptions: [],
+    };
+    const tightStr = mobileAi.serializeBoundedContext(tightPayload, 420);
+    assert.ok(tightStr.length <= 420);
+    const tightObj = JSON.parse(tightStr);
+    assert.equal(tightObj.tasks.some((t) => t.completed === false), true);
+    assert.equal(tightObj.tasks.some((t) => t.completed === true), false);
+
+    // Extreme single field guard never exceeds maxChars and always parses as JSON
+    const extremeStr = mobileAi.serializeBoundedContext(
+      {
+        today: '2026-11-12',
+        tasks: [],
+        notes: [],
+        studyPrograms: [{ name: 'Dev ' + 'P'.repeat(40000), startDate: '2026-11-01', endDate: null, sessions: [] }],
+        thisWeekStudyAttendance: [],
+        koleksiyonMedia: [],
+        subscriptions: [],
+      },
+      28000,
+    );
+    assert.ok(extremeStr.length <= 28000);
+    assert.equal(JSON.parse(extremeStr).today, '2026-11-12');
+  } finally {
+    for (const id of [...noteIds, ...taskIds]) {
+      await db.prepare('DELETE FROM records WHERE id=?').bind(id).run();
+    }
+  }
+});
+
+test('runCloudMobileAiChat configures 8192 tokens, model-aware thinkingConfig, 120s/45s timeouts, and clean FAST_MODEL fallback', async () => {
+  const headers = { 'X-ACKDeck-Schema': '5' };
+  const fakeKey = 'test-gemini-cloud-secret-value-123456';
+  await call('ai/key', { apiKey: fakeKey }, ownerSecret, 'POST', headers);
+
+  const mobileAi = await module('src/mobileAi.ts');
+  assert.equal(mobileAi.modelTimeoutMs('gemini-3.8-flash'), 120_000);
+  assert.equal(mobileAi.modelTimeoutMs('gemini-3.5-flash-lite'), 45_000);
+
+  const origFetch = globalThis.fetch;
+  const origTimeout = AbortSignal.timeout;
+  const captured = [];
+  const timeoutValues = [];
+  let failPowerfulWith500 = false;
+
+  AbortSignal.timeout = (ms) => {
+    timeoutValues.push(ms);
+    return origTimeout.call(AbortSignal, ms);
+  };
+
+  globalThis.fetch = async (url, init = {}) => {
+    const urlStr = typeof url === 'string' ? url : url.url;
+    const body = JSON.parse(String(init.body));
+    captured.push({ url: urlStr, body, hasSignal: Boolean(init.signal) });
+
+    if (failPowerfulWith500 && urlStr.includes('gemini-3.8-flash')) {
+      return new Response('internal error', { status: 500 });
+    }
+    const text = urlStr.includes('gemini-3.8-flash') ? 'Güçlü cevap' : 'Hızlı cevap';
+    return new Response(
+      JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    );
+  };
+
+  try {
+    // 1. Powerful model sends 8192 maxOutputTokens, thinkingLevel: medium, and 120s timeout
+    const powResult = await mobileAi.runCloudMobileAiChat(env, 'Planımı özetle', [], 'powerful');
+    assert.equal(powResult.reply, 'Güçlü cevap');
+    assert.equal(powResult.modelUsed, 'gemini-3.8-flash');
+    assert.equal(powResult.modelTier, 'powerful');
+    assert.equal(captured.length, 1);
+    assert.equal(captured[0].hasSignal, true);
+    assert.equal(captured[0].body.generationConfig.maxOutputTokens, 8192);
+    assert.deepEqual(captured[0].body.generationConfig.thinkingConfig, { thinkingLevel: 'medium' });
+    assert.deepEqual(timeoutValues, [120_000]);
+
+    // 2. HTTP 500 from POWERFUL_MODEL falls back to FAST_MODEL without thinkingConfig and 45s timeout
+    captured.length = 0;
+    timeoutValues.length = 0;
+    failPowerfulWith500 = true;
+
+    const fbResult = await mobileAi.runCloudMobileAiChat(env, 'Yedek test', [], 'powerful');
+    assert.equal(fbResult.reply, 'Hızlı cevap');
+    assert.equal(fbResult.modelUsed, 'gemini-3.5-flash-lite');
+    assert.equal(fbResult.modelTier, 'fast');
+    assert.equal(captured.length, 2);
+    assert.ok(captured[0].url.includes('gemini-3.8-flash'));
+    assert.equal(captured[0].body.generationConfig.maxOutputTokens, 8192);
+    assert.deepEqual(captured[0].body.generationConfig.thinkingConfig, { thinkingLevel: 'medium' });
+    assert.ok(captured[1].url.includes('gemini-3.5-flash-lite'));
+    assert.equal(captured[1].body.generationConfig.maxOutputTokens, 8192);
+    assert.equal('thinkingConfig' in captured[1].body.generationConfig, false);
+    assert.deepEqual(timeoutValues, [120_000, 45_000]);
+  } finally {
+    globalThis.fetch = origFetch;
+    AbortSignal.timeout = origTimeout;
+    await call('ai/key', {}, ownerSecret, 'DELETE', headers);
+  }
+});
+
+test('security hardening: owner-only /api/ai/key mutations with readable GET status and mutation rate limiting', async () => {
+  const headers = { 'X-ACKDeck-Schema': '5' };
+  await db.prepare('UPDATE devices SET revoked_at=NULL WHERE id=?').bind(deviceId).run();
+  await call('ai/key', undefined, ownerSecret, 'DELETE', headers);
+  await db.prepare('DELETE FROM rate_limits').run();
+
+  try {
+    // Unauthenticated GET fails
+    assert.equal((await call('ai/key', undefined, null, 'GET', headers)).response.status, 401);
+
+    // Paired phone cannot POST /api/ai/key (403 before reading/modifying)
+    const fakeKey = 'test-gemini-cloud-secret-value-987654';
+    const phonePost = await call('ai/key', { apiKey: fakeKey }, phone, 'POST', headers);
+    assert.equal(phonePost.response.status, 403);
+
+    // GET /api/ai/key remains readable by paired phone and reports false
+    const getBefore = await call('ai/key', undefined, phone, 'GET', headers);
+    assert.equal(getBefore.response.status, 200);
+    assert.deepEqual(getBefore.data, { configured: false });
+
+    // Owner succeeds saving key, phone GET reports configured: true without leaking key
+    const ownerPost = await call('ai/key', { apiKey: fakeKey }, ownerSecret, 'POST', headers);
+    assert.equal(ownerPost.response.status, 200);
+    assert.equal(ownerPost.data.configured, true);
+
+    const getAfter = await call('ai/key', undefined, phone, 'GET', headers);
+    assert.equal(getAfter.response.status, 200);
+    assert.deepEqual(getAfter.data, { configured: true });
+    assert.ok(!JSON.stringify(getAfter.data).includes(fakeKey));
+
+    // Paired phone cannot DELETE /api/ai/key (403, key stays configured)
+    const phoneDel = await call('ai/key', undefined, phone, 'DELETE', headers);
+    assert.equal(phoneDel.response.status, 403);
+    assert.equal((await call('ai/key', undefined, phone, 'GET', headers)).data.configured, true);
+
+    // Owner succeeds deleting key
+    const ownerDel = await call('ai/key', undefined, ownerSecret, 'DELETE', headers);
+    assert.equal(ownerDel.response.status, 200);
+    assert.equal((await call('ai/key', undefined, phone, 'GET', headers)).data.configured, false);
+
+    // Rate limit on /api/ai/key mutations (10/60s): 2 mutations above + 8 more = 10, 11th -> 429
+    for (let i = 0; i < 8; i++) {
+      const r = await call('ai/key', undefined, ownerSecret, 'DELETE', headers);
+      assert.equal(r.response.status, 200);
+    }
+    const rateLimited = await call('ai/key', undefined, ownerSecret, 'DELETE', headers);
+    assert.equal(rateLimited.response.status, 429);
+  } finally {
+    await db.prepare('DELETE FROM rate_limits').run();
+    await call('ai/key', undefined, ownerSecret, 'DELETE', headers);
+  }
+});
+
+test('security hardening: /api/dorm-menu?force=1 and /api/weather enforce IP-hash rate limits cleanly', async () => {
+  const records = [{ id: 'dm-1', tarih: '2026-11-12', kahvalti: '', aksam: 'Çorba', yayinda: true }];
+  await kv.put('dorm-menu:cache', JSON.stringify({ fetchedAt: Date.now(), records }));
+
+  // 1. /api/dorm-menu?force=1 allows 4 per 300s, rejects 5th with 429 and CORS header without outbound fetch
+  const forceIp = '203.0.113.10';
+  for (let i = 0; i < 4; i++) {
+    const res = await mf.dispatchFetch('https://ack.example/api/dorm-menu?force=1', {
+      headers: { 'CF-Connecting-IP': forceIp },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*');
+  }
+  const outboundBefore5th = outbound.length;
+  const force5th = await mf.dispatchFetch('https://ack.example/api/dorm-menu?force=1', {
+    headers: { 'CF-Connecting-IP': forceIp },
+  });
+  assert.equal(force5th.status, 429);
+  assert.equal(force5th.headers.get('Access-Control-Allow-Origin'), '*');
+  assert.equal(force5th.headers.get('X-Content-Type-Options'), 'nosniff');
+  assert.equal(outbound.length, outboundBefore5th);
+  const force5thBody = await force5th.json();
+  assert.equal(typeof force5thBody.error, 'string');
+  assert.ok(force5thBody.error.length > 0);
+
+  // Regular /api/dorm-menu (without force=1) from another IP allows 30/60s, 31st -> 429
+  const regularIp = '203.0.113.11';
+  for (let i = 0; i < 30; i++) {
+    const res = await mf.dispatchFetch('https://ack.example/api/dorm-menu', {
+      headers: { 'CF-Connecting-IP': regularIp },
+    });
+    assert.equal(res.status, 200);
+  }
+  const reg31st = await mf.dispatchFetch('https://ack.example/api/dorm-menu', {
+    headers: { 'CF-Connecting-IP': regularIp },
+  });
+  assert.equal(reg31st.status, 429);
+  assert.equal(reg31st.headers.get('Access-Control-Allow-Origin'), '*');
+
+  // 2. /api/weather enforces IP-hash rate limit (60/60s)
+  const weatherIp = '203.0.113.12';
+  for (let i = 0; i < 60; i++) {
+    const res = await mf.dispatchFetch('https://ack.example/api/weather?city=Karabük', {
+      headers: { 'CF-Connecting-IP': weatherIp },
+    });
+    assert.equal(res.status, 200);
+  }
+  const weather61st = await mf.dispatchFetch('https://ack.example/api/weather?city=Karabük', {
+    headers: { 'CF-Connecting-IP': weatherIp },
+  });
+  assert.equal(weather61st.status, 429);
+  assert.equal(weather61st.headers.get('X-Content-Type-Options'), 'nosniff');
+});
+
+test('security hardening: /api/image-proxy enforces MIME allowlist, manual redirects, 5 MB cap, nosniff, and rate limit', async () => {
+  const origFetch = globalThis.fetch;
+  const fetchedUrls = [];
+  let mockFetchImpl = async () => new Response('unexpected', { status: 500 });
+
+  globalThis.fetch = async (input, init) => {
+    const urlStr = typeof input === 'string' ? input : input.url;
+    fetchedUrls.push({ url: urlStr, redirect: init?.redirect });
+    return mockFetchImpl(urlStr, init);
+  };
+
+  const proxyCall = (targetUrl, ip = '203.0.113.20', method = 'GET') =>
+    worker.default.fetch(
+      new Request(`https://ack.example/api/image-proxy?url=${encodeURIComponent(targetUrl)}`, {
+        method,
+        headers: { 'CF-Connecting-IP': ip },
+      }),
+      env,
+    );
+
+  try {
+    // 1. Non-HTTPS, userinfo, and disallowed host rejected (403) before any outbound fetch
+    for (const badTarget of [
+      'http://m.media-amazon.com/poster.jpg',
+      'https://user:pass@m.media-amazon.com/poster.jpg',
+      'https://evil.example/a.png',
+    ]) {
+      const res = await proxyCall(badTarget);
+      assert.equal(res.status, 403, `Expected 403 for ${badTarget}`);
+      assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*');
+    }
+    assert.equal(fetchedUrls.length, 0);
+
+    // 2. Rejects text/html, image/svg+xml, and missing Content-Type with 415
+    for (const badMime of ['text/html; charset=utf-8', 'image/svg+xml', null]) {
+      mockFetchImpl = async () =>
+        new Response('<svg></svg>', {
+          status: 200,
+          headers: badMime ? { 'Content-Type': badMime } : {},
+        });
+      const res = await proxyCall('https://upload.wikimedia.org/test.img');
+      assert.equal(res.status, 415, `Expected 415 for Content-Type=${badMime}`);
+      assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*');
+      assert.equal(fetchedUrls.at(-1).redirect, 'manual');
+    }
+
+    // 3. Rejects 302 redirect to disallowed host (403) and NEVER fetches evil.example
+    fetchedUrls.length = 0;
+    mockFetchImpl = async () =>
+      new Response(null, {
+        status: 302,
+        headers: { Location: 'https://evil.example/a.png' },
+      });
+    const badRedir = await proxyCall('https://upload.wikimedia.org/redir-bad.jpg');
+    assert.equal(badRedir.status, 403);
+    assert.equal(badRedir.headers.get('Access-Control-Allow-Origin'), '*');
+    assert.equal(fetchedUrls.length, 1);
+    assert.ok(!fetchedUrls.some((f) => f.url.includes('evil.example')));
+
+    // Also rejects 302 redirect to http:// or userinfo URL on allowed host (403)
+    for (const unsafeLoc of [
+      'http://upload.wikimedia.org/downgrade.jpg',
+      'https://user:pass@upload.wikimedia.org/creds.jpg',
+    ]) {
+      fetchedUrls.length = 0;
+      mockFetchImpl = async () =>
+        new Response(null, { status: 302, headers: { Location: unsafeLoc } });
+      const res = await proxyCall('https://upload.wikimedia.org/redir-unsafe.jpg');
+      assert.equal(res.status, 403);
+      assert.equal(fetchedUrls.length, 1);
+    }
+
+    // 4. Rejects excessive redirect loop (> 2 hops) with 502
+    fetchedUrls.length = 0;
+    mockFetchImpl = async (urlStr) => {
+      const n = Number(new URL(urlStr).searchParams.get('hop') || '0');
+      return new Response(null, {
+        status: 302,
+        headers: { Location: `https://upload.wikimedia.org/loop.jpg?hop=${n + 1}` },
+      });
+    };
+    const loopRes = await proxyCall('https://upload.wikimedia.org/loop.jpg?hop=0');
+    assert.equal(loopRes.status, 502);
+    assert.equal(fetchedUrls.length, 3); // initial + 2 allowed redirect hops, stops on 3rd 302
+
+    // 5. Follows 302 redirect to allowed host returning valid image/jpeg with nosniff & CORS
+    fetchedUrls.length = 0;
+    mockFetchImpl = async (urlStr) => {
+      if (urlStr.includes('/start.jpg')) {
+        return new Response(null, {
+          status: 302,
+          headers: { Location: 'https://upload.wikimedia.org/final.jpg' },
+        });
+      }
+      return new Response(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]), {
+        status: 200,
+        headers: { 'Content-Type': 'image/jpeg; charset=binary' },
+      });
+    };
+    const okRedir = await proxyCall('https://upload.wikimedia.org/start.jpg');
+    assert.equal(okRedir.status, 200);
+    assert.equal(okRedir.headers.get('X-Content-Type-Options'), 'nosniff');
+    assert.equal(okRedir.headers.get('Content-Type'), 'image/jpeg');
+    assert.equal(okRedir.headers.get('Access-Control-Allow-Origin'), '*');
+    assert.equal(okRedir.headers.get('Cache-Control'), 'public, max-age=604800');
+    assert.deepEqual(new Uint8Array(await okRedir.arrayBuffer()), new Uint8Array([0xff, 0xd8, 0xff, 0xe0]));
+    assert.equal(fetchedUrls.length, 2);
+
+    // All 5 allowed raster MIMEs pass with nosniff
+    for (const mime of ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif']) {
+      mockFetchImpl = async () =>
+        new Response(new Uint8Array([1, 2, 3, 4]), {
+          status: 200,
+          headers: { 'Content-Type': mime },
+        });
+      const r = await proxyCall(`https://image.tmdb.org/test?m=${encodeURIComponent(mime)}`);
+      assert.equal(r.status, 200);
+      assert.equal(r.headers.get('Content-Type'), mime);
+      assert.equal(r.headers.get('X-Content-Type-Options'), 'nosniff');
+    }
+
+    // 6. Rejects > 5 MB via Content-Length header (413)
+    mockFetchImpl = async () =>
+      new Response(new Uint8Array([1, 2, 3]), {
+        status: 200,
+        headers: {
+          'Content-Type': 'image/jpeg',
+          'Content-Length': String(6 * 1024 * 1024),
+        },
+      });
+    const clOversize = await proxyCall('https://upload.wikimedia.org/huge-cl.jpg');
+    assert.equal(clOversize.status, 413);
+    assert.equal(clOversize.headers.get('Access-Control-Allow-Origin'), '*');
+
+    // 7. Rejects > 5 MB via streaming chunks without Content-Length (413)
+    let cancelled = false;
+    let emitted = 0;
+    mockFetchImpl = async () => {
+      const chunk = new Uint8Array(1024 * 1024);
+      const stream = new ReadableStream({
+        pull(controller) {
+          if (emitted >= 12) {
+            controller.close();
+            return;
+          }
+          emitted += 1;
+          controller.enqueue(chunk);
+        },
+        cancel() {
+          cancelled = true;
+        },
+      });
+      return new Response(stream, {
+        status: 200,
+        headers: { 'Content-Type': 'image/png' },
+      });
+    };
+    const streamOversize = await proxyCall('https://upload.wikimedia.org/huge-stream.png');
+    assert.equal(streamOversize.status, 413);
+    assert.equal(cancelled, true);
+    assert.ok(emitted < 12, `Expected early stream cancel before 12 chunks, emitted ${emitted}`);
+
+    // 8. Rate limit (80/60s) on /api/image-proxy using distinct IP
+    const rateIp = '203.0.113.21';
+    mockFetchImpl = async () =>
+      new Response(new Uint8Array([1, 2]), { status: 200, headers: { 'Content-Type': 'image/webp' } });
+    for (let i = 0; i < 80; i++) {
+      const r = await proxyCall('https://upload.wikimedia.org/small.webp', rateIp);
+      assert.equal(r.status, 200);
+    }
+    const fetchCountBefore81 = fetchedUrls.length;
+    const rate81 = await proxyCall('https://upload.wikimedia.org/small.webp', rateIp);
+    assert.equal(rate81.status, 429);
+    assert.equal(rate81.headers.get('Access-Control-Allow-Origin'), '*');
+    assert.equal(fetchedUrls.length, fetchCountBefore81);
+  } finally {
+    globalThis.fetch = origFetch;
+  }
 });

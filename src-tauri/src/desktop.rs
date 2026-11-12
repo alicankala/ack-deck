@@ -174,17 +174,9 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     if !hidden {
         show_window(app.handle(), None);
     }
-    crate::palette::setup(app)?;
     Ok(())
 }
 pub fn window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
-    if window.label() == "palette" {
-        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-            api.prevent_close();
-            let _ = window.hide();
-        }
-        return;
-    }
     if window.label() != "main" {
         return;
     }
@@ -207,7 +199,6 @@ pub fn window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
                     return;
                 }
             }
-            // The hidden palette must not keep the process alive after normal main-window close.
             crate::phone::send_offline_beacon(&window.app_handle());
             window.app_handle().exit(0);
         }

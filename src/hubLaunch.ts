@@ -1,9 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
-import { openRegisteredProject as launchProject } from "./commandPalette";
+import { loadProjectSnapshot } from "./projectStore";
 import { loadWorkspaces, saveWorkspaces, loadShortcuts, saveShortcuts } from "./workHubStore";
 import { recordRecent } from "./recentStore";
 import { loadFiles } from "./fileStore";
-export { launchProject };
+export async function openRegisteredProject(projectId: string, mode: "folder" | "vscode", native = invoke): Promise<void> {
+  if (typeof projectId !== "string" || (mode !== "folder" && mode !== "vscode")) throw new Error("Proje işlemi geçersiz.");
+  const loaded = loadProjectSnapshot(), project = loaded.entries.find((item) => item.id === projectId);
+  if (loaded.locked || !project?.folderPath) throw new Error("Kayıtlı proje klasörü bulunamadı.");
+  try { await native(mode === "vscode" ? "open_project_in_vscode" : "open_project_folder", { path: project.folderPath }); recordRecent("projects", projectId, mode); }
+  catch { throw new Error("Proje açılamadı. Klasörü veya VS Code kurulumunu kontrol edin."); }
+}
+export { openRegisteredProject as launchProject };
 export async function launchShortcut(id: string, native = invoke): Promise<void> {
   const loaded = loadShortcuts(), item = loaded.entries.find(v => v.id === id);
   if (loaded.locked || !item) throw new Error("Kayıtlı kısayol bulunamadı.");
@@ -24,7 +31,7 @@ export async function launchWorkspace(id: string, native = invoke, beforeItem?: 
   const loaded = loadWorkspaces(), workspace = loaded.entries.find(v => v.id === id);
   if (loaded.locked || !workspace) throw new Error("Kayıtlı çalışma alanı bulunamadı.");
   const errors: string[] = []; let opened = 0;
-  for (const item of workspace.items) { try { beforeItem?.(); if (item.type === "project") await launchProject(item.projectId, item.mode, native); else await native("open_saved_target", { id: item.saved.id }); opened++; } catch { errors.push(item.name + " açılamadı."); } }
+  for (const item of workspace.items) { try { beforeItem?.(); if (item.type === "project") await openRegisteredProject(item.projectId, item.mode, native); else await native("open_saved_target", { id: item.saved.id }); opened++; } catch { errors.push(item.name + " açılamadı."); } }
   const current = loadWorkspaces(); if (!current.locked) saveWorkspaces(current.entries.map(v => v.id === id ? { ...v, lastUsedAt: Date.now(), useCount: v.useCount + 1 } : v));
   recordRecent("workspaces", id); return { opened, errors };
 }

@@ -2,7 +2,11 @@ import type { NavigationTarget } from "./navigation";
 
 // History holds page references only. Captures and measurements must not run
 // again when returning to a page that originally had a one-shot intent.
-export const historyTarget = ({page,id}:NavigationTarget):NavigationTarget => id ? {page,id} : {page};
+export const historyTarget = ({ page, id, tool }: NavigationTarget): NavigationTarget => ({
+  page,
+  ...(id !== undefined ? { id } : {}),
+  ...(tool !== undefined ? { tool } : {}),
+});
 type Entry = { session:string; index:number };
 export function createNavigationHistory(host:Window, initial:NavigationTarget, onNavigate:(target:NavigationTarget)=>void, blocked:()=>boolean) {
   const session=crypto.randomUUID(), entries=[historyTarget(initial)];
@@ -12,7 +16,7 @@ export function createNavigationHistory(host:Window, initial:NavigationTarget, o
   function navigate(target:NavigationTarget) {
     if(travelling||recovering){queued=target;return;}
     const saved=historyTarget(target), current=entries[index];
-    if(current.page!==saved.page||current.id!==saved.id||target.intent){
+    if(current.page!==saved.page||current.id!==saved.id||current.tool!==saved.tool||target.intent){
       entries.splice(index+1);entries.push(saved);index=entries.length-1;
       host.history.pushState(state(),"");
     }

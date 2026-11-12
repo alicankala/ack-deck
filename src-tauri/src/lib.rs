@@ -8,7 +8,6 @@ mod gemini_models;
 mod gemini_tools;
 mod ip_info;
 mod launch_targets;
-mod palette;
 mod pc_status;
 mod phone;
 mod phone_media;
@@ -75,14 +74,6 @@ pub fn run() {
             launch_targets::save_url_target,
             launch_targets::open_saved_target,
             launch_targets::reveal_saved_target,
-            palette::palette_status,
-            palette::get_palette_shortcut,
-            palette::get_palette_shortcut_state,
-            palette::restore_unregistered_palette_shortcut,
-            palette::set_palette_shortcut,
-            palette::hide_palette,
-            palette::palette_request,
-            palette::palette_result,
             desktop::desktop_status,
             desktop::show_main_window,
             desktop::notify_desktop,

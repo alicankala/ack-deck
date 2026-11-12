@@ -1,7 +1,15 @@
 import { TrashSettings } from "./TrashSettings";
 import { ActionMenu } from "./ActionMenu";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { savePreferences, type Preferences } from "../preferences";
+import {
+  PC_REFRESH_INTERVALS,
+  START_PAGES,
+  normalizeStartPage,
+  savePreferences,
+  type PcRefreshInterval,
+  type Preferences,
+  type StartPage,
+} from "../preferences";
 import {
   aiErrorMessage,
   deleteGeminiKey,
@@ -21,11 +29,28 @@ import type { DesktopStatus } from "../desktopClient";
 
 // 4 Temiz ve Sade Sekme
 const sections: { id: string; label: string; description: string; icon: IconName }[] = [
-  { id: "general", label: "Genel", description: "Görünüm, şehir ve Windows", icon: "settings" },
+  { id: "general", label: "Genel", description: "Görünüm, başlangıç, şehir ve Windows", icon: "settings" },
   { id: "notifications", label: "Bildirimler", description: "Masaüstü ve mobil bildirimleri", icon: "bell" },
   { id: "connections", label: "Bağlantılar", description: "Telefon eşitleme ve ACK AI", icon: "files" },
   { id: "data", label: "Veri & Güncelleme", description: "Yedekler, çöp kutusu ve sürüm", icon: "archive" },
 ];
+
+const START_PAGE_LABELS: Record<StartPage, string> = {
+  home: "Ana Sayfa",
+  tasks: "Görevler",
+  calendar: "Aylık Plan",
+  notes: "Notlar",
+  projects: "Projeler & Araçlar",
+  ai: "ACK AI",
+  subscriptions: "Abonelikler",
+  inbox: "Gelenler",
+};
+
+const PC_REFRESH_LABELS: Record<PcRefreshInterval, string> = {
+  2500: "2,5 saniye",
+  5000: "5 saniye",
+  10000: "10 saniye",
+};
 
 type Action = "save" | "delete" | "test";
 type Feedback = { kind: "success" | "error"; text: string };
@@ -260,10 +285,67 @@ export function Settings({
               <DisplayScaleControls />
             </section>
 
-            {/* Kart 2: Şehir ve Konum (Tek Seçim 81 İl) */}
+            {/* Kart 2: Başlangıç ve Sistem Durumu */}
+            <section className="settings-card surface local-settings" aria-labelledby="general-preferences-title">
+              <div className="settings-card-heading">
+                <div>
+                  <h2 id="general-preferences-title">Başlangıç ve Sistem Durumu</h2>
+                  <p className="task-hint">
+                    ACKDeck açılışında gösterilecek varsayılan sayfayı ve ana sayfadaki sistem durumu yenileme hızını seç.
+                  </p>
+                </div>
+              </div>
+              <div className="archive-form-grid" style={{ marginTop: "0.75rem" }}>
+                <label className="archive-field" htmlFor="settings-start-page">
+                  Başlangıç Sayfası
+                  <select
+                    id="settings-start-page"
+                    value={normalizeStartPage(preferences.startPage)}
+                    onChange={(event) =>
+                      changePreference({
+                        ...preferences,
+                        startPage: normalizeStartPage(event.target.value),
+                      })
+                    }
+                    style={{ fontSize: "14px", padding: "8px 12px", borderRadius: "6px" }}
+                  >
+                    {START_PAGES.map((page) => (
+                      <option key={page} value={page}>
+                        {START_PAGE_LABELS[page]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="archive-field" htmlFor="settings-pc-refresh">
+                  Sistem Durumu Yenileme Hızı
+                  <select
+                    id="settings-pc-refresh"
+                    value={preferences.pcRefreshMs}
+                    onChange={(event) => {
+                      const nextMs = Number(event.target.value);
+                      if ((PC_REFRESH_INTERVALS as readonly number[]).includes(nextMs)) {
+                        changePreference({
+                          ...preferences,
+                          pcRefreshMs: nextMs as PcRefreshInterval,
+                        });
+                      }
+                    }}
+                    style={{ fontSize: "14px", padding: "8px 12px", borderRadius: "6px" }}
+                  >
+                    {PC_REFRESH_INTERVALS.map((interval) => (
+                      <option key={interval} value={interval}>
+                        {PC_REFRESH_LABELS[interval]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </section>
+
+            {/* Kart 3: Şehir ve Konum (Tek Seçim 81 İl) */}
             <CitySettings />
 
-            {/* Kart 3: Windows Davranışı */}
+            {/* Kart 4: Windows Davranışı */}
             <DesktopSettings status={desktop} onChange={onDesktopChange} />
           </section>
 

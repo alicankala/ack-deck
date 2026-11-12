@@ -22,15 +22,57 @@ export const DORM_MENU_CACHE_KEY = "ack-deck.dorm-menu.v1";
 export const DORM_MENU_NOTIFIED_KEY = "ack-deck.dorm-menu.last-notified";
 export const DORM_MENU_LAST_FETCH_KEY = "ack-deck.dorm-menu.last-fetched-at";
 
-function getStorage(): Storage | null {
+type StorageLike = {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+};
+
+type DormFetch = (
+  input: string,
+  init?: { headers?: Record<string, string> },
+) => Promise<{ ok: boolean; json(): Promise<unknown> }>;
+
+type DormBrowserTarget = {
+  localStorage?: StorageLike;
+  dispatchEvent?: (event: unknown) => unknown;
+  window?: DormBrowserTarget;
+  Event?: new (type: string) => unknown;
+  fetch?: DormFetch;
+};
+
+let nativeDormFetcher: (() => Promise<string | null>) | null = null;
+
+export function registerNativeDormFetcher(fetcher: (() => Promise<string | null>) | null): void {
+  nativeDormFetcher = fetcher;
+}
+
+function getBrowserTarget(): DormBrowserTarget {
+  const g = globalThis as unknown as DormBrowserTarget;
+  return g.window ?? g;
+}
+
+function getStorage(): StorageLike | null {
   try {
-    if (typeof window !== "undefined" && window.localStorage) {
-      return window.localStorage;
-    }
-    if (typeof localStorage !== "undefined") {
-      return localStorage;
-    }
+    const target = getBrowserTarget();
+    if (target.localStorage) return target.localStorage;
+    const g = globalThis as unknown as DormBrowserTarget;
+    if (g.localStorage) return g.localStorage;
   } catch {}
+  return null;
+}
+
+function extractDormMenuRecords(payload: unknown): DormMenuRecord[] | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const obj = payload as Record<string, unknown>;
+  if (Array.isArray(obj.records)) {
+    return obj.records as DormMenuRecord[];
+  }
+  if (obj.menu && typeof obj.menu === "object" && !Array.isArray(obj.menu)) {
+    const menu = obj.menu as Record<string, unknown>;
+    if (Array.isArray(menu.kayitlar)) {
+      return menu.kayitlar as DormMenuRecord[];
+    }
+  }
   return null;
 }
 
@@ -84,8 +126,11 @@ export function saveDormMenuCache(records: DormMenuRecord[]): void {
     const storage = getStorage();
     storage?.setItem(DORM_MENU_CACHE_KEY, JSON.stringify(records));
     storage?.setItem(DORM_MENU_LAST_FETCH_KEY, String(Date.now()));
-    if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
-      window.dispatchEvent(new Event("ack-dorm-menu-updated"));
+    const target = getBrowserTarget();
+    const globals = globalThis as unknown as DormBrowserTarget;
+    const EventCtor = target.Event ?? globals.Event;
+    if (EventCtor && typeof target.dispatchEvent === "function") {
+      target.dispatchEvent(new EventCtor("ack-dorm-menu-updated"));
     }
   } catch {}
 }
@@ -142,53 +187,49 @@ export async function fetchDormMenu(force = false): Promise<DormMenuRecord[]> {
     return loadDormMenuCache();
   }
 
-  // If in desktop Tauri environment, fetch through native Rust command
-  if (typeof window !== "undefined" && Boolean((window as any).__TAURI_INTERNALS__)) {
+  // If a native Tauri fetcher is registered on desktop, try it first
+  if (nativeDormFetcher) {
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      const raw = await invoke<string>("fetch_dorm_menu");
+      const raw = await nativeDormFetcher();
       if (raw) {
-        const json = JSON.parse(raw);
-        const records = Array.isArray(json?.records)
-          ? json.records
-          : Array.isArray(json?.menu?.kayitlar)
-          ? json.menu.kayitlar
-          : null;
-        if (records && Array.isArray(records) && records.length > 0) {
+        const json: unknown = JSON.parse(raw);
+        const records = extractDormMenuRecords(json);
+        if (records && records.length > 0) {
           saveDormMenuCache(records);
           return records;
         }
       }
     } catch {
-      // Continue to fetch via HTTP fallback
+      // Continue to Worker HTTP fallback
     }
   }
 
+  const suffix = force ? "?force=1" : "";
   const urls = [
-    "https://ack-deck-phone.ack-deck-cloud.workers.dev/api/dorm-menu" + (force ? "?force=1" : ""),
-    "/api/dorm-menu" + (force ? "?force=1" : ""),
-    "https://altinkalemkarabuk.com/icerik/icerik.json?t=" + Date.now(),
+    `/api/dorm-menu${suffix}`,
+    `https://ack-deck-phone.ack-deck-cloud.workers.dev/api/dorm-menu${suffix}`,
   ];
 
-  for (const url of urls) {
-    try {
-      const res = await fetch(url, {
-        headers: { Accept: "application/json" },
-      });
-      if (res.ok) {
-        const json = await res.json();
-        const records = Array.isArray(json?.records)
-          ? json.records
-          : Array.isArray(json?.menu?.kayitlar)
-          ? json.menu.kayitlar
-          : null;
-        if (records && Array.isArray(records) && records.length > 0) {
-          saveDormMenuCache(records);
-          return records;
+  const target = getBrowserTarget();
+  const globals = globalThis as unknown as DormBrowserTarget;
+  const fetchOwner = typeof target.fetch === "function" ? target : globals;
+  if (typeof fetchOwner.fetch === "function") {
+    for (const url of urls) {
+      try {
+        const res = await fetchOwner.fetch(url, {
+          headers: { Accept: "application/json" },
+        });
+        if (res.ok) {
+          const json: unknown = await res.json();
+          const records = extractDormMenuRecords(json);
+          if (records && records.length > 0) {
+            saveDormMenuCache(records);
+            return records;
+          }
         }
+      } catch {
+        // Continue to next URL
       }
-    } catch {
-      // Continue to next URL
     }
   }
 
