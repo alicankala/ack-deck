@@ -20,11 +20,14 @@ import { isActionRequest, proposalFromTool, prepareAckProposal } from "../ackAct
 import type { NavigationTarget } from "../navigation";
 import { takeDashboardPrompt, type AiPromptHandoff } from "../aiPromptHandoff";
 import { getAiQuotaUsage, type QuotaInfo } from "../aiQuotaStore";
+import { AiQuotaMeter } from "./AiQuotaMeter";
+import "./ackAi.css";
 
 type Props = {
   prefill?: { id: string; text: string; attachment?: AiAttachment };
   onPrefillConsumed?: () => void;
   blocked?: boolean;
+  hidePageHeading?: boolean;
   onNewChat?: () => void;
   onBusyChange?: (busy: boolean) => void;
   messages: AiMessage[];
@@ -42,7 +45,7 @@ const starters = [
   { icon: "note", title: "Notlarımı bul", text: "Notlarımı listele.", hint: "Kayıtlarından devam et" },
 ] as const;
 
-export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, initialPrompt, onPromptConsumed, onNewChat, onBusyChange, blocked = false, prefill, onPrefillConsumed }: Props) {
+export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, initialPrompt, onPromptConsumed, onNewChat, onBusyChange, blocked = false, hidePageHeading = false, prefill, onPrefillConsumed }: Props) {
   const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [draft, setDraft] = useState(prefill?.text ?? initialPrompt?.text ?? "");
   const [sending, setSending] = useState(false);
@@ -214,33 +217,38 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
   }
 
   return <div className="ai-page">
-    <header className="feature-heading ai-heading">
-      <div className="ai-page-title"><span className="ai-page-mark"><Icon name="spark" size={24}/></span><div><h1>ACK AI</h1><p>Düşün, planla, harekete geç.</p></div></div>
-      <div className="ai-heading-tools" style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-        <div
-          className="ai-quota-meter"
-          title={`Google Gemini ücretsiz günlük kullanım kotası (Google sunucularıyla senkron: Her gün 10:00'da yenilenir)\n⚡ Hızlı Model: ${quota.fastUsed} kullanıldı · ${quota.fastRemaining} kaldı (Limit: ${quota.fastLimit})\n🧠 Güçlü Model: ${quota.powerfulUsed} kullanıldı · ${quota.powerfulRemaining} kaldı (Limit: ${quota.powerfulLimit})`}
-        >
-          <span
-            className={`ai-quota-pill ${quota.fastRemaining <= 100 ? "is-low" : ""}`}
-            title={`Hızlı Model: ${quota.fastUsed} istek gönderildi, ${quota.fastRemaining} kaldı (Limit: ${quota.fastLimit})`}
-          >
-            ⚡ Hızlı: <strong>{quota.fastRemaining}</strong>/{quota.fastLimit}
-            {quota.fastUsed > 0 && <small className="ai-quota-used-tag">({quota.fastUsed} gitti)</small>}
-          </span>
-          <span
-            className={`ai-quota-pill ${quota.powerfulRemaining <= 5 ? "is-low" : ""}`}
-            title={`Güçlü Model: ${quota.powerfulUsed} istek gönderildi, ${quota.powerfulRemaining} kaldı (Limit: ${quota.powerfulLimit})`}
-          >
-            🧠 Güçlü: <strong>{quota.powerfulRemaining}</strong>/{quota.powerfulLimit}
-            {quota.powerfulUsed > 0 && <small className="ai-quota-used-tag">({quota.powerfulUsed} gitti)</small>}
-          </span>
+    {!hidePageHeading && (
+      <header className="feature-heading ai-heading">
+        <div className="ai-page-title"><span className="ai-page-mark"><Icon name="spark" size={24}/></span><div><h1>ACK AI</h1><p>Düşün, planla, harekete geç.</p></div></div>
+        <div className="ai-heading-tools" style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+          <AiQuotaMeter />
+          {!onNewChat && <button className="button button-secondary" type="button" onClick={newChat} disabled={blocked || attaching || actionBusy.current || (messages.length === 0 && !draft && !error)}>
+            <Icon name="plus" size={17} /> Yeni sohbet
+          </button>}
         </div>
-        {!onNewChat && <button className="button button-secondary" type="button" onClick={newChat} disabled={blocked || attaching || actionBusy.current || (messages.length === 0 && !draft && !error)}>
-          <Icon name="plus" size={17} /> Yeni sohbet
-        </button>}
+      </header>
+    )}
+    <div className="ai-pane-top">
+      <div className="ai-pane-status-group">
+        <span className={`ai-status-pill ${hasKey === true ? "is-ready" : hasKey === false ? "is-local" : "is-checking"}`}>
+          <span className="ai-status-dot" aria-hidden="true" />
+          {hasKey === true ? "Gemini Bağlı" : hasKey === false ? "Yerel Mod" : "Kontrol ediliyor"}
+        </span>
+        <span className="ai-header-pill is-muted">
+          {model === "fast" ? "⚡ Hızlı model" : "🧠 Güçlü model"}
+        </span>
       </div>
-    </header>
+      <div className="ai-pane-actions">
+        {messages.length > 0 && (
+          <span className="ai-header-pill is-muted">{messages.length} mesaj</span>
+        )}
+        {hasKey === false && (
+          <button type="button" className="button button-secondary" onClick={onOpenSettings}>
+            API Anahtarı Bağla
+          </button>
+        )}
+      </div>
+    </div>
     <section className="ai-panel surface" aria-label="ACK AI sohbeti">
       <div className="ai-messages" aria-live="polite">
         {messages.length === 0 ? <div className="ai-empty">
@@ -258,19 +266,21 @@ export function AckAi({ messages, onMessagesChange, onOpenSettings, onNavigate, 
         <div ref={bottomRef} />
       </div>
       {(model === "fast" ? quota.fastRemaining <= 0 : quota.powerfulRemaining <= 0) && (
-        <div className="ai-quota-alert-banner" role="alert" style={{ margin: "0.5rem 1rem", padding: "0.6rem 0.9rem", borderRadius: "8px", background: "rgba(234, 179, 8, 0.15)", border: "1px solid rgba(234, 179, 8, 0.35)", color: "var(--app-text)", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <div className="ai-quota-alert-banner" role="alert">
           <Icon name="info" size={17} />
           <span>Seçili <strong>{model === "fast" ? "Hızlı" : "Güçlü"}</strong> modelin tahmini günlük ücretsiz kullanım kotası tükendi. Diğer modele geçebilirsiniz.</span>
         </div>
       )}
       {error && <div className="ai-error" role="alert"><Icon name="info" size={17} />{error}</div>}
-      <form className="ai-composer" onSubmit={send}>
-        <div className="ai-attachment-row"><button className="button button-secondary" type="button" disabled={blocked || sending || attaching || !!pending} onClick={() => void addAttachment()}>{attaching ? "Dosya hazırlanıyor..." : "Dosya Ekle"}</button><details className="advanced-fields"><summary>Desteklenen dosyalar</summary><small>PNG, JPEG, WebP, PDF veya UTF-8 TXT · En fazla 8 MB · TXT: 128 KB</small></details>{attachment && <div role="status">{attachmentPreview && <img className="ai-attachment-preview" src={attachmentPreview} alt="Gönderilecek görüntünün önizlemesi" />}<strong>{attachment.name}</strong> · {attachment.mime} · {Math.ceil(attachment.size / 1024)} KB<p>Bu dosya Gemini'ye gönderilecek. Gönder düğmesine basılmadan iletilmez.</p><button type="button" disabled={sending} onClick={removeAttachment}>Dosyayı kaldır</button></div>}</div>
-        <label className="sr-only" htmlFor="ai-prompt">ACK AI mesajı</label>
-        <textarea id="ai-prompt" value={draft} onChange={(event) => setDraft(event.target.value)} onPaste={event => { const file = Array.from(event.clipboardData.files).find(item => item.type.startsWith("image/")); if (file) { event.preventDefault(); void addAttachment(file); } }} onKeyDown={handleKeyDown} placeholder={pending ? "Önce işlemi onaylayın veya iptal edin" : hasKey ? "Mesajını yaz..." : "Yerel komut yazabilir veya Ayarlar'dan Gemini anahtarı ekleyebilirsin"} maxLength={8000} rows={3} disabled={sending || !!pending} />
-        <div className="ai-composer-bottom"><label className="ai-model-picker"><Icon name="spark" size={16}/><span className="sr-only">Yanıt modeli</span><select value={model} onChange={event=>chooseModel(event.target.value as AiModel)} disabled={sending || blocked}><option value="fast">Hızlı model</option><option value="powerful">Güçlü model</option></select></label><button className="button button-primary" type="submit" disabled={blocked || sending || attaching || !!pending || !draft.trim()}>Gönder <Icon name="arrowRight" size={16} /></button></div>
-        <div className="ai-composer-help"><small>Enter ile gönder · Shift+Enter ile yeni satır</small><details className="ai-privacy"><summary>Gizlilik ve kullanım</summary><p>Mesajın ve yalnızca ilgili ACKDeck verileri Gemini'ye gönderilir. Seçtiğin dosya yalnız Gönder ile iletilir. İşlemler için onayın istenir; sohbet geçmişi bu bilgisayarda saklanır. Güçlü modelin ücretsiz kotası daha sınırlı olabilir.</p></details></div>
-      </form>
+      <div className="ai-composer-dock">
+        <form className="ai-composer" onSubmit={send}>
+          <div className="ai-attachment-row"><button className="button button-secondary" type="button" disabled={blocked || sending || attaching || !!pending} onClick={() => void addAttachment()}>{attaching ? "Dosya hazırlanıyor..." : "Dosya Ekle"}</button><details className="advanced-fields"><summary>Desteklenen dosyalar</summary><small>PNG, JPEG, WebP, PDF veya UTF-8 TXT · En fazla 8 MB · TXT: 128 KB</small></details>{attachment && <div role="status">{attachmentPreview && <img className="ai-attachment-preview" src={attachmentPreview} alt="Gönderilecek görüntünün önizlemesi" />}<strong>{attachment.name}</strong> · {attachment.mime} · {Math.ceil(attachment.size / 1024)} KB<p>Bu dosya Gemini'ye gönderilecek. Gönder düğmesine basılmadan iletilmez.</p><button type="button" disabled={sending} onClick={removeAttachment}>Dosyayı kaldır</button></div>}</div>
+          <label className="sr-only" htmlFor="ai-prompt">ACK AI mesajı</label>
+          <textarea id="ai-prompt" value={draft} onChange={(event) => setDraft(event.target.value)} onPaste={event => { const file = Array.from(event.clipboardData.files).find(item => item.type.startsWith("image/")); if (file) { event.preventDefault(); void addAttachment(file); } }} onKeyDown={handleKeyDown} placeholder={pending ? "Önce işlemi onaylayın veya iptal edin" : hasKey ? "Mesajını yaz..." : "Yerel komut yazabilir veya Ayarlar'dan Gemini anahtarı ekleyebilirsin"} maxLength={8000} rows={3} disabled={sending || !!pending} />
+          <div className="ai-composer-bottom"><label className="ai-model-picker"><Icon name="spark" size={16}/><span className="sr-only">Yanıt modeli</span><select value={model} onChange={event=>chooseModel(event.target.value as AiModel)} disabled={sending || blocked}><option value="fast">Hızlı model</option><option value="powerful">Güçlü model</option></select></label><button className="button button-primary" type="submit" disabled={blocked || sending || attaching || !!pending || !draft.trim()}>Gönder <Icon name="arrowRight" size={16} /></button></div>
+          <div className="ai-composer-help"><small>Enter ile gönder · Shift+Enter ile yeni satır</small><details className="ai-privacy"><summary>Gizlilik ve kullanım</summary><p>Mesajın ve yalnızca ilgili ACKDeck verileri Gemini'ye gönderilir. Seçtiğin dosya yalnız Gönder ile iletilir. İşlemler için onayın istenir; sohbet geçmişi bu bilgisayarda saklanır. Güçlü modelin ücretsiz kotası daha sınırlı olabilir.</p></details></div>
+        </form>
+      </div>
     </section>
   </div>;
 }

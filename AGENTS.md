@@ -8,6 +8,7 @@ ACKDeck is a personal, local-first Windows desktop application and companion mob
 - **Cloud / Sync:** Cloudflare Workers + D1 + KV (`cloud/`)
 
 **Active Project Directory:** Work exclusively in the current active project folder (`C:\Users\Alican\Desktop\Projeler\ack-deck\`). The old `kontrol-merkezi` directory is obsolete.
+**Session Sync & Worktree Hygiene:** At the start of every session (before reading/planning changes), run `git fetch origin`; if the active workspace/worktree or `C:\Users\Alican\Desktop\Projeler\ack-deck` (`main`) has a clean working tree and is behind `origin/main`, fast-forward (`git merge --ff-only origin/main`) so work always starts on the latest release (if uncommitted changes exist, report first instead of overwriting). Inside worktrees, inspect/reuse junctions to `C:\Users\Alican\Desktop\Projeler\ack-deck\` (`node_modules`, `src-tauri/target`) rather than duplicating multi-GB directories, and delete any leftover empty closed-session worktree folders when unlocked (`git worktree prune`).
 **Product Name:** Keep the name **ACKDeck** consistently across UI, window titles, documentation, and package metadata. Tauri identifier: `com.alican.ackdeck`.
 
 **Product Principles:**

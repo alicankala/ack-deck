@@ -18,6 +18,7 @@ const ConversationHistory = lazy(() => import("./components/ConversationHistory"
 import { useConversations } from "./useConversations";
 const AckAi = lazy(() => import("./components/AckAi").then(module => ({ default: module.AckAi })));
 import { Icon } from "./components/Icon";
+import { AiQuotaMeter } from "./components/AiQuotaMeter";
 const Projects = lazy(() => import("./components/Projects").then(module => ({ default: module.Projects })));
 const WeeklyPlan = lazy(() => import("./components/WeeklyPlan").then(module => ({ default: module.WeeklyPlan })));
 const Tasks = lazy(() => import("./components/Tasks").then(module => ({ default: module.Tasks })));
@@ -51,6 +52,7 @@ import "./styles/media-overview.css";
 import "./styles/media-tracker.css";
 import "./styles/media-modals.css";
 import "./styles/update-settings.css";
+import "./components/ackAi.css";
 
 const LAST_PAGE_KEY = "ack-deck.last-active-page.v1";
 
@@ -351,7 +353,61 @@ function App() {
 
   const pageViews: Record<Page, ReactNode> = {
     home: <Dashboard targetId={route.target.id} projects={projects} refreshMs={preferences.pcRefreshMs} onNavigate={navigate} onAskAi={askAi} />,
-    ai: <div className="ai-history-layout"><ConversationHistory history={{ ...history, newChat: () => { setAiPrompt(undefined); history.newChat(); }, select: id => { setAiPrompt(undefined); history.select(id); } }} disabled={aiBusy} />{history.ready ? <AckAi prefill={phoneAiDraft} onPrefillConsumed={() => setPhoneAiDraft(undefined)} key={history.activeId || "unsaved"} blocked={history.mutating} onNewChat={() => { setAiPrompt(undefined); history.newChat(); }} onBusyChange={setAiBusy} messages={history.messages} initialPrompt={aiPrompt} onPromptConsumed={consumeAiPrompt} onMessagesChange={history.setMessages} onOpenSettings={() => setPage("settings")} onNavigate={navigate} /> : <p role="status">{history.error || "Sohbetler yükleniyor..."}</p>}</div>,
+    ai: (
+      <div className="ai-workspace-page">
+        <header className="feature-heading page-header ai-page-header">
+          <div>
+            <h1>ACK AI</h1>
+            <p>Düşün, planla, harekete geç.</p>
+          </div>
+          <div className="ai-header-actions">
+            <AiQuotaMeter />
+            <span className="ai-header-pill is-muted">{history.threads.length} Sohbet</span>
+            <button
+              className="button button-primary"
+              type="button"
+              disabled={!history.ready || aiBusy || history.mutating}
+              onClick={() => { setAiPrompt(undefined); history.newChat(); }}
+            >
+              <Icon name="plus" size={16} /> Yeni Sohbet
+            </button>
+          </div>
+        </header>
+        <div className="ai-history-layout surface">
+          <ConversationHistory
+            history={{
+              ...history,
+              newChat: () => { setAiPrompt(undefined); history.newChat(); },
+              select: (id) => { setAiPrompt(undefined); history.select(id); },
+            }}
+            disabled={aiBusy}
+          />
+          {history.ready ? (
+            <AckAi
+              hidePageHeading
+              prefill={phoneAiDraft}
+              onPrefillConsumed={() => setPhoneAiDraft(undefined)}
+              key={history.activeId || "unsaved"}
+              blocked={history.mutating}
+              onNewChat={() => { setAiPrompt(undefined); history.newChat(); }}
+              onBusyChange={setAiBusy}
+              messages={history.messages}
+              initialPrompt={aiPrompt}
+              onPromptConsumed={consumeAiPrompt}
+              onMessagesChange={history.setMessages}
+              onOpenSettings={() => setPage("settings")}
+              onNavigate={navigate}
+            />
+          ) : (
+            <div className="ai-page">
+              <div className="ai-messages">
+                <p role="status">{history.error || "Sohbetler yükleniyor..."}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    ),
     settings: <Settings preferences={preferences} onPreferencesChange={setPreferences} desktop={desktop.status} onDesktopChange={desktop.setStatus} />,
     inbox: <PhoneInbox initialId={route.target.id} onAiDraft={(text,attachment) => { setAiPrompt(undefined); setPhoneAiDraft({id:crypto.randomUUID(),text,attachment}); navigate({page:"ai"}); }} />,
     subscriptions: <Subscriptions initialId={route.target.id} />,
