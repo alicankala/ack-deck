@@ -1,0 +1,638 @@
+/* Notlar Sekmesi — Gelenler Tasarım Diline Uyarlanmış Modüler Masaüstü Görünüm */
+.main-content .notes-page {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.notes-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0;
+}
+
+.notes-page-header h1 {
+  margin: 0;
+}
+
+.notes-page-header p {
+  margin: 0.35rem 0 0;
+  color: var(--app-muted);
+  line-height: 1.55;
+}
+
+.notes-header-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.notes-header-pill {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.32rem 0.72rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  background: rgba(56, 189, 248, 0.1);
+  color: #38bdf8;
+  white-space: nowrap;
+}
+
+.notes-header-pill.is-muted {
+  border-color: var(--app-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: #8da4b5;
+}
+
+/* Ana İki Sütunlu Çalışma Alanı */
+.main-content .notes-page .notes-layout {
+  display: grid;
+  grid-template-columns: minmax(18.5rem, 23.5rem) minmax(0, 1fr);
+  min-height: max(39rem, calc(100dvh - 12.5rem));
+  border: 1px solid var(--app-border);
+  border-radius: 1rem;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(20, 28, 38, 0.88) 0%, rgba(14, 20, 29, 0.96) 100%);
+}
+
+/* Sol Kenar Çubuğu */
+.main-content .notes-page .notes-sidebar {
+  background: rgba(13, 19, 28, 0.76);
+  border-right: 1px solid var(--app-border);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+}
+
+.main-content .notes-page .notes-sidebar-top {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.95rem;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.notes-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.notes-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  color: var(--app-muted);
+  pointer-events: none;
+  display: inline-flex;
+}
+
+.main-content .notes-page input.notes-search {
+  width: 100%;
+  padding: 0.48rem 2rem 0.48rem 2.2rem !important;
+  min-height: 2.3rem !important;
+  font-size: 0.86rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--app-border);
+  background: var(--app-field);
+  color: var(--app-text);
+}
+
+.notes-search-clear {
+  position: absolute;
+  right: 0.4rem;
+  background: transparent;
+  border: 0;
+  color: var(--app-muted);
+  cursor: pointer;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.92rem;
+  line-height: 1;
+}
+
+.notes-search-clear:hover {
+  color: var(--app-text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.notes-sidebar-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: #8da4b5;
+}
+
+.notes-filter-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.notes-filter-chip {
+  appearance: none;
+  border: 1px solid var(--app-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--app-secondary);
+  border-radius: 9999px;
+  padding: 0.16rem 0.55rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.notes-filter-chip.is-active {
+  background: var(--app-accent-soft);
+  border-color: var(--app-accent-border);
+  color: var(--app-accent);
+}
+
+.main-content .notes-page .notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.85rem;
+  flex: 1 1 0%;
+  max-height: none;
+  height: auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.main-content .notes-page .note-list-row {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  border-radius: 0.85rem;
+}
+
+.main-content .notes-page .note-list-item {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0.85rem 2.35rem 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.32rem;
+  text-align: left;
+  border-radius: 0.85rem;
+  border: 1px solid var(--app-border);
+  background: linear-gradient(180deg, rgba(22, 30, 40, 0.84) 0%, rgba(16, 22, 30, 0.96) 100%);
+  color: var(--app-text);
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.main-content .notes-page .note-list-item:hover {
+  border-color: rgba(148, 163, 184, 0.36);
+}
+
+.main-content .notes-page .note-list-item.active {
+  border-color: rgba(56, 189, 248, 0.4);
+  background: linear-gradient(180deg, rgba(24, 42, 62, 0.92) 0%, rgba(17, 29, 43, 0.98) 100%);
+  box-shadow: inset 3px 0 0 var(--app-accent);
+}
+
+.main-content .notes-page .note-list-item strong {
+  font-size: 0.95rem;
+  font-weight: 650;
+  line-height: 1.4;
+  color: var(--app-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.main-content .notes-page .note-card-excerpt {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #9cb2c7;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+  margin: 0;
+}
+
+.note-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  margin-top: 0.25rem;
+  font-size: 0.74rem;
+  color: var(--app-muted);
+}
+
+.note-card-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.note-card-attach-badge {
+  padding: 0.1rem 0.42rem;
+  border-radius: 9999px;
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.main-content .notes-page .note-list-item-reorder {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 2;
+}
+
+.main-content .notes-page .note-list-row:hover .note-list-item-reorder,
+.main-content .notes-page .note-list-row:focus-within .note-list-item-reorder {
+  opacity: 1;
+}
+
+.main-content .notes-page .note-order-btn {
+  background: rgba(15, 23, 34, 0.9);
+  border: 1px solid var(--app-border);
+  border-radius: 0.35rem;
+  color: var(--app-muted);
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.main-content .notes-page .note-order-btn:hover:not(:disabled) {
+  background: var(--app-accent);
+  color: #fff;
+  border-color: transparent;
+}
+
+.main-content .notes-page .note-order-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.notes-empty-list-box {
+  padding: 1.65rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px dashed var(--app-border);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--app-muted);
+  font-size: 0.86rem;
+}
+
+.notes-empty-list-box p {
+  margin: 0;
+}
+
+/* Sağ Editör Yüzeyi */
+.main-content .notes-page .notes-editor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 1.25rem 1.85rem 1.15rem;
+  background: transparent;
+  gap: 0;
+}
+
+.main-content .notes-page .notes-editor-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0 0 0.95rem;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.note-save-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.76rem;
+  font-weight: 650;
+  padding: 0.22rem 0.65rem;
+  border-radius: 9999px;
+}
+
+.note-save-pill.is-saved {
+  background: rgba(34, 197, 94, 0.14);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.28);
+}
+
+.note-save-pill.is-error {
+  background: rgba(239, 68, 68, 0.14);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.note-save-dot {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+.notes-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.notes-editor-actions .button {
+  padding: 0.38rem 0.78rem;
+  min-height: 2.05rem;
+  font-size: 0.83rem;
+}
+
+.notes-copy-btn.is-copied {
+  background: rgba(16, 185, 129, 0.16) !important;
+  border-color: rgba(16, 185, 129, 0.42) !important;
+  color: #34d399 !important;
+}
+
+.notes-delete-btn {
+  color: #f87171 !important;
+}
+
+.notes-delete-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.14) !important;
+  border-color: rgba(248, 113, 113, 0.45) !important;
+}
+
+.notes-delete-confirm {
+  margin-top: 0.85rem;
+  padding: 0.68rem 0.9rem;
+  border-radius: 0.7rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  font-size: 0.86rem;
+}
+
+.notes-delete-confirm span {
+  margin-right: auto;
+  color: #fecaca;
+  font-weight: 550;
+}
+
+/* Akıcı Başlık + Gövde Yazım Sayfası (Kaba Kutu Çerçevesi Olmadan) */
+.notes-writing-sheet {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.main-content .notes-page .notes-editor input.notes-title {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+  border-radius: 0;
+  padding: 1.05rem 0 0.7rem;
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--app-text);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.main-content .notes-page .notes-editor input.notes-title:focus {
+  border-bottom-color: var(--app-accent-border);
+}
+
+.main-content .notes-page .notes-editor .note-writing-area {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 22rem;
+  padding-top: 0.85rem;
+}
+
+.main-content .notes-page .notes-editor textarea.notes-content {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 22rem;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0;
+  resize: none;
+  font-size: 1rem;
+  line-height: 1.85;
+  color: var(--app-text);
+  outline: none;
+}
+
+.notes-attachments-section {
+  display: grid;
+  gap: 0.65rem;
+  padding-top: 0.9rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--app-border);
+}
+
+.main-content .notes-page .notes-save-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin: 0.75rem 0 0;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--app-border);
+  font-size: 0.79rem;
+  color: var(--app-muted);
+  line-height: 1.5;
+}
+
+/* Boş Editör Durumu */
+.notes-empty-editor {
+  margin: auto;
+  max-width: 24rem;
+  padding: 2.25rem 1.5rem;
+  border-radius: 1rem;
+  border: 1px dashed var(--app-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.65rem;
+}
+
+.notes-empty-editor h2 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.notes-empty-editor p {
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+/* Responsive */
+@container (max-width: 56rem) {
+  .main-content .notes-page .notes-layout {
+    grid-template-columns: minmax(15.5rem, 20rem) minmax(0, 1fr);
+  }
+}
+
+@container (max-width: 48rem) {
+  .main-content .notes-page .notes-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .main-content .notes-page .notes-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--app-border);
+  }
+  .main-content .notes-page .notes-list {
+    max-height: 17rem;
+  }
+  .main-content .notes-page .notes-editor {
+    padding: 1.15rem 1.25rem;
+  }
+}
+
+/* Light Theme Uyum */
+:root[data-theme="light"] .main-content .notes-page .notes-layout {
+  background: #ffffff;
+  border-color: var(--app-border);
+}
+
+:root[data-theme="light"] .main-content .notes-page .notes-sidebar {
+  background: #f4f7fb;
+  border-color: var(--app-border);
+}
+
+:root[data-theme="light"] .notes-header-pill.is-muted,
+:root[data-theme="light"] .notes-sidebar-meta {
+  color: var(--app-muted);
+}
+
+:root[data-theme="light"] .notes-header-pill {
+  background: var(--app-accent-soft);
+  border-color: var(--app-accent-border);
+  color: var(--app-accent);
+}
+
+:root[data-theme="light"] .notes-filter-chip {
+  background: #ffffff;
+  border-color: var(--app-border);
+  color: var(--app-secondary);
+}
+
+:root[data-theme="light"] .notes-filter-chip.is-active {
+  background: var(--app-accent-soft);
+  border-color: var(--app-accent-border);
+  color: var(--app-accent);
+}
+
+:root[data-theme="light"] .main-content .notes-page .note-list-item {
+  background: #ffffff;
+  border-color: var(--app-border);
+  color: var(--app-text);
+}
+
+:root[data-theme="light"] .main-content .notes-page .note-list-item:hover {
+  border-color: var(--app-border-strong);
+}
+
+:root[data-theme="light"] .main-content .notes-page .note-list-item.active {
+  background: #f0f8ff;
+  border-color: var(--app-accent-border);
+  box-shadow: inset 3px 0 0 var(--app-accent);
+}
+
+:root[data-theme="light"] .main-content .notes-page .note-card-excerpt {
+  color: var(--app-secondary);
+}
+
+:root[data-theme="light"] .main-content .notes-page .note-order-btn {
+  background: #ffffff;
+  border-color: var(--app-border);
+}
+
+:root[data-theme="light"] .main-content .notes-page .notes-editor {
+  background: #ffffff;
+  color: var(--app-text);
+}
+
+:root[data-theme="light"] .main-content .notes-page .notes-editor input.notes-title {
+  background: transparent;
+  border-bottom-color: var(--app-border);
+  color: var(--app-text);
+}
+
+:root[data-theme="light"] .main-content .notes-page .notes-editor textarea.notes-content {
+  background: transparent;
+  color: var(--app-text);
+}
+
+:root[data-theme="light"] .note-save-pill.is-saved {
+  background: rgba(22, 163, 74, 0.1);
+  color: #15803d;
+  border-color: rgba(22, 163, 74, 0.28);
+}
+
+:root[data-theme="light"] .note-save-pill.is-error {
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.28);
+}
+
+:root[data-theme="light"] .notes-copy-btn.is-copied {
+  background: rgba(22, 163, 74, 0.12) !important;
+  border-color: rgba(22, 163, 74, 0.35) !important;
+  color: #15803d !important;
+}
+
+:root[data-theme="light"] .notes-delete-btn {
+  color: #dc2626 !important;
+}
+
+:root[data-theme="light"] .notes-delete-confirm span {
+  color: #991b1b;
+}

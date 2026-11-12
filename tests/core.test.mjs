@@ -714,3 +714,24 @@ test('PhoneInbox helpers and modern grid layout support smart tabs, filtering, e
   assert.equal(inboxCss.includes(':root[data-theme="light"] .main-content .inbox-card'), true);
   assert.equal(desktopLayoutCss.includes('.inbox-grid'), false);
 });
+
+test('desktop Notes redesign preserves persistence/shortcuts contract and uses modular CSS', () => {
+  const notesTsx = readFileSync(new URL('../src/components/Notes.tsx', import.meta.url), 'utf8');
+  const notesCss = readFileSync(new URL('../src/components/notes.css', import.meta.url), 'utf8');
+  const desktopLayoutCss = readFileSync(new URL('../src/desktop-layout.css', import.meta.url), 'utf8');
+
+  assert.equal(notesTsx.includes('notes-writing-sheet'), true);
+  assert.equal(notesTsx.includes('id="note-title"'), true);
+  assert.equal(notesTsx.includes('id="note-content"'), true);
+  assert.equal(notesTsx.includes('id="notes-search"'), true);
+  assert.equal(notesTsx.includes('✓ Kopyalandı'), true);
+  assert.equal(notesTsx.includes('notes-delete-confirm'), true);
+  assert.equal(notesTsx.includes('offerUndo'), true);
+  assert.equal(notesTsx.includes('satır ·'), true);
+
+  assert.equal(notesCss.includes('inset 3px 0 0 var(--app-accent)'), true);
+  assert.equal(notesCss.includes('border: 0'), true);
+  assert.equal(notesCss.includes(':root[data-theme="light"] .main-content .notes-page .notes-layout'), true);
+
+  assert.equal(desktopLayoutCss.includes('.notes-layout'), false);
+});
