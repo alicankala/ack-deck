@@ -6,7 +6,7 @@
     "dev": "wrangler dev --local --test-scheduled",
     "check": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
-    "deploy": "wrangler deploy",
+    "deploy": "npm --prefix ../mobile run build && wrangler deploy",
     "migrate:local": "wrangler d1 migrations apply ack-deck-phone --local"
   },
   "dependencies": {
@@ -18,7 +18,7 @@
     "typescript": "~6.0.3",
     "wrangler": "4.148.0"
   },
-  "version": "2.0.9",
+  "version": "2.1.0",
   "overrides": {
     "sharp": "0.35.5"
   }

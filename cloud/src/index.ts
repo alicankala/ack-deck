@@ -1,4 +1,5 @@
 import { MAX_ATTACHMENT, RETENTION_SECONDS, exact, id, object, safeAttachment, text, validUrl } from "../../shared/phone";
+import { findMenuForDate, turkeyDateKey, type DormMenuRecord } from "../../shared/dormMenu";
 import { lookupTurkeyCity } from "../../shared/prayerTimes";
 import { weatherDescription, weatherSymbol } from "../../shared/weather";
 import { ApiError, boundedBytes, equalSecret, hash, jsonBody, pushEndpoint, randomToken, reply, secure } from "./security";
@@ -187,17 +188,32 @@ async function handle(request: Request, env: Env): Promise<Response> {
         records: any[];
       } | null;
 
-      // 3-hour cache TTL (10,800,000 ms)
+      // 3-hour cache TTL when today's menu is present; shorter cooldown after 12:30 when missing
+      const todayKey = turkeyDateKey(new Date(now));
+      const todayPublishMs = Date.parse(`${todayKey}T12:30:00+03:00`);
+      const cachedMenu = cached && Array.isArray(cached.records)
+        ? findMenuForDate(cached.records as DormMenuRecord[], todayKey)
+        : null;
+      const hasTodayMenu = Boolean(
+        cachedMenu &&
+          !cachedMenu.isFallback &&
+          cachedMenu.date?.trim().startsWith(todayKey) &&
+          cachedMenu.dinnerDishes.length > 0,
+      );
+      const cacheTtlMs = hasTodayMenu
+        ? 3 * 3600 * 1000
+        : !Number.isNaN(todayPublishMs) && now >= todayPublishMs && (cached?.fetchedAt ?? 0) < todayPublishMs
+          ? 0
+          : 15 * 60 * 1000;
+
       if (
         !force &&
         cached &&
         Array.isArray(cached.records) &&
         cached.records.length > 0 &&
-        now - cached.fetchedAt < 3 * 3600 * 1000
+        now - cached.fetchedAt < cacheTtlMs
       ) {
-        const resp = corsReply({ ok: true, records: cached.records, cached: true });
-        resp.headers.set("Cache-Control", "public, max-age=3600");
-        return resp;
+        return corsReply({ ok: true, records: cached.records, cached: true });
       }
 
       const res = await fetch("https://altinkalemkarabuk.com/icerik/icerik.json", {
@@ -215,9 +231,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
             );
           } catch {}
         }
-        const resp = corsReply({ ok: true, records });
-        resp.headers.set("Cache-Control", "public, max-age=3600");
-        return resp;
+        return corsReply({ ok: true, records });
       } else if (cached && Array.isArray(cached.records) && cached.records.length > 0) {
         return corsReply({ ok: true, records: cached.records, cached: true });
       }

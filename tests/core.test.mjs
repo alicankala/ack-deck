@@ -353,6 +353,13 @@ test('dorm menu client cache enforces freshness: skips fetch when today menu pre
   // 4. If last fetch was 3 hours ago and target date is not in cache -> not fresh
   env.storage.setItem(dorm.DORM_MENU_LAST_FETCH_KEY, String(Date.now() - 3 * 3600 * 1000));
   assert.equal(dorm.isDormMenuFresh('2026-11-05'), false);
+
+  // 5. If last fetch was before 12:30 Istanbul today (e.g. 11:00) and today's menu is missing,
+  //    checking at 12:31 Istanbul today MUST return false (not fresh) so 12:30 push updates the card.
+  const pre1230 = new Date('2026-11-05T11:00:00+03:00');
+  const post1230 = new Date('2026-11-05T12:31:00+03:00');
+  env.storage.setItem(dorm.DORM_MENU_LAST_FETCH_KEY, String(pre1230.getTime()));
+  assert.equal(dorm.isDormMenuFresh('2026-11-05', post1230), false);
 });
 
 test('media items validate IMDb ratings, IDs and timestamps safely', () => {

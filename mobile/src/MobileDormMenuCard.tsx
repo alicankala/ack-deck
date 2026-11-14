@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   fetchDormMenu,
   findMenuForDate,
@@ -20,9 +20,10 @@ export function MobileDormMenuCard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const refresh = async (force = false) => {
-    if (!force && isDormMenuFresh(todayKey)) {
-      const cached = findMenuForDate(loadDormMenuCache(), todayKey);
+  const refresh = useCallback(async (force = false) => {
+    const currentKey = turkeyDateKey();
+    if (!force && isDormMenuFresh(currentKey)) {
+      const cached = findMenuForDate(loadDormMenuCache(), currentKey);
       setMenu(cached);
       return;
     }
@@ -30,7 +31,7 @@ export function MobileDormMenuCard({
     setError("");
     try {
       const records = await fetchDormMenu(force);
-      const current = findMenuForDate(records, todayKey);
+      const current = findMenuForDate(records, currentKey);
       setMenu(current);
       if (!current) setError("Bugünün menüsü henüz girilmedi.");
     } catch {
@@ -38,13 +39,55 @@ export function MobileDormMenuCard({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    if (!isDormMenuFresh(todayKey)) {
-      void refresh(false);
-    }
-  }, [todayKey]);
+    const syncOrFetch = () => {
+      const currentKey = turkeyDateKey();
+      const cached = findMenuForDate(loadDormMenuCache(), currentKey);
+      if (cached) {
+        setMenu(cached);
+        setError("");
+      }
+      if (!isDormMenuFresh(currentKey)) {
+        void refresh(false);
+      }
+    };
+
+    const syncFromCache = () => {
+      const current = findMenuForDate(loadDormMenuCache(), turkeyDateKey());
+      if (current) {
+        setMenu(current);
+        setError("");
+      }
+    };
+
+    const onVisibilityOrFocus = () => {
+      if (document.visibilityState === "hidden") return;
+      syncOrFetch();
+    };
+
+    syncOrFetch();
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState !== "hidden" && !isDormMenuFresh(turkeyDateKey())) {
+        void refresh(false);
+      }
+    }, 60_000);
+
+    window.addEventListener("ack-dorm-menu-updated", syncFromCache);
+    window.addEventListener("ack-dorm-menu-refresh", syncOrFetch);
+    window.addEventListener("focus", onVisibilityOrFocus);
+    document.addEventListener("visibilitychange", onVisibilityOrFocus);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("ack-dorm-menu-updated", syncFromCache);
+      window.removeEventListener("ack-dorm-menu-refresh", syncOrFetch);
+      window.removeEventListener("focus", onVisibilityOrFocus);
+      document.removeEventListener("visibilitychange", onVisibilityOrFocus);
+    };
+  }, [todayKey, refresh]);
 
   const dishIcons = ["🍲", "🥩", "🍚", "🥗", "🍮", "🍞", "🍎"];
 

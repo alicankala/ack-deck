@@ -29,7 +29,7 @@ type StorageLike = {
 
 type DormFetch = (
   input: string,
-  init?: { headers?: Record<string, string> },
+  init?: { cache?: string; headers?: Record<string, string> },
 ) => Promise<{ ok: boolean; json(): Promise<unknown> }>;
 
 type DormBrowserTarget = {
@@ -135,19 +135,28 @@ export function saveDormMenuCache(records: DormMenuRecord[]): void {
   } catch {}
 }
 
-export function isDormMenuFresh(todayKey = turkeyDateKey()): boolean {
+export function isDormMenuFresh(todayKey = turkeyDateKey(), now = new Date()): boolean {
   const records = loadDormMenuCache();
   const current = findMenuForDate(records, todayKey);
   // 1. If today's menu is already present (not a fallback from previous days) and has dinner dishes:
   if (current && !current.isFallback && current.isToday && current.dinnerDishes.length > 0) {
     return true; // Today's menu is already present and complete!
   }
-  // 2. If we already checked within the last 2.5 hours, consider it recently checked to prevent repeated fetches:
+  // 2. Today's menu is missing/fallback: check last fetch time.
   const lastFetch = getLastDormMenuFetchTime();
-  if (lastFetch > 0 && Date.now() - lastFetch < 2.5 * 3600 * 1000) {
-    return true;
+  if (lastFetch <= 0) return false;
+
+  const nowMs = now.getTime();
+  const todayPublishMs = Date.parse(`${todayKey}T12:30:00+03:00`);
+  if (!Number.isNaN(todayPublishMs) && nowMs >= todayPublishMs) {
+    // Past 12:30 Istanbul time: any fetch from before 12:30 today is stale
+    if (lastFetch < todayPublishMs) return false;
+    // After 12:30, use a shorter 15-minute cooldown while today's menu is still missing
+    return nowMs - lastFetch < 15 * 60 * 1000;
   }
-  return false;
+
+  // Before 12:30 (or future date), keep 2.5-hour cooldown to avoid hammering
+  return nowMs - lastFetch < 2.5 * 3600 * 1000;
 }
 
 export function findMenuForDate(records: DormMenuRecord[], targetDate: string): DailyMenu | null {
@@ -217,6 +226,7 @@ export async function fetchDormMenu(force = false): Promise<DormMenuRecord[]> {
     for (const url of urls) {
       try {
         const res = await fetchOwner.fetch(url, {
+          cache: "no-store",
           headers: { Accept: "application/json" },
         });
         if (res.ok) {

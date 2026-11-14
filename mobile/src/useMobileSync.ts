@@ -83,6 +83,9 @@ export function useMobileSync({ stopRecordingRef }: UseMobileSyncParams) {
     if (!silent) {
       setBusy(true);
       setError("");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("ack-dorm-menu-refresh"));
+      }
     }
     const startTime = Date.now();
     try {
