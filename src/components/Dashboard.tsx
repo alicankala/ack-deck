@@ -1,12 +1,12 @@
-import { Subscriptions } from "./Subscriptions";
 import { PrayerWidget } from "./PrayerWidget";
 import { DormMenuCard } from "./DormMenuCard";
 import { DashboardTasksCard } from "./DashboardTasksCard";
+import { loadSubscriptions } from "../subscriptionStore";
+import { monthlyTotals, money, paymentLabel, paymentOccurrence } from "../../shared/subscriptions";
 import { scheduleDate } from "../../shared/recurrence";
 import { loadStudyAttendance, setStudyBlockStatus, cycleAttendanceStatus } from "../../shared/studyAttendance";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Header } from "./Header";
-import { PcStatus } from "./PcStatus";
 import { PomodoroTimer } from "./PomodoroTimer";
 import { Icon, type IconName } from "./Icon";
 import { loadDashboardData, relativeUseTime, todayTasks } from "../dashboardData";
@@ -45,9 +45,10 @@ function AiStart({ onAskAi }: Pick<Props, "onAskAi">) {
     <form onSubmit={submit}><label className="sr-only" htmlFor="dashboard-ai-prompt">ACK AI mesajı</label><textarea id="dashboard-ai-prompt" value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} rows={3} maxLength={8000} placeholder="Bana ne yapmak istediğini yaz..." /><div className="dashboard-ai-send"><small>Enter ile gönder · İşlemler için onayın istenir.</small><button className="button button-primary" type="submit" disabled={!draft.trim()}>Gönder <Icon name="arrowRight" size={16} /></button></div></form>
   </section>;
 }
-export function Dashboard({ refreshMs, onNavigate, onAskAi, targetId }: Props) {
+export function Dashboard({ onNavigate, onAskAi, targetId }: Props) {
   const [data, setData] = useState(loadDashboardData), [now, setNow] = useState(() => new Date());
   const [studyData, setStudyData] = useState(loadStudyPrograms);
+  const [subsData, setSubsData] = useState(loadSubscriptions);
   const [feedback, setFeedback] = useState("");
 
   useEffect(() => {
@@ -68,6 +69,7 @@ export function Dashboard({ refreshMs, onNavigate, onAskAi, targetId }: Props) {
       frameId = requestAnimationFrame(() => {
         setData(loadDashboardData());
         setStudyData(loadStudyPrograms());
+        setSubsData(loadSubscriptions());
         frameId = null;
       });
     };
@@ -350,83 +352,120 @@ export function Dashboard({ refreshMs, onNavigate, onAskAi, targetId }: Props) {
     };
   })();
 
+  const activeSubs = subsData.entries.filter(s => s.status === "active");
+  const upcomingSub = activeSubs
+    .filter(s => paymentOccurrence(s))
+    .sort((a, b) => paymentOccurrence(a)!.at - paymentOccurrence(b)!.at)[0];
+  const subTotals = monthlyTotals(subsData.entries);
+  const subMonthlyBadge = subTotals.length > 0
+    ? `${subTotals.map(([currency, amount]) => money(amount, currency)).join(" + ")} / ay`
+    : activeSubs.length > 0
+      ? `${activeSubs.length} aktif`
+      : "Aktif yok";
+  const subCardTitle = upcomingSub
+    ? `${upcomingSub.name} · ${paymentLabel(upcomingSub)}`
+    : activeSubs[0]
+      ? activeSubs.slice(0, 2).map(s => s.name).join(", ")
+      : "Abonelik eklenmedi";
+  const subCardMeta = activeSubs.length > 0
+    ? `${activeSubs.length} aktif abonelik`
+    : "Abonelikleri yönetmek için tıkla";
+
   return (
     <div className="dashboard work-dashboard">
       <Header />
       <div className="dashboard-workbench">
-        {/* Satır 1: Canlı Durum & Haftalık Çizelge | Namaz Vakitleri */}
-        <div className="dashboard-grid-row row-overview-schedule">
-          <div className="dashboard-overview live-status-overview" aria-label="Canlı durum özeti">
-            <button
-              type="button"
-              className={`live-overview-card tone-${nextSessionCard.tone}`}
-              onClick={() => onNavigate(nextSessionCard.target)}
-            >
-              <span className="overview-icon"><Icon name={nextSessionCard.icon} size={20} /></span>
-              <span className="live-overview-body">
-                <span className="live-overview-top">
-                  <span className="live-overview-eyebrow">{nextSessionCard.eyebrow}</span>
-                  <span className="live-overview-badge">{nextSessionCard.badge}</span>
-                </span>
-                <strong className="live-overview-title" title={nextSessionCard.title}>{nextSessionCard.title}</strong>
-                <small className="live-overview-meta">{nextSessionCard.meta}</small>
+        {/* Üst Şerit: 4 Eşit Özet Kartı */}
+        <div className="dashboard-overview live-status-overview" aria-label="Canlı durum özeti">
+          <button
+            type="button"
+            className={`live-overview-card tone-${nextSessionCard.tone}`}
+            onClick={() => onNavigate(nextSessionCard.target)}
+          >
+            <span className="overview-icon"><Icon name={nextSessionCard.icon} size={20} /></span>
+            <span className="live-overview-body">
+              <span className="live-overview-top">
+                <span className="live-overview-eyebrow">{nextSessionCard.eyebrow}</span>
+                <span className="live-overview-badge">{nextSessionCard.badge}</span>
               </span>
-            </button>
+              <strong className="live-overview-title" title={nextSessionCard.title}>{nextSessionCard.title}</strong>
+              <small className="live-overview-meta">{nextSessionCard.meta}</small>
+            </span>
+          </button>
 
-            <button
-              type="button"
-              className="live-overview-card tone-progress"
-              onClick={() => onNavigate({ page: "calendar" })}
-            >
-              <span className="overview-icon"><Icon name="layers" size={20} /></span>
-              <span className="live-overview-body">
-                <span className="live-overview-top">
-                  <span className="live-overview-eyebrow">
-                    {totalWeekLessons > 0 ? "Haftalık ders ilerlemesi" : "Haftalık ders planı"}
-                  </span>
-                  <span className="live-overview-badge">
-                    {totalWeekLessons > 0 ? `%${weekProgressPct}` : "Planla"}
-                  </span>
+          <button
+            type="button"
+            className="live-overview-card tone-progress"
+            onClick={() => onNavigate({ page: "calendar" })}
+          >
+            <span className="overview-icon"><Icon name="layers" size={20} /></span>
+            <span className="live-overview-body">
+              <span className="live-overview-top">
+                <span className="live-overview-eyebrow">
+                  {totalWeekLessons > 0 ? "Haftalık ders ilerlemesi" : "Haftalık ders planı"}
                 </span>
-                <strong className="live-overview-title">
-                  {totalWeekLessons > 0 ? `${attendedWeekLessons} / ${totalWeekLessons} ders çalışıldı` : "Ders programı eklenmedi"}
-                </strong>
-                {totalWeekLessons > 0 ? (
-                  <span className="live-progress-wrap">
-                    <span className="live-progress-track" aria-hidden="true">
-                      <span className="live-progress-fill is-attended" style={{ width: `${weekProgressPct}%` }} />
-                      {weekSkippedPct > 0 && (
-                        <span className="live-progress-fill is-skipped" style={{ width: `${weekSkippedPct}%` }} />
-                      )}
-                    </span>
-                    <small className="live-overview-meta">
-                      {pendingWeekLessons === 0 && skippedWeekLessons === 0
-                        ? "Haftanın tüm dersleri tamamlandı ✓"
-                        : `${pendingWeekLessons} bekliyor${skippedWeekLessons > 0 ? ` · ${skippedWeekLessons} çalışılmadı` : ""}`}
-                    </small>
-                  </span>
-                ) : (
-                  <small className="live-overview-meta">Aylık Plan'dan ders çizelgesi ekle</small>
-                )}
+                <span className="live-overview-badge">
+                  {totalWeekLessons > 0 ? `%${weekProgressPct}` : "Planla"}
+                </span>
               </span>
-            </button>
+              <strong className="live-overview-title">
+                {totalWeekLessons > 0 ? `${attendedWeekLessons} / ${totalWeekLessons} ders çalışıldı` : "Ders programı eklenmedi"}
+              </strong>
+              {totalWeekLessons > 0 ? (
+                <span className="live-progress-wrap">
+                  <span className="live-progress-track" aria-hidden="true">
+                    <span className="live-progress-fill is-attended" style={{ width: `${weekProgressPct}%` }} />
+                    {weekSkippedPct > 0 && (
+                      <span className="live-progress-fill is-skipped" style={{ width: `${weekSkippedPct}%` }} />
+                    )}
+                  </span>
+                  <small className="live-overview-meta">
+                    {pendingWeekLessons === 0 && skippedWeekLessons === 0
+                      ? "Haftanın tüm dersleri tamamlandı ✓"
+                      : `${pendingWeekLessons} bekliyor${skippedWeekLessons > 0 ? ` · ${skippedWeekLessons} çalışılmadı` : ""}`}
+                  </small>
+                </span>
+              ) : (
+                <small className="live-overview-meta">Aylık Plan'dan ders çizelgesi ekle</small>
+              )}
+            </span>
+          </button>
 
-            <button
-              type="button"
-              className="live-overview-card tone-recent"
-              onClick={() => onNavigate(recentContentCard.target)}
-            >
-              <span className="overview-icon"><Icon name={recentContentCard.icon} size={20} /></span>
-              <span className="live-overview-body">
-                <span className="live-overview-top">
-                  <span className="live-overview-eyebrow">{recentContentCard.eyebrow}</span>
-                  <span className="live-overview-badge">{recentContentCard.badge}</span>
-                </span>
-                <strong className="live-overview-title" title={recentContentCard.title}>{recentContentCard.title}</strong>
-                <small className="live-overview-meta">{recentContentCard.meta}</small>
+          <button
+            type="button"
+            className="live-overview-card tone-recent"
+            onClick={() => onNavigate(recentContentCard.target)}
+          >
+            <span className="overview-icon"><Icon name={recentContentCard.icon} size={20} /></span>
+            <span className="live-overview-body">
+              <span className="live-overview-top">
+                <span className="live-overview-eyebrow">{recentContentCard.eyebrow}</span>
+                <span className="live-overview-badge">{recentContentCard.badge}</span>
               </span>
-            </button>
-          </div>
+              <strong className="live-overview-title" title={recentContentCard.title}>{recentContentCard.title}</strong>
+              <small className="live-overview-meta">{recentContentCard.meta}</small>
+            </span>
+          </button>
+
+          <button
+            type="button"
+            className="live-overview-card tone-subs"
+            onClick={() => onNavigate({ page: "subscriptions" })}
+          >
+            <span className="overview-icon"><Icon name="archive" size={20} /></span>
+            <span className="live-overview-body">
+              <span className="live-overview-top">
+                <span className="live-overview-eyebrow">Abonelikler</span>
+                <span className="live-overview-badge">{subMonthlyBadge}</span>
+              </span>
+              <strong className="live-overview-title" title={subCardTitle}>{subCardTitle}</strong>
+              <small className="live-overview-meta">{subCardMeta}</small>
+            </span>
+          </button>
+        </div>
+
+        {/* Sol Ana Sütun: Haftalık Çizelge + (Görevler & ACK AI) */}
+        <div className="dashboard-main-stack">
 
           {/* Haftalık Çizelge (Üstte) */}
           <section className="dashboard-weekly-preview surface" aria-labelledby="dashboard-weekly-heading">
@@ -523,37 +562,36 @@ export function Dashboard({ refreshMs, onNavigate, onAskAi, targetId }: Props) {
           </section>
 
           {feedback && <p className="tool-feedback error" role="alert">{feedback}</p>}
+
+          <div className="dashboard-start-grid">
+            <DashboardTasksCard
+              todayDateStr={todayDateStr}
+              tasksLoad={data.tasks}
+              todayStudyBlocks={todayStudyBlocks}
+              allBlocks={allBlocks}
+              attendance={attendance}
+              onToggleStudyBlock={toggleStudyBlock}
+              onError={setFeedback}
+            />
+
+            <AiStart onAskAi={onAskAi} />
+          </div>
         </div>
-        <aside className="dashboard-grid-rail rail-prayer dashboard-right-rail" aria-label="Namaz vakitleri">
-          <PrayerWidget />
-        </aside>
 
-        {/* Satır 2: Görevler ve ACK AI | Günün Yemek Menüsü */}
-        <div className="dashboard-start-grid">
-          <DashboardTasksCard
-            todayDateStr={todayDateStr}
-            tasksLoad={data.tasks}
-            todayStudyBlocks={todayStudyBlocks}
-            allBlocks={allBlocks}
-            attendance={attendance}
-            onToggleStudyBlock={toggleStudyBlock}
-            onError={setFeedback}
-          />
-
-          <AiStart onAskAi={onAskAi} />
+        {/* Sağ Yardımcı Sütun: Namaz Vakitleri + Günün Yemek Menüsü */}
+        <div className="dashboard-right-column">
+          <aside className="dashboard-grid-rail rail-prayer dashboard-right-rail" aria-label="Namaz vakitleri">
+            <PrayerWidget />
+          </aside>
+          <aside className="dashboard-grid-rail rail-dorm dashboard-right-rail" aria-label="Günün yemek menüsü">
+            <DormMenuCard />
+          </aside>
         </div>
-        <aside className="dashboard-grid-rail rail-dorm dashboard-right-rail" aria-label="Günün yemek menüsü">
-          <DormMenuCard />
-        </aside>
 
-        {/* Satır 3: Pomodoro Odak Sayacı | Abonelikler & PC Durumu */}
+        {/* Alt Şerit: Tam Genişlik Pomodoro Odak Sayacı */}
         <div className="dashboard-grid-row row-pomodoro">
           <PomodoroTimer />
         </div>
-        <aside className="dashboard-grid-rail rail-system dashboard-right-rail" aria-label="Abonelikler ve PC durumu">
-          <Subscriptions compact onOpen={() => onNavigate({ page: "subscriptions" })} />
-          <PcStatus refreshMs={refreshMs} compact />
-        </aside>
       </div>
     </div>
   );

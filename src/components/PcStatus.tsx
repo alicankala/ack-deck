@@ -21,7 +21,7 @@ function percentage(used: number | null, total: number | null): number | null {
   return used !== null && total !== null && total > 0 ? Math.min(100, Math.max(0, used / total * 100)) : null;
 }
 
-export function PcStatus({ refreshMs = 2500, compact = false }: { refreshMs?: number; compact?: boolean }) {
+export function PcStatus({ refreshMs = 2500, compact = false, footer = false }: { refreshMs?: number; compact?: boolean; footer?: boolean }) {
   const [snapshot, setSnapshot] = useState<PcSnapshot | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -69,6 +69,25 @@ export function PcStatus({ refreshMs = 2500, compact = false }: { refreshMs?: nu
     </div>
     <div className="network-row"><div className="network-icon"><Icon name="wifi" size={18} /></div><div><strong>Ağ bağlantısı</strong><span>Windows bağlantı durumu</span></div><span className={"network-pill " + (snapshot && !snapshot.networkConnected ? "offline" : !snapshot ? "unknown" : "")}><span /> {!snapshot ? "Alınamadı" : snapshot.networkConnected ? "Bağlı" : "Bağlantı Yok"}</span></div>
   </div>;
+  if (footer) {
+    const cpuText = snapshot?.cpuPercent == null ? "--" : "%" + Math.round(snapshot.cpuPercent);
+    const ramText = ramPercent === null ? "--" : "%" + Math.round(ramPercent);
+    const diskText = diskPercent === null ? "--" : "%" + Math.round(diskPercent);
+    const netText = !snapshot ? (failed ? "Alınamadı" : "Yükleniyor") : snapshot.networkConnected ? "İnternet bağlı" : "Bağlantı yok";
+    const fullDetail = metrics.map(m => `${m.label}: ${m.value} (${m.detail})`).join(" · ");
+    return (
+      <div className="footer-pc-status" title={`${netText} · ${fullDetail}`} aria-label={`PC Durumu: ${netText}, CPU ${cpuText}, RAM ${ramText}, Disk ${diskText}`}>
+        <span className={`footer-pc-net ${snapshot?.networkConnected ? "connected" : "disconnected"}`}>
+          <span className="dashboard-network-dot" aria-hidden="true" />
+          <span>{netText}</span>
+        </span>
+        <span className="footer-pc-sep" aria-hidden="true">·</span>
+        <span className="footer-pc-metric">CPU <strong>{cpuText}</strong></span>
+        <span className="footer-pc-metric">RAM <strong>{ramText}</strong></span>
+        <span className="footer-pc-metric">Disk <strong>{diskText}</strong></span>
+      </div>
+    );
+  }
   if (compact) return (
     <details className="dashboard-pc" aria-label="PC Durumu">
       <summary className="dashboard-pc-summary">

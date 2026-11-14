@@ -292,14 +292,20 @@
 }
 
 .main-content .ai-workspace-page .conversation-card-menu .record-menu-trigger {
-  width: 1.7rem;
-  height: 1.7rem;
-  min-height: 1.7rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  min-height: 1.75rem;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
   border-radius: 0.45rem;
   border: 1px solid var(--app-border);
   background: rgba(15, 23, 34, 0.9);
   color: var(--app-muted);
-  font-size: 1.05rem;
+  font-size: 1rem;
 }
 
 .main-content .ai-workspace-page .conversation-card-menu .record-menu-trigger:hover {

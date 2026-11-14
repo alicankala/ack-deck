@@ -94,8 +94,8 @@
 }
 
 :root[data-theme="light"] .dashboard-ai {
-  background: #e6eef7;
-  border-color: rgba(2, 132, 199, 0.28);
+  background: var(--app-surface);
+  border-color: var(--app-border);
 }
 
 :root[data-theme="light"] .dashboard-ai-icon {

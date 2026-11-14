@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { fetchRates, FOOTER_REFRESH_MS, type Rates } from "../footerInfo";
+import { PcStatus } from "./PcStatus";
 
 let rateCache: { data: Rates; at: number } | undefined;
 const number = (value: number) => value.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export function FooterTicker() {
+export function FooterTicker({ refreshMs = 2500 }: { refreshMs?: number } = {}) {
   const [rates, setRates] = useState(rateCache?.data);
   const [rateError, setRateError] = useState(false);
   const [index, setIndex] = useState(0);
@@ -90,7 +91,8 @@ export function FooterTicker() {
 
   const item = items[index % items.length];
   return (
-    <footer className="app-footer" aria-label="Döviz ve altın bilgileri">
+    <footer className="app-footer" aria-label="Sistem durumu ve döviz bilgileri">
+      <PcStatus refreshMs={refreshMs} footer />
       <button
         type="button"
         className="footer-ticker"

@@ -85,6 +85,17 @@ fn executable(path: &Path) -> bool {
         ]
         .contains(&name.as_str())
 }
+fn clean_display_path(path: &Path) -> String {
+    let raw = path.to_string_lossy();
+    if let Some(unc) = raw.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{unc}")
+    } else if let Some(stripped) = raw.strip_prefix(r"\\?\") {
+        stripped.to_string()
+    } else {
+        raw.into_owned()
+    }
+}
+
 #[tauri::command]
 pub async fn choose_launch_target(
     app: tauri::AppHandle,
@@ -136,16 +147,17 @@ pub async fn choose_launch_target(
         {
             return Err("Bu öğe dosya kısayolu olarak eklenemez.".into());
         }
+        let display_path = clean_display_path(&path);
         let name = path
             .file_name()
             .map(|value| value.to_string_lossy().to_string())
-            .unwrap_or_else(|| path.to_string_lossy().to_string());
+            .unwrap_or_else(|| display_path.clone());
         save(
             &app,
             SavedTarget {
                 id: id(),
                 kind,
-                target: path.to_string_lossy().to_string(),
+                target: display_path,
                 name,
             },
         )

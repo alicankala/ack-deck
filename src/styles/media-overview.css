@@ -77,6 +77,10 @@
   background: rgba(236, 72, 153, 0.14);
   color: #f472b6;
 }
+.live-status-overview .tone-subs .overview-icon {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+}
 :root[data-theme="light"] .live-status-overview .tone-live .overview-icon {
   background: rgba(5, 150, 105, 0.12);
   color: #059669;
@@ -92,6 +96,10 @@
 :root[data-theme="light"] .live-status-overview .tone-recent .overview-icon {
   background: rgba(219, 39, 119, 0.11);
   color: #db2777;
+}
+:root[data-theme="light"] .live-status-overview .tone-subs .overview-icon {
+  background: rgba(2, 132, 199, 0.12);
+  color: #0284c7;
 }
 .live-status-overview .live-overview-body {
   display: flex;
