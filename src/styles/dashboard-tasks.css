@@ -2,7 +2,7 @@
 .dashboard-tasks-card {
   display: flex;
   flex-direction: column;
-  padding: 0.85rem 1.15rem;
+  padding: 1.15rem 1.35rem;
   min-width: 0;
   min-height: 0;
   box-sizing: border-box;
@@ -13,20 +13,20 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.65rem;
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.65rem;
 }
 
 .dashboard-tasks-title-group {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.65rem;
   min-width: 0;
 }
 
 .dashboard-tasks-icon-box {
-  width: 1.8rem;
-  height: 1.8rem;
-  border-radius: 0.5rem;
+  width: 2.05rem;
+  height: 2.05rem;
+  border-radius: 0.55rem;
   background: var(--app-accent-soft, rgba(56, 189, 248, 0.14));
   color: var(--app-accent, #38bdf8);
   display: grid;
@@ -36,17 +36,17 @@
 
 .dashboard-tasks-title-group h2 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.12rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--app-text, #f1f5f9);
 }
 
 .dashboard-tasks-remaining-pill {
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  padding: 0.18rem 0.52rem;
+  padding: 0.22rem 0.6rem;
   border-radius: 9999px;
   background: var(--app-accent-soft, rgba(56, 189, 248, 0.15));
   color: var(--app-accent, #38bdf8);
@@ -58,14 +58,14 @@
 .dashboard-task-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-bottom: 0.5rem;
+  gap: 0.4rem;
+  margin-bottom: 0.65rem;
 }
 
 .dashboard-task-filter-btn {
-  padding: 0.22rem 0.65rem;
+  padding: 0.3rem 0.75rem;
   border-radius: 9999px;
-  font-size: 0.74rem;
+  font-size: 0.78rem;
   font-weight: 550;
   min-height: 0;
   background: var(--app-control, rgba(255, 255, 255, 0.04));
@@ -134,11 +134,11 @@
 .dashboard-tasks-item {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.65rem;
   background: var(--app-control, #151c25);
   border: 1px solid var(--app-border, #2c3846);
-  border-radius: 0.58rem;
-  padding: 0.34rem 0.65rem;
+  border-radius: 0.65rem;
+  padding: 0.5rem 0.78rem;
   transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
 }
 
@@ -228,9 +228,9 @@
 }
 
 .dashboard-tasks-content strong {
-  font-size: 0.82rem;
+  font-size: 0.94rem;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.3;
   color: var(--app-text, #f1f5f9);
   display: block;
   white-space: nowrap;
@@ -239,9 +239,9 @@
 }
 
 .dashboard-tasks-content small {
-  font-size: 0.69rem;
+  font-size: 0.78rem;
   color: var(--app-secondary, #94a3b8);
-  line-height: 1.25;
+  line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

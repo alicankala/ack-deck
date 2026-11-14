@@ -184,9 +184,10 @@
 .work-dashboard .dashboard-workbench { display:grid; grid-template-columns:minmax(0,1fr) 21.5rem; gap:1.25rem; align-items:stretch; }
 .dashboard-overview.live-status-overview { grid-column: 1 / -1; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .dashboard-main-stack { min-width:0; display:flex; flex-direction:column; gap:1.25rem; }
-.dashboard-right-column { min-width:0; display:flex; flex-direction:column; gap:1.25rem; }
+.dashboard-right-column { min-width:0; display:flex; flex-direction:column; gap:1.25rem; align-items:stretch; }
+.dashboard-right-column .dashboard-right-rail { align-self:stretch; width:100%; }
 .dashboard-right-column .rail-dorm { flex:1; display:flex; flex-direction:column; }
-.dashboard-right-column .rail-dorm .dorm-menu-card { flex:1; height:100%; }
+.dashboard-right-column .rail-dorm .dorm-menu-card { flex:1; width:100%; height:100%; }
 .dashboard-grid-row { min-width:0; display:flex; flex-direction:column; }
 .row-overview-schedule { gap:1.25rem; box-sizing:border-box; }
 .row-overview-schedule .dashboard-weekly-preview { display:flex; flex-direction:column; box-sizing:border-box; }
