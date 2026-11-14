@@ -73,10 +73,10 @@
   transform: scale(0.97);
 }
 .pill-btn.is-selected {
-  background: var(--app-accent);
-  color: var(--app-on-accent);
-  border-color: var(--app-accent);
-  font-weight: 700;
+  background: rgba(56, 189, 248, 0.14);
+  color: #7dd3fc;
+  border-color: rgba(56, 189, 248, 0.42);
+  font-weight: 650;
 }
 
 .mobile-media-type-choice {
@@ -147,16 +147,19 @@
 }
 
 .mobile-media-card {
-  background: var(--app-surface-elevated, #1c1c1f);
-  border: 1px solid var(--app-border-strong, rgba(255, 255, 255, 0.1));
+  background: var(--app-surface, #11141b);
+  border: 1px solid var(--app-border, rgba(255, 255, 255, 0.08));
   border-radius: 14px;
-  padding: 12px 14px;
+  padding: 12px 13px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   width: 100%;
   box-sizing: border-box;
+}
+.mobile-media-card.is-nested {
+  background: rgba(255, 255, 255, 0.025);
 }
 .mobile-media-card-top {
   display: flex;
@@ -1183,4 +1186,134 @@
 
 :root[data-theme="light"] .mobile-media-editor-modal {
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+}
+
+/* Mobile Status Sections, Series Grouping & Calm Anthracite Actions */
+.mobile-media-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+.mobile-media-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mobile-media-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 2px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--app-text, #f1f5f9);
+  cursor: pointer;
+}
+.mobile-media-section-title-group {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.mobile-media-section-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.mobile-media-section-dot.is-in_progress { background: #38bdf8; }
+.mobile-media-section-dot.is-planned { background: #eab308; }
+.mobile-media-section-dot.is-completed { background: #34d399; }
+.mobile-media-section-title {
+  font-size: 13.5px;
+  font-weight: 650;
+}
+.mobile-media-section-count {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--app-muted, #94a3b8);
+}
+.mobile-media-section-chevron {
+  font-size: 12px;
+  color: var(--app-muted, #94a3b8);
+}
+
+.mobile-series-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mobile-series-card {
+  background: var(--app-surface, #11141b);
+  border: 1px solid rgba(56, 189, 248, 0.24);
+  border-radius: 14px;
+  padding: 12px 13px;
+  cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
+}
+.mobile-series-count-badge {
+  font-size: 10.5px;
+  font-weight: 650;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  color: #7dd3fc;
+}
+.mobile-series-toggle-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.mobile-series-toggle-hint {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #7dd3fc;
+  padding: 3px 9px;
+  border-radius: 8px;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+.mobile-series-children {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+}
+.mobile-media-row-item.is-nested {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.mobile-media-action-btn {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--app-text, #e2e8f0);
+  cursor: pointer;
+}
+.mobile-media-action-btn.is-start {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.32);
+  color: #6ee7b7;
+}
+.mobile-media-action-btn.is-finish {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.32);
+  color: #7dd3fc;
+}
+.mobile-media-action-btn.is-neutral {
+  color: var(--app-muted, #94a3b8);
 }

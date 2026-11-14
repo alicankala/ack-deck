@@ -35,6 +35,7 @@ export function MediaTracker() {
       return "grid";
     }
   });
+  const [groupSeries, setGroupSeries] = useState(true);
   const [refreshingRatings, setRefreshingRatings] = useState(false);
   const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -387,14 +388,14 @@ export function MediaTracker() {
           </div>
 
           <div className="media-status-pills" role="group" aria-label="Durum Filtreleri">
-            {(["all", "completed", "in_progress", "planned"] as const).map((s) => (
+            {(["all", "in_progress", "planned", "completed"] as const).map((s) => (
               <button
                 type="button"
                 key={s}
                 className={`pill-btn ${statusFilter === s ? "is-selected" : ""}`}
                 onClick={() => setStatusFilter(s)}
               >
-                {s === "all" ? "Tüm Durumlar" : MEDIA_STATUS_LABELS[s]}
+                {s === "all" ? "Tümü (Bölümlü)" : MEDIA_STATUS_LABELS[s]}
               </button>
             ))}
           </div>
@@ -415,13 +416,22 @@ export function MediaTracker() {
 
             <button
               type="button"
+              className={`pill-btn ${groupSeries ? "is-selected" : ""}`}
+              onClick={() => setGroupSeries((prev) => !prev)}
+              title="Aynı seriye ait yapımları tek kart altında topla"
+            >
+              📚 Serileri Grupla
+            </button>
+
+            <button
+              type="button"
               className={`media-refresh-ratings-btn ${refreshingRatings ? "is-loading" : ""}`}
               onClick={() => void handleRefreshImdbRatings()}
               title="Tüm film ve dizi IMDb puanlarını internetten güncelle"
               disabled={refreshingRatings}
             >
               <span>{refreshingRatings ? "⏳" : "🔄"}</span>
-              <span>{refreshingRatings ? "Puanlar Güncelleniyor..." : "Puanları Yenile"}</span>
+              <span>{refreshingRatings ? "Güncelleniyor..." : "Puanları Yenile"}</span>
             </button>
           </div>
 
@@ -453,6 +463,7 @@ export function MediaTracker() {
         visibleItems={visibleItems}
         visibleCount={visibleCount}
         viewMode={viewMode}
+        groupSeries={groupSeries}
         deleteId={deleteId}
         onOpenNew={() => openNewItemEditor()}
         onOpenAi={() => setAiModalOpen(true)}

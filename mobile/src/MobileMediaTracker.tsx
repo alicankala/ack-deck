@@ -45,6 +45,7 @@ export function MobileMediaTracker({
       return "grid";
     }
   });
+  const [groupSeries, setGroupSeries] = useState(true);
   const [refreshingRatings, setRefreshingRatings] = useState(false);
 
   const PAGE_SIZE = 24;
@@ -397,6 +398,15 @@ export function MobileMediaTracker({
           <div style={{ display: "inline-flex", gap: "3px", flexShrink: 0 }}>
             <button
               type="button"
+              className={`pill-btn ${groupSeries ? "is-selected" : ""}`}
+              onClick={() => setGroupSeries((prev) => !prev)}
+              title="Serileri Grupla"
+              style={{ padding: "4px 8px", fontSize: "12px" }}
+            >
+              📚
+            </button>
+            <button
+              type="button"
               className={`pill-btn ${viewMode === "grid" ? "is-selected" : ""}`}
               onClick={() => handleSetViewMode("grid")}
               title="Vitrin Görünümü"
@@ -433,6 +443,7 @@ export function MobileMediaTracker({
         filtered={filtered}
         visibleCount={visibleCount}
         viewMode={viewMode}
+        groupSeries={groupSeries}
         onOpenItem={(item) => setEditorState({ item: { ...item }, suppressLookup: true })}
         onQuickStart={(item) => void handleQuickStart(item)}
         onQuickFinish={handleQuickFinish}

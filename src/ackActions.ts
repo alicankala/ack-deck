@@ -19,6 +19,7 @@ import { loadStudyPrograms, saveStudyPrograms } from "./studyProgramStore";
 import { validStudyProgram, normalizeStudySessions, formatStudySchedule, parseEndDateHint, type StudyProgram, type StudySession } from "../shared/studyPrograms";
 import { loadMedia, saveMedia } from "./mediaStore";
 import { MEDIA_STATUS_LABELS, MEDIA_TYPE_LABELS, validMediaItem, type MediaItem, type MediaStatus, type MediaType } from "../shared/media";
+import { fetchMediaRating, searchMediaCatalog } from "../shared/mediaSearch";
 type TaskPatch = Partial<Pick<Task, "text" | "dueDate" | "dueTime" | "priority" | "reminder" | "checklist" | "projectId" | "workspaceId" | "sourceInboxId" | "reminderLeadMinutes" | "recurrence" | "occurrenceAt" | "timezone">>;
 type ArchivePatch = { title?: string; category?: ArchiveCategory; description?: string; date?: string | null; tags?: string[] };
 type StudyProgramPatch = { name?: string; startDate?: string; endDate?: string | null; active?: boolean; sessions?: StudySession[] };
@@ -275,6 +276,14 @@ export async function executeAckAction(input: AckAction, confirmed: boolean, nat
   if (action.type === "open_shortcut") { await launchShortcut(action.shortcutId, native); return "Kayıtlı kısayol açıldı."; }
   if (action.type === "create_media_item") {
     const loaded = loadMedia(); if (loaded.locked) throw new Error("Koleksiyon kayıtlarına şu anda erişemedim.");
+    const normalizedTitle = action.title.trim().toLocaleLowerCase("tr-TR");
+    const duplicate = loaded.entries.find(
+      (item) => item.type === action.mediaType && item.title.trim().toLocaleLowerCase("tr-TR") === normalizedTitle
+    );
+    if (duplicate) {
+      navigate?.({ page: "media" });
+      return `"${duplicate.title}" zaten Koleksiyon'da mevcut.`;
+    }
     const now = Date.now();
     const status = action.mediaStatus ?? "planned";
     const entry: MediaItem = {
@@ -292,6 +301,7 @@ export async function executeAckAction(input: AckAction, confirmed: boolean, nat
       updatedAt: now,
     };
     if (!saveMedia([entry, ...loaded.entries], loaded)) throw new Error("Koleksiyon kaydı kaydedilemedi.");
+    void enrichMediaEntryAsync(entry);
     navigate?.({ page: "media" });
     return "Kayıt Koleksiyon'a eklendi.";
   }
@@ -331,4 +341,39 @@ export async function executeAckAction(input: AckAction, confirmed: boolean, nat
   else if (action.type === "update_archive") entries = entries.map((entry) => entry.id === action.archiveId ? { ...entry, ...patch(action, shapes.create_archive), updatedAt: Date.now() } : entry);
   else if (action.type === "delete_archive") entries = entries.filter((entry) => entry.id !== action.archiveId);
   if (!saveArchive(entries, loaded)) throw new Error("Arşiv kaydı kaydedilemedi."); if(action.type==="delete_archive"&&current)offerUndo({source:"archive",record:current as import("./archiveStore").ArchiveEntry}); return "Arşiv işlemi tamamlandı. Gerçek dosyalar değiştirilmedi.";
+}
+
+async function enrichMediaEntryAsync(entry: MediaItem): Promise<void> {
+  if (typeof fetch !== "function") return;
+  try {
+    const candidates = await searchMediaCatalog(entry.type, entry.title);
+    if (!candidates.length) return;
+    const match = (entry.year ? candidates.find((c) => c.year === entry.year) : undefined) ?? candidates[0];
+    let imdbRating = match.imdbRating;
+    if ((entry.type === "movie" || entry.type === "series") && match.imdbId && imdbRating === undefined) {
+      imdbRating = await fetchMediaRating(match.imdbId);
+    }
+    const latest = loadMedia();
+    if (latest.locked) return;
+    const exists = latest.entries.some((item) => item.id === entry.id);
+    if (!exists) return;
+    const updatedEntries = latest.entries.map((item) =>
+      item.id === entry.id
+        ? {
+            ...item,
+            ...(match.posterUrl && !item.posterUrl ? { posterUrl: match.posterUrl } : {}),
+            ...(match.year && !item.year ? { year: match.year } : {}),
+            ...(match.creator && !item.creator ? { creator: match.creator } : {}),
+            ...(match.imdbId && !item.imdbId ? { imdbId: match.imdbId } : {}),
+            ...(typeof imdbRating === "number" && imdbRating > 0 && item.imdbRating === undefined
+              ? { imdbRating, imdbUpdatedAt: Date.now() }
+              : {}),
+            updatedAt: Date.now(),
+          }
+        : item
+    );
+    saveMedia(updatedEntries, latest);
+  } catch {
+    // Arka plan zenginleştirmesi başarısız olursa mevcut kayıt korunur.
+  }
 }
