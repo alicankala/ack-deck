@@ -22,10 +22,18 @@ export type PomodoroState = {
   isRunning: boolean;
   endTimeMs: number | null;
   completedSessions: number;
+  completedFocusMinutes: number;
   autoStartBreaks: boolean;
   target?: PomodoroTarget;
+  targetRemainingSeconds?: number;
   pendingConfirm?: PomodoroTarget;
+  manualFreeFocus?: boolean;
 };
+
+function nextChunkSeconds(remainingSeconds?: number): number {
+  if (!remainingSeconds || remainingSeconds <= 0) return MODE_DURATIONS.pomodoro;
+  return Math.min(MODE_DURATIONS.pomodoro, remainingSeconds);
+}
 
 export const MODE_DURATIONS: Record<PomodoroMode, number> = {
   pomodoro: 25 * 60,
@@ -81,6 +89,7 @@ function loadInitialState(): PomodoroState {
     isRunning: false,
     endTimeMs: null,
     completedSessions: 0,
+    completedFocusMinutes: 0,
     autoStartBreaks: true,
   };
 
@@ -90,9 +99,18 @@ function loadInitialState(): PomodoroState {
     const parsed = JSON.parse(raw) as Partial<PomodoroState>;
     const mode: PomodoroMode = parsed.mode && MODE_DURATIONS[parsed.mode] ? parsed.mode : "pomodoro";
     const completedSessions = typeof parsed.completedSessions === "number" ? parsed.completedSessions : 0;
+    const completedFocusMinutes =
+      typeof parsed.completedFocusMinutes === "number"
+        ? parsed.completedFocusMinutes
+        : completedSessions * 25;
     const autoStartBreaks = typeof parsed.autoStartBreaks === "boolean" ? parsed.autoStartBreaks : true;
     const target = parsed.target && typeof parsed.target.id === "string" ? parsed.target : undefined;
+    const targetRemainingSeconds =
+      typeof parsed.targetRemainingSeconds === "number" && parsed.targetRemainingSeconds > 0
+        ? parsed.targetRemainingSeconds
+        : undefined;
     const pendingConfirm = parsed.pendingConfirm && typeof parsed.pendingConfirm.id === "string" ? parsed.pendingConfirm : undefined;
+    const manualFreeFocus = typeof parsed.manualFreeFocus === "boolean" ? parsed.manualFreeFocus : undefined;
     const totalSeconds =
       typeof parsed.totalSeconds === "number" && parsed.totalSeconds > 0
         ? parsed.totalSeconds
@@ -103,7 +121,12 @@ function loadInitialState(): PomodoroState {
       if (now >= parsed.endTimeMs) {
         if (mode === "pomodoro") {
           const nextSessions = completedSessions + 1;
+          const addedMin = Math.max(1, Math.round(totalSeconds / 60));
           const nextMode: PomodoroMode = nextSessions % 4 === 0 ? "longBreak" : "shortBreak";
+          const nextRemaining = target
+            ? Math.max(0, (targetRemainingSeconds ?? totalSeconds) - totalSeconds)
+            : 0;
+          const hasMoreStudy = Boolean(target && nextRemaining > 0);
           return {
             mode: nextMode,
             timeLeft: MODE_DURATIONS[nextMode],
@@ -111,21 +134,31 @@ function loadInitialState(): PomodoroState {
             isRunning: false,
             endTimeMs: null,
             completedSessions: nextSessions,
+            completedFocusMinutes: completedFocusMinutes + addedMin,
             autoStartBreaks,
-            target: undefined,
-            pendingConfirm: target ?? pendingConfirm,
+            target: hasMoreStudy ? target : undefined,
+            targetRemainingSeconds: hasMoreStudy ? nextRemaining : undefined,
+            pendingConfirm: hasMoreStudy ? undefined : (target ?? pendingConfirm),
+            manualFreeFocus,
           };
         }
+        const nextFocusDur =
+          target && targetRemainingSeconds && targetRemainingSeconds > 0
+            ? nextChunkSeconds(targetRemainingSeconds)
+            : MODE_DURATIONS.pomodoro;
         return {
           mode: "pomodoro",
-          timeLeft: MODE_DURATIONS.pomodoro,
-          totalSeconds: MODE_DURATIONS.pomodoro,
+          timeLeft: nextFocusDur,
+          totalSeconds: nextFocusDur,
           isRunning: false,
           endTimeMs: null,
           completedSessions,
+          completedFocusMinutes,
           autoStartBreaks,
           target,
+          targetRemainingSeconds,
           pendingConfirm,
+          manualFreeFocus,
         };
       }
       const remaining = Math.max(1, Math.round((parsed.endTimeMs - now) / 1000));
@@ -136,9 +169,12 @@ function loadInitialState(): PomodoroState {
         isRunning: true,
         endTimeMs: parsed.endTimeMs,
         completedSessions,
+        completedFocusMinutes,
         autoStartBreaks,
         target,
+        targetRemainingSeconds,
         pendingConfirm,
+        manualFreeFocus,
       };
     }
 
@@ -151,9 +187,12 @@ function loadInitialState(): PomodoroState {
       isRunning: false,
       endTimeMs: null,
       completedSessions,
+      completedFocusMinutes,
       autoStartBreaks,
       target,
+      targetRemainingSeconds,
       pendingConfirm,
+      manualFreeFocus,
     };
   } catch {
     return fallback;
@@ -181,21 +220,48 @@ function handleSessionComplete() {
 
   if (state.mode === "pomodoro") {
     const nextSessions = state.completedSessions + 1;
+    const addedMinutes = Math.max(1, Math.round(state.totalSeconds / 60));
+    const nextFocusMinutes = (state.completedFocusMinutes ?? state.completedSessions * 25) + addedMinutes;
     const finishedTarget = state.target;
+    const nextRemaining = finishedTarget
+      ? Math.max(0, (state.targetRemainingSeconds ?? state.totalSeconds) - state.totalSeconds)
+      : 0;
+    const hasMoreStudy = Boolean(finishedTarget && nextRemaining > 0);
     const isLong = nextSessions % 4 === 0;
     const nextMode: PomodoroMode = isLong ? "longBreak" : "shortBreak";
     const nextDur = MODE_DURATIONS[nextMode];
 
     notifyPomodoro(
-      finishedTarget ? `Odak Tamamlandı: ${finishedTarget.label}` : "Pomodoro Tamamlandı!",
       finishedTarget
-        ? `${nextMode === "longBreak" ? "Uzun mola" : "Kısa mola"} zamanı. Tamamlandı olarak işaretleyebilirsin.`
+        ? hasMoreStudy
+          ? `Odak Bloğu Bitti: ${finishedTarget.label}`
+          : `Ders Hedefi Tamamlandı: ${finishedTarget.label}`
+        : "Pomodoro Tamamlandı!",
+      finishedTarget
+        ? hasMoreStudy
+          ? `${nextMode === "longBreak" ? "Uzun mola" : "Kısa mola"} zamanı! Kalan hedef: ${Math.ceil(nextRemaining / 60)} dk.`
+          : `${finishedTarget.label} süresi doldu. Çalıştım olarak işaretleyebilirsin.`
         : isLong
           ? "Harika iş! 4 tur tamamlandı, 15 dakikalık uzun mola zamanı."
           : "Odak seansı bitti! 5 dakikalık kısa bir mola ver."
     );
 
-    if (state.autoStartBreaks && !finishedTarget) {
+    if (hasMoreStudy) {
+      const shouldStartBreak = state.autoStartBreaks;
+      state = {
+        ...state,
+        mode: nextMode,
+        timeLeft: nextDur,
+        totalSeconds: nextDur,
+        isRunning: shouldStartBreak,
+        endTimeMs: shouldStartBreak ? Date.now() + nextDur * 1000 : null,
+        completedSessions: nextSessions,
+        completedFocusMinutes: nextFocusMinutes,
+        target: finishedTarget,
+        targetRemainingSeconds: nextRemaining,
+        pendingConfirm: undefined,
+      };
+    } else if (state.autoStartBreaks && !finishedTarget) {
       state = {
         ...state,
         mode: nextMode,
@@ -204,7 +270,9 @@ function handleSessionComplete() {
         isRunning: true,
         endTimeMs: Date.now() + nextDur * 1000,
         completedSessions: nextSessions,
+        completedFocusMinutes: nextFocusMinutes,
         target: undefined,
+        targetRemainingSeconds: undefined,
         pendingConfirm: undefined,
       };
     } else {
@@ -216,17 +284,28 @@ function handleSessionComplete() {
         isRunning: false,
         endTimeMs: null,
         completedSessions: nextSessions,
+        completedFocusMinutes: nextFocusMinutes,
         target: undefined,
+        targetRemainingSeconds: undefined,
         pendingConfirm: finishedTarget,
       };
     }
   } else {
-    notifyPomodoro("Mola Bitti!", "Mola süresi doldu. Yeni bir odak turuna başlamaya hazır mısın?");
+    const nextFocusDur =
+      state.target && state.targetRemainingSeconds && state.targetRemainingSeconds > 0
+        ? nextChunkSeconds(state.targetRemainingSeconds)
+        : MODE_DURATIONS.pomodoro;
+    notifyPomodoro(
+      "Mola Bitti!",
+      state.target
+        ? `${state.target.label} için sonraki ${Math.round(nextFocusDur / 60)} dk odak hazır.`
+        : "Mola süresi doldu. Yeni bir odak turuna başlamaya hazır mısın?"
+    );
     state = {
       ...state,
       mode: "pomodoro",
-      timeLeft: MODE_DURATIONS.pomodoro,
-      totalSeconds: MODE_DURATIONS.pomodoro,
+      timeLeft: nextFocusDur,
+      totalSeconds: nextFocusDur,
       isRunning: false,
       endTimeMs: null,
     };
@@ -274,20 +353,23 @@ export function usePomodoroStore(): PomodoroState {
 }
 
 export function startPomodoroFocus(options?: { target?: PomodoroTarget; durationSeconds?: number }) {
-  const dur =
+  const totalTargetSec =
     options?.durationSeconds && options.durationSeconds > 0
       ? Math.round(options.durationSeconds)
       : options?.target?.durationMinutes && options.target.durationMinutes > 0
         ? Math.round(options.target.durationMinutes * 60)
         : MODE_DURATIONS.pomodoro;
+  const chunk = nextChunkSeconds(totalTargetSec);
+  const nextTarget = options?.target ?? state.target;
   state = {
     ...state,
     mode: "pomodoro",
-    timeLeft: dur,
-    totalSeconds: dur,
+    timeLeft: chunk,
+    totalSeconds: chunk,
     isRunning: true,
-    endTimeMs: Date.now() + dur * 1000,
-    target: options?.target ?? state.target,
+    endTimeMs: Date.now() + chunk * 1000,
+    target: nextTarget,
+    targetRemainingSeconds: nextTarget ? totalTargetSec : undefined,
     pendingConfirm: undefined,
   };
   persistAndNotify();
@@ -318,8 +400,8 @@ export function togglePomodoroPause() {
 
 export function resetPomodoro() {
   const baseDur =
-    state.mode === "pomodoro" && state.target?.durationMinutes
-      ? Math.round(state.target.durationMinutes * 60)
+    state.mode === "pomodoro" && state.target
+      ? nextChunkSeconds(state.targetRemainingSeconds ?? (state.target.durationMinutes ? state.target.durationMinutes * 60 : undefined))
       : MODE_DURATIONS[state.mode];
   state = {
     ...state,
@@ -333,8 +415,8 @@ export function resetPomodoro() {
 
 export function switchPomodoroMode(mode: PomodoroMode) {
   const dur =
-    mode === "pomodoro" && state.target?.durationMinutes
-      ? Math.round(state.target.durationMinutes * 60)
+    mode === "pomodoro" && state.target
+      ? nextChunkSeconds(state.targetRemainingSeconds ?? (state.target.durationMinutes ? state.target.durationMinutes * 60 : undefined))
       : MODE_DURATIONS[mode];
   state = {
     ...state,
@@ -347,18 +429,20 @@ export function switchPomodoroMode(mode: PomodoroMode) {
   persistAndNotify();
 }
 
-export function setPomodoroTarget(target?: PomodoroTarget) {
-  const nextDur =
-    state.mode === "pomodoro" && !state.isRunning
-      ? target?.durationMinutes
-        ? Math.round(target.durationMinutes * 60)
-        : MODE_DURATIONS.pomodoro
-      : state.totalSeconds;
+export function setPomodoroTarget(target?: PomodoroTarget, manual = false) {
+  const totalTargetSec = target
+    ? target.durationMinutes
+      ? Math.round(target.durationMinutes * 60)
+      : MODE_DURATIONS.pomodoro
+    : undefined;
+  const nextChunk = totalTargetSec ? nextChunkSeconds(totalTargetSec) : MODE_DURATIONS.pomodoro;
   state = {
     ...state,
     target,
+    targetRemainingSeconds: totalTargetSec,
+    manualFreeFocus: target ? false : manual,
     ...(state.mode === "pomodoro" && !state.isRunning
-      ? { timeLeft: nextDur, totalSeconds: nextDur }
+      ? { timeLeft: nextChunk, totalSeconds: nextChunk }
       : {}),
   };
   persistAndNotify();
@@ -378,6 +462,7 @@ export function clearPomodoroTargetAndReset() {
     isRunning: false,
     endTimeMs: null,
     target: undefined,
+    targetRemainingSeconds: undefined,
     pendingConfirm: undefined,
   };
   persistAndNotify();
@@ -405,6 +490,7 @@ export function confirmPomodoroTargetDone() {
     totalSeconds: MODE_DURATIONS.pomodoro,
     mode: "pomodoro",
     target: undefined,
+    targetRemainingSeconds: undefined,
     pendingConfirm: undefined,
   };
   persistAndNotify();
@@ -421,6 +507,7 @@ export function extendPomodoro(minutes = 15) {
     isRunning: true,
     endTimeMs: Date.now() + extraSec * 1000,
     target,
+    targetRemainingSeconds: target ? extraSec : undefined,
     pendingConfirm: undefined,
   };
   persistAndNotify();

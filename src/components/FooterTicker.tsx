@@ -15,9 +15,9 @@ let rateCache: { data: Rates; at: number } | undefined;
 const number = (value: number) => value.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function PomodoroFooterPill() {
-  const { mode, timeLeft, isRunning, target, pendingConfirm } = usePomodoroStore();
+  const { mode, timeLeft, totalSeconds, isRunning, target, pendingConfirm } = usePomodoroStore();
 
-  if (!isRunning && !pendingConfirm && !target) {
+  if (!isRunning && timeLeft >= totalSeconds && !pendingConfirm) {
     return null;
   }
 
@@ -31,9 +31,9 @@ function PomodoroFooterPill() {
           type="button"
           className="footer-pomodoro-btn is-done"
           onClick={confirmPomodoroTargetDone}
-          title={pendingConfirm.kind === "study" ? "Katıldım olarak işaretle" : "Tamamlandı olarak işaretle"}
+          title={pendingConfirm.kind === "study" ? "Çalıştım olarak işaretle" : "Tamamlandı olarak işaretle"}
         >
-          ✓ {pendingConfirm.kind === "study" ? "Katıldım" : "Tamamlandı"}
+          ✓ {pendingConfirm.kind === "study" ? "Çalıştım" : "Tamamlandı"}
         </button>
         <button
           type="button"
@@ -83,7 +83,7 @@ function PomodoroFooterPill() {
           type="button"
           className="footer-pomodoro-btn is-done"
           onClick={confirmPomodoroTargetDone}
-          title={target.kind === "study" ? "Erken bitir ve Katıldım işaretle" : "Erken bitir ve Tamamlandı işaretle"}
+          title={target.kind === "study" ? "Erken bitir ve Çalıştım işaretle" : "Erken bitir ve Tamamlandı işaretle"}
           aria-label="Tamamlandı işaretle"
         >
           ✓
@@ -102,7 +102,7 @@ function PomodoroFooterPill() {
   );
 }
 
-export function FooterTicker({ refreshMs = 2500 }: { refreshMs?: number } = {}) {
+export function FooterTicker({ refreshMs = 2500, hidePomodoro = false }: { refreshMs?: number; hidePomodoro?: boolean } = {}) {
   const [rates, setRates] = useState(rateCache?.data);
   const [rateError, setRateError] = useState(false);
   const [index, setIndex] = useState(0);
@@ -190,7 +190,7 @@ export function FooterTicker({ refreshMs = 2500 }: { refreshMs?: number } = {}) 
   return (
     <footer className="app-footer" aria-label="Sistem durumu ve döviz bilgileri">
       <PcStatus refreshMs={refreshMs} footer />
-      <PomodoroFooterPill />
+      {!hidePomodoro && <PomodoroFooterPill />}
       <button
         type="button"
         className="footer-ticker"

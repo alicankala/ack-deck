@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   MODE_LABELS,
   dismissMobilePomodoroConfirm,
@@ -13,8 +14,6 @@ import {
   type MobilePomodoroTarget,
   type PomodoroMode,
 } from "./mobilePomodoroStore";
-import { isOccurrenceCompleted } from "../../shared/recurrence";
-import type { CloudRecord, PhoneTask } from "../../shared/phone";
 import type { StudyBlock } from "../../shared/studyPrograms";
 import type { AttendanceEntry } from "../../shared/studyAttendance";
 
@@ -24,13 +23,11 @@ export function MobilePomodoroCard({
   isCollapsed,
   onToggleCollapse,
   todayStudyBlocks = [],
-  tasks = [],
   attendance = {},
 }: {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   todayStudyBlocks?: StudyBlock[];
-  tasks?: CloudRecord[];
   attendance?: Record<string, AttendanceEntry>;
 } = {}) {
   const {
@@ -39,9 +36,12 @@ export function MobilePomodoroCard({
     totalSeconds,
     isRunning,
     completedSessions,
+    completedFocusMinutes,
     autoStartBreaks,
     target,
+    targetRemainingSeconds,
     pendingConfirm,
+    manualFreeFocus,
   } = useMobilePomodoroStore();
 
   const minutes = Math.floor(timeLeft / 60);
@@ -59,32 +59,20 @@ export function MobilePomodoroCard({
       durationMinutes: b.minutes,
     }));
 
-  const taskTargets: MobilePomodoroTarget[] = tasks
-    .filter(row => !isOccurrenceCompleted(row.data as PhoneTask))
-    .slice(0, 12)
-    .map(row => ({
-      kind: "task",
-      id: row.id,
-      label: (row.data as PhoneTask).text,
-    }));
-
-  const selectedValue = target ? `${target.kind}:${target.id}` : "";
-
-  function handleTargetChange(val: string) {
-    if (!val) {
-      setMobilePomodoroTarget(undefined);
-      return;
+  const firstStudyId = studyTargets[0]?.id;
+  useEffect(() => {
+    if (
+      !isRunning &&
+      mode === "pomodoro" &&
+      timeLeft === totalSeconds &&
+      !target &&
+      !pendingConfirm &&
+      !manualFreeFocus &&
+      studyTargets.length > 0
+    ) {
+      setMobilePomodoroTarget(studyTargets[0]);
     }
-    const [kind, ...rest] = val.split(":");
-    const id = rest.join(":");
-    if (kind === "study") {
-      const found = studyTargets.find(s => s.id === id);
-      if (found) setMobilePomodoroTarget(found);
-    } else if (kind === "task") {
-      const found = taskTargets.find(t => t.id === id);
-      if (found) setMobilePomodoroTarget(found);
-    }
-  }
+  }, [isRunning, mode, timeLeft, totalSeconds, target, pendingConfirm, manualFreeFocus, firstStudyId]);
 
   if (isCollapsed) {
     return (
@@ -120,8 +108,10 @@ export function MobilePomodoroCard({
           <div>
             <h3>Pomodoro Odak Sayacı</h3>
             <span className="mobile-pomodoro-sub">
-              {completedSessions > 0
-                ? `Bugün ${completedSessions} seans tamamlandı (${completedSessions * 25} dk odak)`
+              {target
+                ? `Hedef: ${target.label}${targetRemainingSeconds ? ` · Kalan ${Math.ceil(targetRemainingSeconds / 60)} dk` : ""}`
+                : completedSessions > 0
+                ? `Bugün ${completedSessions} seans tamamlandı (${completedFocusMinutes ?? completedSessions * 25} dk odak)`
                 : "25 dk odaklan, 5 dk mola ver"}
             </span>
           </div>
@@ -139,45 +129,39 @@ export function MobilePomodoroCard({
         )}
       </div>
 
-      {/* Hedef Seçici */}
-      <div className="mobile-pomodoro-target-row">
-        <label className="mobile-pomodoro-target-label" htmlFor="mobile-pomodoro-target-select">
-          Odak Hedefi
-        </label>
-        <select
-          id="mobile-pomodoro-target-select"
-          className="mobile-pomodoro-target-select"
-          value={selectedValue}
-          onChange={e => handleTargetChange(e.target.value)}
-        >
-          <option value="">Serbest Odak (25 dk)</option>
-          {studyTargets.length > 0 && (
-            <optgroup label="Bugünkü Dersler">
-              {studyTargets.map(s => (
-                <option key={s.id} value={`study:${s.id}`}>
-                  📚 {s.label} ({s.durationMinutes ?? 25} dk)
-                </option>
-              ))}
-            </optgroup>
+      {/* Bugünün Ders Programı / Serbest Odak Hapları */}
+      {(studyTargets.length > 0 || target) && (
+        <div className="mobile-pomodoro-target-pills" role="group" aria-label="Odak seçimi">
+          <button
+            type="button"
+            className={`mobile-pomodoro-target-pill ${!target ? "is-active" : ""}`}
+            onClick={() => setMobilePomodoroTarget(undefined, true)}
+            disabled={isRunning}
+          >
+            Serbest · 25 dk
+          </button>
+          {studyTargets.map(s => (
+            <button
+              type="button"
+              key={s.id}
+              className={`mobile-pomodoro-target-pill ${target?.id === s.id ? "is-active" : ""}`}
+              onClick={() => setMobilePomodoroTarget(s)}
+              disabled={isRunning}
+            >
+              {s.label}{s.durationMinutes ? ` · ${s.durationMinutes} dk` : ""}
+            </button>
+          ))}
+          {target && !studyTargets.some(s => s.id === target.id) && (
+            <button
+              type="button"
+              className="mobile-pomodoro-target-pill is-active"
+              disabled={isRunning}
+            >
+              {target.label}
+            </button>
           )}
-          {taskTargets.length > 0 && (
-            <optgroup label="Açık Görevler">
-              {taskTargets.map(t => (
-                <option key={t.id} value={`task:${t.id}`}>
-                  ✓ {t.label}
-                </option>
-              ))}
-            </optgroup>
-          )}
-          {target &&
-            !studyTargets.some(s => s.id === target.id) &&
-            !taskTargets.some(t => t.id === target.id) && (
-              <option value={`${target.kind}:${target.id}`}>
-                {target.kind === "study" ? "📚" : "✓"} {target.label}
-              </option>
-            )}
-        </select>
-      </div>
+        </div>
+      )}
 
       {/* Süre Bitimi Onay Şeridi */}
       {pendingConfirm && (

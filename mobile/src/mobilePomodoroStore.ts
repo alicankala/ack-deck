@@ -16,10 +16,18 @@ export type MobilePomodoroState = {
   isRunning: boolean;
   endTimeMs: number | null;
   completedSessions: number;
+  completedFocusMinutes: number;
   autoStartBreaks: boolean;
   target?: MobilePomodoroTarget;
+  targetRemainingSeconds?: number;
   pendingConfirm?: MobilePomodoroTarget;
+  manualFreeFocus?: boolean;
 };
+
+function nextChunkSeconds(remainingSeconds?: number): number {
+  if (!remainingSeconds || remainingSeconds <= 0) return MODE_DURATIONS.pomodoro;
+  return Math.min(MODE_DURATIONS.pomodoro, remainingSeconds);
+}
 
 export const MODE_DURATIONS: Record<PomodoroMode, number> = {
   pomodoro: 25 * 60,
@@ -89,6 +97,7 @@ function defaultState(): MobilePomodoroState {
     isRunning: false,
     endTimeMs: null,
     completedSessions: 0,
+    completedFocusMinutes: 0,
     autoStartBreaks: true,
   };
 }
@@ -102,16 +111,25 @@ function loadInitialState(): MobilePomodoroState {
     const curMode: PomodoroMode =
       parsed.mode && MODE_DURATIONS[parsed.mode as PomodoroMode] ? parsed.mode : "pomodoro";
     const curSessions = typeof parsed.completedSessions === "number" ? parsed.completedSessions : 0;
+    const curFocusMinutes =
+      typeof parsed.completedFocusMinutes === "number"
+        ? parsed.completedFocusMinutes
+        : curSessions * 25;
     const autoStartBreaks = typeof parsed.autoStartBreaks === "boolean" ? parsed.autoStartBreaks : true;
     const target: MobilePomodoroTarget | undefined =
       parsed.target && typeof parsed.target.id === "string" ? parsed.target : undefined;
+    const targetRemainingSeconds =
+      typeof parsed.targetRemainingSeconds === "number" && parsed.targetRemainingSeconds > 0
+        ? parsed.targetRemainingSeconds
+        : undefined;
     const pendingConfirm: MobilePomodoroTarget | undefined =
       parsed.pendingConfirm && typeof parsed.pendingConfirm.id === "string"
         ? parsed.pendingConfirm
         : undefined;
+    const manualFreeFocus = typeof parsed.manualFreeFocus === "boolean" ? parsed.manualFreeFocus : undefined;
     const fallbackTotal =
       curMode === "pomodoro" && target?.durationMinutes
-        ? target.durationMinutes * 60
+        ? nextChunkSeconds(target.durationMinutes * 60)
         : MODE_DURATIONS[curMode];
     const totalSeconds =
       typeof parsed.totalSeconds === "number" && parsed.totalSeconds > 0
@@ -123,7 +141,12 @@ function loadInitialState(): MobilePomodoroState {
       if (now >= parsed.endTimeMs) {
         if (curMode === "pomodoro") {
           const nextSessions = curSessions + 1;
+          const addedMin = Math.max(1, Math.round(totalSeconds / 60));
           const nextMode: PomodoroMode = nextSessions % 4 === 0 ? "longBreak" : "shortBreak";
+          const nextRemaining = target
+            ? Math.max(0, (targetRemainingSeconds ?? totalSeconds) - totalSeconds)
+            : 0;
+          const hasMoreStudy = Boolean(target && nextRemaining > 0);
           return {
             mode: nextMode,
             timeLeft: MODE_DURATIONS[nextMode],
@@ -131,21 +154,31 @@ function loadInitialState(): MobilePomodoroState {
             isRunning: false,
             endTimeMs: null,
             completedSessions: nextSessions,
+            completedFocusMinutes: curFocusMinutes + addedMin,
             autoStartBreaks,
-            target: undefined,
-            pendingConfirm: target ?? pendingConfirm,
+            target: hasMoreStudy ? target : undefined,
+            targetRemainingSeconds: hasMoreStudy ? nextRemaining : undefined,
+            pendingConfirm: hasMoreStudy ? undefined : (target ?? pendingConfirm),
+            manualFreeFocus,
           };
         }
+        const nextFocusDur =
+          target && targetRemainingSeconds && targetRemainingSeconds > 0
+            ? nextChunkSeconds(targetRemainingSeconds)
+            : MODE_DURATIONS.pomodoro;
         return {
           mode: "pomodoro",
-          timeLeft: MODE_DURATIONS.pomodoro,
-          totalSeconds: MODE_DURATIONS.pomodoro,
+          timeLeft: nextFocusDur,
+          totalSeconds: nextFocusDur,
           isRunning: false,
           endTimeMs: null,
           completedSessions: curSessions,
+          completedFocusMinutes: curFocusMinutes,
           autoStartBreaks,
           target,
+          targetRemainingSeconds,
           pendingConfirm,
+          manualFreeFocus,
         };
       }
       const remaining = Math.max(1, Math.round((parsed.endTimeMs - now) / 1000));
@@ -156,9 +189,12 @@ function loadInitialState(): MobilePomodoroState {
         isRunning: true,
         endTimeMs: parsed.endTimeMs,
         completedSessions: curSessions,
+        completedFocusMinutes: curFocusMinutes,
         autoStartBreaks,
         target,
+        targetRemainingSeconds,
         pendingConfirm,
+        manualFreeFocus,
       };
     }
 
@@ -170,9 +206,12 @@ function loadInitialState(): MobilePomodoroState {
         isRunning: false,
         endTimeMs: null,
         completedSessions: curSessions,
+        completedFocusMinutes: curFocusMinutes,
         autoStartBreaks,
         target,
+        targetRemainingSeconds,
         pendingConfirm,
+        manualFreeFocus,
       };
     }
 
@@ -182,9 +221,12 @@ function loadInitialState(): MobilePomodoroState {
       timeLeft: totalSeconds,
       totalSeconds,
       completedSessions: curSessions,
+      completedFocusMinutes: curFocusMinutes,
       autoStartBreaks,
       target,
+      targetRemainingSeconds,
       pendingConfirm,
+      manualFreeFocus,
     };
   } catch {
     return base;
@@ -216,39 +258,79 @@ function finishPhase() {
   const prev = state;
   if (prev.mode === "pomodoro") {
     const nextSessions = prev.completedSessions + 1;
+    const addedMinutes = Math.max(1, Math.round(prev.totalSeconds / 60));
+    const nextFocusMinutes = (prev.completedFocusMinutes ?? prev.completedSessions * 25) + addedMinutes;
     const isLong = nextSessions % 4 === 0;
     const nextMode: PomodoroMode = isLong ? "longBreak" : "shortBreak";
     const nextDuration = MODE_DURATIONS[nextMode];
     const finishedTarget = prev.target;
+    const nextRemaining = finishedTarget
+      ? Math.max(0, (prev.targetRemainingSeconds ?? prev.totalSeconds) - prev.totalSeconds)
+      : 0;
+    const hasMoreStudy = Boolean(finishedTarget && nextRemaining > 0);
 
     triggerMobileAlert(
-      "Odak seansı tamamlandı! 🍅",
       finishedTarget
-        ? `${finishedTarget.label} tamamlandı mı?`
+        ? hasMoreStudy
+          ? "Odak bloğu tamamlandı! 🍅"
+          : "Ders hedefi tamamlandı! 🍅"
+        : "Odak seansı tamamlandı! 🍅",
+      finishedTarget
+        ? hasMoreStudy
+          ? `${nextMode === "longBreak" ? "Uzun mola" : "Kısa mola"} zamanı! Kalan: ${Math.ceil(nextRemaining / 60)} dk.`
+          : `${finishedTarget.label} süresi doldu. Çalıştım olarak işaretleyebilirsin.`
         : isLong
         ? "Harika iş! 15 dakika uzun mola zamanı."
         : "Tebrikler! 5 dakika kısa mola zamanı."
     );
 
-    const shouldAutoStart = prev.autoStartBreaks && !finishedTarget;
-    setState({
-      ...prev,
-      mode: nextMode,
-      timeLeft: nextDuration,
-      totalSeconds: nextDuration,
-      completedSessions: nextSessions,
-      isRunning: shouldAutoStart,
-      endTimeMs: shouldAutoStart ? Date.now() + nextDuration * 1000 : null,
-      target: undefined,
-      pendingConfirm: finishedTarget ?? prev.pendingConfirm,
-    });
+    if (hasMoreStudy) {
+      const shouldStartBreak = prev.autoStartBreaks;
+      setState({
+        ...prev,
+        mode: nextMode,
+        timeLeft: nextDuration,
+        totalSeconds: nextDuration,
+        completedSessions: nextSessions,
+        completedFocusMinutes: nextFocusMinutes,
+        isRunning: shouldStartBreak,
+        endTimeMs: shouldStartBreak ? Date.now() + nextDuration * 1000 : null,
+        target: finishedTarget,
+        targetRemainingSeconds: nextRemaining,
+        pendingConfirm: undefined,
+      });
+    } else {
+      const shouldAutoStart = prev.autoStartBreaks && !finishedTarget;
+      setState({
+        ...prev,
+        mode: nextMode,
+        timeLeft: nextDuration,
+        totalSeconds: nextDuration,
+        completedSessions: nextSessions,
+        completedFocusMinutes: nextFocusMinutes,
+        isRunning: shouldAutoStart,
+        endTimeMs: shouldAutoStart ? Date.now() + nextDuration * 1000 : null,
+        target: undefined,
+        targetRemainingSeconds: undefined,
+        pendingConfirm: finishedTarget ?? prev.pendingConfirm,
+      });
+    }
   } else {
-    triggerMobileAlert("Mola bitti! ☕", "Yeni bir odak seansına başlamaya hazırsın.");
+    const nextFocusDur =
+      prev.target && prev.targetRemainingSeconds && prev.targetRemainingSeconds > 0
+        ? nextChunkSeconds(prev.targetRemainingSeconds)
+        : MODE_DURATIONS.pomodoro;
+    triggerMobileAlert(
+      "Mola bitti! ☕",
+      prev.target
+        ? `${prev.target.label} için sonraki ${Math.round(nextFocusDur / 60)} dk odak hazır.`
+        : "Yeni bir odak seansına başlamaya hazırsın."
+    );
     setState({
       ...prev,
       mode: "pomodoro",
-      timeLeft: MODE_DURATIONS.pomodoro,
-      totalSeconds: MODE_DURATIONS.pomodoro,
+      timeLeft: nextFocusDur,
+      totalSeconds: nextFocusDur,
       isRunning: false,
       endTimeMs: null,
     });
@@ -296,20 +378,22 @@ export function startMobilePomodoroFocus(options?: {
   target?: MobilePomodoroTarget;
   durationSeconds?: number;
 }) {
-  const duration =
+  const totalTargetSec =
     options?.durationSeconds && options.durationSeconds > 0
       ? options.durationSeconds
       : options?.target?.durationMinutes && options.target.durationMinutes > 0
       ? options.target.durationMinutes * 60
       : MODE_DURATIONS.pomodoro;
+  const chunk = nextChunkSeconds(totalTargetSec);
   setState(prev => ({
     ...prev,
     mode: "pomodoro",
-    timeLeft: duration,
-    totalSeconds: duration,
+    timeLeft: chunk,
+    totalSeconds: chunk,
     isRunning: true,
-    endTimeMs: Date.now() + duration * 1000,
+    endTimeMs: Date.now() + chunk * 1000,
     target: options?.target,
+    targetRemainingSeconds: options?.target ? totalTargetSec : undefined,
     pendingConfirm: undefined,
   }));
 }
@@ -330,8 +414,11 @@ export function toggleMobilePomodoroPause() {
 export function resetMobilePomodoro() {
   setState(prev => {
     const dur =
-      prev.mode === "pomodoro" && prev.target?.durationMinutes
-        ? prev.target.durationMinutes * 60
+      prev.mode === "pomodoro" && prev.target
+        ? nextChunkSeconds(
+            prev.targetRemainingSeconds ??
+              (prev.target.durationMinutes ? prev.target.durationMinutes * 60 : undefined)
+          )
         : MODE_DURATIONS[prev.mode];
     return {
       ...prev,
@@ -345,8 +432,11 @@ export function resetMobilePomodoro() {
 
 export function switchMobilePomodoroMode(newMode: PomodoroMode) {
   const dur =
-    newMode === "pomodoro" && state.target?.durationMinutes
-      ? state.target.durationMinutes * 60
+    newMode === "pomodoro" && state.target
+      ? nextChunkSeconds(
+          state.targetRemainingSeconds ??
+            (state.target.durationMinutes ? state.target.durationMinutes * 60 : undefined)
+        )
       : MODE_DURATIONS[newMode];
   setState(prev => ({
     ...prev,
@@ -363,21 +453,30 @@ export function skipMobilePomodoroPhase() {
   switchMobilePomodoroMode(nextMode);
 }
 
-export function setMobilePomodoroTarget(target?: MobilePomodoroTarget) {
+export function setMobilePomodoroTarget(target?: MobilePomodoroTarget, manual = false) {
   setState(prev => {
-    if (prev.isRunning) {
-      return { ...prev, target };
-    }
-    const dur =
-      target?.durationMinutes && target.durationMinutes > 0
+    const totalTargetSec = target
+      ? target.durationMinutes && target.durationMinutes > 0
         ? target.durationMinutes * 60
-        : MODE_DURATIONS.pomodoro;
+        : MODE_DURATIONS.pomodoro
+      : undefined;
+    const chunk = totalTargetSec ? nextChunkSeconds(totalTargetSec) : MODE_DURATIONS.pomodoro;
+    if (prev.isRunning) {
+      return {
+        ...prev,
+        target,
+        targetRemainingSeconds: totalTargetSec,
+        manualFreeFocus: target ? false : manual,
+      };
+    }
     return {
       ...prev,
       mode: "pomodoro",
-      timeLeft: dur,
-      totalSeconds: dur,
+      timeLeft: chunk,
+      totalSeconds: chunk,
       target,
+      targetRemainingSeconds: totalTargetSec,
+      manualFreeFocus: target ? false : manual,
     };
   });
 }
@@ -395,22 +494,27 @@ export function clearMobilePomodoroTargetAndReset() {
     isRunning: false,
     endTimeMs: null,
     target: undefined,
+    targetRemainingSeconds: undefined,
   }));
 }
 
 export function extendMobilePomodoro(extraMinutes = 15) {
   const pending = state.pendingConfirm;
   const sec = extraMinutes * 60;
-  setState(prev => ({
-    ...prev,
-    mode: "pomodoro",
-    timeLeft: sec,
-    totalSeconds: sec,
-    isRunning: true,
-    endTimeMs: Date.now() + sec * 1000,
-    target: pending ?? prev.target,
-    pendingConfirm: undefined,
-  }));
+  setState(prev => {
+    const nextTarget = pending ?? prev.target;
+    return {
+      ...prev,
+      mode: "pomodoro",
+      timeLeft: sec,
+      totalSeconds: sec,
+      isRunning: true,
+      endTimeMs: Date.now() + sec * 1000,
+      target: nextTarget,
+      targetRemainingSeconds: nextTarget ? sec : undefined,
+      pendingConfirm: undefined,
+    };
+  });
 }
 
 export function dismissMobilePomodoroConfirm() {

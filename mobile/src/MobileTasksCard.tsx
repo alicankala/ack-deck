@@ -303,26 +303,6 @@ export function MobileTasksCard({
                       Yeniden Aç
                     </button>
                   )}
-                  {!isTaskDone && (
-                    <button
-                      type="button"
-                      className="mobile-pomodoro-play-btn"
-                      onClick={() => {
-                        hapticLight();
-                        startMobilePomodoroFocus({
-                          target: {
-                            kind: "task",
-                            id: row.id,
-                            label: task.text,
-                          },
-                        });
-                      }}
-                      aria-label={`${task.text} için Pomodoro başlat`}
-                      title="Bu görev için Pomodoro başlat"
-                    >
-                      ▶
-                    </button>
-                  )}
                   <ActionMenu label={task.text + " işlemleri"}>
                     {isTaskDone ? (
                       <button disabled={busy} onClick={() => { if (!isTaskDone) hapticSuccess(); else hapticLight(); onCompleteTask(row); }}>Yeniden Aç</button>

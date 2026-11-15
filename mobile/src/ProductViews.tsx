@@ -6,7 +6,6 @@ import { parseSmartCapture } from "../../shared/smartCapture";
 import { todaySummary, weeklyPlan, monthlyPlan } from "../../shared/weeklyPlan";
 import { zonedAt } from "../../shared/recurrence";
 import type { Subscription } from "../../shared/subscriptions";
-import { startMobilePomodoroFocus } from "./mobilePomodoroStore";
 export function MobileSmartCapture({ records: _records, onSave }: {
     records: CloudRecord[];
     onSave: (mutation: Mutation) => Promise<void>;
@@ -92,17 +91,6 @@ export function MobileWeek({ records, onOpen, onNew, onSave, disabled = false, g
     onEvent={e=>{const row=records.find(r=>r.id===e.id&&r.kind===e.source);if(row)onOpen(row);}}
     getReminder={getReminder}
     onReminderChange={onReminderChange}
-    onStartStudyPomodoro={b =>
-      startMobilePomodoroFocus({
-        target: {
-          kind: "study",
-          id: b.id,
-          label: b.label,
-          durationMinutes: b.minutes,
-        },
-        durationSeconds: b.minutes * 60,
-      })
-    }
     onSaveProgram={async program=>{ const row=records.find(r=>r.kind==="studyPrograms"&&r.id===program.id);await onSave({mutationId:crypto.randomUUID(),kind:"studyPrograms",id:program.id,baseVersion:row?.version??0,data:program,deleted:false}); }}
     onDeleteProgram={async id=>{const row=records.find(r=>r.kind==="studyPrograms"&&r.id===id);if(row)await onSave({mutationId:crypto.randomUUID(),kind:"studyPrograms",id,baseVersion:row.version,data:null,deleted:true});}}
   />;

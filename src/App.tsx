@@ -444,7 +444,7 @@ function App() {
                 </>
               )}
             </main>
-            {desktop.visible && !restoring && <FooterTicker refreshMs={preferences.pcRefreshMs} />}
+            {desktop.visible && !restoring && <FooterTicker refreshMs={preferences.pcRefreshMs} hidePomodoro={page === "home"} />}
           </div>
           <PhoneCommands paused={restoring} onNotice={setNotice} />
           <UndoToast />

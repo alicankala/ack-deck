@@ -524,7 +524,7 @@ function App() {
         <MobileWeatherModal weather={weather} onClose={() => setWeatherModalOpen(false)} />
       )}
 
-      <MobilePomodoroBar />
+      {page !== "today" && page !== "tasks" && <MobilePomodoroBar />}
       <MobileNav page={page} onChange={changePage} />
     </main>
   );

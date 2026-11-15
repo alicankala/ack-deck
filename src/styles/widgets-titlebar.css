@@ -719,36 +719,43 @@ dialog,
   color: var(--app-accent, #0284c7);
 }
 
-/* Bağlantılı Pomodoro Hedef Seçici, Onay Şeridi ve Alt Çubuk Hapı */
-.pomodoro-target-row {
+/* Bağlantılı Pomodoro Odak Hapları, Onay Şeridi ve Alt Çubuk Hapı */
+.pomodoro-target-pills {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.4rem;
   flex-wrap: wrap;
 }
 
-.pomodoro-target-label {
+.pomodoro-target-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.34rem 0.72rem;
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--app-muted);
-  white-space: nowrap;
-}
-
-.pomodoro-target-select {
-  flex: 1;
-  min-width: 210px;
-  padding: 0.42rem 0.7rem;
-  font-size: 0.84rem;
-  border-radius: 0.55rem;
+  border-radius: 999px;
   border: 1px solid var(--app-border);
   background: var(--app-control);
-  color: var(--app-text);
-  outline: none;
+  color: var(--app-muted);
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.pomodoro-target-select:focus {
-  border-color: var(--app-accent, #38bdf8);
+.pomodoro-target-pill:hover:not(:disabled) {
+  color: var(--app-text);
+  background: var(--app-surface-hover);
+}
+
+.pomodoro-target-pill.is-active {
+  color: var(--app-accent, #38bdf8);
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.45);
+}
+
+.pomodoro-target-pill:disabled {
+  opacity: 0.65;
+  cursor: default;
 }
 
 .pomodoro-confirm-banner {

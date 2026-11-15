@@ -122,7 +122,6 @@ export function MobileTodayView({
         isCollapsed={isCollapsed("pomodoro")}
         onToggleCollapse={() => toggleCard("pomodoro")}
         todayStudyBlocks={todayStudyBlocks}
-        tasks={tasks}
         attendance={attendance}
       />
     </>

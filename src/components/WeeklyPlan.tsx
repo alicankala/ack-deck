@@ -6,7 +6,6 @@ import { monthlyPlan } from "../../shared/weeklyPlan";
 import { intelligenceData } from "../productIntelligence";
 import { taskDueAt, loadTasks, saveTasks, type Task } from "../taskStore";
 import type { NavigationTarget } from "../navigation";
-import { startPomodoroFocus } from "../pomodoroStore";
 
 export function WeeklyPlan({ onNavigate }: {
     onNavigate: (target: NavigationTarget) => void;
@@ -53,17 +52,6 @@ export function WeeklyPlan({ onNavigate }: {
         }}
         getReminder={id => reminders.entries.find(r => r.id === id)?.leadMinutes ?? null}
         onReminderChange={(id, lead) => saveStudyReminder(id, lead)}
-        onStartStudyPomodoro={b =>
-          startPomodoroFocus({
-            target: {
-              kind: "study",
-              id: b.id,
-              label: b.label,
-              durationMinutes: b.minutes,
-            },
-            durationSeconds: b.minutes * 60,
-          })
-        }
         onSaveProgram={async program => { const loaded=loadStudyPrograms(); if(!saveStudyPrograms([...loaded.entries.filter(p=>p.id!==program.id),program],loaded)) throw Error("Program kaydedilemedi; mevcut kayıtlar korunuyor."); }}
         onDeleteProgram={async id => { const loaded=loadStudyPrograms(); if(!saveStudyPrograms(loaded.entries.filter(p=>p.id!==id),loaded)) throw Error("Program silinemedi."); }}
       />

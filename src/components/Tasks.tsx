@@ -5,7 +5,6 @@ import { recurrenceLabel, scheduleDate, isOccurrenceCompleted, formatCompletedTi
 import { studyBlocks } from "../../shared/studyPrograms";
 import { loadStudyAttendance, setStudyBlockStatus, cycleAttendanceStatus } from "../../shared/studyAttendance";
 import { loadStudyPrograms } from "../studyProgramStore";
-import { startPomodoroFocus } from "../pomodoroStore";
 import {
   TASK_FILTERS,
   deleteTaskRecord,
@@ -221,27 +220,6 @@ export function Tasks({
                     </small>
                   </button>
                 </div>
-                {status !== "attended" && (
-                  <button
-                    type="button"
-                    className="pomodoro-inline-play-btn"
-                    onClick={() =>
-                      startPomodoroFocus({
-                        target: {
-                          kind: "study",
-                          id: block.id,
-                          label: block.label,
-                          durationMinutes: block.minutes,
-                        },
-                        durationSeconds: block.minutes * 60,
-                      })
-                    }
-                    title={`Pomodoro başlat (${block.minutes} dk)`}
-                    aria-label={`${block.label} için Pomodoro başlat`}
-                  >
-                    ▶ Odaklan
-                  </button>
-                )}
                 <span className="timeline-tag" style={{ flexShrink: 0 }}>Ders</span>
               </div>
             );
@@ -321,25 +299,6 @@ export function Tasks({
                     </div>
                   )}
                 </div>
-                {!isOccurrenceCompleted(task) && (
-                  <button
-                    type="button"
-                    className="pomodoro-inline-play-btn is-compact"
-                    onClick={() =>
-                      startPomodoroFocus({
-                        target: {
-                          kind: "task",
-                          id: task.id,
-                          label: task.text,
-                        },
-                      })
-                    }
-                    title="Bu görev için Pomodoro başlat"
-                    aria-label={`${task.text} için Pomodoro başlat`}
-                  >
-                    ▶
-                  </button>
-                )}
                 <ActionMenu label={task.text + " işlemleri"}>
                   {task.dueDate && task.dueTime && !task.completed && (
                     <>

@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Icon } from "./Icon";
 import {
   MODE_LABELS,
-  clearPomodoroTargetAndReset,
   confirmPomodoroTargetDone,
   dismissPomodoroConfirm,
   extendPomodoro,
@@ -18,16 +17,12 @@ import {
 import { loadStudyPrograms } from "../studyProgramStore";
 import { loadStudyAttendance } from "../../shared/studyAttendance";
 import { studyBlocks } from "../../shared/studyPrograms";
-import { loadTasks, localDateKey } from "../taskStore";
-import { isOccurrenceCompleted } from "../../shared/recurrence";
+import { localDateKey } from "../taskStore";
 
 export type { PomodoroMode, PomodoroTarget };
 
-function useAvailableTargets() {
-  const [targets, setTargets] = useState<{ studies: PomodoroTarget[]; tasks: PomodoroTarget[] }>({
-    studies: [],
-    tasks: [],
-  });
+function useTodayStudyTargets(): PomodoroTarget[] {
+  const [studies, setStudies] = useState<PomodoroTarget[]>([]);
 
   useEffect(() => {
     function refresh() {
@@ -35,25 +30,16 @@ function useAvailableTargets() {
       const programs = loadStudyPrograms().entries;
       const attendance = loadStudyAttendance();
       const blocks = studyBlocks(programs, new Date(), [today]);
-      const studies: PomodoroTarget[] = blocks
-        .filter(b => attendance[b.id]?.status !== "attended")
-        .map(b => ({
-          kind: "study",
-          id: b.id,
-          label: `${b.label}${b.topic ? ` · ${b.topic}` : ""}`,
-          durationMinutes: b.minutes,
-        }));
-
-      const tasks: PomodoroTarget[] = loadTasks()
-        .entries.filter(t => !isOccurrenceCompleted(t))
-        .slice(0, 12)
-        .map(t => ({
-          kind: "task",
-          id: t.id,
-          label: t.text,
-        }));
-
-      setTargets({ studies, tasks });
+      setStudies(
+        blocks
+          .filter(b => attendance[b.id]?.status !== "attended")
+          .map(b => ({
+            kind: "study",
+            id: b.id,
+            label: `${b.label}${b.topic ? ` · ${b.topic}` : ""}`,
+            durationMinutes: b.minutes,
+          }))
+      );
     }
 
     refresh();
@@ -67,7 +53,7 @@ function useAvailableTargets() {
     };
   }, []);
 
-  return targets;
+  return studies;
 }
 
 export function PomodoroTimer() {
@@ -77,11 +63,28 @@ export function PomodoroTimer() {
     totalSeconds,
     isRunning,
     completedSessions,
+    completedFocusMinutes,
     autoStartBreaks,
     target,
+    targetRemainingSeconds,
     pendingConfirm,
+    manualFreeFocus,
   } = usePomodoroStore();
-  const { studies, tasks } = useAvailableTargets();
+  const studies = useTodayStudyTargets();
+
+  useEffect(() => {
+    if (
+      !isRunning &&
+      mode === "pomodoro" &&
+      timeLeft === totalSeconds &&
+      !target &&
+      !pendingConfirm &&
+      !manualFreeFocus &&
+      studies.length > 0
+    ) {
+      setPomodoroTarget(studies[0]);
+    }
+  }, [isRunning, mode, timeLeft, totalSeconds, target, pendingConfirm, manualFreeFocus, studies]);
 
   function skipPhase() {
     if (mode === "pomodoro") {
@@ -97,24 +100,6 @@ export function PomodoroTimer() {
   const seconds = timeLeft % 60;
   const timeFormatted = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 
-  const selectedValue = target ? `${target.kind}:${target.id}` : "";
-
-  function handleTargetChange(val: string) {
-    if (!val) {
-      setPomodoroTarget(undefined);
-      return;
-    }
-    const [kind, ...rest] = val.split(":");
-    const id = rest.join(":");
-    const match =
-      kind === "study"
-        ? studies.find(s => s.id === id)
-        : tasks.find(t => t.id === id);
-    if (match) {
-      setPomodoroTarget(match);
-    }
-  }
-
   return (
     <section className="dashboard-pomodoro surface" aria-labelledby="pomodoro-heading">
       <div className="dashboard-section-top">
@@ -126,9 +111,9 @@ export function PomodoroTimer() {
             <h2 id="pomodoro-heading">Pomodoro Odak Sayacı</h2>
             <small>
               {target
-                ? `Hedef: ${target.label}`
+                ? `Hedef: ${target.label}${targetRemainingSeconds ? ` · Kalan ${Math.ceil(targetRemainingSeconds / 60)} dk` : ""}`
                 : completedSessions > 0
-                  ? `Bugün ${completedSessions} odak seansı tamamlandı (${completedSessions * 25} dk odak)`
+                  ? `Bugün ${completedSessions} odak seansı tamamlandı (${completedFocusMinutes ?? completedSessions * 25} dk odak)`
                   : "25 dakika odaklan, 5 dakika mola ver"}
             </small>
           </div>
@@ -163,7 +148,7 @@ export function PomodoroTimer() {
               className="button button-primary"
               onClick={confirmPomodoroTargetDone}
             >
-              ✓ {pendingConfirm.kind === "study" ? "Katıldım İşaretle" : "Tamamlandı İşaretle"}
+              ✓ {pendingConfirm.kind === "study" ? "Çalıştım İşaretle" : "Tamamlandı İşaretle"}
             </button>
             <button
               type="button"
@@ -190,47 +175,39 @@ export function PomodoroTimer() {
           <span className={`pomodoro-mode-badge mode-${mode}`}>{MODE_LABELS[mode].title}</span>
         </div>
 
-        {/* Target Selector */}
-        <div className="pomodoro-target-row">
-          <select
-            className="pomodoro-target-select"
-            value={selectedValue}
-            onChange={e => handleTargetChange(e.target.value)}
-            aria-label="Odak hedefi seç"
-            disabled={isRunning}
-          >
-            <option value="">Serbest Odak (25 dk)</option>
-            {studies.length > 0 && (
-              <optgroup label="Bugünkü Dersler">
-                {studies.map(s => (
-                  <option key={s.id} value={`study:${s.id}`}>
-                    📚 {s.label}{s.durationMinutes ? ` (${s.durationMinutes} dk)` : ""}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-            {tasks.length > 0 && (
-              <optgroup label="Açık Görevler">
-                {tasks.map(t => (
-                  <option key={t.id} value={`task:${t.id}`}>
-                    ✓ {t.label.length > 52 ? `${t.label.slice(0, 52)}…` : t.label}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </select>
-          {target && !isRunning && (
+        {/* Bugünün Ders Programı / Serbest Odak Hapları */}
+        {(studies.length > 0 || target) && (
+          <div className="pomodoro-target-pills" role="group" aria-label="Odak seçimi">
             <button
               type="button"
-              className="button button-secondary"
-              onClick={clearPomodoroTargetAndReset}
-              title="Hedefi temizle"
-              style={{ padding: "0.35rem 0.65rem", fontSize: "0.78rem" }}
+              className={`pomodoro-target-pill ${!target ? "is-active" : ""}`}
+              onClick={() => setPomodoroTarget(undefined, true)}
+              disabled={isRunning}
             >
-              Temizle
+              Serbest · 25 dk
             </button>
-          )}
-        </div>
+            {studies.map(s => (
+              <button
+                type="button"
+                key={s.id}
+                className={`pomodoro-target-pill ${target?.id === s.id ? "is-active" : ""}`}
+                onClick={() => setPomodoroTarget(s)}
+                disabled={isRunning}
+              >
+                {s.label}{s.durationMinutes ? ` · ${s.durationMinutes} dk` : ""}
+              </button>
+            ))}
+            {target && !studies.some(s => s.id === target.id) && (
+              <button
+                type="button"
+                className="pomodoro-target-pill is-active"
+                disabled={isRunning}
+              >
+                {target.label}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Action Controls */}
         <div className="pomodoro-controls">

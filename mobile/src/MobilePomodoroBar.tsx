@@ -18,7 +18,7 @@ export function MobilePomodoroBar() {
     pendingConfirm,
   } = useMobilePomodoroStore();
 
-  const hasProgress = isRunning || timeLeft < totalSeconds || Boolean(target);
+  const hasProgress = isRunning || timeLeft < totalSeconds;
 
   if (!hasProgress && !pendingConfirm) return null;
 

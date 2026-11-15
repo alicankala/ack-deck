@@ -293,27 +293,6 @@ export function DashboardTasksCard({
                     )}
                   </div>
 
-                  {!isTaskDone && (
-                    <button
-                      type="button"
-                      className="pomodoro-inline-play-btn is-compact"
-                      onClick={e => {
-                        e.stopPropagation();
-                        startPomodoroFocus({
-                          target: {
-                            kind: "task",
-                            id: task.id,
-                            label: task.text,
-                          },
-                        });
-                      }}
-                      title="25 dk Pomodoro başlat"
-                      aria-label={`${task.text} için Pomodoro başlat`}
-                    >
-                      ▶
-                    </button>
-                  )}
-
                   {isTaskDone && (
                     <button
                       type="button"
