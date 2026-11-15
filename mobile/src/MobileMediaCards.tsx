@@ -173,83 +173,137 @@ export function MobileMediaCards({
     </div>
   );
 
-  const renderShowcaseCard = (item: MediaItem, nested = false) => (
-    <article
-      key={item.id}
-      className={`mobile-media-card ${nested ? "is-nested" : ""}`}
-      onClick={() => onOpenItem(item)}
-    >
-      <div className="mobile-media-card-row">
-        <MobileMediaPoster url={item.posterUrl} title={item.title} type={item.type} />
-        <div className="mobile-media-card-main">
-          <div className="mobile-media-card-top">
-            <span className="type-badge">
-              {MEDIA_TYPE_ICONS[item.type]} {MEDIA_TYPE_LABELS[item.type]}
+  const renderPosterCard = (item: MediaItem, nested = false) => {
+    const scoreText =
+      item.rating !== undefined
+        ? `⭐ ${item.rating}`
+        : (item.type === "movie" || item.type === "series") && item.imdbRating !== undefined
+          ? `★ ${item.imdbRating}`
+          : null;
+    const subParts = [item.year, MEDIA_TYPE_LABELS[item.type]].filter(Boolean);
+
+    return (
+      <article
+        key={item.id}
+        className={`mobile-poster-card ${nested ? "is-nested" : ""}`}
+        onClick={() => onOpenItem(item)}
+      >
+        <div className="mobile-poster-frame">
+          <MobileMediaPoster
+            url={item.posterUrl}
+            title={item.title}
+            type={item.type}
+            className="mobile-poster-img"
+            placeholderClassName="mobile-poster-placeholder"
+          />
+          <div className="mobile-poster-corners">
+            <span className="mobile-poster-corner-pill" title={MEDIA_STATUS_LABELS[item.status]}>
+              <span className={`mobile-media-section-dot is-${item.status}`} aria-hidden="true" />
+              <span>{MEDIA_TYPE_ICONS[item.type]}</span>
             </span>
-            <span className={`status-badge is-${item.status}`}>
-              {MEDIA_STATUS_LABELS[item.status]}
-            </span>
-          </div>
-
-          <strong className="mobile-media-title">
-            {item.title}
-            {item.year && <span className="mobile-media-year"> ({item.year})</span>}
-          </strong>
-
-          {item.creator && <span className="mobile-media-creator">{item.creator}</span>}
-
-          <div className="mobile-media-meta">
-            {(item.type === "movie" || item.type === "series") && item.imdbRating !== undefined && (
-              <span className="mobile-imdb-badge" title={`IMDb: ${item.imdbRating}/10`}>
-                🟡 {item.imdbRating}
+            {scoreText && (
+              <span className={`mobile-poster-corner-pill ${item.rating !== undefined ? "is-user-rating" : "is-imdb-rating"}`}>
+                {scoreText}
               </span>
             )}
-            {item.rating !== undefined && <span className="rating-tag">⭐ {item.rating}/10</span>}
-            {sanitizeMediaProgress(item.progress) && (
-              <span className="progress-tag">📌 {sanitizeMediaProgress(item.progress)}</span>
-            )}
-            {item.completedDate && (
-              <span className="date-tag">🗓️ {item.completedDate.split("-").reverse().join(".")}</span>
-            )}
           </div>
+          {(item.status === "planned" || item.status === "in_progress") && (
+            <div className="mobile-poster-quick-bar" onClick={(e) => e.stopPropagation()}>
+              {item.status === "planned" ? (
+                <button
+                  type="button"
+                  className="mobile-poster-quick-btn is-start"
+                  onClick={() => onQuickStart(item)}
+                >
+                  ▶ Başla
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="mobile-poster-quick-btn is-finish"
+                  onClick={() => onQuickFinish(item)}
+                >
+                  ✓ Bitir
+                </button>
+              )}
+            </div>
+          )}
         </div>
-      </div>
+        <div className="mobile-poster-caption">
+          <strong className="mobile-poster-title">{item.title}</strong>
+          <span className="mobile-poster-sub">{subParts.join(" · ")}</span>
+        </div>
+      </article>
+    );
+  };
 
-      {item.review && <p className="mobile-media-review">"{item.review}"</p>}
+  const renderGridSeries = (
+    entry: Extract<MediaCollectionEntry, { kind: "series" }>,
+    sectionStatus: MediaStatus
+  ) => {
+    const expandKey = `${sectionStatus}::${entry.key}`;
+    const isExpanded = Boolean(expandedSeries[expandKey]);
 
-      <div className="mobile-media-card-actions" onClick={(e) => e.stopPropagation()}>
-        {item.status === "planned" && (
-          <button
-            type="button"
-            className="mobile-media-action-btn is-start"
-            onClick={() => onQuickStart(item)}
-            title="İzlemeye/Okumaya/Oynamaya Başla"
-          >
-            ▶ Başla
-          </button>
-        )}
-        {item.status === "in_progress" && (
-          <button
-            type="button"
-            className="mobile-media-action-btn is-finish"
-            onClick={() => onQuickFinish(item)}
-            title="Bitirildi olarak işaretle"
-          >
-            ✓ Bitir
-          </button>
-        )}
-        <button
-          type="button"
-          className="mobile-media-action-btn is-neutral"
-          onClick={() => onOpenItem(item)}
+    return (
+      <div key={expandKey} style={{ display: "contents" }}>
+        <article
+          className={`mobile-poster-card is-series ${isExpanded ? "is-expanded" : ""}`}
+          onClick={() => toggleSeries(expandKey)}
+          role="button"
+          tabIndex={0}
         >
-          Düzenle
-        </button>
-      </div>
-    </article>
-  );
+          <div className="mobile-poster-frame">
+            <MobileMediaPoster
+              url={entry.posterUrl}
+              title={entry.title}
+              type={entry.type}
+              className="mobile-poster-img"
+              placeholderClassName="mobile-poster-placeholder"
+            />
+            <div className="mobile-poster-corners">
+              <span className="mobile-poster-corner-pill">
+                <span className={`mobile-media-section-dot is-${sectionStatus}`} aria-hidden="true" />
+                <span>{MEDIA_TYPE_ICONS[entry.type]}</span>
+              </span>
+              <span className="mobile-poster-corner-pill is-series-pill">
+                {entry.items.length} yapım
+              </span>
+            </div>
+          </div>
+          <div className="mobile-poster-caption">
+            <strong className="mobile-poster-title">{entry.title}</strong>
+            <span className="mobile-poster-sub">
+              {[entry.yearRange, `${MEDIA_TYPE_LABELS[entry.type]} Serisi`].filter(Boolean).join(" · ")}
+            </span>
+          </div>
+        </article>
 
-  const renderSeriesGroup = (
+        {isExpanded && (
+          <div className="mobile-series-drawer">
+            <div className="mobile-series-drawer-head">
+              <div>
+                <strong>{entry.title}</strong>
+                {entry.yearRange && <span className="mobile-media-year"> ({entry.yearRange})</span>}
+              </div>
+              <button
+                type="button"
+                className="mobile-media-action-btn is-neutral"
+                style={{ padding: "4px 10px", fontSize: "12px" }}
+                onClick={() => toggleSeries(expandKey)}
+              >
+                Kapat ✕
+              </button>
+            </div>
+            <div className="mobile-poster-grid is-nested">
+              {entry.items.map((child) => renderPosterCard(child, true))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderSeriesListGroup = (
     entry: Extract<MediaCollectionEntry, { kind: "series" }>,
     sectionStatus: MediaStatus
   ) => {
@@ -294,14 +348,41 @@ export function MobileMediaCards({
 
         {isExpanded && (
           <div className="mobile-series-children">
-            {entry.items.map((child) =>
-              viewMode === "list" ? renderListRow(child, true) : renderShowcaseCard(child, true)
-            )}
+            {entry.items.map((child) => renderListRow(child, true))}
           </div>
         )}
       </div>
     );
   };
+
+  if (viewMode === "grid") {
+    const flatEntries = sections.flatMap((section) =>
+      section.entries.map((entry) => ({ entry, status: section.status }))
+    );
+
+    return (
+      <div className="mobile-media-sections">
+        <div className="mobile-poster-grid">
+          {flatEntries.map(({ entry, status }) =>
+            entry.kind === "series"
+              ? renderGridSeries(entry, status)
+              : renderPosterCard(entry.item)
+          )}
+        </div>
+
+        {visibleCount < filtered.length && (
+          <button
+            type="button"
+            className="mobile-button-secondary"
+            onClick={onLoadMore}
+            style={{ width: "100%", padding: "10px", margin: "8px 0", fontSize: "13px" }}
+          >
+            Daha Fazla Göster ({visibleCount} / {filtered.length})
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="mobile-media-sections">
@@ -324,13 +405,11 @@ export function MobileMediaCards({
             </button>
 
             {!isCollapsed && (
-              <div className={viewMode === "list" ? "mobile-media-compact-list" : "mobile-media-list"}>
+              <div className="mobile-media-compact-list">
                 {section.entries.map((entry) =>
                   entry.kind === "series"
-                    ? renderSeriesGroup(entry, section.status)
-                    : viewMode === "list"
-                      ? renderListRow(entry.item)
-                      : renderShowcaseCard(entry.item)
+                    ? renderSeriesListGroup(entry, section.status)
+                    : renderListRow(entry.item)
                 )}
               </div>
             )}

@@ -342,29 +342,6 @@ export function MediaTracker() {
         </div>
       </header>
 
-      {/* Stats Bar */}
-      <div className="media-stats-strip">
-        <div className={`media-stat-chip ${typeFilter === "movie" ? "is-active" : ""}`} onClick={() => setTypeFilter(typeFilter === "movie" ? "all" : "movie")}>
-          <span className="media-stat-icon">🎬</span>
-          <span className="media-stat-count">{counts.movie}</span>
-          <span className="media-stat-label">Film</span>
-        </div>
-        <div className={`media-stat-chip ${typeFilter === "series" ? "is-active" : ""}`} onClick={() => setTypeFilter(typeFilter === "series" ? "all" : "series")}>
-          <span className="media-stat-icon">📺</span>
-          <span className="media-stat-count">{counts.series}</span>
-          <span className="media-stat-label">Dizi</span>
-        </div>
-        <div className={`media-stat-chip ${typeFilter === "book" ? "is-active" : ""}`} onClick={() => setTypeFilter(typeFilter === "book" ? "all" : "book")}>
-          <span className="media-stat-icon">📚</span>
-          <span className="media-stat-count">{counts.book}</span>
-          <span className="media-stat-label">Kitap</span>
-        </div>
-        <div className={`media-stat-chip ${typeFilter === "game" ? "is-active" : ""}`} onClick={() => setTypeFilter(typeFilter === "game" ? "all" : "game")}>
-          <span className="media-stat-icon">🎮</span>
-          <span className="media-stat-count">{counts.game}</span>
-          <span className="media-stat-label">Oyun</span>
-        </div>
-      </div>
       {refreshNotice && (
         <div className="media-refresh-notice surface">
           <span>{refreshNotice}</span>
@@ -375,16 +352,19 @@ export function MediaTracker() {
       <div className="media-toolbar">
         <div className="media-toolbar-filters">
           <div className="media-type-pills" role="group" aria-label="Tür Filtreleri">
-            {(["all", "movie", "series", "book", "game"] as const).map((t) => (
-              <button
-                type="button"
-                key={t}
-                className={`pill-btn ${typeFilter === t ? "is-selected" : ""}`}
-                onClick={() => setTypeFilter(t)}
-              >
-                {t === "all" ? "Tümü" : `${MEDIA_TYPE_ICONS[t]} ${MEDIA_TYPE_LABELS[t]}`}
-              </button>
-            ))}
+            {(["all", "movie", "series", "book", "game"] as const).map((t) => {
+              const count = t === "all" ? items.length : counts[t];
+              return (
+                <button
+                  type="button"
+                  key={t}
+                  className={`pill-btn ${typeFilter === t ? "is-selected" : ""}`}
+                  onClick={() => setTypeFilter(t)}
+                >
+                  {t === "all" ? `Tümü (${count})` : `${MEDIA_TYPE_ICONS[t]} ${MEDIA_TYPE_LABELS[t]} (${count})`}
+                </button>
+              );
+            })}
           </div>
 
           <div className="media-status-pills" role="group" aria-label="Durum Filtreleri">
@@ -395,7 +375,7 @@ export function MediaTracker() {
                 className={`pill-btn ${statusFilter === s ? "is-selected" : ""}`}
                 onClick={() => setStatusFilter(s)}
               >
-                {s === "all" ? "Tümü (Bölümlü)" : MEDIA_STATUS_LABELS[s]}
+                {s === "all" ? "Tümü" : MEDIA_STATUS_LABELS[s]}
               </button>
             ))}
           </div>

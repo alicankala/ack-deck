@@ -124,6 +124,12 @@ export function PhoneInbox({
     };
   }, []);
 
+  useEffect(() => {
+    if (!notice) return;
+    const t = window.setTimeout(() => setNotice(""), 3000);
+    return () => window.clearTimeout(t);
+  }, [notice]);
+
   async function refresh() {
     if (operation.current) return;
     operation.current = true;
@@ -186,7 +192,7 @@ export function PhoneInbox({
   async function toggleHandled(item: InboxItem) {
     const nextHandled = item.handled ? 0 : 1;
     await action(async () => {
-      await phoneRequest("handled", { id: item.id });
+      await phoneRequest("handled", { id: item.id, handled: nextHandled });
       setItems(rows => {
         const next = rows.map(r => (r.id === item.id ? { ...r, handled: nextHandled } : r));
         saveInboxIndex(next);
@@ -209,7 +215,7 @@ export function PhoneInbox({
       const markedIds = new Set<string>();
       for (const item of unhandled) {
         try {
-          await phoneRequest("handled", { id: item.id });
+          await phoneRequest("handled", { id: item.id, handled: 1 });
           markedIds.add(item.id);
         } catch {
           // Kısmi başarısızlıklarda kalanlar korunur
@@ -497,7 +503,33 @@ export function PhoneInbox({
       </div>
 
       {error && <p className="feedback error" role="alert">{error}</p>}
-      {notice && <p className="feedback" role="status">{notice}</p>}
+      {notice && (
+        <div
+          role="status"
+          style={{
+            position: "fixed",
+            bottom: "2.5rem",
+            right: "2.5rem",
+            background: "rgba(15, 23, 42, 0.95)",
+            border: "1px solid rgba(56, 189, 248, 0.4)",
+            color: "#f8fafc",
+            padding: "0.75rem 1.25rem",
+            borderRadius: "0.75rem",
+            boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.5)",
+            fontSize: "0.88rem",
+            fontWeight: 500,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.6rem",
+            zIndex: 9999,
+            backdropFilter: "blur(8px)",
+            animation: "livePulse 0.3s ease-out",
+          }}
+        >
+          <span style={{ color: "#38bdf8" }}>✓</span>
+          <span>{notice}</span>
+        </div>
+      )}
 
       {!filteredItems.length && !error && (
         <div className="inbox-empty-card">

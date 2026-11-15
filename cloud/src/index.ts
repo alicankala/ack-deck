@@ -760,8 +760,15 @@ async function handle(request: Request, env: Env): Promise<Response> {
       return reply({ok:true});
     }
     if (request.method === "PATCH") {
-      await env.DB.prepare("UPDATE inbox_items SET handled=1 WHERE id=?").bind(inboxMatch[1]).run();
-      return reply({ok:true});
+      let nextHandled = 1;
+      try {
+        const body = await jsonBody(request);
+        if (object(body) && (body.handled === 0 || body.handled === false)) {
+          nextHandled = 0;
+        }
+      } catch {}
+      await env.DB.prepare("UPDATE inbox_items SET handled=? WHERE id=?").bind(nextHandled, inboxMatch[1]).run();
+      return reply({ok:true, handled: nextHandled});
     }
   }
   if (path === "/api/attachments" && request.method === "POST") {

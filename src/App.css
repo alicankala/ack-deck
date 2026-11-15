@@ -340,10 +340,10 @@ h1, h2, h3 { font-family: "Segoe UI Variable", "Segoe UI", sans-serif; }
 .settings-card-heading { display: flex; align-items: center; gap: calc(var(--ui-unit) * 15); padding-bottom: 0.85rem; border-bottom: 1px solid #3a4651; }
 .settings-card-heading > div { min-width: 0; }
 .settings-card-heading h2 { font-size: calc(var(--ui-unit) * 21); letter-spacing: -.035em; }
-.settings-card-heading p { color: #bdc9d4; margin-top: calc(var(--ui-unit) * 3); font-size: calc(var(--ui-unit) * 14); }
+.settings-card-heading p { color: #bdc9d4; margin: calc(var(--ui-unit) * 3) 0 0; font-size: calc(var(--ui-unit) * 14); }
 .key-status { margin-left: auto; flex: 0 0 auto; color: #c3ced8; background: #2b333b; border: 1px solid #53616d; border-radius: calc(var(--ui-unit) * 100); padding: calc(var(--ui-unit) * 6) calc(var(--ui-unit) * 10); font-size: calc(var(--ui-unit) * 12); font-weight: 700; }
 .key-status.saved { color: #b4e7c4; background: #203a2b; border-color: #4a785a; }
-.api-key-form { display: flex; flex-direction: column; align-items: flex-start; padding-top: calc(var(--ui-unit) * 26); }
+.api-key-form { display: flex; flex-direction: column; align-items: flex-start; padding-top: 0; }
 .api-key-form label { color: #e7edf3; font-size: calc(var(--ui-unit) * 14); font-weight: 700; margin-bottom: calc(var(--ui-unit) * 9); }
 .api-key-form input { width: min(100%, calc(var(--ui-unit) * 540)); height: calc(var(--ui-unit) * 46); color: #f3f7fb; background: #151c23; border: 1px solid #607080; border-radius: calc(var(--ui-unit) * 8); padding: 0 calc(var(--ui-unit) * 14); font-size: calc(var(--ui-unit) * 15); }
 .api-key-form input::placeholder { color: #aebbc8; }

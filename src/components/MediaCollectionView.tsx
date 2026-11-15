@@ -27,101 +27,7 @@ type MediaCollectionViewProps = {
   onLoadMore: () => void;
 };
 
-type CardActionsProps = {
-  item: MediaItem;
-  menuOpenId: string | null;
-  setMenuOpenId: (id: string | null) => void;
-  onQuickStart: (item: MediaItem) => void;
-  onQuickFinish: (item: MediaItem) => void;
-  onEdit: (item: MediaItem) => void;
-  onAskDelete: (id: string | null) => void;
-};
-
-function CardActionBar({
-  item,
-  menuOpenId,
-  setMenuOpenId,
-  onQuickStart,
-  onQuickFinish,
-  onEdit,
-  onAskDelete,
-}: CardActionsProps) {
-  const isMenuOpen = menuOpenId === item.id;
-
-  return (
-    <div className="media-card-actions">
-      <div className="media-card-primary-slot">
-        {item.status === "planned" && (
-          <button
-            type="button"
-            className="media-action-btn is-start"
-            onClick={() => onQuickStart(item)}
-            title="İzlemeye/Okumaya/Oynamaya Başla"
-          >
-            ▶ Başla
-          </button>
-        )}
-        {item.status === "in_progress" && (
-          <button
-            type="button"
-            className="media-action-btn is-finish"
-            onClick={() => onQuickFinish(item)}
-            title="Bitirildi olarak işaretle"
-          >
-            ✓ Bitir
-          </button>
-        )}
-        {item.status === "completed" && (
-          <button
-            type="button"
-            className="media-action-btn is-neutral"
-            onClick={() => onEdit(item)}
-          >
-            Detaylar
-          </button>
-        )}
-      </div>
-
-      <div className="media-card-menu-wrap">
-        <button
-          type="button"
-          className={`media-more-btn ${isMenuOpen ? "is-open" : ""}`}
-          onClick={() => setMenuOpenId(isMenuOpen ? null : item.id)}
-          aria-label="Diğer işlemler"
-          aria-expanded={isMenuOpen}
-        >
-          ⋯
-        </button>
-        {isMenuOpen && (
-          <div className="media-card-dropdown" role="menu">
-            <button
-              type="button"
-              className="media-dropdown-item"
-              onClick={() => {
-                setMenuOpenId(null);
-                onEdit(item);
-              }}
-            >
-              Düzenle
-            </button>
-            <button
-              type="button"
-              className="media-dropdown-item media-delete-btn is-danger"
-              onClick={() => {
-                setMenuOpenId(null);
-                onAskDelete(item.id);
-              }}
-            >
-              Sil
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/** Desktop Media Collection: status sections, series grouping, and clean showcase/list cards. */
+/** Desktop Media Collection: unified poster showcase, status-sectioned list view, and inline series drawer. */
 export function MediaCollectionView({
   totalCount,
   filteredCount,
@@ -139,7 +45,6 @@ export function MediaCollectionView({
   onConfirmDelete,
   onLoadMore,
 }: MediaCollectionViewProps) {
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [expandedSeries, setExpandedSeries] = useState<Record<string, boolean>>({});
   const [collapsedSections, setCollapsedSections] = useState<Partial<Record<MediaStatus, boolean>>>({});
 
@@ -274,81 +179,203 @@ export function MediaCollectionView({
     </article>
   );
 
-  const renderGridCard = (item: MediaItem, nested = false) => (
-    <article key={item.id} className={`surface media-card ${nested ? "is-nested" : ""}`}>
-      <div className="media-card-body-row">
-        <MediaPoster
-          url={item.posterUrl}
-          title={item.title}
-          type={item.type}
-          className="media-card-poster"
-          placeholderClassName="media-card-poster-placeholder"
-        />
-        <div className="media-card-info">
-          <div className="media-card-top">
-            <span className="media-card-type-chip">
-              {MEDIA_TYPE_ICONS[item.type]} {MEDIA_TYPE_LABELS[item.type]}
+  const renderPosterCard = (item: MediaItem, nested = false) => {
+    const scoreText =
+      item.rating !== undefined
+        ? `⭐ ${item.rating}`
+        : (item.type === "movie" || item.type === "series") && item.imdbRating !== undefined
+          ? `★ ${item.imdbRating}`
+          : null;
+    const subParts = [item.year, MEDIA_TYPE_LABELS[item.type]].filter(Boolean);
+
+    return (
+      <article
+        key={item.id}
+        className={`media-poster-card ${nested ? "is-nested" : ""}`}
+      >
+        <div
+          className="media-poster-frame"
+          onClick={() => onEdit(item)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onEdit(item);
+            }
+          }}
+          aria-label={`${item.title} detaylarını aç`}
+        >
+          <MediaPoster
+            url={item.posterUrl}
+            title={item.title}
+            type={item.type}
+            className="media-poster-img"
+            placeholderClassName="media-poster-placeholder"
+          />
+
+          <div className="media-poster-corners">
+            <span
+              className="media-poster-corner-pill"
+              title={`${MEDIA_TYPE_LABELS[item.type]} · ${MEDIA_STATUS_LABELS[item.status]}`}
+            >
+              <span className={`media-section-dot is-${item.status}`} aria-hidden="true" />
+              <span>{MEDIA_TYPE_ICONS[item.type]}</span>
             </span>
-            <span className={`media-status-chip is-${item.status}`}>
-              {MEDIA_STATUS_LABELS[item.status]}
-            </span>
+
+            {scoreText && (
+              <span
+                className={`media-poster-corner-pill ${item.rating !== undefined ? "is-user-rating" : "is-imdb-rating"}`}
+                title={item.rating !== undefined ? `Senin Puanın: ${item.rating}/10` : `IMDb: ${item.imdbRating}/10`}
+              >
+                {scoreText}
+              </span>
+            )}
           </div>
 
-          <h3 className="media-card-title" title={item.title}>
-            {item.title}
-            {item.year && <span className="media-card-year"> ({item.year})</span>}
-          </h3>
-
-          {item.creator && <p className="media-card-creator">{item.creator}</p>}
-
-          <div className="media-card-meta">
-            {(item.type === "movie" || item.type === "series") && item.imdbRating !== undefined && (
-              <span className="media-imdb-badge" title={`IMDb Puanı: ${item.imdbRating}/10`}>
-                🟡 {item.imdbRating}
-              </span>
+          <div className="media-poster-hover-actions" onClick={(e) => e.stopPropagation()}>
+            {item.status === "planned" && (
+              <button
+                type="button"
+                className="media-poster-hover-btn is-start"
+                onClick={() => onQuickStart(item)}
+                title="İzlemeye/Okumaya/Oynamaya Başla"
+              >
+                ▶ Başla
+              </button>
             )}
-            {item.rating !== undefined && (
-              <span className="media-rating-tag" title={`Senin Puanın: ${item.rating}/10`}>
-                ⭐ {item.rating}/10
-              </span>
+            {item.status === "in_progress" && (
+              <button
+                type="button"
+                className="media-poster-hover-btn is-finish"
+                onClick={() => onQuickFinish(item)}
+                title="Bitirildi olarak işaretle"
+              >
+                ✓ Bitir
+              </button>
             )}
-            {item.completedDate && (
-              <span className="media-date-tag">
-                🗓️ {item.completedDate.split("-").reverse().join(".")}
-              </span>
+            {item.status === "completed" && (
+              <button
+                type="button"
+                className="media-poster-hover-btn"
+                onClick={() => onEdit(item)}
+              >
+                Detaylar
+              </button>
             )}
-            {sanitizeMediaProgress(item.progress) && (
-              <span className="media-progress-tag">
-                📌 {sanitizeMediaProgress(item.progress)}
-              </span>
-            )}
+            <button
+              type="button"
+              className="media-poster-hover-btn is-icon"
+              onClick={() => onEdit(item)}
+              title="Düzenle"
+              aria-label="Düzenle"
+            >
+              ✎
+            </button>
+            <button
+              type="button"
+              className="media-poster-hover-btn media-delete-btn is-icon is-danger"
+              onClick={() => onAskDelete(item.id)}
+              title="Sil"
+              aria-label="Sil"
+            >
+              🗑
+            </button>
           </div>
         </div>
+
+        <div className="media-poster-caption" onClick={() => onEdit(item)}>
+          <h3 className="media-poster-title" title={item.title}>{item.title}</h3>
+          <span className="media-poster-sub">{subParts.join(" · ")}</span>
+        </div>
+
+        {deleteId === item.id && (
+          <div className="media-delete-confirm" onClick={(e) => e.stopPropagation()}>
+            <span>Silinsin mi?</span>
+            <button type="button" onClick={() => onConfirmDelete(item.id)}>Evet</button>
+            <button type="button" onClick={() => onAskDelete(null)}>Vazgeç</button>
+          </div>
+        )}
+      </article>
+    );
+  };
+
+  const renderGridSeries = (entry: Extract<MediaCollectionEntry, { kind: "series" }>, sectionStatus: MediaStatus) => {
+    const expandKey = `${sectionStatus}::${entry.key}`;
+    const isExpanded = Boolean(expandedSeries[expandKey]);
+
+    return (
+      <div key={expandKey} style={{ display: "contents" }}>
+        <article className={`media-poster-card is-series ${isExpanded ? "is-expanded" : ""}`}>
+          <div
+            className="media-poster-frame"
+            onClick={() => toggleSeries(expandKey)}
+            role="button"
+            tabIndex={0}
+            aria-expanded={isExpanded}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                toggleSeries(expandKey);
+              }
+            }}
+          >
+            <MediaPoster
+              url={entry.posterUrl}
+              title={entry.title}
+              type={entry.type}
+              className="media-poster-img"
+              placeholderClassName="media-poster-placeholder"
+            />
+            <div className="media-poster-corners">
+              <span className="media-poster-corner-pill">
+                <span className={`media-section-dot is-${sectionStatus}`} aria-hidden="true" />
+                <span>{MEDIA_TYPE_ICONS[entry.type]}</span>
+              </span>
+              <span className="media-poster-corner-pill is-series-pill">
+                {entry.items.length} yapım
+              </span>
+            </div>
+            <div className="media-poster-hover-actions">
+              <span className="media-poster-hover-btn is-series-hint">
+                {isExpanded ? "Seriyi Kapat ▴" : `Seriyi Aç (${entry.items.length}) ▾`}
+              </span>
+            </div>
+          </div>
+          <div className="media-poster-caption" onClick={() => toggleSeries(expandKey)}>
+            <h3 className="media-poster-title" title={entry.title}>{entry.title}</h3>
+            <span className="media-poster-sub">
+              {[entry.yearRange, `${MEDIA_TYPE_LABELS[entry.type]} Serisi`].filter(Boolean).join(" · ")}
+            </span>
+          </div>
+        </article>
+
+        {isExpanded && (
+          <div className="media-series-drawer surface">
+            <div className="media-series-drawer-head">
+              <div>
+                <strong>{entry.title}</strong>
+                {entry.yearRange && <span className="media-card-year"> ({entry.yearRange})</span>}
+                <span className="media-series-drawer-count"> · {entry.items.length} yapım</span>
+              </div>
+              <button
+                type="button"
+                className="media-action-btn is-neutral"
+                onClick={() => toggleSeries(expandKey)}
+              >
+                Kapat ✕
+              </button>
+            </div>
+            <div className="media-poster-grid is-nested">
+              {entry.items.map((child) => renderPosterCard(child, true))}
+            </div>
+          </div>
+        )}
       </div>
+    );
+  };
 
-      {item.review && <p className="media-card-review">"{item.review}"</p>}
-
-      <CardActionBar
-        item={item}
-        menuOpenId={menuOpenId}
-        setMenuOpenId={setMenuOpenId}
-        onQuickStart={onQuickStart}
-        onQuickFinish={onQuickFinish}
-        onEdit={onEdit}
-        onAskDelete={onAskDelete}
-      />
-
-      {deleteId === item.id && (
-        <div className="media-delete-confirm">
-          <span>Bu kayıt silinsin mi?</span>
-          <button type="button" onClick={() => onConfirmDelete(item.id)}>Evet</button>
-          <button type="button" onClick={() => onAskDelete(null)}>Vazgeç</button>
-        </div>
-      )}
-    </article>
-  );
-
-  const renderSeriesGroup = (entry: Extract<MediaCollectionEntry, { kind: "series" }>, sectionStatus: MediaStatus) => {
+  const renderSeriesListGroup = (entry: Extract<MediaCollectionEntry, { kind: "series" }>, sectionStatus: MediaStatus) => {
     const expandKey = `${sectionStatus}::${entry.key}`;
     const isExpanded = Boolean(expandedSeries[expandKey]);
 
@@ -399,15 +426,44 @@ export function MediaCollectionView({
         </article>
 
         {isExpanded && (
-          <div className={viewMode === "list" ? "media-series-children-list" : "media-series-children-grid"}>
-            {entry.items.map((child) =>
-              viewMode === "list" ? renderListRow(child, true) : renderGridCard(child, true)
-            )}
+          <div className="media-series-children-list">
+            {entry.items.map((child) => renderListRow(child, true))}
           </div>
         )}
       </div>
     );
   };
+
+  if (viewMode === "grid") {
+    const flatEntries = sections.flatMap((section) =>
+      section.entries.map((entry) => ({ entry, status: section.status }))
+    );
+
+    return (
+      <div className="media-sections-stack">
+        <div className="media-poster-grid">
+          {flatEntries.map(({ entry, status }) =>
+            entry.kind === "series"
+              ? renderGridSeries(entry, status)
+              : renderPosterCard(entry.item)
+          )}
+        </div>
+
+        {visibleCount < filteredCount && (
+          <div style={{ display: "flex", justifyContent: "center", margin: "1.25rem 0", width: "100%" }}>
+            <button
+              type="button"
+              className="media-action-btn is-neutral"
+              onClick={onLoadMore}
+              style={{ padding: "0.55rem 1.35rem", fontSize: "0.86rem" }}
+            >
+              Daha Fazla Göster ({visibleCount} / {filteredCount})
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="media-sections-stack">
@@ -430,23 +486,13 @@ export function MediaCollectionView({
             </button>
 
             {!isCollapsed && (
-              viewMode === "list" ? (
-                <div className="media-compact-list">
-                  {section.entries.map((entry) =>
-                    entry.kind === "series"
-                      ? renderSeriesGroup(entry, section.status)
-                      : renderListRow(entry.item)
-                  )}
-                </div>
-              ) : (
-                <div className="media-grid">
-                  {section.entries.map((entry) =>
-                    entry.kind === "series"
-                      ? renderSeriesGroup(entry, section.status)
-                      : renderGridCard(entry.item)
-                  )}
-                </div>
-              )
+              <div className="media-compact-list">
+                {section.entries.map((entry) =>
+                  entry.kind === "series"
+                    ? renderSeriesListGroup(entry, section.status)
+                    : renderListRow(entry.item)
+                )}
+              </div>
             )}
           </section>
         );

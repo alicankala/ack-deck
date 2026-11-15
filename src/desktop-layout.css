@@ -378,6 +378,8 @@
 .main-content .settings-section-panel:not([hidden]) { gap:1.1rem; }
 .main-content .settings-section-panel .settings-card { padding:1.35rem; display:grid; gap:0.85rem; min-width:0; }
 .main-content .settings-section-panel .settings-card> :is(h2,h3,p,form,.settings-actions,.archive-form-grid,.trash-list) { margin:0; }
+.main-content .settings-section-panel .settings-card-heading p { margin-bottom:0; }
+.main-content .settings-section-panel .api-key-form { padding-top:0; }
 .main-content .settings-section-panel .settings-card h2 { font-size:1.2rem; line-height:1.4; }
 .main-content .settings-section-panel :is(form,.archive-field) { display:grid; gap:.6rem; min-width:0; }
 .main-content .settings-section-panel form { gap:.85rem; }

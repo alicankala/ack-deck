@@ -2079,7 +2079,8 @@ test('Task 10 Fix Round 1: MediaFormModal suppresses initial lookup across Stric
 
 test('Final Cleanup Wave: MediaCollectionView single IMDb badge + semantic delete contrast, NotificationSettings ref timer cleanup', () => {
   const mediaViewSrc = readFileSync(new URL('../src/components/MediaCollectionView.tsx', import.meta.url), 'utf8');
-  assert.equal((mediaViewSrc.match(/className="media-imdb-badge"/g) || []).length, 2, 'Expected 1 IMDb badge in list view and 1 in grid view');
+  assert.equal((mediaViewSrc.match(/className="media-imdb-badge"/g) || []).length, 1, 'Expected 1 IMDb badge in list view');
+  assert.equal((mediaViewSrc.match(/is-imdb-rating/g) || []).length, 1, 'Expected 1 IMDb rating pill in poster grid view');
   assert.equal((mediaViewSrc.match(/media-delete-btn/g) || []).length, 2, 'Expected both Sil buttons to use .media-delete-btn');
   assert.doesNotMatch(mediaViewSrc, /#f87171/i);
 

@@ -1,14 +1,12 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   fetchWeather,
   loadWeatherCity,
-  saveWeatherCity,
   weatherDescription,
   weatherSymbol,
   FOOTER_REFRESH_MS,
   type Weather,
 } from "../footerInfo";
-import { Icon } from "./Icon";
 
 let weatherCache: { data: Weather; city: string; at: number } | undefined;
 
@@ -20,15 +18,11 @@ export function WeatherWidget() {
   const [loading, setLoading] = useState(!weather);
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
-  const [editingCity, setEditingCity] = useState(false);
-  const [cityDraft, setCityDraft] = useState(city);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleCityChanged = () => {
-      const nextCity = loadWeatherCity();
-      setCity(nextCity);
-      setCityDraft(nextCity);
+      setCity(loadWeatherCity());
     };
     window.addEventListener("ack-weather-city-changed", handleCityChanged);
     return () => window.removeEventListener("ack-weather-city-changed", handleCityChanged);
@@ -75,13 +69,11 @@ export function WeatherWidget() {
     function handlePointer(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setOpen(false);
-        setEditingCity(false);
       }
     }
     function handleKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setOpen(false);
-        setEditingCity(false);
       }
     }
     document.addEventListener("mousedown", handlePointer);
@@ -91,16 +83,6 @@ export function WeatherWidget() {
       document.removeEventListener("keydown", handleKey);
     };
   }, [open]);
-
-  function submitCity(event: FormEvent) {
-    event.preventDefault();
-    const clean = cityDraft.trim();
-    if (!clean) return;
-    if (saveWeatherCity(clean)) {
-      setCity(clean);
-      setEditingCity(false);
-    }
-  }
 
   const currentTemp = weather ? Math.round(weather.temperature) : null;
   const apparentTemp = weather?.apparentTemperature !== undefined ? Math.round(weather.apparentTemperature) : currentTemp;
@@ -147,44 +129,9 @@ export function WeatherWidget() {
                   </strong>
                   <span className="weather-popover-desc">{desc}</span>
                 </div>
-                {!editingCity ? (
-                  <div className="weather-popover-city-row">
-                    <span className="weather-popover-city-name">{weather?.city ?? city}</span>
-                    <button
-                      type="button"
-                      className="weather-city-change-btn"
-                      onClick={() => {
-                        setEditingCity(true);
-                        setCityDraft(weather?.city ?? city);
-                      }}
-                      title="Şehri değiştir"
-                    >
-                      <Icon name="folder" size={12} /> Şehir Değiştir
-                    </button>
-                  </div>
-                ) : (
-                  <form className="weather-city-form" onSubmit={submitCity}>
-                    <input
-                      type="text"
-                      autoFocus
-                      value={cityDraft}
-                      onChange={(e) => setCityDraft(e.target.value)}
-                      placeholder="Şehir adı (örn. İstanbul)"
-                      maxLength={60}
-                    />
-                    <button type="submit" className="button button-primary" style={{ padding: "0.2rem 0.6rem", fontSize: "0.75rem" }}>
-                      Kaydet
-                    </button>
-                    <button
-                      type="button"
-                      className="button button-secondary"
-                      style={{ padding: "0.2rem 0.6rem", fontSize: "0.75rem" }}
-                      onClick={() => setEditingCity(false)}
-                    >
-                      İptal
-                    </button>
-                  </form>
-                )}
+                <div className="weather-popover-city-row">
+                  <span className="weather-popover-city-name">{weather?.city ?? city}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -243,10 +190,7 @@ export function WeatherWidget() {
             <button
               type="button"
               className="weather-close-btn"
-              onClick={() => {
-                setOpen(false);
-                setEditingCity(false);
-              }}
+              onClick={() => setOpen(false)}
             >
               Kapat
             </button>
