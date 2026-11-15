@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { MAX_ATTACHMENT, type PhoneNote } from "../../shared/phone";
+import { MAX_ATTACHMENT, type PhoneNote, type PhoneTask } from "../../shared/phone";
+import { isOccurrenceCompleted } from "../../shared/recurrence";
 import { RecurrenceFields } from "../../shared/RecurrenceFields";
 import { SubscriptionForm } from "../../shared/SubscriptionForm";
 import { MobileFormModal } from "./MobileFormModal";
 import { MobileLockScreen } from "./MobileLockScreen";
 import { MobileMoreViews } from "./MobileMoreViews";
 import { MobileNav } from "./MobileNav";
+import { MobilePomodoroBar } from "./MobilePomodoroBar";
+import type { MobilePomodoroTarget } from "./mobilePomodoroStore";
 import {
   MobileAppHeader,
   MobileConflictCards,
@@ -58,9 +61,39 @@ function App() {
     studyReminders, updateStudyReminder, formRequestId, sending, inboxLoaded, sendFeedback,
     setSendFeedback, selectedFile, setSelectedFile, code, setCode, name, setName,
     online, push, setPush, isLocked, setIsLocked, inbox, setInbox,
-    attendance, toggleMobileStudyBlock, commit, refresh, pair, openForm, closeForm,
+    attendance, toggleMobileStudyBlock, markMobileStudyAttended, commit, refresh, pair, openForm, closeForm,
     saveMutation, submit, complete, snooze, upload, handleSendText, reorderNote,
   } = ctrl;
+
+  const confirmHandlersRef = useRef({
+    records: state.records,
+    complete,
+    markMobileStudyAttended,
+  });
+  confirmHandlersRef.current = {
+    records: state.records,
+    complete,
+    markMobileStudyAttended,
+  };
+
+  useEffect(() => {
+    const onConfirm = (ev: Event) => {
+      const target = (ev as CustomEvent<MobilePomodoroTarget>).detail;
+      if (!target) return;
+      if (target.kind === "study") {
+        confirmHandlersRef.current.markMobileStudyAttended(target.id);
+      } else if (target.kind === "task") {
+        const row = confirmHandlersRef.current.records.find(
+          r => r.kind === "tasks" && !r.deleted && r.id === target.id
+        );
+        if (row && !isOccurrenceCompleted(row.data as PhoneTask)) {
+          void confirmHandlersRef.current.complete(row);
+        }
+      }
+    };
+    window.addEventListener("ack-mobile-pomodoro-confirm", onConfirm);
+    return () => window.removeEventListener("ack-mobile-pomodoro-confirm", onConfirm);
+  }, []);
 
   const editorRef = useRef<HTMLElement | null>(null);
   const subscriptionEditorRef = useRef<HTMLElement | null>(null);
@@ -491,6 +524,7 @@ function App() {
         <MobileWeatherModal weather={weather} onClose={() => setWeatherModalOpen(false)} />
       )}
 
+      <MobilePomodoroBar />
       <MobileNav page={page} onChange={changePage} />
     </main>
   );

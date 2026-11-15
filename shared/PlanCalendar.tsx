@@ -28,6 +28,7 @@ export function PlanCalendar({
   onDeleteProgram,
   getReminder,
   onReminderChange,
+  onStartStudyPomodoro,
   disabled = false,
 }: {
   anchor: Date;
@@ -43,6 +44,7 @@ export function PlanCalendar({
   onDeleteProgram?: (id: string) => Promise<void>;
   getReminder?: (id: string) => number | null;
   onReminderChange?: (id: string, lead: number | null) => void;
+  onStartStudyPomodoro?: (block: { id: string; label: string; minutes: number }) => void;
   disabled?: boolean;
 }) {
   const [showProgramsModal, setShowProgramsModal] = useState(false);
@@ -232,34 +234,47 @@ export function PlanCalendar({
             <p className="calendar-empty">Bu gün için herhangi bir ders veya görev bulunmuyor.</p>
           ) : (
             activeDayRows.map(({ event: e, block: b }) => b ? (
-              <button
-                type="button"
-                className={`calendar-event study ${conflicts.has(b.id) ? "overlap" : ""}`}
-                key={b.id}
-                onClick={() => {
-                  if (onSaveProgram) {
-                    setSelectedProgramId(b.programId);
-                    setShowProgramsModal(true);
-                  } else {
-                    onProgram?.(b.programId);
-                  }
-                }}
-              >
-                <div className="calendar-event-head">
-                  <small className="calendar-event-time">{b.time} – {b.endTime}</small>
-                  <small className="calendar-event-dur">{b.minutes} dk</small>
-                </div>
-                <strong>{b.label}</strong>
-                {b.topic && <span>{b.topic}</span>}
-                <small className="calendar-event-program">{b.programName}</small>
-                {conflicts.has(b.id) && <small className="calendar-conflict">Saatler çakışıyor</small>}
-                {attendance[b.id]?.status === "attended" && (
-                  <small style={{ color: "#34d399", fontWeight: 600 }}>✓ Çalışıldı</small>
+              <div key={b.id} style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+                <button
+                  type="button"
+                  className={`calendar-event study ${conflicts.has(b.id) ? "overlap" : ""}`}
+                  style={{ flex: 1 }}
+                  onClick={() => {
+                    if (onSaveProgram) {
+                      setSelectedProgramId(b.programId);
+                      setShowProgramsModal(true);
+                    } else {
+                      onProgram?.(b.programId);
+                    }
+                  }}
+                >
+                  <div className="calendar-event-head">
+                    <small className="calendar-event-time">{b.time} – {b.endTime}</small>
+                    <small className="calendar-event-dur">{b.minutes} dk</small>
+                  </div>
+                  <strong>{b.label}</strong>
+                  {b.topic && <span>{b.topic}</span>}
+                  <small className="calendar-event-program">{b.programName}</small>
+                  {conflicts.has(b.id) && <small className="calendar-conflict">Saatler çakışıyor</small>}
+                  {attendance[b.id]?.status === "attended" && (
+                    <small style={{ color: "#34d399", fontWeight: 600 }}>✓ Çalışıldı</small>
+                  )}
+                  {attendance[b.id]?.status === "skipped" && (
+                    <small style={{ color: "#f87171", fontWeight: 600 }}>✗ Çalışılmadı</small>
+                  )}
+                </button>
+                {onStartStudyPomodoro && attendance[b.id]?.status !== "attended" && (
+                  <button
+                    type="button"
+                    className="pomodoro-inline-play-btn"
+                    onClick={() => onStartStudyPomodoro({ id: b.id, label: b.label, minutes: b.minutes })}
+                    title={`Pomodoro başlat (${b.minutes} dk)`}
+                    aria-label={`${b.label} için Pomodoro başlat`}
+                  >
+                    ▶ Odaklan
+                  </button>
                 )}
-                {attendance[b.id]?.status === "skipped" && (
-                  <small style={{ color: "#f87171", fontWeight: 600 }}>✗ Çalışılmadı</small>
-                )}
-              </button>
+              </div>
             ) : e && (
               <button
                 type="button"

@@ -147,6 +147,7 @@ export function useMobileAppController({ audio, setAudio, stopRecording }: UseMo
     setInbox: sync.setInbox,
     attendance: attendanceState.attendance,
     toggleMobileStudyBlock: attendanceState.toggleMobileStudyBlock,
+    markMobileStudyAttended: attendanceState.markMobileStudyAttended,
     commit: sync.commit,
     refresh: sync.refresh,
     pair: sync.pair,

@@ -254,7 +254,16 @@ export function useMobileStudyAttendance(params: {
     scheduleAttendanceSync(dateStr);
   }
 
-  return { attendance, toggleMobileStudyBlock };
+  function markMobileStudyAttended(blockId: string) {
+    if (attendance[blockId]?.status === "attended") return;
+    const dateStr = blockId.slice(-10);
+    pendingAttendanceDays.current.add(dateStr);
+    const nextMap = setStudyBlockStatus(blockId, "attended");
+    setAttendance(nextMap);
+    scheduleAttendanceSync(dateStr);
+  }
+
+  return { attendance, toggleMobileStudyBlock, markMobileStudyAttended };
 }
 
 export function useMobileHashRouting(params: {

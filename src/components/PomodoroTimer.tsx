@@ -1,244 +1,119 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "./Icon";
-import { invoke, isTauri } from "@tauri-apps/api/core";
-import { loadNotificationPreferences } from "../notificationStore";
+import {
+  MODE_LABELS,
+  clearPomodoroTargetAndReset,
+  confirmPomodoroTargetDone,
+  dismissPomodoroConfirm,
+  extendPomodoro,
+  resetPomodoro,
+  setPomodoroAutoBreaks,
+  setPomodoroTarget,
+  switchPomodoroMode,
+  togglePomodoroPause,
+  usePomodoroStore,
+  type PomodoroMode,
+  type PomodoroTarget,
+} from "../pomodoroStore";
+import { loadStudyPrograms } from "../studyProgramStore";
+import { loadStudyAttendance } from "../../shared/studyAttendance";
+import { studyBlocks } from "../../shared/studyPrograms";
+import { loadTasks, localDateKey } from "../taskStore";
+import { isOccurrenceCompleted } from "../../shared/recurrence";
 
-export type PomodoroMode = "pomodoro" | "shortBreak" | "longBreak";
+export type { PomodoroMode, PomodoroTarget };
 
-const MODE_DURATIONS: Record<PomodoroMode, number> = {
-  pomodoro: 25 * 60,
-  shortBreak: 5 * 60,
-  longBreak: 15 * 60,
-};
+function useAvailableTargets() {
+  const [targets, setTargets] = useState<{ studies: PomodoroTarget[]; tasks: PomodoroTarget[] }>({
+    studies: [],
+    tasks: [],
+  });
 
-const MODE_LABELS: Record<PomodoroMode, { title: string; icon: string }> = {
-  pomodoro: { title: "Odak", icon: "🍅" },
-  shortBreak: { title: "Kısa Mola", icon: "☕" },
-  longBreak: { title: "Uzun Mola", icon: "🌴" },
-};
+  useEffect(() => {
+    function refresh() {
+      const today = localDateKey();
+      const programs = loadStudyPrograms().entries;
+      const attendance = loadStudyAttendance();
+      const blocks = studyBlocks(programs, new Date(), [today]);
+      const studies: PomodoroTarget[] = blocks
+        .filter(b => attendance[b.id]?.status !== "attended")
+        .map(b => ({
+          kind: "study",
+          id: b.id,
+          label: `${b.label}${b.topic ? ` · ${b.topic}` : ""}`,
+          durationMinutes: b.minutes,
+        }));
 
-const STORAGE_KEY = "ack-deck.pomodoro.v1";
+      const tasks: PomodoroTarget[] = loadTasks()
+        .entries.filter(t => !isOccurrenceCompleted(t))
+        .slice(0, 12)
+        .map(t => ({
+          kind: "task",
+          id: t.id,
+          label: t.text,
+        }));
 
-function playBeep() {
-  try {
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15); // A5
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.6);
-  } catch {}
+      setTargets({ studies, tasks });
+    }
+
+    refresh();
+    window.addEventListener("ack-data-changed", refresh);
+    window.addEventListener("ack-study-attendance-changed", refresh);
+    window.addEventListener("ack-study-programs-changed", refresh);
+    return () => {
+      window.removeEventListener("ack-data-changed", refresh);
+      window.removeEventListener("ack-study-attendance-changed", refresh);
+      window.removeEventListener("ack-study-programs-changed", refresh);
+    };
+  }, []);
+
+  return targets;
 }
 
 export function PomodoroTimer() {
-  const [mode, setMode] = useState<PomodoroMode>("pomodoro");
-  const [timeLeft, setTimeLeft] = useState<number>(MODE_DURATIONS.pomodoro);
-  const [isRunning, setIsRunning] = useState(false);
-  const [endTimeMs, setEndTimeMs] = useState<number | null>(null);
-  const [completedSessions, setCompletedSessions] = useState(0);
-  const [autoStartBreaks, setAutoStartBreaks] = useState(true);
-
-  // Load saved state on mount
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        let curMode: PomodoroMode = "pomodoro";
-        if (parsed.mode && MODE_DURATIONS[parsed.mode as PomodoroMode]) {
-          curMode = parsed.mode;
-          setMode(curMode);
-        }
-        let curSessions = 0;
-        if (typeof parsed.completedSessions === "number") {
-          curSessions = parsed.completedSessions;
-          setCompletedSessions(curSessions);
-        }
-        if (typeof parsed.autoStartBreaks === "boolean") {
-          setAutoStartBreaks(parsed.autoStartBreaks);
-        }
-
-        // Real-time resume check using target timestamp (even if PC was in sleep/locked)
-        if (parsed.isRunning && typeof parsed.endTimeMs === "number") {
-          const now = Date.now();
-          if (now >= parsed.endTimeMs) {
-            if (curMode === "pomodoro") {
-              const nextSessions = curSessions + 1;
-              setCompletedSessions(nextSessions);
-              const isLong = nextSessions % 4 === 0;
-              const nextMode: PomodoroMode = isLong ? "longBreak" : "shortBreak";
-              setMode(nextMode);
-              setTimeLeft(MODE_DURATIONS[nextMode]);
-              setIsRunning(false);
-              setEndTimeMs(null);
-            } else {
-              setMode("pomodoro");
-              setTimeLeft(MODE_DURATIONS.pomodoro);
-              setIsRunning(false);
-              setEndTimeMs(null);
-            }
-          } else {
-            const remaining = Math.max(1, Math.round((parsed.endTimeMs - now) / 1000));
-            setTimeLeft(remaining);
-            setIsRunning(true);
-            setEndTimeMs(parsed.endTimeMs);
-          }
-        } else if (typeof parsed.timeLeft === "number" && parsed.timeLeft > 0) {
-          setTimeLeft(parsed.timeLeft);
-          setIsRunning(false);
-          setEndTimeMs(null);
-        }
-      }
-    } catch {}
-  }, []);
-
-  // Save state on change
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ mode, timeLeft, completedSessions, autoStartBreaks, isRunning, endTimeMs })
-      );
-    } catch {}
-  }, [mode, timeLeft, completedSessions, autoStartBreaks, isRunning, endTimeMs]);
-
-  // Keep references to current state so the timer interval can cleanly transition
-  const stateRef = useRef({ mode, completedSessions, autoStartBreaks, endTimeMs, isRunning });
-  stateRef.current = { mode, completedSessions, autoStartBreaks, endTimeMs, isRunning };
-
-  // Timer interval countdown & background resume handler
-  useEffect(() => {
-    if (!isRunning) return;
-
-    function checkProgress() {
-      const { mode: curMode, completedSessions: curSessions, autoStartBreaks: autoStart, endTimeMs: targetEnd } = stateRef.current;
-      const now = Date.now();
-
-      if (!targetEnd || now >= targetEnd) {
-        // Time is up! Handle mode transition
-        playBeep();
-
-        if (curMode === "pomodoro") {
-          const nextSessions = curSessions + 1;
-          setCompletedSessions(nextSessions);
-          const isLong = nextSessions % 4 === 0;
-          const nextMode: PomodoroMode = isLong ? "longBreak" : "shortBreak";
-          const nextDuration = MODE_DURATIONS[nextMode];
-
-          const notif = loadNotificationPreferences();
-          if (notif.desktopMaster && notif.desktopPomodoro && isTauri()) {
-            void invoke("notify_desktop", {
-              title: "🍅 Pomodoro Tamamlandı!",
-              body: isLong
-                ? "Tebrikler, 4 seansı tamamladın! 15 dakikalık uzun mola başladı."
-                : "Tebrikler, 25 dakikalık odak seansını bitirdin. 5 dakikalık mola başladı!",
-              target: null,
-            }).catch(() => {});
-          }
-
-          setMode(nextMode);
-          setTimeLeft(nextDuration);
-          if (autoStart) {
-            const nextEnd = Date.now() + nextDuration * 1000;
-            setEndTimeMs(nextEnd);
-            setIsRunning(true);
-          } else {
-            setEndTimeMs(null);
-            setIsRunning(false);
-          }
-        } else {
-          // Break is over -> return to focus mode
-          const notif = loadNotificationPreferences();
-          if (notif.desktopMaster && notif.desktopPomodoro && isTauri()) {
-            void invoke("notify_desktop", {
-              title: "☕ Mola Bitti!",
-              body: "Mola süresi doldu. Yeni bir odak seansına hazır olduğunda Başlat'a tıkla!",
-              target: null,
-            }).catch(() => {});
-          }
-
-          setMode("pomodoro");
-          setTimeLeft(MODE_DURATIONS.pomodoro);
-          setIsRunning(false);
-          setEndTimeMs(null);
-        }
-      } else {
-        const remaining = Math.max(0, Math.round((targetEnd - now) / 1000));
-        setTimeLeft(remaining);
-      }
-    }
-
-    const timer = setInterval(checkProgress, 500);
-
-    const handleVisibilitySync = () => {
-      if (document.visibilityState === "visible") {
-        checkProgress();
-      }
-    };
-
-    window.addEventListener("focus", handleVisibilitySync);
-    document.addEventListener("visibilitychange", handleVisibilitySync);
-
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener("focus", handleVisibilitySync);
-      document.removeEventListener("visibilitychange", handleVisibilitySync);
-    };
-  }, [isRunning]);
-
-  function switchMode(newMode: PomodoroMode) {
-    setIsRunning(false);
-    setEndTimeMs(null);
-    setMode(newMode);
-    setTimeLeft(MODE_DURATIONS[newMode]);
-  }
-
-  function resetTimer() {
-    setIsRunning(false);
-    setEndTimeMs(null);
-    setTimeLeft(MODE_DURATIONS[mode]);
-  }
-
-  function toggleRunning() {
-    if (isRunning) {
-      setIsRunning(false);
-      setEndTimeMs(null);
-    } else {
-      const target = Date.now() + timeLeft * 1000;
-      setEndTimeMs(target);
-      setIsRunning(true);
-    }
-  }
+  const {
+    mode,
+    timeLeft,
+    totalSeconds,
+    isRunning,
+    completedSessions,
+    autoStartBreaks,
+    target,
+    pendingConfirm,
+  } = usePomodoroStore();
+  const { studies, tasks } = useAvailableTargets();
 
   function skipPhase() {
-    setIsRunning(false);
-    setEndTimeMs(null);
     if (mode === "pomodoro") {
-      const nextSessions = completedSessions + 1;
-      setCompletedSessions(nextSessions);
-      const isLong = nextSessions % 4 === 0;
-      const nextMode: PomodoroMode = isLong ? "longBreak" : "shortBreak";
-      setMode(nextMode);
-      setTimeLeft(MODE_DURATIONS[nextMode]);
+      const nextMode: PomodoroMode = (completedSessions + 1) % 4 === 0 ? "longBreak" : "shortBreak";
+      switchPomodoroMode(nextMode);
     } else {
-      setMode("pomodoro");
-      setTimeLeft(MODE_DURATIONS.pomodoro);
+      switchPomodoroMode("pomodoro");
     }
   }
 
-  const totalTime = MODE_DURATIONS[mode];
-  const progressPercent = Math.min(100, Math.max(0, ((totalTime - timeLeft) / totalTime) * 100));
+  const progressPercent = Math.min(100, Math.max(0, ((totalSeconds - timeLeft) / Math.max(1, totalSeconds)) * 100));
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
   const timeFormatted = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+
+  const selectedValue = target ? `${target.kind}:${target.id}` : "";
+
+  function handleTargetChange(val: string) {
+    if (!val) {
+      setPomodoroTarget(undefined);
+      return;
+    }
+    const [kind, ...rest] = val.split(":");
+    const id = rest.join(":");
+    const match =
+      kind === "study"
+        ? studies.find(s => s.id === id)
+        : tasks.find(t => t.id === id);
+    if (match) {
+      setPomodoroTarget(match);
+    }
+  }
 
   return (
     <section className="dashboard-pomodoro surface" aria-labelledby="pomodoro-heading">
@@ -250,9 +125,11 @@ export function PomodoroTimer() {
           <div>
             <h2 id="pomodoro-heading">Pomodoro Odak Sayacı</h2>
             <small>
-              {completedSessions > 0
-                ? `Bugün ${completedSessions} odak seansı tamamlandı (${completedSessions * 25} dk odak)`
-                : "25 dakika odaklan, 5 dakika mola ver"}
+              {target
+                ? `Hedef: ${target.label}`
+                : completedSessions > 0
+                  ? `Bugün ${completedSessions} odak seansı tamamlandı (${completedSessions * 25} dk odak)`
+                  : "25 dakika odaklan, 5 dakika mola ver"}
             </small>
           </div>
         </div>
@@ -264,7 +141,7 @@ export function PomodoroTimer() {
               type="button"
               key={m}
               className={`pomodoro-mode-btn ${mode === m ? "is-active" : ""}`}
-              onClick={() => switchMode(m)}
+              onClick={() => switchPomodoroMode(m)}
               role="tab"
               aria-selected={mode === m}
             >
@@ -275,6 +152,37 @@ export function PomodoroTimer() {
         </div>
       </div>
 
+      {pendingConfirm && (
+        <div className="pomodoro-confirm-banner" role="status">
+          <span>
+            <strong>{pendingConfirm.label}</strong> seansı bitti.
+          </span>
+          <div className="pomodoro-confirm-actions">
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={confirmPomodoroTargetDone}
+            >
+              ✓ {pendingConfirm.kind === "study" ? "Katıldım İşaretle" : "Tamamlandı İşaretle"}
+            </button>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => extendPomodoro(15)}
+            >
+              +15 dk Uzat
+            </button>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={dismissPomodoroConfirm}
+            >
+              Kapat
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="pomodoro-body">
         {/* Big Time Display */}
         <div className="pomodoro-timer-display">
@@ -282,12 +190,54 @@ export function PomodoroTimer() {
           <span className={`pomodoro-mode-badge mode-${mode}`}>{MODE_LABELS[mode].title}</span>
         </div>
 
+        {/* Target Selector */}
+        <div className="pomodoro-target-row">
+          <select
+            className="pomodoro-target-select"
+            value={selectedValue}
+            onChange={e => handleTargetChange(e.target.value)}
+            aria-label="Odak hedefi seç"
+            disabled={isRunning}
+          >
+            <option value="">Serbest Odak (25 dk)</option>
+            {studies.length > 0 && (
+              <optgroup label="Bugünkü Dersler">
+                {studies.map(s => (
+                  <option key={s.id} value={`study:${s.id}`}>
+                    📚 {s.label}{s.durationMinutes ? ` (${s.durationMinutes} dk)` : ""}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {tasks.length > 0 && (
+              <optgroup label="Açık Görevler">
+                {tasks.map(t => (
+                  <option key={t.id} value={`task:${t.id}`}>
+                    ✓ {t.label.length > 52 ? `${t.label.slice(0, 52)}…` : t.label}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
+          {target && !isRunning && (
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={clearPomodoroTargetAndReset}
+              title="Hedefi temizle"
+              style={{ padding: "0.35rem 0.65rem", fontSize: "0.78rem" }}
+            >
+              Temizle
+            </button>
+          )}
+        </div>
+
         {/* Action Controls */}
         <div className="pomodoro-controls">
           <button
             type="button"
             className={`button ${isRunning ? "button-secondary" : "button-primary"} pomodoro-action-btn`}
-            onClick={toggleRunning}
+            onClick={togglePomodoroPause}
             aria-label={isRunning ? "Sayacı duraklat" : "Sayacı başlat"}
           >
             {isRunning ? "Duraklat" : "Başlat"}
@@ -295,7 +245,7 @@ export function PomodoroTimer() {
           <button
             type="button"
             className="button button-secondary pomodoro-reset-btn"
-            onClick={resetTimer}
+            onClick={resetPomodoro}
             title="Sayacı sıfırla"
           >
             Sıfırla
@@ -330,7 +280,7 @@ export function PomodoroTimer() {
             <input
               type="checkbox"
               checked={autoStartBreaks}
-              onChange={e => setAutoStartBreaks(e.target.checked)}
+              onChange={e => setPomodoroAutoBreaks(e.target.checked)}
             />
             <span>Otomatik molaya geç</span>
           </label>

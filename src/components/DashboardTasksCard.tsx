@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ActionMenu } from "./ActionMenu";
 import { Icon } from "./Icon";
 import { TaskEditorDialog } from "./TaskEditorDialog";
+import { startPomodoroFocus } from "../pomodoroStore";
 import {
   formatCompletedTime,
   isOccurrenceCompleted,
@@ -195,6 +196,28 @@ export function DashboardTasksCard({
                       )}
                     </small>
                   </button>
+                  {status !== "attended" && (
+                    <button
+                      type="button"
+                      className="pomodoro-inline-play-btn"
+                      onClick={e => {
+                        e.stopPropagation();
+                        startPomodoroFocus({
+                          target: {
+                            kind: "study",
+                            id: block.id,
+                            label: `${block.label}${block.topic ? ` · ${block.topic}` : ""}`,
+                            durationMinutes: block.minutes,
+                          },
+                          durationSeconds: block.minutes * 60,
+                        });
+                      }}
+                      title={`${block.minutes} dk Odaklan`}
+                      aria-label={`${block.label} için ${block.minutes} dk odak başlat`}
+                    >
+                      ▶ Odaklan
+                    </button>
+                  )}
                   <span className="timeline-tag" style={{ flexShrink: 0 }}>
                     Ders
                   </span>
@@ -269,6 +292,27 @@ export function DashboardTasksCard({
                       </div>
                     )}
                   </div>
+
+                  {!isTaskDone && (
+                    <button
+                      type="button"
+                      className="pomodoro-inline-play-btn is-compact"
+                      onClick={e => {
+                        e.stopPropagation();
+                        startPomodoroFocus({
+                          target: {
+                            kind: "task",
+                            id: task.id,
+                            label: task.text,
+                          },
+                        });
+                      }}
+                      title="25 dk Pomodoro başlat"
+                      aria-label={`${task.text} için Pomodoro başlat`}
+                    >
+                      ▶
+                    </button>
+                  )}
 
                   {isTaskDone && (
                     <button

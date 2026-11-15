@@ -1,9 +1,106 @@
 import { useEffect, useState } from "react";
 import { fetchRates, FOOTER_REFRESH_MS, type Rates } from "../footerInfo";
 import { PcStatus } from "./PcStatus";
+import {
+  MODE_LABELS,
+  clearPomodoroTargetAndReset,
+  confirmPomodoroTargetDone,
+  dismissPomodoroConfirm,
+  extendPomodoro,
+  togglePomodoroPause,
+  usePomodoroStore,
+} from "../pomodoroStore";
 
 let rateCache: { data: Rates; at: number } | undefined;
 const number = (value: number) => value.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function PomodoroFooterPill() {
+  const { mode, timeLeft, isRunning, target, pendingConfirm } = usePomodoroStore();
+
+  if (!isRunning && !pendingConfirm && !target) {
+    return null;
+  }
+
+  if (pendingConfirm) {
+    return (
+      <div className="footer-pomodoro-pill is-confirm" role="status">
+        <span className="footer-pomodoro-label" title={pendingConfirm.label}>
+          🍅 {pendingConfirm.label}
+        </span>
+        <button
+          type="button"
+          className="footer-pomodoro-btn is-done"
+          onClick={confirmPomodoroTargetDone}
+          title={pendingConfirm.kind === "study" ? "Katıldım olarak işaretle" : "Tamamlandı olarak işaretle"}
+        >
+          ✓ {pendingConfirm.kind === "study" ? "Katıldım" : "Tamamlandı"}
+        </button>
+        <button
+          type="button"
+          className="footer-pomodoro-btn"
+          onClick={() => extendPomodoro(15)}
+          title="15 dakika uzat"
+        >
+          +15 dk
+        </button>
+        <button
+          type="button"
+          className="footer-pomodoro-btn"
+          onClick={dismissPomodoroConfirm}
+          aria-label="Bildirimi kapat"
+        >
+          ✕
+        </button>
+      </div>
+    );
+  }
+
+  const mins = Math.floor(timeLeft / 60);
+  const secs = timeLeft % 60;
+  const formatted = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+
+  return (
+    <div className={`footer-pomodoro-pill ${isRunning ? "is-running" : "is-paused"}`} role="status">
+      <span className="footer-pomodoro-time">
+        {MODE_LABELS[mode].icon} {formatted}
+      </span>
+      {target && (
+        <span className="footer-pomodoro-label" title={target.label}>
+          · {target.label}
+        </span>
+      )}
+      <button
+        type="button"
+        className="footer-pomodoro-btn"
+        onClick={togglePomodoroPause}
+        title={isRunning ? "Duraklat" : "Devam et"}
+        aria-label={isRunning ? "Sayacı duraklat" : "Sayacı devam ettir"}
+      >
+        {isRunning ? "⏸" : "▶"}
+      </button>
+      {target && (
+        <button
+          type="button"
+          className="footer-pomodoro-btn is-done"
+          onClick={confirmPomodoroTargetDone}
+          title={target.kind === "study" ? "Erken bitir ve Katıldım işaretle" : "Erken bitir ve Tamamlandı işaretle"}
+          aria-label="Tamamlandı işaretle"
+        >
+          ✓
+        </button>
+      )}
+      <button
+        type="button"
+        className="footer-pomodoro-btn"
+        onClick={clearPomodoroTargetAndReset}
+        title="Sayacı iptal et"
+        aria-label="Sayacı iptal et"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
 
 export function FooterTicker({ refreshMs = 2500 }: { refreshMs?: number } = {}) {
   const [rates, setRates] = useState(rateCache?.data);
@@ -93,6 +190,7 @@ export function FooterTicker({ refreshMs = 2500 }: { refreshMs?: number } = {}) 
   return (
     <footer className="app-footer" aria-label="Sistem durumu ve döviz bilgileri">
       <PcStatus refreshMs={refreshMs} footer />
+      <PomodoroFooterPill />
       <button
         type="button"
         className="footer-ticker"

@@ -718,3 +718,168 @@ dialog,
 :root[data-theme="light"] .window-ctrl-btn.btn-refresh:hover svg {
   color: var(--app-accent, #0284c7);
 }
+
+/* Bağlantılı Pomodoro Hedef Seçici, Onay Şeridi ve Alt Çubuk Hapı */
+.pomodoro-target-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.pomodoro-target-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--app-muted);
+  white-space: nowrap;
+}
+
+.pomodoro-target-select {
+  flex: 1;
+  min-width: 210px;
+  padding: 0.42rem 0.7rem;
+  font-size: 0.84rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--app-border);
+  background: var(--app-control);
+  color: var(--app-text);
+  outline: none;
+  cursor: pointer;
+}
+
+.pomodoro-target-select:focus {
+  border-color: var(--app-accent, #38bdf8);
+}
+
+.pomodoro-confirm-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.65rem 0.9rem;
+  border-radius: 0.75rem;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  font-size: 0.84rem;
+}
+
+.pomodoro-confirm-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.pomodoro-confirm-btn {
+  padding: 0.35rem 0.72rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  background: rgba(52, 211, 153, 0.16);
+  color: #34d399;
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.pomodoro-confirm-btn:hover {
+  background: rgba(52, 211, 153, 0.25);
+}
+
+.pomodoro-extend-btn,
+.pomodoro-dismiss-btn {
+  padding: 0.35rem 0.62rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--app-border);
+  background: var(--app-control);
+  color: var(--app-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pomodoro-extend-btn:hover,
+.pomodoro-dismiss-btn:hover {
+  background: var(--app-surface-hover);
+}
+
+.pomodoro-inline-play-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  padding: 0.26rem 0.58rem;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--app-accent, #38bdf8);
+  font-size: 0.74rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.pomodoro-inline-play-btn:hover {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: rgba(56, 189, 248, 0.6);
+}
+
+.pomodoro-inline-play-btn.is-compact {
+  padding: 0.22rem 0.48rem;
+}
+
+.footer-pomodoro-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.22rem 0.62rem;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.1);
+  color: var(--app-text);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.footer-pomodoro-pill.is-confirm {
+  border-color: rgba(52, 211, 153, 0.45);
+  background: rgba(52, 211, 153, 0.12);
+}
+
+.footer-pomodoro-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--app-accent, #38bdf8);
+}
+
+.footer-pomodoro-label {
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--app-muted);
+}
+
+.footer-pomodoro-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.1rem 0.42rem;
+  border-radius: 999px;
+  border: 1px solid var(--app-border);
+  background: var(--app-control);
+  color: var(--app-text);
+  font-size: 0.72rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.footer-pomodoro-btn:hover {
+  background: var(--app-surface-hover);
+}
+
+.footer-pomodoro-btn.is-confirm {
+  border-color: rgba(52, 211, 153, 0.45);
+  color: #34d399;
+}
