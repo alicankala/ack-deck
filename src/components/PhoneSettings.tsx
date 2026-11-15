@@ -117,7 +117,7 @@ export function PhoneSettings() {
         </div>
       </div>
 
-      <div className="settings-actions" style={{ marginTop: "1rem", display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
+      <div className="settings-actions" style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
         <button
           type="button"
           className="button button-primary"
@@ -141,7 +141,7 @@ export function PhoneSettings() {
       </div>
 
       {pair && (
-        <div className="phone-pair-card" style={{ marginTop: "1.25rem", padding: "1.25rem", background: "rgba(0, 0, 0, 0.2)", borderRadius: "10px", border: "1px solid var(--app-border)" }}>
+        <div className="phone-pair-card" style={{ padding: "1.1rem", background: "rgba(0, 0, 0, 0.2)", borderRadius: "10px", border: "1px solid var(--app-border)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
             <h3 style={{ margin: 0, fontSize: "1.05rem" }}>iPhone Eşleştirme</h3>
             <button type="button" className="button button-secondary" style={{ padding: "0.2rem 0.5rem", fontSize: "0.75rem" }} onClick={() => setPair(null)}>Kapat</button>
@@ -173,7 +173,7 @@ export function PhoneSettings() {
         </div>
       )}
 
-      <div style={{ marginTop: "1.25rem" }}>
+      <div>
         <h3 style={{ fontSize: "0.95rem", marginBottom: "0.5rem" }}>Eşleştirilmiş Cihazlar</h3>
         {devices.length > 0 ? (
           <div style={{ display: "grid", gap: "0.5rem" }}>

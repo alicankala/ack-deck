@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { savePrayerConfig, type PrayerTimesConfig } from "../../shared/prayerTimes";
+import { loadPrayerConfig, savePrayerConfig, shouldApplyRemotePrayerConfig, type PrayerTimesConfig } from "../../shared/prayerTimes";
 import { migrateLegacyMobileStorage } from "./mobileAppHelpers";
 import type { MobileInboxItem } from "./MobileSendView";
 import { initAutoLockListener, isSecurityLocked } from "./mobileSecurity";
@@ -106,8 +106,9 @@ export function useMobileSync({ stopRecordingRef }: UseMobileSyncParams) {
       setPush(status.notifications);
       setInbox(list.items);
       setInboxLoaded(true);
-      if (status.prayerConfig && typeof status.prayerConfig === "object" && status.prayerConfig.city) {
+      if (status.prayerConfig && shouldApplyRemotePrayerConfig(loadPrayerConfig(), status.prayerConfig)) {
         savePrayerConfig(status.prayerConfig);
+        window.dispatchEvent(new Event("ack-weather-city-changed"));
       }
       if (Array.isArray(status.studyReminders)) {
         setStudyReminders(status.studyReminders);

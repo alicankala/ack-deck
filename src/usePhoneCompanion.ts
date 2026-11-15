@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { configurePhone, phoneRequest, phoneStatus } from "./phoneClient";
 import { synchronizePhone, pausePhoneSync, isPhoneSyncRunning } from "./phoneSync";
 import { saveInboxIndex, type InboxReference } from "./productIntelligence";
-import { loadPrayerConfig } from "../shared/prayerTimes";
+import { loadPrayerConfig, applyRemotePrayerConfig } from "./prayerStore";
 import { loadStudyReminders } from "./studyReminderStore";
 import { loadNotificationPreferences } from "./notificationStore";
 import { syncCloudAiUsage } from "./aiQuotaStore";
@@ -39,9 +39,12 @@ export function usePhoneCompanion(paused:boolean,onError:(message:string)=>void,
           body = { keepalive: true };
         }
 
-        const res = await phoneRequest<{ ok: boolean; cloudAiUsage?: { date: string; fast: number; powerful: number } }>("heartbeat", body);
+        const res = await phoneRequest<{ ok: boolean; cloudAiUsage?: { date: string; fast: number; powerful: number }; prayerConfig?: unknown }>("heartbeat", body);
         if (res?.cloudAiUsage) {
           syncCloudAiUsage(res.cloudAiUsage);
+        }
+        if (res?.prayerConfig && applyRemotePrayerConfig(res.prayerConfig)) {
+          lastSentConfigHash = "";
         }
       }catch(err){
         console.warn("[ACKDeck Heartbeat]",err);

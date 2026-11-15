@@ -132,6 +132,7 @@ export function MobileSettings({
       city: found.city,
       latitude: found.lat,
       longitude: found.lng,
+      updatedAt: Date.now(),
     };
     setPrayerConfig(next);
     savePrayerConfig(next);
@@ -145,7 +146,7 @@ export function MobileSettings({
   }
 
   function handleNotifyAtTimeChange(enabled: boolean) {
-    const next: PrayerTimesConfig = { ...prayerConfig, notifyAtTime: enabled };
+    const next: PrayerTimesConfig = { ...prayerConfig, notifyAtTime: enabled, updatedAt: Date.now() };
     setPrayerConfig(next);
     savePrayerConfig(next);
     void api(state, "prayer-config", json({ prayerConfig: next })).catch(() => {});
@@ -154,7 +155,7 @@ export function MobileSettings({
   }
 
   function handleBeforeMinutesChange(minutes: number) {
-    const next: PrayerTimesConfig = { ...prayerConfig, notifyBeforeMinutes: minutes };
+    const next: PrayerTimesConfig = { ...prayerConfig, notifyBeforeMinutes: minutes, updatedAt: Date.now() };
     setPrayerConfig(next);
     savePrayerConfig(next);
     void api(state, "prayer-config", json({ prayerConfig: next })).catch(() => {});

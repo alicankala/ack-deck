@@ -67,13 +67,14 @@ const fields = (value: unknown, allowed: string[]) => object(value) && Object.ke
 const dateNumber = (value: unknown) => typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= 8.64e15;
 const validWeatherCity = (value: unknown): value is string => typeof value === "string" && !!value.trim() && [...value.trim()].length <= 80 && !/[\u0000-\u001f\u007f]/.test(value);
 function validPrayerConfig(value: unknown): boolean {
-  if (!fields(value, ["city", "latitude", "longitude", "notifyAtTime", "notifyBeforeMinutes"]) || !object(value)) return false;
+  if (!fields(value, ["city", "latitude", "longitude", "notifyAtTime", "notifyBeforeMinutes", "updatedAt"]) || !object(value)) return false;
   return (
     validWeatherCity(value.city) &&
     typeof value.latitude === "number" && Number.isFinite(value.latitude) && value.latitude >= -90 && value.latitude <= 90 &&
     typeof value.longitude === "number" && Number.isFinite(value.longitude) && value.longitude >= -180 && value.longitude <= 180 &&
     (value.notifyAtTime === undefined || typeof value.notifyAtTime === "boolean") &&
-    (value.notifyBeforeMinutes === undefined || (typeof value.notifyBeforeMinutes === "number" && Number.isFinite(value.notifyBeforeMinutes) && value.notifyBeforeMinutes >= 0 && value.notifyBeforeMinutes <= 180))
+    (value.notifyBeforeMinutes === undefined || (typeof value.notifyBeforeMinutes === "number" && Number.isFinite(value.notifyBeforeMinutes) && value.notifyBeforeMinutes >= 0 && value.notifyBeforeMinutes <= 180)) &&
+    (value.updatedAt === undefined || (typeof value.updatedAt === "number" && Number.isFinite(value.updatedAt)))
   );
 }
 function validDisplayScale(value: unknown): boolean {

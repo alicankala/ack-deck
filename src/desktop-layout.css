@@ -376,8 +376,8 @@
 .main-content .tasks-page { width: 100% !important; max-width: 100% !important; margin: 0 !important; }
 .main-content .settings-layout { grid-template-columns:15rem minmax(0,1fr); gap:1.25rem; }
 .main-content .settings-section-panel:not([hidden]) { gap:1.1rem; }
-.main-content .settings-section-panel .settings-card { padding:1.35rem; display:grid; gap:1rem; min-width:0; }
-.main-content .settings-section-panel .settings-card> :is(h2,h3,p,form,.settings-actions,.archive-form-grid) { margin:0; }
+.main-content .settings-section-panel .settings-card { padding:1.35rem; display:grid; gap:0.85rem; min-width:0; }
+.main-content .settings-section-panel .settings-card> :is(h2,h3,p,form,.settings-actions,.archive-form-grid,.trash-list) { margin:0; }
 .main-content .settings-section-panel .settings-card h2 { font-size:1.2rem; line-height:1.4; }
 .main-content .settings-section-panel :is(form,.archive-field) { display:grid; gap:.6rem; min-width:0; }
 .main-content .settings-section-panel form { gap:.85rem; }

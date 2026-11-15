@@ -50,7 +50,8 @@ export function TrashSettings() {
       {loaded.locked && <p role="alert" className="feedback error">Silinen kayıtlar okunamadı.</p>}
       {error && <p role="alert" className="feedback error">{error}</p>}
 
-      <div className="trash-list" style={{ marginTop: "1rem", display: "grid", gap: "0.5rem" }}>
+      {rows.length > 0 ? (
+        <div className="trash-list" style={{ display: "grid", gap: "0.5rem" }}>
         {rows.map((t) => {
           const title = "text" in t.record ? t.record.text : "title" in t.record ? t.record.title : t.record.name;
           const daysLeft = Math.max(1, Math.ceil((t.deletedAt + TRASH_RETENTION - Date.now()) / 86400000));
@@ -127,12 +128,13 @@ export function TrashSettings() {
             </div>
           );
         })}
-      </div>
-
-      {!rows.length && !loaded.locked && (
-        <p className="task-hint" style={{ marginTop: "0.75rem", fontSize: "0.85rem" }}>
-          Çöp kutusu boş. Silinen herhangi bir kayıt yok.
-        </p>
+        </div>
+      ) : (
+        !loaded.locked && (
+          <p className="task-hint" style={{ fontSize: "0.85rem" }}>
+            Çöp kutusu boş. Silinen herhangi bir kayıt yok.
+          </p>
+        )
       )}
     </section>
   );

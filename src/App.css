@@ -337,7 +337,7 @@ h1, h2, h3 { font-family: "Segoe UI Variable", "Segoe UI", sans-serif; }
 .feature-icon { width: calc(var(--ui-unit) * 44); height: calc(var(--ui-unit) * 44); display: grid; place-items: center; flex: 0 0 auto; color: #a9d4ff; background: #283b4e; border: 1px solid #587894; border-radius: calc(var(--ui-unit) * 10); }
 .settings-page, .ai-page { width: 100%; max-width: 100%; margin: 0; }
 .settings-card { padding: clamp(calc(var(--ui-unit) * 20), 3vw, calc(var(--ui-unit) * 32)); }
-.settings-card-heading { display: flex; align-items: center; gap: calc(var(--ui-unit) * 15); padding-bottom: calc(var(--ui-unit) * 25); border-bottom: 1px solid #3a4651; }
+.settings-card-heading { display: flex; align-items: center; gap: calc(var(--ui-unit) * 15); padding-bottom: 0.85rem; border-bottom: 1px solid #3a4651; }
 .settings-card-heading > div { min-width: 0; }
 .settings-card-heading h2 { font-size: calc(var(--ui-unit) * 21); letter-spacing: -.035em; }
 .settings-card-heading p { color: #bdc9d4; margin-top: calc(var(--ui-unit) * 3); font-size: calc(var(--ui-unit) * 14); }

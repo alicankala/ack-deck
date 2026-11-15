@@ -6,6 +6,7 @@ export type PrayerTimesConfig = {
   longitude: number;
   notifyAtTime: boolean;
   notifyBeforeMinutes: number; // 0 for off, or 5, 10, 15, 20, 30, 45
+  updatedAt?: number;
 };
 
 export type PrayerName = "fajr" | "sunrise" | "dhuhr" | "asr" | "maghrib" | "isha";
@@ -407,6 +408,7 @@ export function loadPrayerConfig(): PrayerTimesConfig {
         longitude: parsed.longitude,
         notifyAtTime: parsed.notifyAtTime ?? DEFAULT_PRAYER_CONFIG.notifyAtTime,
         notifyBeforeMinutes: typeof parsed.notifyBeforeMinutes === "number" ? parsed.notifyBeforeMinutes : DEFAULT_PRAYER_CONFIG.notifyBeforeMinutes,
+        ...(typeof parsed.updatedAt === "number" ? { updatedAt: parsed.updatedAt } : {}),
       };
     }
     return { ...DEFAULT_PRAYER_CONFIG };
@@ -415,10 +417,44 @@ export function loadPrayerConfig(): PrayerTimesConfig {
   }
 }
 
+export function isValidPrayerConfig(value: unknown): value is PrayerTimesConfig {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.city === "string" &&
+    v.city.trim().length > 0 &&
+    typeof v.latitude === "number" &&
+    Number.isFinite(v.latitude) &&
+    typeof v.longitude === "number" &&
+    Number.isFinite(v.longitude) &&
+    typeof v.notifyAtTime === "boolean" &&
+    typeof v.notifyBeforeMinutes === "number" &&
+    Number.isFinite(v.notifyBeforeMinutes)
+  );
+}
+
+export function shouldApplyRemotePrayerConfig(local: PrayerTimesConfig, remote: unknown): remote is PrayerTimesConfig {
+  if (!isValidPrayerConfig(remote)) return false;
+  const remoteTs = typeof remote.updatedAt === "number" ? remote.updatedAt : 0;
+  const localTs = typeof local.updatedAt === "number" ? local.updatedAt : 0;
+  if (remoteTs <= localTs) return false;
+  return (
+    remote.city !== local.city ||
+    remote.latitude !== local.latitude ||
+    remote.longitude !== local.longitude ||
+    remote.notifyAtTime !== local.notifyAtTime ||
+    remote.notifyBeforeMinutes !== local.notifyBeforeMinutes
+  );
+}
+
 export function savePrayerConfig(config: PrayerTimesConfig): boolean {
   try {
     const target = getPrayerBrowserTarget();
-    target.localStorage?.setItem(PRAYER_STORAGE_KEY, JSON.stringify(config));
+    const toStore: PrayerTimesConfig = {
+      ...config,
+      updatedAt: typeof config.updatedAt === "number" ? config.updatedAt : Date.now(),
+    };
+    target.localStorage?.setItem(PRAYER_STORAGE_KEY, JSON.stringify(toStore));
     const EventCtor = (globalThis as unknown as PrayerBrowserTarget).Event;
     if (target.dispatchEvent && EventCtor) {
       target.dispatchEvent(new EventCtor("ack-prayer-config-changed"));

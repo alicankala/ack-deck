@@ -519,27 +519,49 @@ async function handle(request: Request, env: Env): Promise<Response> {
     const hasStudy = body && typeof body === "object" && "studyReminders" in body && Array.isArray((body as any).studyReminders);
     const hasNotif = body && typeof body === "object" && "notificationPreferences" in body && (body as any).notificationPreferences;
 
-    const prayerConfig = hasPrayer && typeof (body as any).prayerConfig === "object" ? JSON.stringify((body as any).prayerConfig) : null;
+    let effectivePrayerObj: Record<string, unknown> | null = null;
+    try {
+      const existingRow = await env.DB.prepare("SELECT prayer_config FROM desktop_state WHERE id=1").first<{ prayer_config?: string | null }>();
+      if (existingRow?.prayer_config) {
+        const parsed = JSON.parse(existingRow.prayer_config);
+        if (parsed && typeof parsed === "object") effectivePrayerObj = parsed as Record<string, unknown>;
+      }
+    } catch {}
+
+    let prayerConfigToWrite: string | null = null;
+    if (hasPrayer && typeof (body as any).prayerConfig === "object") {
+      const incoming = (body as any).prayerConfig as Record<string, unknown>;
+      const storedTs = typeof effectivePrayerObj?.updatedAt === "number" ? effectivePrayerObj.updatedAt : 0;
+      const incomingTs = typeof incoming.updatedAt === "number" ? incoming.updatedAt : 0;
+      if (storedTs > incomingTs) {
+        // Cloud (ör. mobil) daha yeni: masaüstünün eski ayarıyla üzerine yazma
+        prayerConfigToWrite = null;
+      } else {
+        effectivePrayerObj = { ...incoming, updatedAt: incomingTs || now };
+        prayerConfigToWrite = JSON.stringify(effectivePrayerObj);
+      }
+    }
+
     const rawStudy = hasStudy ? (body as { studyReminders: unknown[] }).studyReminders : null;
     const studyReminders = rawStudy && rawStudy.length <= 200 ? JSON.stringify(rawStudy) : null;
     const rawNotif = hasNotif && typeof (body as any).notificationPreferences === "object" ? JSON.stringify((body as any).notificationPreferences) : null;
 
-    if (!prayerConfig && !studyReminders && !rawNotif) {
+    if (!prayerConfigToWrite && !studyReminders && !rawNotif) {
       // Lightweight keepalive: zero config rewriting, minimal single-cell last_seen update
       await env.DB.prepare("UPDATE desktop_state SET last_seen=? WHERE id=1").bind(now).run();
     } else {
       try {
-        if (prayerConfig && studyReminders) {
-          await env.DB.prepare("UPDATE desktop_state SET last_seen=?, prayer_config=?, study_reminders=? WHERE id=1").bind(now, prayerConfig, studyReminders).run();
-        } else if (prayerConfig) {
-          await env.DB.prepare("UPDATE desktop_state SET last_seen=?, prayer_config=? WHERE id=1").bind(now, prayerConfig).run();
+        if (prayerConfigToWrite && studyReminders) {
+          await env.DB.prepare("UPDATE desktop_state SET last_seen=?, prayer_config=?, study_reminders=? WHERE id=1").bind(now, prayerConfigToWrite, studyReminders).run();
+        } else if (prayerConfigToWrite) {
+          await env.DB.prepare("UPDATE desktop_state SET last_seen=?, prayer_config=? WHERE id=1").bind(now, prayerConfigToWrite).run();
         } else if (studyReminders) {
           await env.DB.prepare("UPDATE desktop_state SET last_seen=?, study_reminders=? WHERE id=1").bind(now, studyReminders).run();
         } else {
           await env.DB.prepare("UPDATE desktop_state SET last_seen=? WHERE id=1").bind(now).run();
         }
       } catch {
-        if (prayerConfig) await env.DB.prepare("UPDATE desktop_state SET last_seen=?, prayer_config=? WHERE id=1").bind(now, prayerConfig).run();
+        if (prayerConfigToWrite) await env.DB.prepare("UPDATE desktop_state SET last_seen=?, prayer_config=? WHERE id=1").bind(now, prayerConfigToWrite).run();
         else await env.DB.prepare("UPDATE desktop_state SET last_seen=? WHERE id=1").bind(now).run();
       }
       if (rawNotif) {
@@ -553,7 +575,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
       const usageRow = await env.DB.prepare("SELECT value FROM app_settings WHERE key='ai_cloud_usage'").first<{ value: string }>();
       if (usageRow?.value) cloudAiUsage = JSON.parse(usageRow.value);
     } catch {}
-    return reply({ok:true, cloudAiUsage});
+    return reply({ok:true, cloudAiUsage, ...(effectivePrayerObj ? { prayerConfig: effectivePrayerObj } : {})});
   }
   if (path === "/api/study-reminders" && request.method === "POST") {
     const body = await jsonBody(request);
@@ -678,7 +700,11 @@ async function handle(request: Request, env: Env): Promise<Response> {
     if (!object(body) || !exact(body, ["prayerConfig"]) || !object(body.prayerConfig) || typeof body.prayerConfig.city !== "string" || typeof body.prayerConfig.latitude !== "number" || typeof body.prayerConfig.longitude !== "number") {
       throw new ApiError(400, "Namaz ayarları geçersiz.");
     }
-    await env.DB.prepare("UPDATE desktop_state SET prayer_config=? WHERE id=1").bind(JSON.stringify(body.prayerConfig)).run();
+    const nextPrayerConfig = {
+      ...body.prayerConfig,
+      updatedAt: typeof body.prayerConfig.updatedAt === "number" ? body.prayerConfig.updatedAt : Date.now(),
+    };
+    await env.DB.prepare("UPDATE desktop_state SET prayer_config=? WHERE id=1").bind(JSON.stringify(nextPrayerConfig)).run();
     return reply({ ok: true });
   }
   if (path === "/api/workspaces" && request.method === "GET") return reply({ workspaces:(await env.DB.prepare("SELECT id,name,icon,description FROM workspace_mirrors ORDER BY name LIMIT 100").all()).results });

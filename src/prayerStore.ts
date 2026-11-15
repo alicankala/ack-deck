@@ -6,8 +6,10 @@ import {
   DEFAULT_PRAYER_CONFIG,
   calculatePrayerTimes,
   lookupTurkeyCity,
+  shouldApplyRemotePrayerConfig,
   validPrayerLog,
 } from "../shared/prayerTimes";
+import { saveWeatherCity } from "./footerInfo";
 
 const STORAGE_KEY = "ack-deck.prayer-config.v1";
 export const PRAYER_LOGS_KEY = "ack-deck.prayer-logs.v1";
@@ -56,6 +58,7 @@ export function loadPrayerConfig(): PrayerTimesConfig {
         longitude: parsed.longitude,
         notifyAtTime: parsed.notifyAtTime ?? DEFAULT_PRAYER_CONFIG.notifyAtTime,
         notifyBeforeMinutes: typeof parsed.notifyBeforeMinutes === "number" ? parsed.notifyBeforeMinutes : DEFAULT_PRAYER_CONFIG.notifyBeforeMinutes,
+        ...(typeof parsed.updatedAt === "number" ? { updatedAt: parsed.updatedAt } : {}),
       };
     }
     return { ...DEFAULT_PRAYER_CONFIG };
@@ -64,15 +67,32 @@ export function loadPrayerConfig(): PrayerTimesConfig {
   }
 }
 
-export function savePrayerConfig(config: PrayerTimesConfig): boolean {
+export function savePrayerConfig(
+  config: PrayerTimesConfig,
+  options?: { syncRemote?: boolean; preserveUpdatedAt?: boolean }
+): boolean {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    const nextConfig: PrayerTimesConfig = {
+      ...config,
+      updatedAt: options?.preserveUpdatedAt && typeof config.updatedAt === "number" ? config.updatedAt : Date.now(),
+    };
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextConfig));
     window.dispatchEvent(new Event("ack-prayer-config-changed"));
-    void invoke("phone_request", { operation: "heartbeat", body: { prayerConfig: config } }).catch(() => {});
+    if (options?.syncRemote !== false) {
+      void invoke("phone_request", { operation: "heartbeat", body: { prayerConfig: nextConfig } }).catch(() => {});
+    }
     return true;
   } catch {
     return false;
   }
+}
+
+export function applyRemotePrayerConfig(remote: unknown): boolean {
+  const local = loadPrayerConfig();
+  if (!shouldApplyRemotePrayerConfig(local, remote)) return false;
+  const saved = savePrayerConfig(remote, { syncRemote: false, preserveUpdatedAt: true });
+  if (saved) saveWeatherCity(remote.city);
+  return saved;
 }
 
 export async function geocodeCity(cityName: string): Promise<{ city: string; lat: number; lng: number } | null> {

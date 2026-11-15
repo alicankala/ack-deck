@@ -4,10 +4,14 @@ import { loadPrayerConfig, savePrayerConfig } from "../prayerStore";
 import { loadWeatherCity, saveWeatherCity } from "../footerInfo";
 
 export function CitySettings() {
-  const [currentCity, setCurrentCity] = useState(() => {
+  const [prayerConfig, setPrayerConfig] = useState<PrayerTimesConfig>(() => {
     const prayer = loadPrayerConfig();
-    return prayer.city || loadWeatherCity() || "Ankara";
+    return {
+      ...prayer,
+      city: prayer.city || loadWeatherCity() || "Ankara",
+    };
   });
+  const currentCity = prayerConfig.city;
 
   const cities = Object.values(TURKEY_CITIES)
     .filter((v, i, a) => a.findIndex((t) => t.city === v.city) === i)
@@ -16,19 +20,27 @@ export function CitySettings() {
   useEffect(() => {
     const handlePrayerChange = () => {
       const cfg = loadPrayerConfig();
-      if (cfg.city) setCurrentCity(cfg.city);
+      setPrayerConfig(cfg);
     };
     window.addEventListener("ack-prayer-config-changed", handlePrayerChange);
     return () => window.removeEventListener("ack-prayer-config-changed", handlePrayerChange);
   }, []);
+
+  function updatePrayerSettings(nextPrayer: PrayerTimesConfig, toastText: string) {
+    setPrayerConfig(nextPrayer);
+    savePrayerConfig(nextPrayer);
+    window.dispatchEvent(
+      new CustomEvent("ack-settings-toast", {
+        detail: toastText,
+      })
+    );
+  }
 
   function handleCityChange(selectedCityName: string) {
     const found = (Object.values(TURKEY_CITIES) as { city: string; lat: number; lng: number }[]).find(
       (c) => c.city === selectedCityName
     );
     if (!found) return;
-
-    setCurrentCity(found.city);
 
     // 1. Hava durumu şehrini güncelle
     saveWeatherCity(found.city);
@@ -41,12 +53,22 @@ export function CitySettings() {
       latitude: found.lat,
       longitude: found.lng,
     };
-    savePrayerConfig(nextPrayer);
+    updatePrayerSettings(nextPrayer, `Konum ${found.city} olarak güncellendi.`);
+  }
 
-    window.dispatchEvent(
-      new CustomEvent("ack-settings-toast", {
-        detail: `Konum ${found.city} olarak güncellendi.`,
-      })
+  function handleNotifyAtTimeChange(enabled: boolean) {
+    const nextPrayer: PrayerTimesConfig = { ...prayerConfig, notifyAtTime: enabled };
+    updatePrayerSettings(
+      nextPrayer,
+      enabled ? "Vakit girdiğinde bildirim gönderilecek." : "Vakit giriş bildirimleri kapatıldı."
+    );
+  }
+
+  function handleBeforeMinutesChange(minutes: number) {
+    const nextPrayer: PrayerTimesConfig = { ...prayerConfig, notifyBeforeMinutes: minutes };
+    updatePrayerSettings(
+      nextPrayer,
+      minutes > 0 ? `Vaktin ${minutes} dakika öncesinde hatırlatılacak.` : "Vakit öncesi hatırlatma kapatıldı."
     );
   }
 
@@ -54,13 +76,13 @@ export function CitySettings() {
     <section className="settings-card surface local-settings" aria-labelledby="city-settings-title">
       <div className="settings-card-heading">
         <div>
-          <h2 id="city-settings-title">Şehir ve Konum</h2>
+          <h2 id="city-settings-title">Şehir, Konum ve Namaz Vakti Hatırlatmaları</h2>
           <p className="task-hint">
-            Hava durumu ve namaz vakitleri için geçerli olan şehir. Seçtiğin il tüm uygulama ile otomatik eşitlenir.
+            Hava durumu ve namaz vakitleri için geçerli şehir ile vakit bildirim zamanlaması.
           </p>
         </div>
       </div>
-      <div className="archive-form-grid" style={{ marginTop: "0.75rem" }}>
+      <div className="archive-form-grid">
         <label className="archive-field">
           Bulunduğun İl
           <select
@@ -75,7 +97,36 @@ export function CitySettings() {
             ))}
           </select>
         </label>
+
+        <label className="archive-field">
+          Vakit Öncesi Hatırlatma
+          <select
+            value={prayerConfig.notifyBeforeMinutes}
+            onChange={(e) => handleBeforeMinutesChange(Number(e.target.value))}
+            style={{ fontSize: "14px", padding: "8px 12px", borderRadius: "6px" }}
+          >
+            <option value={0}>Kapalı</option>
+            <option value={5}>5 dakika önce</option>
+            <option value={10}>10 dakika önce</option>
+            <option value={15}>15 dakika önce</option>
+            <option value={20}>20 dakika önce</option>
+            <option value={30}>30 dakika önce</option>
+            <option value={45}>45 dakika önce</option>
+          </select>
+        </label>
       </div>
+
+      <label
+        className="settings-inline-check"
+        style={{ display: "inline-flex", alignItems: "center", gap: "0.55rem", marginTop: "0.85rem", cursor: "pointer", fontSize: "0.88rem" }}
+      >
+        <input
+          type="checkbox"
+          checked={prayerConfig.notifyAtTime}
+          onChange={(e) => handleNotifyAtTimeChange(e.target.checked)}
+        />
+        <span>Vaktinde bildirim gönder (Ezan vakti girdiğinde)</span>
+      </label>
     </section>
   );
 }

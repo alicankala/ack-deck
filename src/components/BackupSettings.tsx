@@ -110,7 +110,7 @@ export function BackupSettings({ desktop }: { desktop: DesktopStatus | null }) {
         </div>
       </div>
 
-      <div className="settings-actions" style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", marginTop: "1rem" }}>
+      <div className="settings-actions" style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
         <button type="button" className="button button-primary" onClick={exportBackup} disabled={busy || !desktop || !!pending}>
           Yedek Oluştur
         </button>

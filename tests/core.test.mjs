@@ -1083,19 +1083,12 @@ test('backupStore round-trips modern startPage and 5 new HUB_BACKUP_KEYS while p
   );
 });
 
-test('Settings General tab exposes Başlangıç Sayfası and Sistem Durumu Yenileme Hızı controls', () => {
+test('Settings General tab removes Başlangıç Sayfası and Sistem Durumu Yenileme Hızı card while defaults stay 2.5s/home', () => {
   const settingsTsx = readFileSync(new URL('../src/components/Settings.tsx', import.meta.url), 'utf8');
 
-  assert.equal(settingsTsx.includes('Başlangıç Sayfası'), true);
-  assert.equal(settingsTsx.includes('Sistem Durumu Yenileme Hızı'), true);
-  assert.equal(settingsTsx.includes('START_PAGES'), true);
-  assert.equal(settingsTsx.includes('PC_REFRESH_INTERVALS'), true);
-  assert.equal(settingsTsx.includes('2,5 saniye'), true);
-  assert.equal(settingsTsx.includes('5 saniye'), true);
-  assert.equal(settingsTsx.includes('10 saniye'), true);
-  assert.equal(settingsTsx.includes('Aylık Plan'), true);
-  assert.equal(settingsTsx.includes('Gelenler'), true);
-  assert.equal(settingsTsx.includes('Projeler & Araçlar'), true);
+  assert.equal(settingsTsx.includes('Başlangıç ve Sistem Durumu'), false);
+  assert.equal(settingsTsx.includes('Sistem Durumu Yenileme Hızı'), false);
+  assert.equal(settingsTsx.includes('Başlangıç Sayfası'), false);
 });
 
 test('clampReminderText, pendingReminders, and useReminders clamp >160 Unicode scalar texts and drop empty items across all reminder sources', async () => {

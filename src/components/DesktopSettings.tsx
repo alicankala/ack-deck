@@ -30,7 +30,7 @@ export function DesktopSettings({ status, onChange }: { status: DesktopStatus | 
       {!status ? (
         <p role="status" className="task-hint">Windows tercihleri alınamadı.</p>
       ) : (
-        <div className="toggle-settings" style={{ marginTop: "0.5rem" }}>
+        <div className="toggle-settings">
           <label>
             <input
               type="checkbox"

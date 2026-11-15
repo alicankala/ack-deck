@@ -1,4 +1,5 @@
-import { loadPrayerConfig, type PrayerLogDay } from "../shared/prayerTimes";
+import { loadPrayerConfig, applyRemotePrayerConfig } from "./prayerStore";
+import { type PrayerLogDay } from "../shared/prayerTimes";
 import { loadPrayerLogs, savePrayerLogs } from "./prayerStore";
 import { loadMedia, saveMedia } from "./mediaStore";
 import { type MediaItem } from "../shared/media";
@@ -195,7 +196,9 @@ async function sync(request:typeof phoneRequest):Promise<SyncState> {
   guard();const spaces=loadWorkspaces();
   if(!spaces.locked){const workspaces=spaces.entries.map(({id,name,icon,description})=>({id,name,icon,description:/[A-Za-z]:[\\/]/.test(description)?"":description}));const signature=JSON.stringify(workspaces);if(signature!==state.workspaceFingerprint){await request("workspaces",{workspaces:scrubSync(workspaces)});guard();state.workspaceFingerprint=signature;save(state);}}
   const studyRem=loadStudyReminders();
-  await request("heartbeat", { prayerConfig: loadPrayerConfig(), ...(!studyRem.locked ? { studyReminders: studyRem.entries } : {}) });guard();state.lastSync=Date.now();save(state);window.dispatchEvent(new Event("ack-phone-sync-status"));return state;
+  const hb = await request("heartbeat", { prayerConfig: loadPrayerConfig(), ...(!studyRem.locked ? { studyReminders: studyRem.entries } : {}) }) as { prayerConfig?: unknown } | undefined;
+  if (hb?.prayerConfig) applyRemotePrayerConfig(hb.prayerConfig);
+  guard();state.lastSync=Date.now();save(state);window.dispatchEvent(new Event("ack-phone-sync-status"));return state;
 }
 export async function resolvePhoneConflict(index:number,useCloud:boolean){if(running)throw new Error("Eşitleme sürüyor. Biraz sonra deneyin.");const state=readPhoneSync(),conflict=state.conflicts[index];if(!conflict)throw new Error("Çakışma bulunamadı.");const reference=key(conflict.local.kind,conflict.local.id);
   if(useCloud&&conflict.server){apply(conflict.server);state.base[reference]={version:conflict.server.version,local:fingerprint(conflict.server)};}
