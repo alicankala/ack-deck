@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { loadPrayerConfig, getTodayPrayerInfo, loadPrayerLogs, savePrayerLogs } from "../prayerStore";
 import { localDateKey } from "../taskStore";
 import {
@@ -36,8 +36,6 @@ export function PrayerWidget() {
   const [logsState, setLogsState] = useState(loadPrayerLogs);
   const todayStr = localDateKey();
   const [selectedDate, setSelectedDate] = useState(todayStr);
-  const [noteDraft, setNoteDraft] = useState("");
-  const [showCompletedNotes, setShowCompletedNotes] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [showMonthModal, setShowMonthModal] = useState(false);
   const [, setTick] = useState(0);
@@ -100,72 +98,6 @@ export function PrayerWidget() {
 
   function cyclePrayerStatus(name: TrackedPrayerName) {
     togglePrayerForDate(selectedDate, name);
-  }
-
-  // Persistent notes across all logs: uncompleted notes carry forward forever
-  const allNotesMap = new Map<string, { note: { id: string; text: string; done: boolean }; logDate: string }>();
-  for (const log of logsState.entries) {
-    for (const note of log.notes) {
-      if (!allNotesMap.has(note.id)) {
-        allNotesMap.set(note.id, { note, logDate: log.date });
-      }
-    }
-  }
-  const allNotesList = [...allNotesMap.values()];
-  const activePrayerNotes = allNotesList.filter(item => !item.note.done);
-  const completedPrayerNotes = allNotesList.filter(item => item.note.done);
-
-  function handleAddNote(e: FormEvent) {
-    e.preventDefault();
-    const text = noteDraft.trim();
-    if (!text || currentLog.notes.length >= 30) return;
-    const newNote = { id: crypto.randomUUID(), text: text.slice(0, 240), done: false };
-    saveDayLog({
-      ...currentLog,
-      notes: [...currentLog.notes, newNote],
-      updatedAt: Date.now(),
-    });
-    setNoteDraft("");
-  }
-
-  function toggleNote(id: string) {
-    const latest = loadPrayerLogs();
-    if (latest.locked) return;
-    let changed = false;
-    const updatedEntries = latest.entries.map(l => {
-      if (l.notes.some(n => n.id === id)) {
-        changed = true;
-        return {
-          ...l,
-          notes: l.notes.map(n => (n.id === id ? { ...n, done: !n.done } : n)),
-          updatedAt: Date.now(),
-        };
-      }
-      return l;
-    });
-    if (changed && savePrayerLogs(updatedEntries, latest)) {
-      setLogsState(loadPrayerLogs());
-    }
-  }
-
-  function deleteNote(id: string) {
-    const latest = loadPrayerLogs();
-    if (latest.locked) return;
-    let changed = false;
-    const updatedEntries = latest.entries.map(l => {
-      if (l.notes.some(n => n.id === id)) {
-        changed = true;
-        return {
-          ...l,
-          notes: l.notes.filter(n => n.id !== id),
-          updatedAt: Date.now(),
-        };
-      }
-      return l;
-    });
-    if (changed && savePrayerLogs(updatedEntries, latest)) {
-      setLogsState(loadPrayerLogs());
-    }
   }
 
   const kerahat = info.kerahat;
@@ -288,91 +220,6 @@ export function PrayerWidget() {
               </button>
             );
           })}
-        </div>
-
-        {/* Daily Spiritual / Prayer Notes (e.g., Şükür namazı kıl) */}
-        <div className="prayer-notes-section">
-          <div className="prayer-notes-header">
-            <span>Namaz & İbadet Notları</span>
-            <small>{activePrayerNotes.length} aktif</small>
-          </div>
-          {activePrayerNotes.length > 0 ? (
-            <div className="prayer-notes-list">
-              {activePrayerNotes.map(({ note }) => (
-                <div key={note.id} className="prayer-note-item">
-                  <button
-                    type="button"
-                    className="prayer-note-toggle"
-                    onClick={() => toggleNote(note.id)}
-                    title="Tamamla ve arşive kaldır"
-                  >
-                    <span className="note-check-box" />
-                    <span className="note-text">{note.text}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="prayer-note-del"
-                    onClick={() => deleteNote(note.id)}
-                    aria-label="Notu sil"
-                    title="Notu sil"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="prayer-notes-empty">Aktif ibadet notu yok.</p>
-          )}
-
-          {completedPrayerNotes.length > 0 && (
-            <div className="prayer-completed-notes-block">
-              <button
-                type="button"
-                className="dashboard-text-button"
-                onClick={() => setShowCompletedNotes(v => !v)}
-              >
-                {showCompletedNotes ? "Tamamlananları gizle" : `Tamamlanan notlar (${completedPrayerNotes.length})`}
-              </button>
-              {showCompletedNotes && (
-                <div className="prayer-notes-list completed-list">
-                  {completedPrayerNotes.map(({ note }) => (
-                    <div key={note.id} className="prayer-note-item is-done">
-                      <button
-                        type="button"
-                        className="prayer-note-toggle"
-                        onClick={() => toggleNote(note.id)}
-                        title="Geri al (aktife taşı)"
-                      >
-                        <span className="note-check-box">✓</span>
-                        <span className="note-text">{note.text}</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="prayer-note-del"
-                        onClick={() => deleteNote(note.id)}
-                        aria-label="Tamamen sil"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          <form onSubmit={handleAddNote} className="prayer-note-form">
-            <input
-              type="text"
-              value={noteDraft}
-              onChange={e => setNoteDraft(e.target.value)}
-              placeholder="Örn: Şükür namazı kıl, Yasin oku..."
-              maxLength={240}
-            />
-            <button type="submit" disabled={!noteDraft.trim()}>
-              + Ekle
-            </button>
-          </form>
         </div>
       </div>
 
