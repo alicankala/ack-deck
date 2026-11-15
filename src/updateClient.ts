@@ -281,12 +281,12 @@ export async function installUpdate() {
     const desktop = await getDesktopStatus();
     const backup = await createFullBackup({ ...desktop.preferences, autoStart: desktop.autoStart }, desktop.version);
     await invoke("install_update", { content: JSON.stringify(backup, null, 2) });
-  } catch {
+  } catch (error) {
     publish({
       phase: "ready",
       version,
       checkedAt,
-      message: "Yedekleme veya kurulum tamamlanamadı. Güncelleme kurulmadı; tekrar deneyebilirsiniz.",
+      message: safeUpdateError(error) || "Yedekleme veya kurulum tamamlanamadı. Güncelleme kurulmadı; tekrar deneyebilirsiniz.",
     });
   } finally {
     window.dispatchEvent(new CustomEvent("ack-restore-active", { detail: false }));

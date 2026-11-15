@@ -89,15 +89,30 @@ function validDisplayScale(value: unknown): boolean {
     isDisplayScale(scale),
   );
 }
+function validPomodoroTarget(value: unknown): boolean {
+  if (!fields(value, ["kind", "id", "label", "durationMinutes"]) || !object(value)) return false;
+  return (
+    ["study", "task"].includes(value.kind as string) &&
+    typeof value.id === "string" && value.id.length > 0 && value.id.length <= 300 &&
+    typeof value.label === "string" && value.label.length > 0 && value.label.length <= 500 &&
+    (value.durationMinutes === undefined || (typeof value.durationMinutes === "number" && Number.isFinite(value.durationMinutes) && value.durationMinutes >= 0 && value.durationMinutes <= 1440))
+  );
+}
 function validPomodoroState(value: unknown): boolean {
-  if (!fields(value, ["mode", "timeLeft", "completedSessions", "autoStartBreaks", "isRunning", "endTimeMs"]) || !object(value)) return false;
+  if (!fields(value, ["mode", "timeLeft", "totalSeconds", "completedSessions", "completedFocusMinutes", "autoStartBreaks", "isRunning", "endTimeMs", "target", "targetRemainingSeconds", "pendingConfirm", "manualFreeFocus"]) || !object(value)) return false;
   return (
     ["pomodoro", "shortBreak", "longBreak"].includes(value.mode as string) &&
     typeof value.timeLeft === "number" && Number.isFinite(value.timeLeft) && value.timeLeft >= 0 && value.timeLeft <= 86400 &&
+    (value.totalSeconds === undefined || (typeof value.totalSeconds === "number" && Number.isFinite(value.totalSeconds) && value.totalSeconds >= 0 && value.totalSeconds <= 86400)) &&
     typeof value.completedSessions === "number" && Number.isSafeInteger(value.completedSessions) && value.completedSessions >= 0 && value.completedSessions <= 1000000 &&
+    (value.completedFocusMinutes === undefined || (typeof value.completedFocusMinutes === "number" && Number.isFinite(value.completedFocusMinutes) && value.completedFocusMinutes >= 0 && value.completedFocusMinutes <= 10000000)) &&
     typeof value.autoStartBreaks === "boolean" &&
     typeof value.isRunning === "boolean" &&
-    (value.endTimeMs === null || value.endTimeMs === undefined || (dateNumber(value.endTimeMs) && (value.endTimeMs as number) >= 0))
+    (value.endTimeMs === null || value.endTimeMs === undefined || (dateNumber(value.endTimeMs) && (value.endTimeMs as number) >= 0)) &&
+    (value.target === undefined || value.target === null || validPomodoroTarget(value.target)) &&
+    (value.targetRemainingSeconds === undefined || value.targetRemainingSeconds === null || (typeof value.targetRemainingSeconds === "number" && Number.isFinite(value.targetRemainingSeconds) && value.targetRemainingSeconds >= 0 && value.targetRemainingSeconds <= 86400)) &&
+    (value.pendingConfirm === undefined || value.pendingConfirm === null || validPomodoroTarget(value.pendingConfirm)) &&
+    (value.manualFreeFocus === undefined || typeof value.manualFreeFocus === "boolean")
   );
 }
 function array(value: unknown, validator: (value: unknown) => boolean): boolean { return Array.isArray(value) && value.length <= 100000 && value.every(validator) && new Set(value.map((item) => item.id)).size === value.length; }
