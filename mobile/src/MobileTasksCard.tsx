@@ -12,7 +12,6 @@ import type { CloudRecord, PhoneTask } from "../../shared/phone";
 import type { StudyBlock } from "../../shared/studyPrograms";
 import type { AttendanceEntry } from "../../shared/studyAttendance";
 import { Icon } from "./Icon";
-import { startMobilePomodoroFocus } from "./mobilePomodoroStore";
 
 type TaskFilter = "all" | "today" | "upcoming" | "undated" | "completed";
 const mobileTaskFilters: [TaskFilter, string][] = [
@@ -225,28 +224,6 @@ export function MobileTasksCard({
                       )}
                     </small>
                   </button>
-                  {status !== "attended" && (
-                    <button
-                      type="button"
-                      className="mobile-pomodoro-play-btn"
-                      onClick={() => {
-                        hapticLight();
-                        startMobilePomodoroFocus({
-                          target: {
-                            kind: "study",
-                            id: block.id,
-                            label: `${block.label}${block.topic ? ` · ${block.topic}` : ""}`,
-                            durationMinutes: block.minutes,
-                          },
-                          durationSeconds: block.minutes * 60,
-                        });
-                      }}
-                      aria-label={`${block.label} için ${block.minutes} dk Pomodoro başlat`}
-                      title={`Pomodoro başlat (${block.minutes} dk)`}
-                    >
-                      ▶
-                    </button>
-                  )}
                   <span className="timeline-badge study-badge" style={{ flexShrink: 0 }}>Ders</span>
                 </article>
               );

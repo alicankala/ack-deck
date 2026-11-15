@@ -73,16 +73,15 @@ export function PomodoroTimer() {
   const studies = useTodayStudyTargets();
 
   useEffect(() => {
-    if (
-      !isRunning &&
-      mode === "pomodoro" &&
-      timeLeft === totalSeconds &&
-      !target &&
-      !pendingConfirm &&
-      !manualFreeFocus &&
-      studies.length > 0
-    ) {
-      setPomodoroTarget(studies[0]);
+    if (!isRunning && mode === "pomodoro" && timeLeft === totalSeconds && !pendingConfirm) {
+      if (!target && !manualFreeFocus && studies.length > 0) {
+        setPomodoroTarget(studies[0]);
+      } else if (target) {
+        const updated = studies.find(s => s.id === target.id);
+        if (updated && (updated.durationMinutes !== target.durationMinutes || updated.label !== target.label)) {
+          setPomodoroTarget(updated);
+        }
+      }
     }
   }, [isRunning, mode, timeLeft, totalSeconds, target, pendingConfirm, manualFreeFocus, studies]);
 
@@ -99,6 +98,17 @@ export function PomodoroTimer() {
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
   const timeFormatted = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  const elapsedInCurrentFocus = mode === "pomodoro" ? Math.max(0, totalSeconds - timeLeft) : 0;
+  const hasTargetRemaining = Boolean(target && targetRemainingSeconds && targetRemainingSeconds > 0);
+  const liveTargetRemainingSeconds = hasTargetRemaining
+    ? Math.max(0, (targetRemainingSeconds ?? 0) - elapsedInCurrentFocus)
+    : 0;
+  const showLiveTargetSeconds = mode === "pomodoro" && (isRunning || timeLeft < totalSeconds);
+  const targetRemainingLabel = hasTargetRemaining
+    ? showLiveTargetSeconds
+      ? ` · Kalan ${String(Math.floor(liveTargetRemainingSeconds / 60)).padStart(2, "0")}:${String(liveTargetRemainingSeconds % 60).padStart(2, "0")}`
+      : ` · Kalan ${Math.ceil(liveTargetRemainingSeconds / 60)} dk`
+    : "";
 
   return (
     <section className="dashboard-pomodoro surface" aria-labelledby="pomodoro-heading">
@@ -111,7 +121,7 @@ export function PomodoroTimer() {
             <h2 id="pomodoro-heading">Pomodoro Odak Sayacı</h2>
             <small>
               {target
-                ? `Hedef: ${target.label}${targetRemainingSeconds ? ` · Kalan ${Math.ceil(targetRemainingSeconds / 60)} dk` : ""}`
+                ? `Hedef: ${target.label}${targetRemainingLabel}`
                 : completedSessions > 0
                   ? `Bugün ${completedSessions} odak seansı tamamlandı (${completedFocusMinutes ?? completedSessions * 25} dk odak)`
                   : "25 dakika odaklan, 5 dakika mola ver"}

@@ -59,20 +59,19 @@ export function MobilePomodoroCard({
       durationMinutes: b.minutes,
     }));
 
-  const firstStudyId = studyTargets[0]?.id;
+  const studySignature = studyTargets.map(s => `${s.id}:${s.durationMinutes}:${s.label}`).join("|");
   useEffect(() => {
-    if (
-      !isRunning &&
-      mode === "pomodoro" &&
-      timeLeft === totalSeconds &&
-      !target &&
-      !pendingConfirm &&
-      !manualFreeFocus &&
-      studyTargets.length > 0
-    ) {
-      setMobilePomodoroTarget(studyTargets[0]);
+    if (!isRunning && mode === "pomodoro" && timeLeft === totalSeconds && !pendingConfirm) {
+      if (!target && !manualFreeFocus && studyTargets.length > 0) {
+        setMobilePomodoroTarget(studyTargets[0]);
+      } else if (target) {
+        const updated = studyTargets.find(s => s.id === target.id);
+        if (updated && (updated.durationMinutes !== target.durationMinutes || updated.label !== target.label)) {
+          setMobilePomodoroTarget(updated);
+        }
+      }
     }
-  }, [isRunning, mode, timeLeft, totalSeconds, target, pendingConfirm, manualFreeFocus, firstStudyId]);
+  }, [isRunning, mode, timeLeft, totalSeconds, target, pendingConfirm, manualFreeFocus, studySignature]);
 
   if (isCollapsed) {
     return (
@@ -100,6 +99,18 @@ export function MobilePomodoroCard({
     );
   }
 
+  const elapsedInCurrentFocus = mode === "pomodoro" ? Math.max(0, totalSeconds - timeLeft) : 0;
+  const hasTargetRemaining = Boolean(target && targetRemainingSeconds && targetRemainingSeconds > 0);
+  const liveTargetRemainingSeconds = hasTargetRemaining
+    ? Math.max(0, (targetRemainingSeconds ?? 0) - elapsedInCurrentFocus)
+    : 0;
+  const showLiveTargetSeconds = mode === "pomodoro" && (isRunning || timeLeft < totalSeconds);
+  const targetRemainingLabel = hasTargetRemaining
+    ? showLiveTargetSeconds
+      ? ` · Kalan ${String(Math.floor(liveTargetRemainingSeconds / 60)).padStart(2, "0")}:${String(liveTargetRemainingSeconds % 60).padStart(2, "0")}`
+      : ` · Kalan ${Math.ceil(liveTargetRemainingSeconds / 60)} dk`
+    : "";
+
   return (
     <article className="mobile-pomodoro-card" aria-label="Pomodoro Odak Sayacı">
       <div className="mobile-pomodoro-header">
@@ -109,7 +120,7 @@ export function MobilePomodoroCard({
             <h3>Pomodoro Odak Sayacı</h3>
             <span className="mobile-pomodoro-sub">
               {target
-                ? `Hedef: ${target.label}${targetRemainingSeconds ? ` · Kalan ${Math.ceil(targetRemainingSeconds / 60)} dk` : ""}`
+                ? `Hedef: ${target.label}${targetRemainingLabel}`
                 : completedSessions > 0
                 ? `Bugün ${completedSessions} seans tamamlandı (${completedFocusMinutes ?? completedSessions * 25} dk odak)`
                 : "25 dk odaklan, 5 dk mola ver"}
