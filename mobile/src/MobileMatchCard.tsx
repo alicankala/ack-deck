@@ -4,7 +4,7 @@ import {
   formatMatchChannels,
   formatMatchWhen,
   loadMatchesCache,
-  nextMatchForTeam,
+  selectSummaryMatches,
   upcomingMatches,
   type MatchItem,
 } from "../../shared/matches";
@@ -67,8 +67,7 @@ export function MobileMatchCard({ isCollapsed, onToggleCollapse }: Props) {
     };
   }, []);
 
-  const nextGs = nextMatchForTeam(matches, "galatasaray", now);
-  const nextTr = nextMatchForTeam(matches, "turkey", now);
+  const summaryMatches = selectSummaryMatches(matches, now);
   const allUpcoming = upcomingMatches(matches, now, 6);
   const firstMatch = allUpcoming[0] ?? null;
 
@@ -148,22 +147,15 @@ export function MobileMatchCard({ isCollapsed, onToggleCollapse }: Props) {
         </div>
       ) : (
         <div className="mobile-match-list">
-          <div className="mobile-match-group">
-            <span className="mobile-match-group-label is-galatasaray">Galatasaray</span>
-            {nextGs ? (
-              <MobileMatchRow match={nextGs} now={now} />
-            ) : (
-              <span className="mobile-match-empty">{loading ? "Yükleniyor..." : "Yaklaşan maç yok."}</span>
-            )}
-          </div>
-          <div className="mobile-match-group">
-            <span className="mobile-match-group-label is-turkey">Türkiye A Milli</span>
-            {nextTr ? (
-              <MobileMatchRow match={nextTr} now={now} />
-            ) : (
-              <span className="mobile-match-empty">{loading ? "Yükleniyor..." : "Planlanmış milli maç yok."}</span>
-            )}
-          </div>
+          {summaryMatches.length > 0 ? (
+            summaryMatches.map(m => (
+              <MobileMatchRow key={m.id} match={m} now={now} showTeamTag />
+            ))
+          ) : (
+            <span className="mobile-match-empty">
+              {loading ? "Yükleniyor..." : "Yaklaşan Galatasaray veya A Milli maçı yok."}
+            </span>
+          )}
         </div>
       )}
     </article>

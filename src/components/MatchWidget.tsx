@@ -4,7 +4,7 @@ import {
   formatMatchChannels,
   formatMatchWhen,
   loadMatchesCache,
-  nextMatchForTeam,
+  selectSummaryMatches,
   upcomingMatches,
   type MatchItem,
 } from "../../shared/matches";
@@ -73,8 +73,7 @@ export function MatchWidget() {
     };
   }, []);
 
-  const nextGs = nextMatchForTeam(matches, "galatasaray", now);
-  const nextTr = nextMatchForTeam(matches, "turkey", now);
+  const summaryMatches = selectSummaryMatches(matches, now);
   const allUpcoming = upcomingMatches(matches, now, 8);
 
   return (
@@ -123,27 +122,15 @@ export function MatchWidget() {
         </div>
       ) : (
         <div className="match-summary-list">
-          <div className="match-team-block">
-            <span className="match-team-label is-galatasaray">Galatasaray</span>
-            {nextGs ? (
-              <MatchRow match={nextGs} now={now} />
-            ) : (
-              <p className="match-empty-text">
-                {loading ? "Yükleniyor..." : "Yaklaşan Galatasaray maçı bulunamadı."}
-              </p>
-            )}
-          </div>
-
-          <div className="match-team-block">
-            <span className="match-team-label is-turkey">Türkiye A Milli</span>
-            {nextTr ? (
-              <MatchRow match={nextTr} now={now} />
-            ) : (
-              <p className="match-empty-text">
-                {loading ? "Yükleniyor..." : "Yaklaşan A Milli maçı planlanmadı."}
-              </p>
-            )}
-          </div>
+          {summaryMatches.length > 0 ? (
+            summaryMatches.map(m => (
+              <MatchRow key={m.id} match={m} now={now} showTeamTag />
+            ))
+          ) : (
+            <p className="match-empty-text">
+              {loading ? "Yükleniyor..." : "Yaklaşan Galatasaray veya A Milli maçı bulunamadı."}
+            </p>
+          )}
         </div>
       )}
     </section>

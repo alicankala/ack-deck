@@ -6,6 +6,7 @@ import {
   formatMatchChannels,
   formatMatchWhen,
   nextMatchForTeam,
+  selectSummaryMatches,
   upcomingMatches,
 } from "../shared/matches.ts";
 import {
@@ -90,6 +91,21 @@ test("match helpers format dates, channels, upcoming order and AI summary cleanl
   assert.match(summary, /Galatasaray - Samsunspor/);
   assert.match(summary, /Bein Sports 1/);
   assert.match(summary, /Türkiye - Galler/);
+
+  // Both teams present -> 1 GS + 1 TR
+  assert.deepEqual(selectSummaryMatches(matches, now).map(m => m.id), ["galatasaray:1", "turkey:1"]);
+  // Only GS present -> top 2 GS
+  const gsOnly = [
+    matches[1],
+    { ...matches[1], id: "galatasaray:2", dateKey: "2026-11-24", timestampMs: Date.parse("2026-11-24T20:45:00+03:00") },
+  ];
+  assert.deepEqual(selectSummaryMatches(gsOnly, now).map(m => m.id), ["galatasaray:1", "galatasaray:2"]);
+  // Only TR present -> top 2 TR
+  const trOnly = [
+    matches[0],
+    { ...matches[0], id: "turkey:2", dateKey: "2026-11-23", timestampMs: Date.parse("2026-11-23T21:45:00+03:00") },
+  ];
+  assert.deepEqual(selectSummaryMatches(trOnly, now).map(m => m.id), ["turkey:1", "turkey:2"]);
 });
 
 test("notificationPreferences validation preserves backward compatibility and validates match lead minutes", () => {

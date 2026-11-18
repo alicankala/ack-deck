@@ -114,6 +114,7 @@
 .mobile-match-title {
   font-size: 0.86rem;
   font-weight: 600;
+  color: rgba(236, 242, 248, 0.92);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -128,8 +129,9 @@
 }
 
 .mobile-match-when {
-  font-size: 0.75rem;
-  color: var(--muted, #8b949e);
+  font-size: 0.77rem;
+  font-weight: 500;
+  color: #cbd5e1;
 }
 
 .mobile-match-when.is-today {

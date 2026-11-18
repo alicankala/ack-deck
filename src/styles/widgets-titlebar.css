@@ -989,9 +989,9 @@ dialog,
 }
 
 .match-item-title {
-  font-size: 0.84rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: var(--app-text);
+  color: rgba(236, 242, 248, 0.92);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1001,11 +1001,16 @@ dialog,
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.74rem;
-  color: var(--app-muted);
+  font-size: 0.77rem;
+  color: #9fb0c3;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.match-when {
+  color: #cbd5e1;
+  font-weight: 500;
 }
 
 .match-when.is-today {
