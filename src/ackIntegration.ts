@@ -23,8 +23,9 @@ import { loadStudyPrograms } from "./studyProgramStore";
 import { studyBlocks } from "../shared/studyPrograms";
 import { loadStudyAttendanceSnapshot } from "../shared/studyAttendance";
 import { loadMedia } from "./mediaStore";
+import { fetchMatches, loadMatchesCache, upcomingMatches, formatMatchWhen, formatMatchChannels } from "../shared/matches";
 
-export type AckSource = "tasks" | "projects" | "notes" | "archive" | "files" | "speed" | "pc" | "ip" | "settings" | "workspaces" | "shortcuts" | "recent" | "pinned" | "inbox" | "subscriptions" | "activity" | "studyprograms" | "media";
+export type AckSource = "tasks" | "projects" | "notes" | "archive" | "files" | "speed" | "pc" | "ip" | "settings" | "workspaces" | "shortcuts" | "recent" | "pinned" | "inbox" | "subscriptions" | "activity" | "studyprograms" | "media" | "matches";
 export type AckContext = { source: AckSource; data: string };
 export function contextReferences(context: AckContext[]): { source: string; id: string; label: string }[] {
   const result: { source: string; id: string; label: string }[] = [];
@@ -46,7 +47,7 @@ export function contextReferences(context: AckContext[]): { source: string; id: 
   }
   return result;
 }
-export const SOURCE_LABELS: Record<AckSource, string> = { tasks: "Görevler", projects: "Projeler", notes: "Notlar", archive: "Arşiv", files: "Dosya bilgileri", speed: "Son hız testi", pc: "PC Durumu", ip: "IP bilgileri", settings: "Yerel tercihler", workspaces: "Çalışma Alanları", shortcuts: "Kısayollar", recent: "Son Kullanılanlar", pinned: "Sabitlenenler", inbox:"Gelenler",subscriptions:"Abonelikler",activity:"Çalışma geçmişi ve plan",studyprograms:"Ders Programları",media:"Koleksiyon" };
+export const SOURCE_LABELS: Record<AckSource, string> = { tasks: "Görevler", projects: "Projeler", notes: "Notlar", archive: "Arşiv", files: "Dosya bilgileri", speed: "Son hız testi", pc: "PC Durumu", ip: "IP bilgileri", settings: "Yerel tercihler", workspaces: "Çalışma Alanları", shortcuts: "Kısayollar", recent: "Son Kullanılanlar", pinned: "Sabitlenenler", inbox:"Gelenler",subscriptions:"Abonelikler",activity:"Çalışma geçmişi ve plan",studyprograms:"Ders Programları",media:"Koleksiyon",matches:"Maç takvimi" };
 export const normalizeAckText = (text: string) => text.toLocaleLowerCase("tr-TR").normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/ı/g, "i");
 
 export function planAckSources(text: string): AckSource[] {
@@ -69,6 +70,7 @@ export function planAckSources(text: string): AckSource[] {
   if (/sabitlen|sik kullan/.test(value)) sources.push("pinned");
   if (/abonelik|odeme|yenileme/.test(value)) sources.push("subscriptions");
   if (/gelen|gonderilen/.test(value)) sources.push("inbox");
+  if (/\bmac(?:i|im|lar|lari|imiz|a)?\b|galatasaray|\bgs\b|cimbom|milli takim|turkiye.*mac|fikstur|yayin|hangi kanal|derbi/.test(value)) sources.push("matches");
   return sources;
 }
 
@@ -146,6 +148,19 @@ export const ackReadTools = {
   get_pc_status: () => invoke("pc_status"),
   get_ip_info: async (query: string) => ({ local: await invoke("local_ip_info"), ...(/genel|public|dis ip/.test(normalizeAckText(query)) ? { publicIp: await invoke("public_ip_info") } : {}) }),
   get_settings: () => ({ ...loadPreferences(), aiModel: getSavedAiModel() }),
+  get_matches: async () => {
+    const payload = await fetchMatches().catch(() => loadMatchesCache());
+    const list = upcomingMatches(payload?.matches ?? [], Date.now(), 10);
+    return list.map(m => ({
+      team: m.team === "galatasaray" ? "Galatasaray" : "Türkiye A Milli",
+      match: `${m.home} - ${m.away}`,
+      when: formatMatchWhen(m),
+      date: m.dateKey,
+      time: m.time,
+      league: m.league,
+      channels: formatMatchChannels(m),
+    }));
+  },
 };
 type ReadTools = typeof ackReadTools;
 function hubTerms(text: string) { return searchTerms(text).filter(term => !/^(?:calisma|alan|alanlar|alanlarim|calismalar|calismalarim|kisayol|kisayollar|kisayollarim|neler|ac|acil|sabit|sik|kullanilan)$/.test(term)); }
@@ -207,6 +222,7 @@ export async function collectAckContext(text: string, tools: ReadTools = ackRead
         case "pc": data = await withAiTimeout(Promise.resolve(tools.get_pc_status()), 5000); break;
         case "ip": data = await withAiTimeout(Promise.resolve(tools.get_ip_info(text)), 5000); break;
         case "settings": data = await tools.get_settings(); break;
+        case "matches": data = await (tools.get_matches ?? ackReadTools.get_matches)(); break;
       }
       const serialized = redactSecrets(JSON.stringify(safeAiContext(data)) ?? "null");
       if (budget > 0) { context.push({ source, data: serialized.slice(0, Math.min(6000, budget)) }); budget -= Math.min(serialized.length, 6000); }

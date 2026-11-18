@@ -17,6 +17,13 @@ export type NotificationPreferences = {
   mobilePrayers: boolean;
   mobileDormMenu: boolean;
   mobileSubscriptions: boolean;
+
+  // Match reminders (Galatasaray & Turkey National Team)
+  desktopMatches?: boolean;
+  mobileMatches?: boolean;
+  matchTeamGalatasaray?: boolean;
+  matchTeamTurkey?: boolean;
+  matchLeadMinutes?: number;
 };
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
@@ -29,18 +36,24 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   desktopPomodoro: true,
   desktopDormMenu: true,
   desktopSubscriptions: true,
+  desktopMatches: true,
 
   mobileTasks: true,
   mobileStudy: true,
   mobilePrayers: true,
   mobileDormMenu: true,
   mobileSubscriptions: true,
+  mobileMatches: true,
+
+  matchTeamGalatasaray: true,
+  matchTeamTurkey: true,
+  matchLeadMinutes: 30,
 };
 
 export function validNotificationPreferences(value: unknown): value is NotificationPreferences {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<keyof NotificationPreferences, unknown>;
-  const keys: (keyof NotificationPreferences)[] = [
+  const requiredBooleans: (keyof NotificationPreferences)[] = [
     "desktopMaster",
     "mobileMaster",
     "desktopTasks",
@@ -55,5 +68,18 @@ export function validNotificationPreferences(value: unknown): value is Notificat
     "mobileDormMenu",
     "mobileSubscriptions",
   ];
-  return keys.every((k) => typeof v[k] === "boolean");
+  const optionalBooleans: (keyof NotificationPreferences)[] = [
+    "desktopMatches",
+    "mobileMatches",
+    "matchTeamGalatasaray",
+    "matchTeamTurkey",
+  ];
+  const validLead =
+    v.matchLeadMinutes === undefined ||
+    (typeof v.matchLeadMinutes === "number" && [15, 30, 60].includes(v.matchLeadMinutes));
+  return (
+    requiredBooleans.every((k) => typeof v[k] === "boolean") &&
+    optionalBooleans.every((k) => v[k] === undefined || typeof v[k] === "boolean") &&
+    validLead
+  );
 }

@@ -8,6 +8,7 @@ import { useDesktop } from "./useDesktop";
 import { getDesktopStatus } from "./desktopClient";
 import { usePhoneCompanion } from "./usePhoneCompanion";
 import { useDormMealReminder } from "./useDormMealReminder";
+import { useMatchReminder } from "./useMatchReminder";
 import { PhoneCommands } from "./components/PhoneCommands";
 import { useReminders } from "./useReminders";
 import { useNavigationHistory } from "./useNavigationHistory";
@@ -143,6 +144,7 @@ function App() {
   useEffect(() => { const refresh = () => { const value = loadProjectSnapshot(); setProjectStorage(value); setProjects(value.entries); }; window.addEventListener("ack-data-changed", refresh); return () => window.removeEventListener("ack-data-changed", refresh); }, []);
   useReminders(setNotice);
   useDormMealReminder(setNotice);
+  useMatchReminder(setNotice);
   usePhoneCompanion(restoring, setNotice, desktop.visible);
   useEffect(() => { const restored = (event: Event) => { const value = loadProjectSnapshot(); setProjectStorage(value); setProjects(value.entries); setPreferences(loadPreferences());  setAiPrompt(undefined); navigate({ page: "settings" }); void getDesktopStatus().then(desktop.setStatus).catch(() => {}); setNotice((event as CustomEvent).detail === "rollback" ? "Geri yükleme tamamlanamadı; önceki kayıtlar geri getirildi." : "Yedek başarıyla geri yüklendi."); }; window.addEventListener("ack-data-restored", restored); return () => window.removeEventListener("ack-data-restored", restored); }, [navigate, desktop.setStatus]);
   function changeProjects(next: Project[]) {

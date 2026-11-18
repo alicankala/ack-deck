@@ -3,6 +3,7 @@ import type { CloudRecord, Mutation } from "../../shared/phone";
 import type { AttendanceEntry } from "../../shared/studyAttendance";
 import type { StudyBlock } from "../../shared/studyPrograms";
 import { MobileDormMenuCard } from "./MobileDormMenuCard";
+import { MobileMatchCard } from "./MobileMatchCard";
 import { MobilePomodoroCard } from "./MobilePomodoroCard";
 import { MobilePrayerCard } from "./MobilePrayerCard";
 import { MobileTodayHero } from "./MobileShellParts";
@@ -116,6 +117,11 @@ export function MobileTodayView({
       <MobileDormMenuCard
         isCollapsed={isCollapsed("dormMenu")}
         onToggleCollapse={() => toggleCard("dormMenu")}
+      />
+
+      <MobileMatchCard
+        isCollapsed={isCollapsed("matches")}
+        onToggleCollapse={() => toggleCard("matches")}
       />
 
       <MobilePomodoroCard

@@ -1,0 +1,155 @@
+
+/* Mobile Match Card */
+.mobile-match-card {
+  background: var(--surface, #161b22);
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.09));
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mobile-match-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mobile-match-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mobile-match-title-group h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.mobile-match-sub {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--muted, #8b949e);
+}
+
+.mobile-match-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.mobile-match-toggle-btn,
+.mobile-match-refresh-btn {
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text, #e6edf3);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mobile-match-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobile-match-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mobile-match-group-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted, #8b949e);
+}
+
+.mobile-match-group-label.is-galatasaray { color: #fbbf24; }
+.mobile-match-group-label.is-turkey { color: #f87171; }
+
+.mobile-match-row {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 11px;
+  padding: 9px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.mobile-match-row.is-today {
+  border-color: rgba(96, 165, 250, 0.45);
+  background: rgba(96, 165, 250, 0.09);
+}
+
+.mobile-match-row-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mobile-match-pill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 5px;
+  flex-shrink: 0;
+}
+.mobile-match-pill.is-galatasaray { background: rgba(245, 158, 11, 0.18); color: #fbbf24; }
+.mobile-match-pill.is-turkey { background: rgba(239, 68, 68, 0.18); color: #f87171; }
+
+.mobile-match-title {
+  font-size: 0.86rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-match-row-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mobile-match-when {
+  font-size: 0.75rem;
+  color: var(--muted, #8b949e);
+}
+
+.mobile-match-when.is-today {
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+.mobile-match-channel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mobile-match-empty {
+  font-size: 0.78rem;
+  color: var(--muted, #8b949e);
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}

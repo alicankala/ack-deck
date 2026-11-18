@@ -5,6 +5,7 @@ import { loadNotificationPreferences, saveNotificationPreferences } from "../not
 import { notifyDesktop } from "../desktopClient";
 import { phoneRequest, phoneStatus, type PhoneStatus } from "../phoneClient";
 import { DESKTOP_CHANNELS, MOBILE_CHANNELS, NotificationChannelGroup } from "./NotificationChannelGroup";
+import { MatchNotificationCard } from "./MatchNotificationCard";
 import { NotificationDevicesCard, type NotificationDevice } from "./NotificationDevicesCard";
 import "./notificationSettings.css";
 
@@ -18,10 +19,7 @@ export function NotificationSettings() {
   const feedbackTimerRef = useRef<number | null>(null);
 
   function clearFeedbackTimer() {
-    if (feedbackTimerRef.current !== null) {
-      window.clearTimeout(feedbackTimerRef.current);
-      feedbackTimerRef.current = null;
-    }
+    if (feedbackTimerRef.current !== null) { window.clearTimeout(feedbackTimerRef.current); feedbackTimerRef.current = null; }
   }
 
   function showFeedback(kind: "success" | "error", text: string, autoClearMs?: number) {
@@ -76,11 +74,12 @@ export function NotificationSettings() {
 
   function toggleAll(enable: boolean) {
     const next: NotificationPreferences = {
+      ...prefs,
       desktopMaster: enable, mobileMaster: enable,
       desktopTasks: enable, desktopStudy: enable, desktopPrayers: enable,
-      desktopPomodoro: enable, desktopDormMenu: enable, desktopSubscriptions: enable,
+      desktopPomodoro: enable, desktopDormMenu: enable, desktopSubscriptions: enable, desktopMatches: enable,
       mobileTasks: enable, mobileStudy: enable, mobilePrayers: enable,
-      mobileDormMenu: enable, mobileSubscriptions: enable,
+      mobileDormMenu: enable, mobileSubscriptions: enable, mobileMatches: enable,
     };
     if (saveNotificationPreferences(next)) {
       setPrefs(next);
@@ -156,11 +155,11 @@ export function NotificationSettings() {
           <div className="notification-status-summary">
             <strong>Durum Özeti: </strong>
             <span className={`notification-status-chip ${prefs.desktopMaster ? "is-desktop-on" : "is-off"}`}>
-              Masaüstü {prefs.desktopMaster ? `(${activeDesktopCount}/6 aktif)` : "(Kapalı)"}
+              Masaüstü {prefs.desktopMaster ? `(${activeDesktopCount}/7 aktif)` : "(Kapalı)"}
             </span>
             {" · "}
             <span className={`notification-status-chip ${prefs.mobileMaster ? "is-mobile-on" : "is-off"}`}>
-              Mobil Push {prefs.mobileMaster ? `(${activeMobileCount}/5 aktif)` : "(Kapalı)"}
+              Mobil Push {prefs.mobileMaster ? `(${activeMobileCount}/6 aktif)` : "(Kapalı)"}
             </span>
           </div>
 
@@ -233,6 +232,9 @@ export function NotificationSettings() {
           onTestDevicePush={handleTestDevicePush}
         />
       </NotificationChannelGroup>
+
+      {/* Match Reminder Preferences */}
+      <MatchNotificationCard prefs={prefs} onUpdate={updatePrefs} />
 
       {/* Helpful Tips & Focus Mode Info */}
       <section className="settings-card surface local-settings notification-tips-card">

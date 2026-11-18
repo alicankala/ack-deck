@@ -44,6 +44,12 @@ export const DESKTOP_CHANNELS: readonly ChannelOption[] = [
     description:
       "Yenileme ve ödeme günü yaklaşan aboneliklerinizin tutar ve tarihini masaüstünde önceden hatırlatır.",
   },
+  {
+    key: "desktopMatches",
+    title: "Maç Hatırlatıcıları (Galatasaray & A Milli)",
+    description:
+      "Galatasaray ve Türkiye A Milli futbol maçlarından önce saat ve yayıncı kanal bilgisini tek bir bildirimle hatırlatır.",
+  },
 ];
 
 export const MOBILE_CHANNELS: readonly ChannelOption[] = [
@@ -76,6 +82,12 @@ export const MOBILE_CHANNELS: readonly ChannelOption[] = [
     title: "Mobil Abonelik & Ödeme Günü Hatırlatıcıları",
     description:
       "Fatura veya yenileme tarihi yaklaşan aboneliklerinizin tutar bilgisini telefon kilit ekranınıza gönderir.",
+  },
+  {
+    key: "mobileMatches",
+    title: "Mobil Maç Hatırlatıcıları (Galatasaray & A Milli)",
+    description:
+      "Maç başlamadan önce saat ve yayıncı kanal bilgisini telefonunuza tek bir push bildirimi olarak iletir.",
   },
 ];
 
@@ -136,7 +148,7 @@ export function NotificationChannelGroup({
           <label key={item.key} className="notification-channel-row">
             <input
               type="checkbox"
-              checked={prefs[item.key]}
+              checked={prefs[item.key] !== false}
               disabled={!masterEnabled}
               onChange={(e) => onToggleChannel(item.key, e.target.checked)}
             />

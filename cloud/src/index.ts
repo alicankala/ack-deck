@@ -6,6 +6,7 @@ import { ApiError, boundedBytes, equalSecret, hash, jsonBody, pushEndpoint, rand
 import { mutate, ensureSyncTables } from "./sync";
 import { recordView, type Actor, type Env, type RecordRow } from "./types";
 import { runReminders, sendNotification, PushFailure } from "./reminders";
+import { getMatchesWithCache } from "./matches";
 import { searchPublicMedia, fetchImdbRating } from "./mediaSearch";
 import {
   saveEncryptedGeminiKey,
@@ -172,6 +173,19 @@ async function boundedImageBytes(response: Response, max = MAX_PROXY_IMAGE_BYTES
 async function handle(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url), path = url.pathname, now = Date.now();
   if (url.protocol !== "https:" && !["localhost","127.0.0.1"].includes(url.hostname)) throw new ApiError(400,"Güvenli bağlantı gereklidir.");
+  if (path === "/api/matches" && request.method === "GET") {
+    const force = url.searchParams.get("force") === "1";
+    try {
+      const ipHash = await clientIpHash(request, env);
+      await rate(env, `matches:${ipHash}`, 30, 60);
+      if (force) await rate(env, `matches-force:${ipHash}`, 4, 300);
+    } catch (err) {
+      if (err instanceof ApiError) return corsReply({ ok: false, error: err.message }, err.status);
+      throw err;
+    }
+    const payload = await getMatchesWithCache(env.ATTACHMENTS, force, now);
+    return corsReply({ ok: true, ...payload });
+  }
   if (path === "/api/dorm-menu" && request.method === "GET") {
     const force = url.searchParams.get("force") === "1";
     try {
@@ -706,6 +720,26 @@ async function handle(request: Request, env: Env): Promise<Response> {
     };
     await env.DB.prepare("UPDATE desktop_state SET prayer_config=? WHERE id=1").bind(JSON.stringify(nextPrayerConfig)).run();
     return reply({ ok: true });
+  }
+  if (path === "/api/match-preferences" && request.method === "POST") {
+    const body = await jsonBody(request);
+    if (!object(body)) throw new ApiError(400, "Maç bildirim tercihleri geçersiz.");
+    const allowedKeys = ["mobileMatches", "matchTeamGalatasaray", "matchTeamTurkey", "matchLeadMinutes"];
+    if (!Object.keys(body).every(k => allowedKeys.includes(k))) throw new ApiError(400, "Geçersiz tercih alanı.");
+    if (body.mobileMatches !== undefined && typeof body.mobileMatches !== "boolean") throw new ApiError(400, "Geçersiz değer.");
+    if (body.matchTeamGalatasaray !== undefined && typeof body.matchTeamGalatasaray !== "boolean") throw new ApiError(400, "Geçersiz değer.");
+    if (body.matchTeamTurkey !== undefined && typeof body.matchTeamTurkey !== "boolean") throw new ApiError(400, "Geçersiz değer.");
+    if (body.matchLeadMinutes !== undefined && (typeof body.matchLeadMinutes !== "number" || ![15, 30, 60].includes(body.matchLeadMinutes))) {
+      throw new ApiError(400, "Geçersiz erken uyarı süresi.");
+    }
+    const cur = await env.DB.prepare("SELECT notification_preferences FROM desktop_state WHERE id=1").first<{ notification_preferences?: string | null }>().catch(() => null);
+    let existing: Record<string, unknown> = {};
+    if (cur?.notification_preferences) {
+      try { const p = JSON.parse(cur.notification_preferences); if (p && typeof p === "object") existing = p as Record<string, unknown>; } catch {}
+    }
+    const merged = { ...existing, ...body };
+    await env.DB.prepare("UPDATE desktop_state SET notification_preferences=? WHERE id=1").bind(JSON.stringify(merged)).run();
+    return reply({ ok: true, notificationPreferences: merged });
   }
   if (path === "/api/workspaces" && request.method === "GET") return reply({ workspaces:(await env.DB.prepare("SELECT id,name,icon,description FROM workspace_mirrors ORDER BY name LIMIT 100").all()).results });
   if (path === "/api/workspaces" && request.method === "POST") {

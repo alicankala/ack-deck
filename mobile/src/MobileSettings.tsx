@@ -53,6 +53,46 @@ export function MobileSettings({
   const [pinDraft2, setPinDraft2] = useState("");
   const [pinError, setPinError] = useState("");
   const [bioSupported, setBioSupported] = useState(false);
+  const [matchPrefs, setMatchPrefs] = useState<{
+    mobileMatches: boolean;
+    matchTeamGalatasaray: boolean;
+    matchTeamTurkey: boolean;
+    matchLeadMinutes: number;
+  }>({
+    mobileMatches: true,
+    matchTeamGalatasaray: true,
+    matchTeamTurkey: true,
+    matchLeadMinutes: 30,
+  });
+
+  useEffect(() => {
+    if (!state.token) return;
+    void api<{ notificationPreferences?: Record<string, unknown> }>(state, "status")
+      .then(res => {
+        const np = res?.notificationPreferences;
+        if (np && typeof np === "object") {
+          setMatchPrefs({
+            mobileMatches: np.mobileMatches !== false,
+            matchTeamGalatasaray: np.matchTeamGalatasaray !== false,
+            matchTeamTurkey: np.matchTeamTurkey !== false,
+            matchLeadMinutes:
+              typeof np.matchLeadMinutes === "number" && [15, 30, 60].includes(np.matchLeadMinutes)
+                ? np.matchLeadMinutes
+                : 30,
+          });
+        }
+      })
+      .catch(() => {});
+  }, [state.token]);
+
+  function updateMatchPref(patch: Partial<typeof matchPrefs>) {
+    const next = { ...matchPrefs, ...patch };
+    setMatchPrefs(next);
+    if (!state.token) return;
+    void api(state, "match-preferences", json(patch))
+      .then(() => onNotice("Maç bildirim tercihi güncellendi."))
+      .catch(e => onError(e instanceof Error ? e.message : "Maç bildirim tercihi kaydedilemedi."));
+  }
 
   useEffect(() => {
     void isBiometricsAvailable().then(setBioSupported);
@@ -285,6 +325,56 @@ export function MobileSettings({
             </button>
           )}
         </div>
+        <div className="settings-row">
+          <span>Maç Bildirimleri (Mobil Push)</span>
+          <label className="settings-switch">
+            <input
+              type="checkbox"
+              checked={matchPrefs.mobileMatches}
+              onChange={e => updateMatchPref({ mobileMatches: e.target.checked })}
+            />
+            <span className="slider" />
+          </label>
+        </div>
+        {matchPrefs.mobileMatches && (
+          <>
+            <div className="settings-row">
+              <span>Galatasaray Maçları</span>
+              <label className="settings-switch">
+                <input
+                  type="checkbox"
+                  checked={matchPrefs.matchTeamGalatasaray}
+                  onChange={e => updateMatchPref({ matchTeamGalatasaray: e.target.checked })}
+                />
+                <span className="slider" />
+              </label>
+            </div>
+            <div className="settings-row">
+              <span>Türkiye A Milli Maçları</span>
+              <label className="settings-switch">
+                <input
+                  type="checkbox"
+                  checked={matchPrefs.matchTeamTurkey}
+                  onChange={e => updateMatchPref({ matchTeamTurkey: e.target.checked })}
+                />
+                <span className="slider" />
+              </label>
+            </div>
+            <div className="settings-row">
+              <label htmlFor="mobile-match-lead-select">Maç Öncesi Uyarı</label>
+              <select
+                id="mobile-match-lead-select"
+                className="settings-select"
+                value={matchPrefs.matchLeadMinutes}
+                onChange={e => updateMatchPref({ matchLeadMinutes: Number(e.target.value) })}
+              >
+                <option value={15}>15 dk önce</option>
+                <option value={30}>30 dk önce</option>
+                <option value={60}>60 dk önce</option>
+              </select>
+            </div>
+          </>
+        )}
       </section>
 
       {/* 4. Güvenlik & Kilit (Face ID / Şifre) */}

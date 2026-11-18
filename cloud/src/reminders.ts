@@ -2,6 +2,8 @@ import { nextOccurrence, type Recurrence } from "../../shared/recurrence";
 import { subscriptionReminder, money, type Subscription } from "../../shared/subscriptions";
 import { calculatePrayerTimes } from "../../shared/prayerTimes";
 import { findMenuForDate, turkeyDateKey, type DormMenuRecord } from "../../shared/dormMenu";
+import { formatMatchChannels, type MatchesPayload } from "../../shared/matches";
+import { getMatchesWithCache } from "./matches";
 import type { StudyProgram } from "../../shared/studyPrograms";
 import type { StudyAttendanceDay } from "../../shared/studyAttendance";
 import type { PhoneTask } from "../../shared/phone";
@@ -62,7 +64,7 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
     }
   }
 
-  let notifPrefs: Record<string, boolean> = {};
+  let notifPrefs: Record<string, any> = {};
   if (pcState?.notification_preferences) {
     try {
       const p = JSON.parse(pcState.notification_preferences);
@@ -75,6 +77,11 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
   const mobilePrayers = mobileMaster && notifPrefs.mobilePrayers !== false;
   const mobileStudy = mobileMaster && notifPrefs.mobileStudy !== false;
   const mobileDormMenu = mobileMaster && notifPrefs.mobileDormMenu !== false;
+  const mobileMatches = mobileMaster && notifPrefs.mobileMatches !== false;
+  const matchTeamGalatasaray = notifPrefs.matchTeamGalatasaray !== false;
+  const matchTeamTurkey = notifPrefs.matchTeamTurkey !== false;
+  const rawLead = notifPrefs.matchLeadMinutes;
+  const matchLeadMinutes = typeof rawLead === "number" && [15, 30, 60].includes(rawLead) ? rawLead : 30;
 
   const rows = await env.DB.prepare(`SELECT r.task_id,r.generation,r.due_at,r.kind,t.data,p.device_id,p.subscription FROM reminders r
     JOIN (SELECT kind,id,data,deleted FROM records UNION ALL SELECT kind,'subscription:'||id AS id,data,deleted FROM subscriptions) t ON t.kind=r.kind AND t.id=r.task_id AND t.deleted=0
@@ -339,6 +346,68 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
         }
     } catch (error) {
     console.warn("Dorm menu reminder processing error:", error);
+  }
+
+  // Match reminder push notifications (Galatasaray & A Milli)
+  try {
+    if (mobileMatches && (matchTeamGalatasaray || matchTeamTurkey)) {
+      const cached = (await env.ATTACHMENTS.get("matches:cache", "json").catch(() => null)) as MatchesPayload | null;
+      const matchesPayload =
+        cached && Array.isArray(cached.matches) && now - cached.updatedAt < 6 * 3600 * 1000
+          ? cached
+          : menuFetch === fetch
+            ? await getMatchesWithCache(env.ATTACHMENTS, false, now).catch(() => null)
+            : cached;
+
+      const leadMs = matchLeadMinutes * 60_000;
+      const dueMatches = (matchesPayload?.matches ?? []).filter((m) => {
+        if (m.team === "galatasaray" && !matchTeamGalatasaray) return false;
+        if (m.team === "turkey" && !matchTeamTurkey) return false;
+        const notifyAt = m.timestampMs - leadMs;
+        return notifyAt <= now && notifyAt >= now - 10 * 60_000 && now <= m.timestampMs + 5 * 60_000;
+      });
+
+      if (dueMatches.length > 0) {
+        const devices = await env.DB.prepare(
+          "SELECT p.device_id, p.subscription FROM push_subscriptions p JOIN devices d ON d.id=p.device_id WHERE p.active=1 AND d.revoked_at IS NULL",
+        ).all<{ device_id: string; subscription: string }>();
+
+        for (const match of dueMatches) {
+          const gen = `match:${match.id}:lead:${matchLeadMinutes}`;
+          const channelText = formatMatchChannels(match);
+          const body = `⚽ ${match.home} - ${match.away} (${matchLeadMinutes} dk sonra · ${match.time})\nYayın: ${channelText}`;
+          for (const device of devices.results) {
+            const claim = await env.DB.prepare(
+              "INSERT INTO reminder_deliveries(generation,device_id,state,attempts,retry_at) VALUES(?,?,'sending',1,0) ON CONFLICT(generation,device_id) DO UPDATE SET state='sending',attempts=attempts+1 WHERE state='retry' AND retry_at<=? AND attempts<3 RETURNING generation",
+            )
+              .bind(gen, device.device_id, now)
+              .first();
+            if (!claim) continue;
+            try {
+              const response = await send(env, device.subscription, {
+                title: "ACKDeck · Maç Hatırlatması",
+                body: body.slice(0, 280),
+                url: "/#page=today",
+                tag: gen,
+              });
+              if ([404, 410].includes(response.status)) {
+                await env.DB.prepare("UPDATE push_subscriptions SET active=0 WHERE device_id=?").bind(device.device_id).run();
+              }
+              const state = response.ok ? "sent" : response.status === 429 || response.status >= 500 ? "retry" : "failed";
+              await env.DB.prepare("UPDATE reminder_deliveries SET state=?,retry_at=? WHERE generation=? AND device_id=?")
+                .bind(state, now + 120000, gen, device.device_id)
+                .run();
+            } catch {
+              await env.DB.prepare("UPDATE reminder_deliveries SET state='uncertain' WHERE generation=? AND device_id=?")
+                .bind(gen, device.device_id)
+                .run();
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.warn("Match reminder processing error:", error);
   }
 
   // Advance the notification cursor only, not the user's overdue task. The

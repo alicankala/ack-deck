@@ -8,6 +8,7 @@ import { loadStudyAttendance, setStudyBlockStatus, cycleAttendanceStatus } from 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Header } from "./Header";
 import { PomodoroTimer } from "./PomodoroTimer";
+import { MatchWidget } from "./MatchWidget";
 import { Icon, type IconName } from "./Icon";
 import { loadDashboardData, relativeUseTime, todayTasks } from "../dashboardData";
 import { localDateKey } from "../taskStore";
@@ -588,9 +589,10 @@ export function Dashboard({ onNavigate, onAskAi, targetId }: Props) {
           </aside>
         </div>
 
-        {/* Alt Şerit: Tam Genişlik Pomodoro Odak Sayacı */}
-        <div className="dashboard-grid-row row-pomodoro">
+        {/* Alt Şerit: Pomodoro Odak Sayacı + Maç Takvimi Yan Yana */}
+        <div className="dashboard-grid-row row-pomodoro dashboard-bottom-split">
           <PomodoroTimer />
+          <MatchWidget />
         </div>
       </div>
     </div>
