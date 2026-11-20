@@ -51,6 +51,7 @@ import "./styles/dashboard-tasks.css";
 import "./styles/widgets-titlebar.css";
 import "./styles/media-overview.css";
 import "./styles/media-tracker.css";
+import "./styles/media-showcase.css";
 import "./styles/media-modals.css";
 import "./styles/update-settings.css";
 import "./components/ackAi.css";

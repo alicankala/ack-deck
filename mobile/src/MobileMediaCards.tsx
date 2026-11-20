@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import "./styles/media-showcase.css";
 import {
   MEDIA_STATUS_LABELS,
   MEDIA_TYPE_ICONS,

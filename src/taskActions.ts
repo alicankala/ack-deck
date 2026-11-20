@@ -1,39 +1,24 @@
 import {
-  completedTaskSortTime,
   completeOccurrence,
   isOccurrenceCompleted,
   nextOccurrence,
-  scheduleDate,
   uncompleteOccurrence,
 } from "../shared/recurrence";
+import {
+  SHARED_TASK_FILTERS,
+  filterAndSortTaskItems,
+  filterLessonsForTaskTab as sharedFilterLessonsForTaskTab,
+} from "../shared/taskFilters";
 import type { StudyBlock } from "../shared/studyPrograms";
 import type { AttendanceEntry } from "../shared/studyAttendance";
 import { offerUndo } from "./recordUndo";
-import { filterTasks, loadTasks, localDateKey, saveTasks, taskDueAt, type Task, type TaskFilter } from "./taskStore";
+import { loadTasks, localDateKey, saveTasks, taskDueAt, type Task, type TaskFilter } from "./taskStore";
 
-export const TASK_FILTERS: [TaskFilter, string][] = [
-  ["all", "Aktif"],
-  ["today", "Bugün"],
-  ["upcoming", "Yaklaşan"],
-  ["undated", "Tarihsiz"],
-  ["completed", "Tamamlanan"],
-];
+export const TASK_FILTERS = SHARED_TASK_FILTERS;
 
 /** Filters and sorts desktop tasks consistently across Tasks page and Dashboard card. */
 export function filterAndSortTasks(tasks: Task[], filter: TaskFilter, today = localDateKey()): Task[] {
-  const filtered = filterTasks(tasks, filter, today);
-  if (filter === "completed") {
-    return [...filtered].sort((a, b) => completedTaskSortTime(b) - completedTaskSortTime(a));
-  }
-  const taskDate = (t: Task) => (t.recurrence ? scheduleDate(t) : t.dueDate) || "9999-99-99";
-  const taskTime = (t: Task) => t.dueTime || "99:99";
-  return [...filtered].sort((a, b) => {
-    const dateDiff = taskDate(a).localeCompare(taskDate(b));
-    if (dateDiff !== 0) return dateDiff;
-    const timeDiff = taskTime(a).localeCompare(taskTime(b));
-    if (timeDiff !== 0) return timeDiff;
-    return a.text.localeCompare(b.text, "tr");
-  });
+  return filterAndSortTaskItems(tasks, filter, today);
 }
 
 /** Filters study blocks for the active task tab. */
@@ -44,14 +29,7 @@ export function filterLessonsForTaskTab(
   attendance: Record<string, AttendanceEntry>,
   today = localDateKey()
 ): StudyBlock[] {
-  if (filter === "all" || filter === "today") return todayLessons;
-  if (filter === "upcoming") return weekLessons.filter(b => b.date > today);
-  if (filter === "completed") {
-    return weekLessons
-      .filter(b => Boolean(attendance[b.id]?.status))
-      .sort((a, b) => (attendance[b.id]?.at ?? 0) - (attendance[a.id]?.at ?? 0));
-  }
-  return [];
+  return sharedFilterLessonsForTaskTab(filter, todayLessons, weekLessons, attendance, today);
 }
 
 /** Validates and persists a task editor draft, checking for cross-device conflicts and recurrence rules. */
