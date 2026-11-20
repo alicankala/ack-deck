@@ -93,7 +93,7 @@ export function MediaAiAssistant({ items, onAddItem, onUpdateItem, onClose }: Pr
 
     // 1. Diverse, recency-weighted sampling of top favorites (max 10 items)
     const completedHighRated = items
-      .filter((i) => i.status === "completed" && (i.rating ?? 0) >= 7)
+      .filter((i) => i.status === "completed" && (i.rating ?? 0) >= 6)
       .sort((a, b) => (b.completedDate || "").localeCompare(a.completedDate || "") || (b.updatedAt || 0) - (a.updatedAt || 0));
 
     const sampledFavorites: MediaItem[] = [];
@@ -111,8 +111,8 @@ export function MediaAiAssistant({ items, onAddItem, onUpdateItem, onClose }: Pr
       setLoading(false);
       setErrorMessage(
         typeFilter === "all"
-          ? "Zevkine göre öneri yapabilmek için koleksiyonunda henüz yeterli veri bulunamadı. Zevkini analiz edebilmem için tamamladığın ve beğendiğin (7+ puan verdiğin) en az bir eser eklemelisin."
-          : `Zevkine göre öneri yapabilmek için koleksiyonunda ${MEDIA_TYPE_LABELS[typeFilter]} türünde henüz yeterli veri bulunamadı. Zevkini analiz edebilmem için tamamladığın ve beğendiğin (7+ puan verdiğin) en az bir ${MEDIA_TYPE_LABELS[typeFilter].toLowerCase()} eklemelisin.`
+          ? "Zevkine göre öneri yapabilmek için koleksiyonunda henüz yeterli veri bulunamadı. Zevkini analiz edebilmem için tamamladığın ve beğendiğin (6+ puan verdiğin) en az bir eser eklemelisin."
+          : `Zevkine göre öneri yapabilmek için koleksiyonunda ${MEDIA_TYPE_LABELS[typeFilter]} türünde henüz yeterli veri bulunamadı. Zevkini analiz edebilmem için tamamladığın ve beğendiğin (6+ puan verdiğin) en az bir ${MEDIA_TYPE_LABELS[typeFilter].toLowerCase()} eklemelisin.`
       );
       return;
     }

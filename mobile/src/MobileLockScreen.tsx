@@ -126,12 +126,15 @@ export function MobileLockScreen({ onUnlock }: { onUnlock: () => void }) {
     let cancelled = false;
     let promptStarted = false;
 
-    // Prompt once on initial mount after view transition
+    // Prompt once on initial mount with minimal delay so iOS WebAuthn triggers cleanly
     const timer = setTimeout(async () => {
       if (cancelled) return;
       promptStarted = true;
-      await performBioAuth(cfg.biometricsCredentialId);
-    }, 280);
+      const ok = await performBioAuth(cfg.biometricsCredentialId);
+      if (!ok && mountedRef.current && !unlockedRef.current) {
+        setErrorMsg("Face ID için aşağıdaki Face ID butonuna dokunun.");
+      }
+    }, 60);
 
     return () => {
       cancelled = true;

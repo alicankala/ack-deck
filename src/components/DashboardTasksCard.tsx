@@ -15,7 +15,6 @@ import {
   deleteTaskRecord,
   filterAndSortTasks,
   filterLessonsForTaskTab,
-  snoozeTaskRecord,
   toggleTaskRecordCompletion,
 } from "../taskActions";
 import type { Task, TaskFilter, TaskLoad } from "../taskStore";
@@ -57,13 +56,6 @@ export function DashboardTasksCard({
   function handleToggleTask(taskId: string) {
     if (tasksLoad.locked) return;
     const res = toggleTaskRecordCompletion(taskId);
-    if (res.ok) onError("");
-    else onError(res.error);
-  }
-
-  function handleSnooze(task: Task, minutes: number) {
-    if (tasksLoad.locked) return;
-    const res = snoozeTaskRecord(task, minutes);
     if (res.ok) onError("");
     else onError(res.error);
   }
@@ -223,15 +215,7 @@ export function DashboardTasksCard({
                   </button>
 
                   <div className="dashboard-tasks-main">
-                    <button
-                      type="button"
-                      className="dashboard-tasks-content"
-                      disabled={tasksLoad.locked}
-                      onClick={() => {
-                        setEditor({ ...task });
-                        setDeleteId(null);
-                      }}
-                    >
+                    <div className="dashboard-tasks-content">
                       <strong>{task.text}</strong>
                       <small>
                         {isTaskDone && (
@@ -255,7 +239,7 @@ export function DashboardTasksCard({
                         {hasEarlyReminder && ` · ${task.reminderLeadMinutes} dk önce`}
                         {task.snoozedUntil && " · Ertelendi"}
                       </small>
-                    </button>
+                    </div>
 
                     {deleteId === task.id && (
                       <div className="task-delete-confirm">
@@ -282,7 +266,7 @@ export function DashboardTasksCard({
                   )}
 
                   <ActionMenu label={task.text + " işlemleri"}>
-                    {isTaskDone ? (
+                    {isTaskDone && (
                       <button
                         type="button"
                         disabled={tasksLoad.locked}
@@ -290,21 +274,6 @@ export function DashboardTasksCard({
                       >
                         Yeniden Aç
                       </button>
-                    ) : (
-                      task.dueDate &&
-                      task.dueTime && (
-                        <>
-                          <button type="button" disabled={tasksLoad.locked} onClick={() => handleSnooze(task, 15)}>
-                            15 dakika ertele
-                          </button>
-                          <button type="button" disabled={tasksLoad.locked} onClick={() => handleSnooze(task, 60)}>
-                            1 saat ertele
-                          </button>
-                          <button type="button" disabled={tasksLoad.locked} onClick={() => handleSnooze(task, 1440)}>
-                            Yarın hatırlat
-                          </button>
-                        </>
-                      )
                     )}
                     <button
                       type="button"

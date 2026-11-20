@@ -16,6 +16,7 @@ import { loadStudyPrograms } from "../studyProgramStore";
 import { studyBlocks, WEEKDAY_SHORT } from "../../shared/studyPrograms";
 import { weekDates } from "../../shared/weeklyPlan";
 import { MEDIA_STATUS_LABELS, MEDIA_TYPE_ICONS, MEDIA_TYPE_LABELS } from "../../shared/media";
+import { buildMediaSections, seriesCountLabel } from "../../shared/mediaGrouping";
 import type { Project } from "../projectStore";
 import type { NavigationTarget } from "../navigation";
 
@@ -299,6 +300,7 @@ export function Dashboard({ onNavigate, onAskAi, targetId }: Props) {
     };
   })();
 
+  const hasActiveStudyProgram = studyData.entries.some(p => p.active);
   const totalWeekLessons = allBlocks.length;
   const attendedWeekLessons = allBlocks.filter(b => attendance[b.id]?.status === "attended").length;
   const skippedWeekLessons = allBlocks.filter(b => attendance[b.id]?.status === "skipped").length;
@@ -314,23 +316,38 @@ export function Dashboard({ onNavigate, onAskAi, targetId }: Props) {
     icon: IconName;
     target: NavigationTarget;
   } => {
-    const latestNote = data.notes.slice().sort((a, b) => b.updatedAt - a.updatedAt)[0];
-    const latestMedia = data.media.slice().sort((a, b) => b.updatedAt - a.updatedAt)[0];
+    const mediaSections = buildMediaSections(data.media, { groupSeries: true });
+    const inProgressSection = mediaSections.find(s => s.status === "in_progress");
+    const activeEntry = inProgressSection?.entries[0];
 
-    if (latestMedia && (!latestNote || latestMedia.updatedAt >= latestNote.updatedAt)) {
-      const detailParts = [MEDIA_STATUS_LABELS[latestMedia.status]];
-      if (latestMedia.progress?.trim()) detailParts.push(latestMedia.progress.trim());
-      if (latestMedia.rating) detailParts.push(`★ ${latestMedia.rating}/10`);
+    if (activeEntry) {
+      if (activeEntry.kind === "series") {
+        const nextItem =
+          activeEntry.items.find(i => i.status === "in_progress") ??
+          activeEntry.items.find(i => i.status === "planned");
+        return {
+          eyebrow: `Devam Eden ${MEDIA_TYPE_LABELS[activeEntry.type]} Serisi`,
+          badge: seriesCountLabel(activeEntry.items),
+          title: `${MEDIA_TYPE_ICONS[activeEntry.type]} ${activeEntry.title}`,
+          meta: nextItem ? `Sıradaki: ${nextItem.title}` : "Koleksiyonu açmak için tıkla",
+          icon: "archive",
+          target: { page: "media" },
+        };
+      }
+      const item = activeEntry.item;
+      const detailParts = [MEDIA_STATUS_LABELS[item.status]];
+      if (item.progress?.trim()) detailParts.push(item.progress.trim());
       return {
-        eyebrow: `Son Koleksiyon · ${MEDIA_TYPE_LABELS[latestMedia.type]}`,
-        badge: relativeUseTime(latestMedia.updatedAt, now.getTime()),
-        title: `${MEDIA_TYPE_ICONS[latestMedia.type]} ${latestMedia.title}`,
+        eyebrow: `Devam Ediyor · ${MEDIA_TYPE_LABELS[item.type]}`,
+        badge: relativeUseTime(item.updatedAt, now.getTime()),
+        title: `${MEDIA_TYPE_ICONS[item.type]} ${item.title}`,
         meta: detailParts.join(" · "),
         icon: "archive",
         target: { page: "media" },
       };
     }
 
+    const latestNote = data.notes.slice().sort((a, b) => b.updatedAt - a.updatedAt)[0];
     if (latestNote) {
       const snippet = latestNote.content.replace(/\s+/g, " ").trim().slice(0, 68);
       return {
@@ -340,6 +357,20 @@ export function Dashboard({ onNavigate, onAskAi, targetId }: Props) {
         meta: snippet || "Notu açmak için tıkla",
         icon: "note",
         target: { page: "notes", id: latestNote.id },
+      };
+    }
+
+    const latestMedia = data.media.slice().sort((a, b) => b.updatedAt - a.updatedAt)[0];
+    if (latestMedia) {
+      const detailParts = [MEDIA_STATUS_LABELS[latestMedia.status]];
+      if (latestMedia.rating) detailParts.push(`★ ${latestMedia.rating}/10`);
+      return {
+        eyebrow: `Koleksiyon · ${MEDIA_TYPE_LABELS[latestMedia.type]}`,
+        badge: relativeUseTime(latestMedia.updatedAt, now.getTime()),
+        title: `${MEDIA_TYPE_ICONS[latestMedia.type]} ${latestMedia.title}`,
+        meta: detailParts.join(" · "),
+        icon: "archive",
+        target: { page: "media" },
       };
     }
 
@@ -406,11 +437,15 @@ export function Dashboard({ onNavigate, onAskAi, targetId }: Props) {
                   {totalWeekLessons > 0 ? "Haftalık ders ilerlemesi" : "Haftalık ders planı"}
                 </span>
                 <span className="live-overview-badge">
-                  {totalWeekLessons > 0 ? `%${weekProgressPct}` : "Planla"}
+                  {totalWeekLessons > 0 ? `%${weekProgressPct}` : hasActiveStudyProgram ? "Bu hafta boş" : "Planla"}
                 </span>
               </span>
               <strong className="live-overview-title">
-                {totalWeekLessons > 0 ? `${attendedWeekLessons} / ${totalWeekLessons} ders çalışıldı` : "Ders programı eklenmedi"}
+                {totalWeekLessons > 0
+                  ? `${attendedWeekLessons} / ${totalWeekLessons} ders çalışıldı`
+                  : hasActiveStudyProgram
+                    ? "Bu hafta ders yok"
+                    : "Ders programı eklenmedi"}
               </strong>
               {totalWeekLessons > 0 ? (
                 <span className="live-progress-wrap">
@@ -427,7 +462,9 @@ export function Dashboard({ onNavigate, onAskAi, targetId }: Props) {
                   </small>
                 </span>
               ) : (
-                <small className="live-overview-meta">Aylık Plan'dan ders çizelgesi ekle</small>
+                <small className="live-overview-meta">
+                  {hasActiveStudyProgram ? "Aktif programın Aylık Plan'da kayıtlı" : "Aylık Plan'dan ders çizelgesi ekle"}
+                </small>
               )}
             </span>
           </button>

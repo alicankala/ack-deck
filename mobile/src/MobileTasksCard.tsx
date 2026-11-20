@@ -52,7 +52,6 @@ export function MobileTasksCard({
   onOpenTask,
   onToggleStudyBlock,
   onCompleteTask,
-  onSnoozeTask,
   onDeleteTask,
 }: MobileTasksCardProps) {
   const [mobileTaskFilter, setMobileTaskFilter] = useState<TaskFilter>("all");
@@ -243,11 +242,7 @@ export function MobileTasksCard({
                   >
                     {isTaskDone && <Icon name="check" size={12} />}
                   </button>
-                  <button
-                    type="button"
-                    className="mobile-task-content"
-                    onClick={() => onOpenTask(row)}
-                  >
+                  <div className="mobile-task-content">
                     <strong>{task.text}</strong>
                     <small>
                       {isTaskDone && (
@@ -269,7 +264,7 @@ export function MobileTasksCard({
                       {hasEarlyReminder && ` · ${task.reminderLeadMinutes} dk önce`}
                       {task.snoozedUntil && " · Ertelendi"}
                     </small>
-                  </button>
+                  </div>
                   {isTaskDone && (
                     <button
                       type="button"
@@ -281,14 +276,12 @@ export function MobileTasksCard({
                     </button>
                   )}
                   <ActionMenu label={task.text + " işlemleri"}>
-                    {isTaskDone ? (
+                    {isTaskDone && (
                       <button disabled={busy} onClick={() => { if (!isTaskDone) hapticSuccess(); else hapticLight(); onCompleteTask(row); }}>Yeniden Aç</button>
-                    ) : (
-                      <>
-                        <button disabled={busy} onClick={() => onSnoozeTask(row, 15)}>15 dk ertele</button>
-                        <button disabled={busy} onClick={() => onSnoozeTask(row, 60)}>1 saat ertele</button>
-                      </>
                     )}
+                    <button disabled={busy} onClick={() => onOpenTask(row)}>
+                      Düzenle
+                    </button>
                     <button
                       disabled={busy}
                       className="danger-action"

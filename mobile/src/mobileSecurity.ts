@@ -337,15 +337,21 @@ export function isSecurityLocked(): boolean {
   return false;
 }
 
+let backgroundTimestamp = 0;
+let lastUnlockedAt = 0;
+
 export function unlockSecurity(): void {
+  backgroundTimestamp = 0;
+  lastUnlockedAt = Date.now();
   window.sessionStorage.setItem(SESSION_UNLOCKED_KEY, "true");
-  window.sessionStorage.setItem(LAST_ACTIVE_KEY, String(Date.now()));
+  window.sessionStorage.setItem(LAST_ACTIVE_KEY, String(lastUnlockedAt));
   window.dispatchEvent(new Event("ack-mobile-lock-state-changed"));
 }
 
 export function lockSecurity(): void {
   const cfg = loadSecurityConfig();
   if (!cfg.enabled) return;
+  backgroundTimestamp = 0;
   window.sessionStorage.removeItem(SESSION_UNLOCKED_KEY);
   window.dispatchEvent(new Event("ack-mobile-lock-state-changed"));
 }
@@ -355,18 +361,26 @@ export function updateLastActive(): void {
 }
 
 export function initAutoLockListener(): () => void {
-  let backgroundTimestamp = 0;
-
   function onVisibilityChange() {
-    if (biometricsInFlight) return;
     const cfg = loadSecurityConfig();
     if (!cfg.enabled) return;
 
     if (document.visibilityState === "hidden") {
-      backgroundTimestamp = Date.now();
-      updateLastActive();
+      if (biometricsInFlight) return;
+      if (window.sessionStorage.getItem(SESSION_UNLOCKED_KEY) === "true") {
+        backgroundTimestamp = Date.now();
+        updateLastActive();
+      }
     } else if (document.visibilityState === "visible") {
-      if (backgroundTimestamp > 0) {
+      if (biometricsInFlight) {
+        backgroundTimestamp = 0;
+        return;
+      }
+      if (Date.now() - lastUnlockedAt < 3000) {
+        backgroundTimestamp = 0;
+        return;
+      }
+      if (backgroundTimestamp > 0 && window.sessionStorage.getItem(SESSION_UNLOCKED_KEY) === "true") {
         const elapsed = (Date.now() - backgroundTimestamp) / 1000;
         if (cfg.autoLockTimeoutSeconds === 0 || elapsed >= cfg.autoLockTimeoutSeconds) {
           lockSecurity();

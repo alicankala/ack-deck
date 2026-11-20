@@ -1,4 +1,3 @@
-import { parseSmartCapture } from "../../shared/smartCapture";
 import { ActionMenu } from "./ActionMenu";
 import { TaskEditorDialog } from "./TaskEditorDialog";
 import { recurrenceLabel, scheduleDate, isOccurrenceCompleted, formatCompletedTime } from "../../shared/recurrence";
@@ -10,12 +9,11 @@ import {
   deleteTaskRecord,
   filterAndSortTasks,
   filterLessonsForTaskTab,
-  snoozeTaskRecord,
   toggleTaskRecordCompletion,
 } from "../taskActions";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "./Icon";
-import { loadTasks, localDateKey, saveTasks, type Task, type TaskFilter } from "../taskStore";
+import { loadTasks, localDateKey, type Task, type TaskFilter } from "../taskStore";
 
 export function Tasks({
   fullPage = false,
@@ -33,7 +31,6 @@ export function Tasks({
   const [error, setError] = useState(loaded.warning ?? "");
   const [studyData, setStudyData] = useState(loadStudyPrograms);
   const [attendance, setAttendance] = useState(() => loadStudyAttendance());
-  const [draft, setDraft] = useState("");
   const [editor, setEditor] = useState<Task | null>(null);
   const [filter, setFilter] = useState<TaskFilter>(() =>
     initialId && loadTasks().entries.some(task => task.id === initialId && task.completed) ? "completed" : "all"
@@ -65,39 +62,12 @@ export function Tasks({
 
   useEffect(() => {
     if (initialDate) setEditor({ ...newTask(""), dueDate: initialDate });
-    if (focusNew) document.getElementById("new-task")?.focus();
+    else if (focusNew) setEditor(newTask(""));
     if (initialId) document.getElementById("task-" + initialId)?.scrollIntoView({ block: "center" });
   }, [focusNew, initialId]);
 
-  function commit(next: Task[]) {
-    if (!saveTasks(next, loadTasks())) {
-      setError("Görevler kaydedilemedi. Mevcut veriler korunuyor.");
-      return false;
-    }
-    setTasks(next);
-    setError("");
-    return true;
-  }
-
   function newTask(text: string): Task {
     return { id: crypto.randomUUID(), text, completed: false, dueDate: null, dueTime: null, priority: "normal", reminder: false };
-  }
-
-  function addTask(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const text = draft.trim();
-    if (!text || loaded.locked) return;
-    const capture = parseSmartCapture(text, []);
-    if (capture?.kind === "task") {
-      const { kind: _, ...fields } = capture;
-      setEditor({ ...newTask(capture.text), ...fields });
-      return;
-    }
-    if (capture?.kind === "note") {
-      setError("Bu bir not taslağı. ACK AI veya hızlı yakalama üzerinden not olarak oluşturabilirsiniz.");
-      return;
-    }
-    if (commit([newTask(text), ...loadTasks().entries])) setDraft("");
   }
 
   const todayStr = localDateKey();
@@ -123,41 +93,25 @@ export function Tasks({
             <h2 id="tasks-heading">Yapılacaklar</h2>
           )}
         </div>
-        <span className="task-count">{remaining} KALDI</span>
-      </div>
-
-      <div className="task-capture-row">
-        <form className="task-form" onSubmit={addTask}>
-          <label className="sr-only" htmlFor="new-task">Hızlı görev ekle</label>
-          <Icon name="plus" size={18} />
-          <input
-            id="new-task"
-            value={draft}
-            onChange={event => setDraft(event.target.value)}
-            placeholder="Yapılacak bir şey yaz…"
-            maxLength={160}
+        <div className="tasks-heading-actions">
+          <span className="task-count">{remaining} KALDI</span>
+          <button
+            className="button button-primary task-create-button"
+            type="button"
+            title="Tarih ve hatırlatma ile yeni görev oluştur"
+            onClick={() => {
+              setEditor(newTask(""));
+              setDeleteId(null);
+            }}
             disabled={loaded.locked}
-          />
-          <button type="submit" disabled={!draft.trim() || loaded.locked} aria-label="Görev ekle">
-            <Icon name="arrowRight" size={17} />
+          >
+            <Icon name="plus" size={17} />Yeni görev
           </button>
-        </form>
-        <button
-          className="button button-primary task-create-button"
-          type="button"
-          title="Tarih ve hatırlatma ile yeni görev oluştur"
-          onClick={() => {
-            setEditor(newTask(draft));
-            setDeleteId(null);
-          }}
-          disabled={loaded.locked}
-        >
-          <Icon name="plus" size={17} />Yeni görev
-        </button>
+        </div>
       </div>
 
       <div className="tasks-card surface">
-        <div className="task-filters" role="group" aria-label="Görev filtresi">
+        <div className="task-filters tasks-filters-centered" role="group" aria-label="Görev filtresi">
           {TASK_FILTERS.map(([key, label]) => (
             <button type="button" key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>
               {label}
@@ -175,7 +129,6 @@ export function Tasks({
             onSaved={next => {
               setTasks(next);
               setError("");
-              setDraft("");
             }}
           />
         )}
@@ -250,15 +203,7 @@ export function Tasks({
                   {isOccurrenceCompleted(task) && <Icon name="check" size={13} />}
                 </button>
                 <div className="task-text">
-                  <button
-                    className="task-open"
-                    type="button"
-                    disabled={loaded.locked}
-                    onClick={() => {
-                      setEditor({ ...task });
-                      setDeleteId(null);
-                    }}
-                  >
+                  <div className="task-open">
                     <span>{task.text}</span>
                     <small className="task-meta">
                       {isOccurrenceCompleted(task) && (
@@ -276,7 +221,7 @@ export function Tasks({
                       {task.recurrence && " · " + (scheduleDate(task)?.split("-").reverse().join(".") ?? "")}
                       {task.snoozedUntil && " · Ertelendi"}
                     </small>
-                  </button>
+                  </div>
                   {deleteId === task.id && (
                     <div className="task-delete-confirm">
                       <span>Bu görev silinsin mi?</span>
@@ -300,46 +245,6 @@ export function Tasks({
                   )}
                 </div>
                 <ActionMenu label={task.text + " işlemleri"}>
-                  {task.dueDate && task.dueTime && !task.completed && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const res = snoozeTaskRecord(task, 15);
-                          if (res.ok) {
-                            setTasks(res.next);
-                            setError("");
-                          } else setError(res.error);
-                        }}
-                      >
-                        15 dakika ertele
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const res = snoozeTaskRecord(task, 60);
-                          if (res.ok) {
-                            setTasks(res.next);
-                            setError("");
-                          } else setError(res.error);
-                        }}
-                      >
-                        1 saat ertele
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const res = snoozeTaskRecord(task, 1440);
-                          if (res.ok) {
-                            setTasks(res.next);
-                            setError("");
-                          } else setError(res.error);
-                        }}
-                      >
-                        Yarın hatırlat
-                      </button>
-                    </>
-                  )}
                   <button
                     className="task-details-button"
                     type="button"
