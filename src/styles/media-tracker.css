@@ -1126,3 +1126,35 @@
 .media-list-row {
   overflow: hidden;
 }
+
+/* Clear typography hierarchy between title and creator/review */
+.media-list-title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--app-text, #f1f5f9);
+}
+.media-list-year {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--app-muted, #94a3b8);
+}
+.media-list-creator {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--app-muted, #8b949e);
+  line-height: 1.35;
+}
+.media-list-review {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--app-muted, #94a3b8);
+  opacity: 0.9;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

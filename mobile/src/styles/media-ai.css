@@ -1515,3 +1515,39 @@
   padding: 5px 10px;
   white-space: nowrap;
 }
+
+/* Clear typography hierarchy between title and secondary metadata on mobile */
+.mobile-media-row-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--app-text, #f1f5f9);
+}
+.mobile-media-year {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--app-muted, #94a3b8);
+}
+.mobile-media-creator,
+.mobile-media-review {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--app-muted, #8b949e);
+}
+.mobile-media-review {
+  margin: 2px 0 0;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.mobile-progress-tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  padding: 1px 6px;
+  border-radius: 6px;
+  white-space: nowrap;
+}

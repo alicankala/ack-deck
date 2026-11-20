@@ -145,7 +145,11 @@ export function MobileMediaCards({
             <span className="mobile-imdb-badge">🟡 {item.imdbRating}</span>
           )}
           {item.rating !== undefined && <span className="rating-tag">⭐ {item.rating}/10</span>}
+          {sanitizeMediaProgress(item.progress) && (
+            <span className="mobile-progress-tag">📌 {sanitizeMediaProgress(item.progress)}</span>
+          )}
         </div>
+        {item.review && <p className="mobile-media-review">"{item.review}"</p>}
       </div>
 
       <div className="mobile-media-row-actions" onClick={(e) => e.stopPropagation()}>
