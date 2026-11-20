@@ -15,7 +15,7 @@ type SporekraniRawMatch = {
   name?: string;
   date_time?: string;
   stadium?: string;
-  channels?: Array<{ name?: string }>;
+  channels?: Array<number | string | { name?: string }>;
 };
 
 const EXCLUDED_TEAM_OR_LEAGUE_RE = /\b(u19|u21|u17|u16|ümit|gençlik|genclik|kadın|kadin|espor|tefl|ampute|futsal)\b/i;
@@ -139,9 +139,28 @@ function extractBalancedObject(src: string, startIdx: number): string | null {
   return null;
 }
 
+function extractSporekraniChannelMap(html: string): Map<number, string> {
+  const map = new Map<number, string>();
+  const re = /"(\d+)":\{"id":\1,"alt":[^}]*?"name":"((?:\\.|[^"\\])+)"/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const id = Number(m[1]);
+    if (!Number.isFinite(id)) continue;
+    try {
+      const name = (JSON.parse(`"${m[2]}"`) as string).trim();
+      if (name) map.set(id, name);
+    } catch {
+      const fallback = m[2].trim();
+      if (fallback) map.set(id, fallback);
+    }
+  }
+  return map;
+}
+
 export function parseSporekraniMatches(html: string, team: MatchTeamKey): MatchItem[] {
   const results: MatchItem[] = [];
   const seenIds = new Set<string>();
+  const channelMap = extractSporekraniChannelMap(html);
   const needle = "\"sport_id\":1";
   let pos = 0;
 
@@ -193,7 +212,14 @@ export function parseSporekraniMatches(html: string, team: MatchTeamKey): MatchI
     seenIds.add(id);
 
     const channels = Array.isArray(raw.channels)
-      ? raw.channels.map(c => (c?.name ?? "").trim()).filter(Boolean)
+      ? raw.channels
+          .map(c => {
+            if (typeof c === "number" || typeof c === "string") {
+              return channelMap.get(Number(c)) ?? "";
+            }
+            return (c?.name ?? "").trim();
+          })
+          .filter(Boolean)
       : [];
 
     results.push({

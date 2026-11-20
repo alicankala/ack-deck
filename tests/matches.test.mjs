@@ -47,6 +47,23 @@ test("parseSporekraniMatches extracts senior football matches with channels and 
   assert.equal(tr[0].home, "Türkiye");
   assert.equal(tr[0].away, "Fransa");
   assert.deepEqual(tr[0].channels, ["TRT 1"]);
+
+  // Normalized channel ID array format ("channels":[352]) + lookup dictionary
+  const idBasedHtml = `
+    <script>
+      window.__NUXT__ = {
+        events: [
+          {"id":488984,"sport_id":1,"league_name":"Trendyol Süper Lig","event_type_name":"match","home_name":"Galatasaray","away_name":"Samsunspor","name":"Galatasaray - Samsunspor","date_time":"2026-11-21 16:00:00","channels":[352]}
+        ],
+        channels: {
+          "352":{"id":352,"alt":"","icon":"x","link":null,"name":"Bein Sports 1","active":1}
+        }
+      };
+    </script>
+  `;
+  const gsId = parseSporekraniMatches(idBasedHtml, "galatasaray");
+  assert.equal(gsId.length, 1);
+  assert.deepEqual(gsId[0].channels, ["Bein Sports 1"]);
 });
 
 test("match helpers format dates, channels, upcoming order and AI summary cleanly", () => {

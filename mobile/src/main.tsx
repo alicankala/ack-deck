@@ -34,6 +34,7 @@ import "./styles/prayer-guide.css";
 import "./styles/prayer-guide-details.css";
 import "./styles/prayer-month.css";
 import "./styles/lock-pomodoro.css";
+import "./styles/matches.css";
 import "./notes.css";
 
 function App() {

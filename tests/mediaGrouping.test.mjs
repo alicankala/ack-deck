@@ -36,11 +36,13 @@ test("groupMediaSeries groups multi-entry series chronologically and keeps singl
   assert.equal(grouped[1].item.id, "6");
 });
 
-test("buildMediaSections orders sections Devam Ediyor -> Listemde -> Bitirildi", () => {
+test("buildMediaSections orders sections Devam Ediyor -> Listemde -> Bitirildi and keeps mixed-status series together", () => {
   const sample = [
     { id: "1", type: "movie", title: "Safe", year: "2012", status: "completed", createdAt: 1, updatedAt: 1 },
-    { id: "2", type: "movie", title: "The Hunger Games: Catching Fire", year: "2013", status: "planned", createdAt: 2, updatedAt: 2 },
-    { id: "3", type: "movie", title: "The Hunger Games", year: "2012", status: "in_progress", createdAt: 3, updatedAt: 3 },
+    { id: "2", type: "series", title: "Gassal", year: "2024", status: "planned", createdAt: 2, updatedAt: 2 },
+    { id: "3", type: "movie", title: "The Hunger Games", year: "2012", status: "completed", createdAt: 3, updatedAt: 3 },
+    { id: "4", type: "movie", title: "The Hunger Games: Catching Fire", year: "2013", status: "in_progress", createdAt: 4, updatedAt: 4 },
+    { id: "5", type: "movie", title: "The Hunger Games: Mockingjay - Part 1", year: "2014", status: "planned", createdAt: 5, updatedAt: 5 },
   ];
 
   const sections = buildMediaSections(sample, { groupSeries: true });
@@ -49,6 +51,10 @@ test("buildMediaSections orders sections Devam Ediyor -> Listemde -> Bitirildi",
     ["in_progress", "planned", "completed"]
   );
   assert.equal(sections[0].label, "Devam Ediyor");
+  assert.equal(sections[0].entries.length, 1);
+  assert.equal(sections[0].entries[0].kind, "series");
+  assert.equal(sections[0].entries[0].items.length, 3);
+  assert.equal(sections[0].totalItems, 3);
   assert.equal(sections[1].label, "Listemde");
   assert.equal(sections[2].label, "Bitirildi");
 });

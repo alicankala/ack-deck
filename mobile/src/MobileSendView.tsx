@@ -127,17 +127,17 @@ export function MobileSendView({
       <div className="mobile-segmented-bar send-toggle-bar">
         <button
           type="button"
-          className={`segment-btn ${sendTab === "ai" ? "is-active" : ""}`}
-          onClick={() => setSendTab("ai")}
-        >
-          💬 ACK AI Sohbet
-        </button>
-        <button
-          type="button"
           className={`segment-btn ${sendTab === "send" ? "is-active" : ""}`}
           onClick={() => setSendTab("send")}
         >
           📤 PC'ye Gönder
+        </button>
+        <button
+          type="button"
+          className={`segment-btn ${sendTab === "ai" ? "is-active" : ""}`}
+          onClick={() => setSendTab("ai")}
+        >
+          💬 ACK AI Sohbet
         </button>
       </div>
 

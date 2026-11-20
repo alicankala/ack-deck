@@ -1109,3 +1109,20 @@
   border-color: rgba(239, 68, 68, 0.5);
   color: #fca5a5;
 }
+
+/* Prevent horizontal scrollbar / sideways drift in desktop Koleksiyon view */
+.media-tracker-page {
+  overflow-x: hidden;
+}
+.media-sections,
+.media-section,
+.media-list-rows,
+.media-list-row,
+.media-series-card,
+.media-series-children {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.media-list-row {
+  overflow: hidden;
+}

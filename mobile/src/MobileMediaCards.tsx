@@ -7,7 +7,7 @@ import {
   type MediaStatus,
   type MediaType,
 } from "../../shared/media";
-import { buildMediaSections, type MediaCollectionEntry } from "../../shared/mediaGrouping";
+import { buildMediaSections, seriesCountLabel, type MediaCollectionEntry } from "../../shared/mediaGrouping";
 import { getPosterFallbackUrls, proxyPosterUrl } from "../../shared/mediaSearch";
 
 export function sanitizeMediaProgress(progress?: string): string | undefined {
@@ -266,7 +266,7 @@ export function MobileMediaCards({
                 <span>{MEDIA_TYPE_ICONS[entry.type]}</span>
               </span>
               <span className="mobile-poster-corner-pill is-series-pill">
-                {entry.items.length} yapım
+                {seriesCountLabel(entry.items)}
               </span>
             </div>
           </div>
@@ -325,7 +325,7 @@ export function MobileMediaCards({
                 <span className="type-badge">
                   {MEDIA_TYPE_ICONS[entry.type]} {MEDIA_TYPE_LABELS[entry.type]} Serisi
                 </span>
-                <span className="mobile-series-count-badge">{entry.items.length} yapım</span>
+                <span className="mobile-series-count-badge">{seriesCountLabel(entry.items)}</span>
               </div>
 
               <strong className="mobile-media-title">

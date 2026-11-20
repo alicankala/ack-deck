@@ -6,7 +6,7 @@ import {
   type MediaItem,
   type MediaStatus,
 } from "../../shared/media";
-import { buildMediaSections, type MediaCollectionEntry } from "../../shared/mediaGrouping";
+import { buildMediaSections, seriesCountLabel, type MediaCollectionEntry } from "../../shared/mediaGrouping";
 import { MediaPoster, sanitizeMediaProgress } from "./MediaPoster";
 
 type MediaCollectionViewProps = {
@@ -333,7 +333,7 @@ export function MediaCollectionView({
                 <span>{MEDIA_TYPE_ICONS[entry.type]}</span>
               </span>
               <span className="media-poster-corner-pill is-series-pill">
-                {entry.items.length} yapım
+                {seriesCountLabel(entry.items)}
               </span>
             </div>
             <div className="media-poster-hover-actions">
@@ -398,7 +398,7 @@ export function MediaCollectionView({
                   {MEDIA_TYPE_ICONS[entry.type]} {MEDIA_TYPE_LABELS[entry.type]} Serisi
                 </span>
                 <span className="media-series-count-badge">
-                  {entry.items.length} yapım
+                  {seriesCountLabel(entry.items)}
                 </span>
               </div>
 

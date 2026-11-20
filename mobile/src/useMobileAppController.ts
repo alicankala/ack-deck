@@ -14,7 +14,7 @@ type UseMobileAppControllerParams = {
 export function useMobileAppController({ audio, setAudio, stopRecording }: UseMobileAppControllerParams) {
   const [page, setPage] = useState<string>("today");
   const [planTab, setPlanTab] = useState<"calendar" | "subscriptions">("calendar");
-  const [sendTab, setSendTab] = useState<"ai" | "send">("ai");
+  const [sendTab, setSendTab] = useState<"ai" | "send">("send");
 
   const pageRef = useRef(page);
   pageRef.current = page;

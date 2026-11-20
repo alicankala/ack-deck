@@ -158,28 +158,47 @@ export function groupMediaSeries(items: MediaItem[]): MediaCollectionEntry[] {
   return result;
 }
 
+export function seriesCountLabel(items: MediaItem[]): string {
+  const done = items.filter((i) => i.status === "completed").length;
+  if (done > 0 && done < items.length) return `${done}/${items.length} bitti`;
+  return `${items.length} yapım`;
+}
+
+function resolveEntryStatus(entry: MediaCollectionEntry): MediaStatus {
+  if (entry.kind === "single") return entry.item.status;
+  const statuses = entry.items.map((i) => i.status);
+  if (statuses.every((s) => s === "completed")) return "completed";
+  if (statuses.every((s) => s === "planned")) return "planned";
+  return "in_progress";
+}
+
 /**
- * Splits media items into ordered status sections (Devam Ediyor -> Listemde -> Bitirildi)
- * and optionally groups multi-entry series inside each section.
+ * Splits media items into ordered status sections (Devam Ediyor -> Listemde -> Bitirildi).
+ * When groupSeries is enabled, multi-entry franchises are grouped first across all statuses
+ * so a 5-movie series stays together under a single card instead of splitting across sections.
  */
 export function buildMediaSections(
   items: MediaItem[],
   options?: { groupSeries?: boolean }
 ): MediaStatusSection[] {
   const groupSeries = options?.groupSeries ?? true;
-  const sections: MediaStatusSection[] = [];
+  const allEntries: MediaCollectionEntry[] = groupSeries
+    ? groupMediaSeries(items)
+    : items.map((item): MediaCollectionEntry => ({ kind: "single", item }));
 
+  const sections: MediaStatusSection[] = [];
   for (const { status, label } of SECTION_ORDER) {
-    const matching = items.filter((item) => item.status === status);
-    if (matching.length === 0) continue;
-    const entries = groupSeries
-      ? groupMediaSeries(matching)
-      : matching.map((item): MediaCollectionEntry => ({ kind: "single", item }));
+    const entries = allEntries.filter((entry) => resolveEntryStatus(entry) === status);
+    if (entries.length === 0) continue;
+    const totalItems = entries.reduce(
+      (sum, entry) => sum + (entry.kind === "series" ? entry.items.length : 1),
+      0
+    );
     sections.push({
       status,
       label,
       entries,
-      totalItems: matching.length,
+      totalItems,
     });
   }
 
