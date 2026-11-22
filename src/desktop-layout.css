@@ -200,8 +200,8 @@
 .rail-dorm .dorm-menu-card { margin-bottom:0 !important; box-sizing:border-box; display:flex; flex-direction:column; }
 .rail-dorm .dorm-menu-body { display:flex; flex-direction:column; }
 .row-pomodoro { grid-column: 1 / -1; min-width:0; box-sizing:border-box; }
-.row-pomodoro .dashboard-pomodoro { box-sizing:border-box; display:flex; flex-direction:column; height:100%; }
-.dashboard-bottom-split { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,0.85fr); gap:1.25rem; align-items:stretch; }
+.row-pomodoro .dashboard-pomodoro { box-sizing:border-box; display:flex; flex-direction:column; height:auto; }
+.dashboard-bottom-split { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,0.85fr); gap:1.25rem; align-items:start; }
 @media (max-width:1120px) { .dashboard-bottom-split { grid-template-columns:1fr; } }
 .rail-system { display:flex; flex-direction:column; gap:0.85rem; box-sizing:border-box; }
 .rail-system .dashboard-pc { display:flex; flex-direction:column; background:var(--app-surface); border:1px solid var(--app-border); border-radius:1rem; box-sizing:border-box; min-height:0; }
