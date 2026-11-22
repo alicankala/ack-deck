@@ -988,6 +988,11 @@ dialog,
   color: #f87171;
 }
 
+.match-team-pill.is-f1 {
+  background: rgba(225, 29, 72, 0.18);
+  color: #fb7185;
+}
+
 .match-item-title {
   font-size: 0.85rem;
   font-weight: 600;

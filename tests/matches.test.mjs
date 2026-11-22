@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mergeMatchSources, parseSporekraniMatches, parseSporxMatches } from "../cloud/src/matches.ts";
+import { mergeMatchSources, parseEspnF1Race, parseSporekraniMatches, parseSporxMatches } from "../cloud/src/matches.ts";
+import { parseEspnLineups, parseEspnStandings } from "../cloud/src/matchDetails.ts";
+import { groupLineupRows, isLineupWindowOpen } from "../shared/matchDetails.ts";
 import {
   buildMatchesAiSummary,
   formatMatchChannels,
@@ -181,4 +183,130 @@ test("parseSporxMatches and mergeMatchSources supplement distant fixtures while 
   assert.deepEqual(merged[0].channels, ["Bein Sports 1"]);
   assert.equal(merged[1].away, "Rizespor");
   assert.deepEqual(merged[1].channels, []);
+});
+
+test("parseEspnStandings parses league table and filters national group to Turkey", () => {
+  const sample = {
+    children: [
+      {
+        name: "Group A",
+        standings: {
+          entries: [
+            { team: { shortDisplayName: "France" }, stats: [{ name: "rank", value: 1 }, { name: "points", value: 9 }] },
+          ],
+        },
+      },
+      {
+        name: "Group B",
+        standings: {
+          entries: [
+            {
+              team: { shortDisplayName: "Turkey" },
+              stats: [
+                { name: "rank", value: 1 },
+                { name: "gamesPlayed", value: 4 },
+                { name: "wins", value: 3 },
+                { name: "ties", value: 1 },
+                { name: "losses", value: 0 },
+                { name: "pointDifferential", value: 5 },
+                { name: "points", value: 10 },
+              ],
+            },
+          ],
+        },
+      },
+    ],
+  };
+  const table = parseEspnStandings(sample, "turkey", "A Milli (Uluslar Ligi)", ["turkey", "türkiye"], true);
+  assert.ok(table);
+  assert.equal(table.groupName, "Group B");
+  assert.equal(table.rows[0].team, "Türkiye");
+  assert.equal(table.rows[0].isHighlighted, true);
+  assert.equal(table.rows[0].points, 10);
+});
+
+test("parseEspnLineups requires 11 confirmed starters per team and groupLineupRows splits formation", () => {
+  const makeSide = (name, formation) => ({
+    formation,
+    team: { shortDisplayName: name },
+    roster: Array.from({ length: 11 }, (_, i) => ({
+      starter: true,
+      jersey: String(i + 1),
+      formationPlace: String(i + 1),
+      position: { abbreviation: i === 0 ? "G" : "M" },
+      athlete: { shortName: `P${i + 1}`, displayName: `Player ${i + 1}` },
+    })),
+  });
+  const parsed = parseEspnLineups({
+    rosters: [
+      { homeAway: "home", ...makeSide("Galatasaray", "4-2-3-1") },
+      { homeAway: "away", ...makeSide("Aston Villa", "4-4-2") },
+    ],
+  });
+  assert.equal(parsed.confirmed, true);
+  assert.equal(parsed.home?.players.length, 11);
+  assert.equal(parsed.away?.players.length, 11);
+
+  const rows = groupLineupRows(parsed.home);
+  assert.deepEqual(rows.map(r => r.length), [1, 4, 2, 3, 1]);
+
+  const kickoff = Date.parse("2026-11-24T20:45:00+03:00");
+  assert.equal(isLineupWindowOpen(kickoff, kickoff - 120 * 60_000), false);
+  assert.equal(isLineupWindowOpen(kickoff, kickoff - 60 * 60_000), true);
+  assert.equal(isLineupWindowOpen(kickoff, kickoff + 30 * 60_000), true);
+});
+
+test("parseEspnF1Race extracts only main Race session and selectSummaryMatches picks next 2 chronologically", () => {
+  const f1 = parseEspnF1Race({
+    id: "600052",
+    name: "Qatar Airways Qatar Grand Prix",
+    date: "2026-11-27T13:30Z",
+    circuit: { fullName: "Losail International Circuit" },
+    competitions: [
+      { type: { abbreviation: "FP1" }, date: "2026-11-27T13:30Z" },
+      { type: { abbreviation: "Qual" }, date: "2026-11-28T17:00Z" },
+      { type: { abbreviation: "Race" }, date: "2026-11-29T16:00Z" },
+    ],
+  });
+  assert.ok(f1);
+  assert.equal(f1.team, "f1");
+  assert.equal(f1.dateKey, "2026-11-29");
+  assert.equal(f1.time, "19:00");
+  assert.equal(f1.league, "Formula 1");
+
+  const gs = {
+    id: "galatasaray:1",
+    team: "galatasaray",
+    home: "Galatasaray",
+    away: "Samsunspor",
+    league: "Süper Lig",
+    dateTime: "2026-11-28 20:00",
+    dateKey: "2026-11-28",
+    time: "20:00",
+    timestampMs: Date.parse("2026-11-28T20:00:00+03:00"),
+    channels: ["Bein Sports 1"],
+  };
+  const tr = {
+    id: "turkey:1",
+    team: "turkey",
+    home: "Türkiye",
+    away: "Galler",
+    league: "Uluslar Ligi",
+    dateTime: "2026-12-01 21:45",
+    dateKey: "2026-12-01",
+    time: "21:45",
+    timestampMs: Date.parse("2026-12-01T21:45:00+03:00"),
+    channels: ["TV8"],
+  };
+
+  // Before GS: shows GS + F1
+  assert.deepEqual(
+    selectSummaryMatches([tr, f1, gs], Date.parse("2026-11-27T12:00:00+03:00")).map(m => m.id),
+    ["galatasaray:1", "f1:600052"],
+  );
+  // After GS (+3h): shows F1 + A Milli
+  assert.deepEqual(
+    selectSummaryMatches([tr, f1, gs], Date.parse("2026-11-28T23:00:00+03:00")).map(m => m.id),
+    ["f1:600052", "turkey:1"],
+  );
 });

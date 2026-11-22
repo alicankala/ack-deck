@@ -1,0 +1,262 @@
+/* Shared Match Standings & Green Pitch Lineup Views (Desktop & Mobile) */
+.ack-standings-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ack-standings-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ack-standings-tab {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--app-border, rgba(255, 255, 255, 0.12));
+  background: var(--app-control, rgba(255, 255, 255, 0.04));
+  color: var(--app-muted, #94a3b8);
+  cursor: pointer;
+}
+
+.ack-standings-tab.is-active {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: var(--app-text, #f1f5f9);
+}
+
+.ack-standings-group-label {
+  font-size: 0.72rem;
+  color: var(--app-muted, #94a3b8);
+  padding: 0 2px;
+}
+
+.ack-standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.76rem;
+  table-layout: fixed;
+}
+
+.ack-standings-table th {
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.68rem;
+  color: var(--app-muted, #94a3b8);
+  padding: 5px 3px;
+  border-bottom: 1px solid var(--app-border, rgba(255, 255, 255, 0.08));
+}
+
+.ack-standings-table th.is-team,
+.ack-standings-table td.is-team {
+  text-align: left;
+  padding-left: 4px;
+  width: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ack-standings-table th.is-rank,
+.ack-standings-table td.is-rank {
+  width: 22px;
+  text-align: center;
+}
+
+.ack-standings-table th.is-stat,
+.ack-standings-table td.is-stat {
+  width: 26px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.ack-standings-table th.is-pts,
+.ack-standings-table td.is-pts {
+  width: 28px;
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ack-standings-table td {
+  padding: 5px 3px;
+  color: var(--app-text, #e2e8f0);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.ack-standings-table tr.is-highlighted td {
+  background: rgba(56, 189, 248, 0.14);
+  color: #7dd3fc;
+  font-weight: 650;
+}
+
+:root[data-theme="light"] .ack-standings-table tr.is-highlighted td {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+}
+
+@media (max-width: 480px) {
+  .ack-standings-table .is-wdl {
+    display: none;
+  }
+}
+
+/* Lineup Pitch */
+.ack-lineup-box {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ack-lineup-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.74rem;
+  color: var(--app-muted, #94a3b8);
+}
+
+.ack-lineup-check-btn {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 7px;
+  border: 1px solid var(--app-border, rgba(255, 255, 255, 0.14));
+  background: var(--app-control, rgba(255, 255, 255, 0.06));
+  color: var(--app-text, #e2e8f0);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ack-lineup-team-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.ack-lineup-team-btn {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 5px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--app-border, rgba(255, 255, 255, 0.12));
+  background: var(--app-control, rgba(255, 255, 255, 0.04));
+  color: var(--app-muted, #94a3b8);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ack-lineup-team-btn.is-active {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.45);
+  color: #6ee7b7;
+}
+
+:root[data-theme="light"] .ack-lineup-team-btn.is-active {
+  color: #047857;
+}
+
+.ack-pitch {
+  position: relative;
+  border-radius: 12px;
+  padding: 12px 6px 10px;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.025) 0px,
+      rgba(255, 255, 255, 0.025) 28px,
+      transparent 28px,
+      transparent 56px
+    ),
+    linear-gradient(180deg, #103823 0%, #15492e 50%, #103823 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.ack-pitch::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.18);
+  pointer-events: none;
+}
+
+.ack-pitch::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 54px;
+  height: 54px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  pointer-events: none;
+}
+
+.ack-pitch-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-around;
+  gap: 4px;
+}
+
+.ack-pitch-player {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ack-pitch-jersey {
+  width: 24px;
+  height: 24px;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1.5px solid #34d399;
+  color: #f8fafc;
+  font-size: 0.68rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.ack-pitch-row.is-gk .ack-pitch-jersey {
+  border-color: #fbbf24;
+  color: #fef08a;
+}
+
+.ack-pitch-name {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #f8fafc;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  max-width: 64px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}

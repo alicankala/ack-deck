@@ -14,7 +14,7 @@ function turkeyDateKey(d = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
 
-export type MatchTeamKey = "galatasaray" | "turkey";
+export type MatchTeamKey = "galatasaray" | "turkey" | "f1";
 
 export type MatchItem = {
   id: string;
@@ -144,13 +144,7 @@ export function nextMatchForTeam(matches: MatchItem[], team: MatchTeamKey, now =
 }
 
 export function selectSummaryMatches(matches: MatchItem[], now = Date.now()): MatchItem[] {
-  const list = upcomingMatches(matches, now, 30);
-  const gs = list.filter(m => m.team === "galatasaray");
-  const tr = list.filter(m => m.team === "turkey");
-  if (gs.length > 0 && tr.length > 0) return [gs[0], tr[0]];
-  if (gs.length > 0) return gs.slice(0, 2);
-  if (tr.length > 0) return tr.slice(0, 2);
-  return [];
+  return upcomingMatches(matches, now, 2);
 }
 
 export function formatMatchWhen(match: MatchItem, now = Date.now()): string {
@@ -178,9 +172,10 @@ export function buildMatchesAiSummary(matches: MatchItem[], now = Date.now()): s
   if (upcoming.length === 0) return "";
   return upcoming
     .map(m => {
-      const teamLabel = m.team === "galatasaray" ? "Galatasaray" : "A Milli";
+      const teamLabel = m.team === "galatasaray" ? "Galatasaray" : m.team === "turkey" ? "A Milli" : "Formula 1";
       const channel = formatMatchChannels(m);
-      return `- [${teamLabel}] ${m.home} - ${m.away} | ${formatMatchWhen(m, now)} (${m.dateKey}) | ${m.league} | Kanal: ${channel}`;
+      const title = m.away ? `${m.home} - ${m.away}` : m.home;
+      return `- [${teamLabel}] ${title} | ${formatMatchWhen(m, now)} (${m.dateKey}) | ${m.league} | Kanal: ${channel}`;
     })
     .join("\n");
 }

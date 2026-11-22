@@ -105,10 +105,17 @@
   color: #f87171;
 }
 
+.mobile-match-pill.is-f1 {
+  background: rgba(225, 29, 72, 0.2);
+  color: #fb7185;
+}
+
 .mobile-match-title {
   font-size: 0.88rem;
   font-weight: 600;
   color: rgba(236, 242, 248, 0.92);
+  flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -119,13 +126,19 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .mobile-match-when {
   font-size: 0.77rem;
   font-weight: 500;
   color: #cbd5e1;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mobile-match-when.is-today {
@@ -142,6 +155,10 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #f1f5f9;
   white-space: nowrap;
+  flex-shrink: 0;
+  max-width: 48%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mobile-match-empty {

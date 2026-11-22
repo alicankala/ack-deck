@@ -5,6 +5,7 @@ import { weatherDescription, weatherSymbol } from "../../../shared/weather";
 import { handleImageProxy } from "../imageProxy";
 import { clientIpHash, corsReply, rate, type RouteContext } from "../http";
 import { getMatchesWithCache } from "../matches";
+import { getMatchLineupWithCache, getStandingsWithCache } from "../matchDetails";
 import { fetchImdbRating, searchPublicMedia } from "../mediaSearch";
 import { ApiError, hash, jsonBody, randomToken, reply } from "../security";
 
@@ -148,9 +149,53 @@ async function handleMediaRating({ request, url, env }: RouteContext): Promise<R
   }
 }
 
+async function handleStandings(ctx: RouteContext): Promise<Response> {
+  const { request, url, now, env } = ctx;
+  const force = url.searchParams.get("force") === "1";
+  try {
+    const ipHash = await clientIpHash(request, env);
+    await rate(env, `standings:${ipHash}`, 30, 60);
+    if (force) await rate(env, `standings-force:${ipHash}`, 4, 300);
+  } catch (err) {
+    if (err instanceof ApiError) return corsReply({ ok: false, error: err.message }, err.status);
+    throw err;
+  }
+  const payload = await getStandingsWithCache(env.ATTACHMENTS, force, now);
+  return corsReply({ ok: true, ...payload });
+}
+
+async function handleMatchLineup(ctx: RouteContext): Promise<Response> {
+  const { request, url, now, env } = ctx;
+  const matchId = (url.searchParams.get("matchId") || "").trim();
+  const team = url.searchParams.get("team");
+  const dateKey = (url.searchParams.get("dateKey") || "").trim();
+  const timestampMs = Number(url.searchParams.get("timestampMs") || "0");
+  const force = url.searchParams.get("force") === "1";
+  if (
+    !matchId ||
+    matchId.length > 160 ||
+    (team !== "galatasaray" && team !== "turkey") ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(dateKey) ||
+    !Number.isFinite(timestampMs)
+  ) {
+    return corsReply({ ok: false, error: "Geçersiz maç bilgisi." }, 400);
+  }
+  try {
+    const ipHash = await clientIpHash(request, env);
+    await rate(env, `match-lineup:${ipHash}`, 40, 60);
+  } catch (err) {
+    if (err instanceof ApiError) return corsReply({ ok: false, error: err.message }, err.status);
+    throw err;
+  }
+  const payload = await getMatchLineupWithCache(env.ATTACHMENTS, { matchId, team, dateKey, timestampMs }, force, now);
+  return corsReply({ ok: true, ...payload });
+}
+
 export async function handleCorsPublicRoutes(ctx: RouteContext): Promise<Response | null> {
   const { path, request } = ctx;
   if (path === "/api/matches" && request.method === "GET") return handleMatches(ctx);
+  if (path === "/api/standings" && request.method === "GET") return handleStandings(ctx);
+  if (path === "/api/match-lineup" && request.method === "GET") return handleMatchLineup(ctx);
   if (path === "/api/dorm-menu" && request.method === "GET") return handleDormMenu(ctx);
   if (path === "/api/media-search" && request.method === "GET") return handleMediaSearch(ctx);
   if (path === "/api/media-rating" && request.method === "GET") return handleMediaRating(ctx);

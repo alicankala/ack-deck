@@ -287,6 +287,114 @@ export function mergeMatchSources(primary: MatchItem[], fallback: MatchItem[], n
   return merged.sort((a, b) => a.timestampMs - b.timestampMs);
 }
 
+type EspnF1Competition = {
+  type?: { abbreviation?: string; text?: string };
+  date?: string;
+};
+
+type EspnF1Event = {
+  id?: string;
+  name?: string;
+  date?: string;
+  circuit?: { fullName?: string };
+  competitions?: EspnF1Competition[];
+};
+
+type EspnF1Scoreboard = {
+  leagues?: Array<{ calendar?: Array<{ startDate?: string; endDate?: string; label?: string }> }>;
+  events?: EspnF1Event[];
+};
+
+function istanbulDateAndTime(isoDate: string): { dateKey: string; time: string } | null {
+  const ms = Date.parse(isoDate);
+  if (!Number.isFinite(ms)) return null;
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Istanbul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(new Date(ms));
+    const get = (t: string) => parts.find((p) => p.type === t)?.value;
+    const y = get("year");
+    const m = get("month");
+    const d = get("day");
+    const h = get("hour");
+    const min = get("minute");
+    if (y && m && d && h && min) {
+      return { dateKey: `${y}-${m}-${d}`, time: `${h === "24" ? "00" : h}:${min}` };
+    }
+  } catch {}
+  return null;
+}
+
+export function parseEspnF1Race(ev: EspnF1Event): MatchItem | null {
+  if (!ev.id || !ev.name) return null;
+  const raceComp = ev.competitions?.find((c) => c.type?.abbreviation === "Race");
+  const iso = raceComp?.date || ev.date;
+  if (!iso) return null;
+  const timestampMs = Date.parse(iso);
+  if (!Number.isFinite(timestampMs)) return null;
+  const dt = istanbulDateAndTime(iso);
+  if (!dt) return null;
+  return {
+    id: `f1:${ev.id}`,
+    team: "f1",
+    home: ev.name.trim(),
+    away: "",
+    league: "Formula 1",
+    dateTime: `${dt.dateKey} ${dt.time}`,
+    dateKey: dt.dateKey,
+    time: dt.time,
+    timestampMs,
+    channels: ["beIN Sports / F1 TV"],
+    ...(ev.circuit?.fullName?.trim() ? { stadium: ev.circuit.fullName.trim() } : {}),
+  };
+}
+
+async function fetchUpcomingF1Races(now = Date.now()): Promise<MatchItem[]> {
+  const cutoff = now - 150 * 60_000;
+  const base = await fetch("https://site.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard", {
+    headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
+    signal: AbortSignal.timeout(6000),
+  });
+  if (!base.ok) return [];
+  const data = (await base.json()) as EspnF1Scoreboard;
+  const results = new Map<string, MatchItem>();
+
+  for (const ev of data.events ?? []) {
+    const item = parseEspnF1Race(ev);
+    if (item && item.timestampMs >= cutoff) results.set(item.id, item);
+  }
+
+  const upcomingCal = (data.leagues?.[0]?.calendar ?? [])
+    .filter((entry) => entry.endDate && Date.parse(entry.endDate) >= cutoff)
+    .slice(0, 3);
+
+  await Promise.allSettled(
+    upcomingCal.map(async (entry) => {
+      const endMs = Date.parse(entry.endDate!);
+      if (!Number.isFinite(endMs)) return;
+      const ymd = new Date(endMs).toISOString().slice(0, 10).replace(/-/g, "");
+      const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard?dates=${ymd}`, {
+        headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!res.ok) return;
+      const calData = (await res.json()) as EspnF1Scoreboard;
+      for (const ev of calData.events ?? []) {
+        const item = parseEspnF1Race(ev);
+        if (item && item.timestampMs >= cutoff) results.set(item.id, item);
+      }
+    }),
+  );
+
+  return [...results.values()];
+}
+
 export async function getMatchesWithCache(
   kv: { get(key: string, type: "json"): Promise<unknown>; put(key: string, val: string, opts?: { expirationTtl?: number }): Promise<void> },
   force = false,
@@ -298,15 +406,17 @@ export async function getMatchesWithCache(
   }
 
   try {
-    const [gsSporekrani, trSporekrani, gsSporx, trSporx] = await Promise.allSettled([
+    const [gsSporekrani, trSporekrani, gsSporx, trSporx, f1Races] = await Promise.allSettled([
       fetchTeamFromSporekrani("galatasaray"),
       fetchTeamFromSporekrani("turkey"),
       fetchTeamFromSporx("galatasaray"),
       fetchTeamFromSporx("turkey"),
+      fetchUpcomingF1Races(now),
     ]);
     const primary = [
       ...(gsSporekrani.status === "fulfilled" ? gsSporekrani.value : []),
       ...(trSporekrani.status === "fulfilled" ? trSporekrani.value : []),
+      ...(f1Races.status === "fulfilled" ? f1Races.value : []),
     ];
     const fallback = [
       ...(gsSporx.status === "fulfilled" ? gsSporx.value : []),
@@ -314,7 +424,7 @@ export async function getMatchesWithCache(
     ];
     const combined = mergeMatchSources(primary, fallback, now);
 
-    if (combined.length > 0 || [gsSporekrani, trSporekrani, gsSporx, trSporx].some(r => r.status === "fulfilled")) {
+    if (combined.length > 0 || [gsSporekrani, trSporekrani, gsSporx, trSporx, f1Races].some(r => r.status === "fulfilled")) {
       const payload: MatchesPayload = { updatedAt: now, matches: combined };
       await kv.put(MATCHES_KV_KEY, JSON.stringify(payload), { expirationTtl: 86400 }).catch(() => {});
       return { ...payload, cached: false };
