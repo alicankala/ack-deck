@@ -384,11 +384,12 @@ export async function handleSyncRoutes(ctx: RouteContext, actor: Actor): Promise
   if (path === "/api/match-preferences" && request.method === "POST") {
     const body = await jsonBody(request);
     if (!object(body)) throw new ApiError(400, "Maç bildirim tercihleri geçersiz.");
-    const allowedKeys = ["mobileMatches", "matchTeamGalatasaray", "matchTeamTurkey", "matchLeadMinutes"];
+    const allowedKeys = ["mobileMatches", "matchTeamGalatasaray", "matchTeamTurkey", "matchTeamF1", "matchLeadMinutes"];
     if (!Object.keys(body).every((k) => allowedKeys.includes(k))) throw new ApiError(400, "Geçersiz tercih alanı.");
     if (body.mobileMatches !== undefined && typeof body.mobileMatches !== "boolean") throw new ApiError(400, "Geçersiz değer.");
     if (body.matchTeamGalatasaray !== undefined && typeof body.matchTeamGalatasaray !== "boolean") throw new ApiError(400, "Geçersiz değer.");
     if (body.matchTeamTurkey !== undefined && typeof body.matchTeamTurkey !== "boolean") throw new ApiError(400, "Geçersiz değer.");
+    if (body.matchTeamF1 !== undefined && typeof body.matchTeamF1 !== "boolean") throw new ApiError(400, "Geçersiz değer.");
     if (body.matchLeadMinutes !== undefined && (typeof body.matchLeadMinutes !== "number" || ![15, 30, 60].includes(body.matchLeadMinutes))) {
       throw new ApiError(400, "Geçersiz erken uyarı süresi.");
     }

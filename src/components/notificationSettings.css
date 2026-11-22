@@ -83,7 +83,29 @@
 }
 
 .notification-feedback {
-  margin-top: 1rem;
+  position: fixed;
+  right: 1.5rem;
+  bottom: 2.75rem;
+  z-index: 95;
+  margin: 0;
+  max-width: min(420px, calc(100vw - 2rem));
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  animation: notifToastIn 0.18s ease-out;
+}
+
+@keyframes notifToastIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .notification-section-header {
@@ -311,4 +333,93 @@
 :root[data-theme="light"] .notification-master-toggle.is-desktop-active {
   background: rgba(21, 128, 61, 0.1);
   border-color: rgba(21, 128, 61, 0.32);
+}
+
+.notification-lead-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--app-muted);
+}
+
+.notification-matrix-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+
+.notification-matrix-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--app-text);
+}
+
+.notification-matrix-masters {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.notification-matrix-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--app-border);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.notification-matrix-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px 92px;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.58rem 0.9rem;
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-control);
+}
+
+.notification-matrix-row:last-child {
+  border-bottom: none;
+}
+
+.notification-matrix-row.is-head {
+  background: var(--app-surface);
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--app-muted);
+  padding: 0.45rem 0.9rem;
+}
+
+.notification-matrix-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.notification-matrix-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.notification-matrix-check {
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.notification-matrix-check.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.notification-matrix-na {
+  color: var(--app-muted);
+  font-size: 0.85rem;
 }

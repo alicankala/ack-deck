@@ -23,6 +23,7 @@ export type NotificationPreferences = {
   mobileMatches?: boolean;
   matchTeamGalatasaray?: boolean;
   matchTeamTurkey?: boolean;
+  matchTeamF1?: boolean;
   matchLeadMinutes?: number;
 };
 
@@ -47,6 +48,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
 
   matchTeamGalatasaray: true,
   matchTeamTurkey: true,
+  matchTeamF1: true,
   matchLeadMinutes: 30,
 };
 
@@ -73,6 +75,7 @@ export function validNotificationPreferences(value: unknown): value is Notificat
     "mobileMatches",
     "matchTeamGalatasaray",
     "matchTeamTurkey",
+    "matchTeamF1",
   ];
   const validLead =
     v.matchLeadMinutes === undefined ||

@@ -4,8 +4,11 @@ import { type NotificationPreferences } from "../../shared/notificationPreferenc
 import { loadNotificationPreferences, saveNotificationPreferences } from "../notificationStore";
 import { notifyDesktop } from "../desktopClient";
 import { phoneRequest, phoneStatus, type PhoneStatus } from "../phoneClient";
-import { DESKTOP_CHANNELS, MOBILE_CHANNELS, NotificationChannelGroup } from "./NotificationChannelGroup";
-import { MatchNotificationCard } from "./MatchNotificationCard";
+import {
+  DESKTOP_CHANNEL_KEYS,
+  MOBILE_CHANNEL_KEYS,
+  NotificationChannelGroup,
+} from "./NotificationChannelGroup";
 import { NotificationDevicesCard, type NotificationDevice } from "./NotificationDevicesCard";
 import "./notificationSettings.css";
 
@@ -19,10 +22,13 @@ export function NotificationSettings() {
   const feedbackTimerRef = useRef<number | null>(null);
 
   function clearFeedbackTimer() {
-    if (feedbackTimerRef.current !== null) { window.clearTimeout(feedbackTimerRef.current); feedbackTimerRef.current = null; }
+    if (feedbackTimerRef.current !== null) {
+      window.clearTimeout(feedbackTimerRef.current);
+      feedbackTimerRef.current = null;
+    }
   }
 
-  function showFeedback(kind: "success" | "error", text: string, autoClearMs?: number) {
+  function showFeedback(kind: "success" | "error", text: string, autoClearMs = 3500) {
     clearFeedbackTimer();
     setFeedback({ kind, text });
     if (autoClearMs) {
@@ -45,8 +51,8 @@ export function NotificationSettings() {
       .then((st) => {
         if (!active) return;
         setPhoneState(st);
-        if (st.enabled) {
-          void phoneRequest<{ devices: NotificationDevice[] }>("devices")
+        if (st.configured) {
+          return phoneRequest<{ devices: NotificationDevice[] }>("devices")
             .then((res) => {
               if (active && Array.isArray(res?.devices)) setDevices(res.devices);
             })
@@ -57,40 +63,36 @@ export function NotificationSettings() {
 
     return () => {
       active = false;
-      clearFeedbackTimer();
       window.removeEventListener("ack-notification-preferences-changed", handleChanged);
+      clearFeedbackTimer();
     };
   }, []);
 
   function updatePrefs(patch: Partial<NotificationPreferences>) {
-    const next: NotificationPreferences = { ...prefs, ...patch };
-    if (saveNotificationPreferences(next)) {
-      setPrefs(next);
-      showFeedback("success", "Bildirim tercihleri güncellendi.", 3000);
-      return;
-    }
-    showFeedback("error", "Bildirim tercihleri kaydedilemedi.");
+    const next = { ...prefs, ...patch };
+    setPrefs(next);
+    saveNotificationPreferences(next);
   }
 
-  function toggleAll(enable: boolean) {
-    const next: NotificationPreferences = {
-      ...prefs,
-      desktopMaster: enable, mobileMaster: enable,
-      desktopTasks: enable, desktopStudy: enable, desktopPrayers: enable,
-      desktopPomodoro: enable, desktopDormMenu: enable, desktopSubscriptions: enable, desktopMatches: enable,
-      mobileTasks: enable, mobileStudy: enable, mobilePrayers: enable,
-      mobileDormMenu: enable, mobileSubscriptions: enable, mobileMatches: enable,
-    };
-    if (saveNotificationPreferences(next)) {
-      setPrefs(next);
-      showFeedback(
-        "success",
-        enable
-          ? "Tüm masaüstü ve mobil bildirim kanalları açıldı."
-          : "Tüm bildirimler sessize alındı (hiçbir bildirim gönderilmeyecek).",
-        3500,
-      );
-    }
+  function toggleAll(enabled: boolean) {
+    updatePrefs({
+      desktopMaster: enabled,
+      desktopTasks: enabled,
+      desktopStudy: enabled,
+      desktopPrayers: enabled,
+      desktopPomodoro: enabled,
+      desktopDormMenu: enabled,
+      desktopSubscriptions: enabled,
+      desktopMatches: enabled,
+      mobileMaster: enabled,
+      mobileTasks: enabled,
+      mobileStudy: enabled,
+      mobilePrayers: enabled,
+      mobileDormMenu: enabled,
+      mobileSubscriptions: enabled,
+      mobileMatches: enabled,
+    });
+    showFeedback("success", enabled ? "Tüm bildirim kanalları açıldı." : "Tüm bildirimler sessize alındı.", 3000);
   }
 
   async function handleTestDesktop() {
@@ -98,10 +100,7 @@ export function NotificationSettings() {
     clearFeedbackTimer();
     setFeedback(null);
     try {
-      await notifyDesktop(
-        "🔔 ACKDeck Test Bildirimi",
-        "Masaüstü bildirimleriniz başarıyla aktif ve sorunsuz çalışıyor!",
-      );
+      await notifyDesktop("ACKDeck Test Bildirimi", "Masaüstü bildirim sistemi sorunsuz çalışıyor.");
       showFeedback("success", "Masaüstü test bildirimi gönderildi. Sağ alt köşeyi kontrol edin.");
     } catch {
       showFeedback("error", "Windows bildirim sistemi yanıt vermedi.");
@@ -125,8 +124,8 @@ export function NotificationSettings() {
     }
   }
 
-  const activeDesktopCount = DESKTOP_CHANNELS.filter((item) => prefs[item.key]).length;
-  const activeMobileCount = MOBILE_CHANNELS.filter((item) => prefs[item.key]).length;
+  const activeDesktopCount = DESKTOP_CHANNEL_KEYS.filter((k) => prefs[k] !== false).length;
+  const activeMobileCount = MOBILE_CHANNEL_KEYS.filter((k) => prefs[k] !== false).length;
 
   return (
     <div className="notifications-settings-container">
@@ -137,9 +136,9 @@ export function NotificationSettings() {
             <Icon name={prefs.desktopMaster || prefs.mobileMaster ? "bell" : "bellOff"} size={22} />
           </span>
           <div className="notification-overview-copy">
-            <h2 id="notification-overview-heading">Bildirim Merkezi & Kanal Kontrolleri</h2>
+            <h2 id="notification-overview-heading">Bildirim Merkezi &amp; Kanal Kontrolleri</h2>
             <p className="notification-subtitle">
-              Masaüstü ve mobil bildirimlerin tamamını tek noktadan yönetebilir, kanalları bağımsız açıp kapatabilir veya tek tıkla tümünü susturabilirsin.
+              Masaüstü ve mobil bildirimleri tek noktadan yönet veya tek tıkla sustur.
             </p>
           </div>
           <span className={`key-status notification-overview-badge ${prefs.desktopMaster || prefs.mobileMaster ? "saved" : ""}`}>
@@ -153,48 +152,64 @@ export function NotificationSettings() {
 
         <div className="notification-status-bar">
           <div className="notification-status-summary">
-            <strong>Durum Özeti: </strong>
+            <strong>Durum: </strong>
             <span className={`notification-status-chip ${prefs.desktopMaster ? "is-desktop-on" : "is-off"}`}>
-              Masaüstü {prefs.desktopMaster ? `(${activeDesktopCount}/7 aktif)` : "(Kapalı)"}
+              Masaüstü {prefs.desktopMaster ? `(${activeDesktopCount}/7)` : "(Kapalı)"}
             </span>
             {" · "}
             <span className={`notification-status-chip ${prefs.mobileMaster ? "is-mobile-on" : "is-off"}`}>
-              Mobil Push {prefs.mobileMaster ? `(${activeMobileCount}/6 aktif)` : "(Kapalı)"}
+              Mobil {prefs.mobileMaster ? `(${activeMobileCount}/6)` : "(Kapalı)"}
             </span>
           </div>
 
           <div className="notification-status-actions">
+            <label className="notification-lead-label">
+              <span>Spor Uyarısı:</span>
+              <select
+                className="settings-select"
+                value={prefs.matchLeadMinutes ?? 30}
+                onChange={(e) => updatePrefs({ matchLeadMinutes: Number(e.target.value) })}
+                aria-label="Spor ve maç bildirimi erken uyarı süresi"
+              >
+                <option value={15}>15 dk önce</option>
+                <option value={30}>30 dk önce</option>
+                <option value={60}>60 dk önce</option>
+              </select>
+            </label>
             <button type="button" className="button button-secondary notification-action-btn" onClick={() => toggleAll(true)}>
-              Tüm Bildirimleri Aç
+              Tümünü Aç
             </button>
             <button type="button" className="button button-secondary notification-action-btn is-danger" onClick={() => toggleAll(false)}>
-              Tümünü Sessize Al
+              Sessize Al
             </button>
           </div>
         </div>
 
         {feedback && (
-          <p className={"feedback notification-feedback " + feedback.kind} role="status">
-            {feedback.text}
-          </p>
+          <div
+            className={"feedback notification-feedback " + feedback.kind}
+            role="status"
+            onClick={() => {
+              clearFeedbackTimer();
+              setFeedback(null);
+            }}
+            title="Kapatmak için tıklayın"
+          >
+            <span>{feedback.text}</span>
+          </div>
         )}
       </section>
 
-      {/* Desktop Notifications Section */}
+      {/* Unified 7-Row Channel Matrix */}
       <NotificationChannelGroup
-        headingId="desktop-notifications-heading"
-        title="💻 Masaüstü Bildirimleri (Windows)"
-        subtitle="Windows Bildirim Merkezi ve sistem tepsisi üzerinden bilgisayarınızda gösterilen bildirimler"
-        masterEnabled={prefs.desktopMaster}
-        masterActiveClass="is-desktop-active"
-        masterLabelPrefix="Masaüstü Bildirimleri"
-        warningText="Masaüstü ana bildirim şalteri kapalı olduğu için Windows üzerinden hiçbir hatırlatma veya alarm gösterilmeyecektir."
-        channels={DESKTOP_CHANNELS}
         prefs={prefs}
-        onToggleMaster={(enabled) => updatePrefs({ desktopMaster: enabled })}
+        onToggleMaster={(target, enabled) => updatePrefs({ [target]: enabled })}
         onToggleChannel={(key, enabled) => updatePrefs({ [key]: enabled })}
-      >
-        <div className="notification-test-row">
+      />
+
+      {/* Test & Paired Devices */}
+      <section className="settings-card surface local-settings" aria-label="Bildirim Testi ve Cihazlar">
+        <div className="notification-test-row" style={{ marginTop: 0 }}>
           <button
             type="button"
             className="button button-secondary notification-test-btn"
@@ -205,25 +220,10 @@ export function NotificationSettings() {
             <span>{testBusy ? "Gönderiliyor..." : "Masaüstü Test Bildirimi Gönder"}</span>
           </button>
           <small className="notification-inline-hint">
-            Windows Bildirim Merkezi entegrasyonunu doğrulamak için tıkla.
+            Windows Bildirim Merkezi entegrasyonunu doğrular.
           </small>
         </div>
-      </NotificationChannelGroup>
 
-      {/* Mobile Push Notifications Section */}
-      <NotificationChannelGroup
-        headingId="mobile-notifications-heading"
-        title="📱 Mobil Push Bildirimleri (iPhone & Android)"
-        subtitle="Eşleştirilmiş telefonunuza PC açık veya kapalıyken 7/24 iletilen anlık Web Push bildirimleri"
-        masterEnabled={prefs.mobileMaster}
-        masterActiveClass="is-mobile-active"
-        masterLabelPrefix="Mobil Bildirimler"
-        warningText="Mobil ana push şalteri kapalı olduğu için Cloudflare sunucusu eşleştirilmiş telefonlarınıza hiçbir anlık push bildirimi göndermeyecektir."
-        channels={MOBILE_CHANNELS}
-        prefs={prefs}
-        onToggleMaster={(enabled) => updatePrefs({ mobileMaster: enabled })}
-        onToggleChannel={(key, enabled) => updatePrefs({ [key]: enabled })}
-      >
         <NotificationDevicesCard
           devices={devices}
           phoneState={phoneState}
@@ -231,25 +231,6 @@ export function NotificationSettings() {
           testingDeviceId={testingDeviceId}
           onTestDevicePush={handleTestDevicePush}
         />
-      </NotificationChannelGroup>
-
-      {/* Match Reminder Preferences */}
-      <MatchNotificationCard prefs={prefs} onUpdate={updatePrefs} />
-
-      {/* Helpful Tips & Focus Mode Info */}
-      <section className="settings-card surface local-settings notification-tips-card">
-        <h3>💡 Bildirim İpuçları & Odaklanma Modu</h3>
-        <ul className="notification-tips-list">
-          <li>
-            <strong>Windows Odaklanma Yardımı (Focus Assist):</strong> Windows ayarlarında "Rahatsız Etmeyin" veya "Odaklanma" açıkken bildirimler ekrana çıkmadan doğrudan Windows Bildirim Merkezi çekmecesine birikir.
-          </li>
-          <li>
-            <strong>iPhone / iOS Push Bildirimleri:</strong> iOS Web Push standardı gereği ACKDeck Mobile'ın Safari menüsünden <em>"Ana Ekrana Ekle"</em> ile yüklenmesi ve uygulama içerisinden bildirim iznine izin verilmiş olması gerekir.
-          </li>
-          <li>
-            <strong>Pil & Veri Dostu:</strong> Bildirim denetimleri sunucu tarafında Cloudflare edge cron ile yönetilir; telefonunuzun şarjını tüketmez ve arka planda çalışmayı gerektirmez.
-          </li>
-        </ul>
       </section>
     </div>
   );

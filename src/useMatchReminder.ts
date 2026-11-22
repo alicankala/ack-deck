@@ -38,7 +38,8 @@ export function useMatchReminder(setNotice: (text: string) => void) {
       if (!notif.desktopMaster || notif.desktopMatches === false) return;
       const gsEnabled = notif.matchTeamGalatasaray !== false;
       const trEnabled = notif.matchTeamTurkey !== false;
-      if (!gsEnabled && !trEnabled) return;
+      const f1Enabled = notif.matchTeamF1 !== false;
+      if (!gsEnabled && !trEnabled && !f1Enabled) return;
 
       const leadMinutes =
         typeof notif.matchLeadMinutes === "number" && [15, 30, 60].includes(notif.matchLeadMinutes)
@@ -55,6 +56,7 @@ export function useMatchReminder(setNotice: (text: string) => void) {
         for (const match of payload.matches) {
           if (match.team === "galatasaray" && !gsEnabled) continue;
           if (match.team === "turkey" && !trEnabled) continue;
+          if (match.team === "f1" && !f1Enabled) continue;
 
           const notifyAt = match.timestampMs - leadMs;
           if (notifyAt <= now && now <= match.timestampMs + 5 * 60_000) {
@@ -62,9 +64,13 @@ export function useMatchReminder(setNotice: (text: string) => void) {
             if (notified.includes(gen)) continue;
 
             const channelText = formatMatchChannels(match);
-            const body = `⚽ ${match.home} - ${match.away} (${leadMinutes} dk sonra · ${match.time}) · Yayın: ${channelText}`;
+            const body =
+              match.team === "f1"
+                ? `🏎️ ${match.home} (${leadMinutes} dk sonra · ${match.time}) · Yayın: ${channelText}`
+                : `⚽ ${match.home} - ${match.away} (${leadMinutes} dk sonra · ${match.time}) · Yayın: ${channelText}`;
+            const title = match.team === "f1" ? "🏎️ F1 Yarış Hatırlatması" : "⚽ Maç Hatırlatması";
             if (isTauri()) {
-              await notifyDesktop("⚽ Maç Hatırlatması", body.slice(0, 300)).catch(() => {});
+              await notifyDesktop(title, body.slice(0, 300)).catch(() => {});
             }
             setNotice(body);
             markNotified(gen);

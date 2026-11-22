@@ -80,6 +80,7 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
   const mobileMatches = mobileMaster && notifPrefs.mobileMatches !== false;
   const matchTeamGalatasaray = notifPrefs.matchTeamGalatasaray !== false;
   const matchTeamTurkey = notifPrefs.matchTeamTurkey !== false;
+  const matchTeamF1 = notifPrefs.matchTeamF1 !== false;
   const rawLead = notifPrefs.matchLeadMinutes;
   const matchLeadMinutes = typeof rawLead === "number" && [15, 30, 60].includes(rawLead) ? rawLead : 30;
 
@@ -348,9 +349,9 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
     console.warn("Dorm menu reminder processing error:", error);
   }
 
-  // Match reminder push notifications (Galatasaray & A Milli)
+  // Match & F1 reminder push notifications
   try {
-    if (mobileMatches && (matchTeamGalatasaray || matchTeamTurkey)) {
+    if (mobileMatches && (matchTeamGalatasaray || matchTeamTurkey || matchTeamF1)) {
       const cached = (await env.ATTACHMENTS.get("matches:cache", "json").catch(() => null)) as MatchesPayload | null;
       const matchesPayload =
         cached && Array.isArray(cached.matches) && now - cached.updatedAt < 6 * 3600 * 1000
@@ -363,6 +364,7 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
       const dueMatches = (matchesPayload?.matches ?? []).filter((m) => {
         if (m.team === "galatasaray" && !matchTeamGalatasaray) return false;
         if (m.team === "turkey" && !matchTeamTurkey) return false;
+        if (m.team === "f1" && !matchTeamF1) return false;
         const notifyAt = m.timestampMs - leadMs;
         return notifyAt <= now && notifyAt >= now - 10 * 60_000 && now <= m.timestampMs + 5 * 60_000;
       });
@@ -375,7 +377,11 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
         for (const match of dueMatches) {
           const gen = `match:${match.id}:lead:${matchLeadMinutes}`;
           const channelText = formatMatchChannels(match);
-          const body = `⚽ ${match.home} - ${match.away} (${matchLeadMinutes} dk sonra · ${match.time})\nYayın: ${channelText}`;
+          const body =
+            match.team === "f1"
+              ? `🏎️ ${match.home} (${matchLeadMinutes} dk sonra · ${match.time})\nYayın: ${channelText}`
+              : `⚽ ${match.home} - ${match.away} (${matchLeadMinutes} dk sonra · ${match.time})\nYayın: ${channelText}`;
+          const pushTitle = match.team === "f1" ? "ACKDeck · F1 Yarış Hatırlatması" : "ACKDeck · Maç Hatırlatması";
           for (const device of devices.results) {
             const claim = await env.DB.prepare(
               "INSERT INTO reminder_deliveries(generation,device_id,state,attempts,retry_at) VALUES(?,?,'sending',1,0) ON CONFLICT(generation,device_id) DO UPDATE SET state='sending',attempts=attempts+1 WHERE state='retry' AND retry_at<=? AND attempts<3 RETURNING generation",
@@ -385,7 +391,7 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
             if (!claim) continue;
             try {
               const response = await send(env, device.subscription, {
-                title: "ACKDeck · Maç Hatırlatması",
+                title: pushTitle,
                 body: body.slice(0, 280),
                 url: "/#page=today",
                 tag: gen,

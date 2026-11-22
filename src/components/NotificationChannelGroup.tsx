@@ -1,166 +1,163 @@
-import type { ReactNode } from "react";
-import { type NotificationPreferences } from "../../shared/notificationPreferences";
+import type { NotificationPreferences } from "../../shared/notificationPreferences";
 
-export type ChannelOption = {
-  key: keyof NotificationPreferences;
+export type NotificationBooleanKey =
+  | "desktopTasks"
+  | "desktopStudy"
+  | "desktopPrayers"
+  | "desktopPomodoro"
+  | "desktopDormMenu"
+  | "desktopSubscriptions"
+  | "desktopMatches"
+  | "mobileTasks"
+  | "mobileStudy"
+  | "mobilePrayers"
+  | "mobileDormMenu"
+  | "mobileSubscriptions"
+  | "mobileMatches";
+
+export type UnifiedChannelRow = {
+  id: string;
   title: string;
   description: string;
+  desktopKey: NotificationBooleanKey;
+  mobileKey: NotificationBooleanKey | null;
 };
 
-export const DESKTOP_CHANNELS: readonly ChannelOption[] = [
+export const UNIFIED_CHANNELS: UnifiedChannelRow[] = [
   {
-    key: "desktopTasks",
-    title: "Görev Alarmları & Hatırlatıcılar",
-    description:
-      "Görevlerin teslim saatinde veya görev için ayarlanan erken bildirim süresinde (15 dk, 30 dk, 1 saat önce vb.) masaüstü bildirimi gösterir.",
+    id: "tasks",
+    title: "Görevler & Alarmlar",
+    description: "Teslim saati ve erken görev uyarıları",
+    desktopKey: "desktopTasks",
+    mobileKey: "mobileTasks",
   },
   {
-    key: "desktopStudy",
-    title: "Ders Programı & Çalışma Blokları",
-    description:
-      "Haftalık ders programınızdaki oturumların başlangıç saatinde veya ders öncesinde erken uyarı masaüstü bildirimi iletir.",
+    id: "study",
+    title: "Ders Programı",
+    description: "Çalışma blokları ve 15 dk öncesi hatırlatma",
+    desktopKey: "desktopStudy",
+    mobileKey: "mobileStudy",
   },
   {
-    key: "desktopPrayers",
-    title: "Namaz Vakitleri & Ezan Uyarıları",
-    description:
-      "Vakit girdiğinde veya vakit öncesi belirlenen sürede (5, 10, 15, 30 dk önce) masaüstü Bildirim Merkezi üzerinden nazikçe uyarır.",
+    id: "prayers",
+    title: "Namaz Vakitleri",
+    description: "Vakit ve vakit öncesi ezan uyarıları",
+    desktopKey: "desktopPrayers",
+    mobileKey: "mobilePrayers",
   },
   {
-    key: "desktopPomodoro",
-    title: "Pomodoro Odak & Mola Bildirimleri",
-    description:
-      "25 dakikalık odak seansı bittiğinde veya mola süresi tamamlandığında masaüstü toast bildirimi ve hafif sesli uyarı verir.",
+    id: "pomodoro",
+    title: "Pomodoro Odak & Mola",
+    description: "Odak seansı ve mola bitiş uyarıları",
+    desktopKey: "desktopPomodoro",
+    mobileKey: null,
   },
   {
-    key: "desktopDormMenu",
-    title: "Yurt Yemek Menüsü Hatırlatması",
-    description:
-      "Öğle ve akşam saatlerinde günün Altınkalem / KYK yurt yemek menüsünü masaüstünde bildirir.",
+    id: "dorm",
+    title: "Yurt Yemek Menüsü",
+    description: "Günlük Altınkalem / KYK menü özeti",
+    desktopKey: "desktopDormMenu",
+    mobileKey: "mobileDormMenu",
   },
   {
-    key: "desktopSubscriptions",
-    title: "Abonelik & Fatura Hatırlatıcıları",
-    description:
-      "Yenileme ve ödeme günü yaklaşan aboneliklerinizin tutar ve tarihini masaüstünde önceden hatırlatır.",
+    id: "subs",
+    title: "Abonelik & İptal",
+    description: "Ödeme ve iptal günü hatırlatmaları",
+    desktopKey: "desktopSubscriptions",
+    mobileKey: "mobileSubscriptions",
   },
   {
-    key: "desktopMatches",
-    title: "Maç Hatırlatıcıları (Galatasaray & A Milli)",
-    description:
-      "Galatasaray ve Türkiye A Milli futbol maçlarından önce saat ve yayıncı kanal bilgisini tek bir bildirimle hatırlatır.",
-  },
-];
-
-export const MOBILE_CHANNELS: readonly ChannelOption[] = [
-  {
-    key: "mobileTasks",
-    title: "Mobil Görev Alarmları & Push Hatırlatıcılar",
-    description:
-      "Bilgisayarınız kapalıyken bile teslim saati gelen veya erken uyarısı kurulmuş görevlerin bildirimi anında iPhone/Android kilit ekranınıza düşer.",
-  },
-  {
-    key: "mobileStudy",
-    title: "Mobil Ders Programı & Oturum Bildirimleri",
-    description:
-      "PC kapalıyken Cloudflare zamanlayıcısı ders saatinden 15 dk önce ve ders anında telefonunuza ders hatırlatması gönderir.",
-  },
-  {
-    key: "mobilePrayers",
-    title: "Mobil Ezan & Namaz Vakitleri",
-    description:
-      "Vakit girdiğinde ve vakit öncesi erken bildirim dakikasında telefonunuza sessiz veya sesli kilit ekranı ezan bildirimi iletir.",
-  },
-  {
-    key: "mobileDormMenu",
-    title: "Mobil Günlük Yemek Menüsü (12:30 Push)",
-    description:
-      "Her gün saat 12:30'da günün akşam yemeği menüsünü telefona doğrudan push bildirimi olarak iletir.",
-  },
-  {
-    key: "mobileSubscriptions",
-    title: "Mobil Abonelik & Ödeme Günü Hatırlatıcıları",
-    description:
-      "Fatura veya yenileme tarihi yaklaşan aboneliklerinizin tutar bilgisini telefon kilit ekranınıza gönderir.",
-  },
-  {
-    key: "mobileMatches",
-    title: "Mobil Maç Hatırlatıcıları (Galatasaray & A Milli)",
-    description:
-      "Maç başlamadan önce saat ve yayıncı kanal bilgisini telefonunuza tek bir push bildirimi olarak iletir.",
+    id: "sports",
+    title: "Spor (GS, A Milli & F1)",
+    description: "Maç ve F1 ana yarışı saati + yayın kanalı",
+    desktopKey: "desktopMatches",
+    mobileKey: "mobileMatches",
   },
 ];
 
-type NotificationChannelGroupProps = {
-  headingId: string;
-  title: string;
-  subtitle: string;
-  masterEnabled: boolean;
-  masterActiveClass: "is-desktop-active" | "is-mobile-active";
-  masterLabelPrefix: string;
-  warningText: string;
-  channels: readonly ChannelOption[];
+export const DESKTOP_CHANNEL_KEYS = UNIFIED_CHANNELS.map((c) => c.desktopKey);
+export const MOBILE_CHANNEL_KEYS = UNIFIED_CHANNELS.flatMap((c) => (c.mobileKey ? [c.mobileKey] : []));
+
+type UnifiedNotificationMatrixProps = {
   prefs: NotificationPreferences;
-  onToggleMaster: (enabled: boolean) => void;
-  onToggleChannel: (key: keyof NotificationPreferences, enabled: boolean) => void;
-  children?: ReactNode;
+  onToggleMaster: (target: "desktopMaster" | "mobileMaster", enabled: boolean) => void;
+  onToggleChannel: (key: NotificationBooleanKey, enabled: boolean) => void;
 };
 
-/** Notification channel group card with master toggle and per-channel switches. */
 export function NotificationChannelGroup({
-  headingId,
-  title,
-  subtitle,
-  masterEnabled,
-  masterActiveClass,
-  masterLabelPrefix,
-  warningText,
-  channels,
   prefs,
   onToggleMaster,
   onToggleChannel,
-  children,
-}: NotificationChannelGroupProps) {
+}: UnifiedNotificationMatrixProps) {
   return (
-    <section className="settings-card surface local-settings" aria-labelledby={headingId}>
-      <div className="notification-section-header">
+    <section className="settings-card surface local-settings" aria-labelledby="unified-notifications-heading">
+      <div className="notification-matrix-header">
         <div>
-          <h2 id={headingId}>{title}</h2>
-          <p className="notification-subtitle">{subtitle}</p>
+          <h3 id="unified-notifications-heading">Bildirim Kanalları</h3>
+          <p className="notification-section-desc">
+            Her konu için masaüstü ve telefon bildirimlerini tek satırdan açıp kapatabilirsin.
+          </p>
         </div>
-
-        <label className={`notification-master-toggle ${masterEnabled ? masterActiveClass : ""}`}>
-          <input
-            type="checkbox"
-            checked={masterEnabled}
-            onChange={(e) => onToggleMaster(e.target.checked)}
-          />
-          <span>
-            {masterLabelPrefix}: {masterEnabled ? "Açık" : "Kapalı"}
-          </span>
-        </label>
-      </div>
-
-      {!masterEnabled && <p className="notification-warning-banner">{warningText}</p>}
-
-      <div className={`toggle-settings notification-channel-list ${masterEnabled ? "" : "is-disabled"}`}>
-        {channels.map((item) => (
-          <label key={item.key} className="notification-channel-row">
+        <div className="notification-matrix-masters">
+          <label className={`notification-master-toggle ${prefs.desktopMaster ? "is-desktop-active" : ""}`}>
             <input
               type="checkbox"
-              checked={prefs[item.key] !== false}
-              disabled={!masterEnabled}
-              onChange={(e) => onToggleChannel(item.key, e.target.checked)}
+              checked={prefs.desktopMaster}
+              onChange={(e) => onToggleMaster("desktopMaster", e.target.checked)}
             />
-            <div className="notification-channel-copy">
-              <strong>{item.title}</strong>
-              <small>{item.description}</small>
-            </div>
+            <span>💻 Masaüstü: {prefs.desktopMaster ? "Açık" : "Kapalı"}</span>
           </label>
-        ))}
+          <label className={`notification-master-toggle ${prefs.mobileMaster ? "is-mobile-active" : ""}`}>
+            <input
+              type="checkbox"
+              checked={prefs.mobileMaster}
+              onChange={(e) => onToggleMaster("mobileMaster", e.target.checked)}
+            />
+            <span>📱 Mobil: {prefs.mobileMaster ? "Açık" : "Kapalı"}</span>
+          </label>
+        </div>
       </div>
 
-      {children}
+      <div className="notification-matrix-table">
+        <div className="notification-matrix-row is-head">
+          <span>Kategori</span>
+          <span className="notification-matrix-col">💻 Masaüstü</span>
+          <span className="notification-matrix-col">📱 Mobil</span>
+        </div>
+
+        {UNIFIED_CHANNELS.map((row) => (
+          <div key={row.id} className="notification-matrix-row">
+            <div className="notification-matrix-info">
+              <span className="notification-channel-title">{row.title}</span>
+              <span className="notification-channel-desc">{row.description}</span>
+            </div>
+            <label className={`notification-matrix-col notification-matrix-check ${!prefs.desktopMaster ? "is-disabled" : ""}`}>
+              <input
+                type="checkbox"
+                checked={prefs[row.desktopKey] !== false}
+                disabled={!prefs.desktopMaster}
+                aria-label={`${row.title} Masaüstü bildirimi`}
+                onChange={(e) => onToggleChannel(row.desktopKey, e.target.checked)}
+              />
+            </label>
+            <div className="notification-matrix-col">
+              {row.mobileKey ? (
+                <label className={`notification-matrix-check ${!prefs.mobileMaster ? "is-disabled" : ""}`}>
+                  <input
+                    type="checkbox"
+                    checked={prefs[row.mobileKey] !== false}
+                    disabled={!prefs.mobileMaster}
+                    aria-label={`${row.title} Mobil bildirimi`}
+                    onChange={(e) => onToggleChannel(row.mobileKey!, e.target.checked)}
+                  />
+                </label>
+              ) : (
+                <span className="notification-matrix-na" title="Yalnızca masaüstü">—</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
