@@ -15,20 +15,41 @@ import { useNavigationHistory } from "./useNavigationHistory";
 import { Dashboard } from "./components/Dashboard";
 import type { AiPromptHandoff } from "./aiPromptHandoff";
 import { UndoToast } from "./components/UndoToast";
-const ConversationHistory = lazy(() => import("./components/ConversationHistory").then(module => ({ default: module.ConversationHistory })));
+const loadConversationHistory = () => import("./components/ConversationHistory").then(module => ({ default: module.ConversationHistory }));
+const ConversationHistory = lazy(loadConversationHistory);
 import { useConversations } from "./useConversations";
-const AckAi = lazy(() => import("./components/AckAi").then(module => ({ default: module.AckAi })));
+const loadAckAi = () => import("./components/AckAi").then(module => ({ default: module.AckAi }));
+const AckAi = lazy(loadAckAi);
 import { Icon } from "./components/Icon";
 import { AiQuotaMeter } from "./components/AiQuotaMeter";
-const Projects = lazy(() => import("./components/Projects").then(module => ({ default: module.Projects })));
-const WeeklyPlan = lazy(() => import("./components/WeeklyPlan").then(module => ({ default: module.WeeklyPlan })));
-const Tasks = lazy(() => import("./components/Tasks").then(module => ({ default: module.Tasks })));
-const PhoneInbox = lazy(() => import("./components/PhoneInbox").then(module => ({ default: module.PhoneInbox })));
+const loadProjects = () => import("./components/Projects").then(module => ({ default: module.Projects }));
+const Projects = lazy(loadProjects);
+const loadWeeklyPlan = () => import("./components/WeeklyPlan").then(module => ({ default: module.WeeklyPlan }));
+const WeeklyPlan = lazy(loadWeeklyPlan);
+const loadTasks = () => import("./components/Tasks").then(module => ({ default: module.Tasks }));
+const Tasks = lazy(loadTasks);
+const loadPhoneInbox = () => import("./components/PhoneInbox").then(module => ({ default: module.PhoneInbox }));
+const PhoneInbox = lazy(loadPhoneInbox);
 import { Sidebar, type Page } from "./components/Sidebar";
 import { normalizeRoute, type NavigationTarget, type NormalizedNavigationTarget } from "./navigation";
-const Settings = lazy(() => import("./components/Settings").then(module => ({ default: module.Settings })));
-const Notes = lazy(() => import("./components/Notes").then(module => ({ default: module.Notes })));
-const MediaTracker = lazy(() => import("./components/MediaTracker").then(module => ({ default: module.MediaTracker })));
+const loadSettings = () => import("./components/Settings").then(module => ({ default: module.Settings }));
+const Settings = lazy(loadSettings);
+const loadNotes = () => import("./components/Notes").then(module => ({ default: module.Notes }));
+const Notes = lazy(loadNotes);
+const loadMediaTracker = () => import("./components/MediaTracker").then(module => ({ default: module.MediaTracker }));
+const MediaTracker = lazy(loadMediaTracker);
+
+const PAGE_PRELOADERS = [
+  loadTasks,
+  loadNotes,
+  loadWeeklyPlan,
+  loadMediaTracker,
+  loadAckAi,
+  loadConversationHistory,
+  loadPhoneInbox,
+  loadProjects,
+  loadSettings,
+];
 import { useAutoBackup } from "./useAutoBackup";
 import { loadPreferences } from "./preferences";
 import { invoke, isTauri } from "@tauri-apps/api/core";
@@ -340,6 +361,24 @@ function App() {
       window.clearInterval(pollInterval);
       window.clearInterval(relayInterval);
     };
+  }, []);
+
+  useEffect(() => {
+    const prefetch = () => {
+      for (const load of PAGE_PRELOADERS) {
+        void load().catch(() => {});
+      }
+    };
+    const w = window as unknown as {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    if (typeof w.requestIdleCallback === "function") {
+      const id = w.requestIdleCallback(prefetch, { timeout: 800 });
+      return () => w.cancelIdleCallback?.(id);
+    }
+    const timer = window.setTimeout(prefetch, 350);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const projectsView = (

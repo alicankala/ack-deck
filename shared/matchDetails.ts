@@ -102,7 +102,7 @@ export function saveStandingsCache(payload: StandingsPayload): void {
 
 function isClientMatchLive(now = Date.now()): boolean {
   try {
-    const raw = getStorage()?.getItem("ack-deck.matches.v1");
+    const raw = getStorage()?.getItem("ack-deck.matches.v2");
     if (!raw) return false;
     const parsed = JSON.parse(raw) as { matches?: Array<{ timestampMs?: number }> };
     if (!Array.isArray(parsed?.matches)) return false;

@@ -35,7 +35,7 @@ export type MatchesPayload = {
   matches: MatchItem[];
 };
 
-export const MATCHES_CACHE_KEY = "ack-deck.matches.v1";
+export const MATCHES_CACHE_KEY = "ack-deck.matches.v2";
 export const MATCHES_NOTIFIED_KEY = "ack-deck.matches.notified.v1";
 export const MATCHES_TTL_MS = 3 * 60 * 60 * 1000;
 export const DEFAULT_MATCHES_WORKER_URL = "https://ack-deck-phone.ack-deck-cloud.workers.dev";

@@ -171,20 +171,33 @@ export function MatchWidget() {
         </div>
 
         <div className="match-card-actions">
-          <button
-            type="button"
-            className="dashboard-more"
-            onClick={() => setTab(prev => (prev === "matches" ? "standings" : "matches"))}
-          >
-            {tab === "matches" ? "Puan Durumu" : "Maçlar"}
-          </button>
+          <div className="ack-standings-tabs" role="tablist" aria-label="Görünüm">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "matches"}
+              className={`ack-standings-tab ${tab === "matches" ? "is-active" : ""}`}
+              onClick={() => setTab("matches")}
+            >
+              Takvim
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "standings"}
+              className={`ack-standings-tab ${tab === "standings" ? "is-active" : ""}`}
+              onClick={() => setTab("standings")}
+            >
+              Puan Durumu
+            </button>
+          </div>
           {tab === "matches" && allUpcoming.length > 2 && (
             <button
               type="button"
-              className="dashboard-more"
+              className={`ack-standings-tab ${showAll ? "is-active" : ""}`}
               onClick={() => setShowAll(prev => !prev)}
             >
-              {showAll ? "Özet" : `Fikstür (${allUpcoming.length})`}
+              {showAll ? "Özet" : `Tümü (${allUpcoming.length})`}
             </button>
           )}
           <button

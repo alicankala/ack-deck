@@ -7,7 +7,6 @@ import type { useConversations } from "../useConversations";
 const dateFormatter = new Intl.DateTimeFormat("tr-TR", {
   day: "numeric",
   month: "short",
-  year: "numeric",
   hour: "2-digit",
   minute: "2-digit",
 });
@@ -17,7 +16,7 @@ function conversationPreview(thread: Conversation): string {
     const text = thread.messages[i]?.text.trim();
     if (text) return text.replace(/\s+/g, " ");
   }
-  return "Henüz mesaj yok — yazmaya başla";
+  return "";
 }
 
 export function ConversationHistory({ history, disabled }: { history: ReturnType<typeof useConversations>; disabled: boolean }) {
@@ -74,6 +73,8 @@ export function ConversationHistory({ history, disabled }: { history: ReturnType
             const isActive = history.activeId === thread.id;
             const messageCount = thread.messages.length;
 
+            const preview = conversationPreview(thread);
+
             return (
               <div
                 className={`conversation-item ${isActive ? "is-active" : ""}`}
@@ -88,14 +89,14 @@ export function ConversationHistory({ history, disabled }: { history: ReturnType
                   title={thread.title}
                 >
                   <strong>{thread.title}</strong>
-                  <span className="conversation-card-excerpt">{conversationPreview(thread)}</span>
+                  {preview && <span className="conversation-card-excerpt">{preview}</span>}
                   <div className="conversation-card-meta">
                     <time dateTime={new Date(thread.updatedAt).toISOString()}>
                       {dateFormatter.format(thread.updatedAt)}
                     </time>
-                    <span className={`conversation-card-count ${messageCount === 0 ? "is-empty" : ""}`}>
-                      {messageCount > 0 ? `${messageCount} mesaj` : "Yeni"}
-                    </span>
+                    {messageCount > 0 && (
+                      <span className="conversation-card-count">{messageCount} mesaj</span>
+                    )}
                   </div>
                 </button>
 
