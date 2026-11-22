@@ -89,14 +89,24 @@
 }
 
 .pomodoro-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   min-width: 6.5rem;
+  min-height: 2.35rem;
   font-weight: 650;
 }
 
 .pomodoro-reset-btn,
 .pomodoro-skip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 2.35rem;
   font-size: 0.82rem;
-  padding: 0.45rem 0.75rem;
+  padding: 0.45rem 0.85rem;
 }
 
 .pomodoro-footer-options {
@@ -1052,4 +1062,14 @@ dialog,
   border-radius: 0.6rem;
   background: var(--app-control);
   border: 1px dashed var(--app-border);
+}
+
+.dashboard-grid-row.row-pomodoro.dashboard-bottom-split {
+  align-items: start;
+}
+
+.dashboard-matches-card .ack-standings-wrap {
+  max-height: 270px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
