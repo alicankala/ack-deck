@@ -106,11 +106,10 @@ export function MobileTasksCard({
           <h3 className="mobile-tasks-title">Görevler</h3>
         </div>
         <div className="mobile-tasks-actions">
-          <span className="mobile-remaining-pill">{totalRemainingCount} KALDI</span>
           <button
             className="primary-action-round"
             type="button"
-            onClick={() => onNewTask(mobileTaskFilter === "today")}
+            onClick={() => onNewTask(false)}
             title="Görev Ekle"
           >
             +
@@ -127,19 +126,22 @@ export function MobileTasksCard({
         </div>
       </div>
 
-      {/* Filter Tabs matching desktop [Aktif | Bugün | Yaklaşan | Tarihsiz | Tamamlanan] */}
-      <div className="mobile-task-filters" role="group" aria-label="Görev filtresi">
-        {mobileTaskFilters.map(([key, label]) => (
-          <button
-            type="button"
-            key={key}
-            className={`mobile-task-filter-btn ${mobileTaskFilter === key ? "is-active" : ""}`}
-            aria-pressed={mobileTaskFilter === key}
-            onClick={() => setMobileTaskFilter(key)}
-          >
-            {label}
-          </button>
-        ))}
+      {/* Compact segmented filter + remaining badge row */}
+      <div className="mobile-tasks-subbar">
+        <div className="mobile-task-filters" role="group" aria-label="Görev filtresi">
+          {mobileTaskFilters.map(([key, label]) => (
+            <button
+              type="button"
+              key={key}
+              className={`mobile-task-filter-btn ${mobileTaskFilter === key ? "is-active" : ""}`}
+              aria-pressed={mobileTaskFilter === key}
+              onClick={() => setMobileTaskFilter(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <span className="mobile-remaining-pill">{totalRemainingCount} KALDI</span>
       </div>
 
       {/* Study Blocks & Tasks List */}

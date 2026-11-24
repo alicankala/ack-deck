@@ -18,7 +18,7 @@ type SporekraniRawMatch = {
   channels?: Array<number | string | { name?: string }>;
 };
 
-const EXCLUDED_TEAM_OR_LEAGUE_RE = /\b(u19|u21|u17|u16|ümit|gençlik|genclik|kadın|kadin|espor|tefl|ampute|futsal)\b/i;
+const EXCLUDED_TEAM_OR_LEAGUE_RE = /\b(u21|u20|u19|u18|u17|u16|u15|u14|ümit|umit|gençlik|genclik|kadın|kadin|espor|tefl|ampute|futsal|regions\s+cup|amatör|amator|plaj|beach|rezerv)\b/i;
 
 const TR_MONTH_MAP: Record<string, string> = {
   ocak: "01",

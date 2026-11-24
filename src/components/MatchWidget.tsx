@@ -19,7 +19,6 @@ import {
 import { MatchLineupPitch, StandingsPanel } from "../../shared/MatchDetailsViews";
 import "../../shared/matchDetails.css";
 import { turkeyDateKey } from "../../shared/dormMenu";
-import { Icon } from "./Icon";
 
 function MatchRow({ match, now, showTeamTag = false }: { match: MatchItem; now: number; showTeamTag?: boolean }) {
   const todayKey = turkeyDateKey(new Date(now));
@@ -158,7 +157,11 @@ export function MatchWidget() {
   const allUpcoming = upcomingMatches(matches, now, 8);
 
   return (
-    <section className="dashboard-matches-card surface" aria-labelledby="matches-heading">
+    <section
+      className="dashboard-matches-card surface"
+      data-expanded={tab === "standings" || showAll ? "true" : "false"}
+      aria-labelledby="matches-heading"
+    >
       <div className="dashboard-section-top">
         <div className="pomodoro-title-wrap">
           <span className="overview-icon-small" aria-hidden="true">
@@ -171,46 +174,52 @@ export function MatchWidget() {
         </div>
 
         <div className="match-card-actions">
-          <div className="ack-standings-tabs" role="tablist" aria-label="Görünüm">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "matches"}
-              className={`ack-standings-tab ${tab === "matches" ? "is-active" : ""}`}
-              onClick={() => setTab("matches")}
-            >
-              Takvim
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "standings"}
-              className={`ack-standings-tab ${tab === "standings" ? "is-active" : ""}`}
-              onClick={() => setTab("standings")}
-            >
-              Puan Durumu
-            </button>
-          </div>
-          {tab === "matches" && allUpcoming.length > 2 && (
-            <button
-              type="button"
-              className={`ack-standings-tab ${showAll ? "is-active" : ""}`}
-              onClick={() => setShowAll(prev => !prev)}
-            >
-              {showAll ? "Özet" : `Tümü (${allUpcoming.length})`}
-            </button>
-          )}
           <button
             type="button"
-            className="dorm-refresh-btn"
+            className={`match-refresh-btn ${(tab === "matches" ? loading : standingsLoading) ? "is-spinning" : ""}`}
             onClick={() => (tab === "matches" ? void refresh(true) : void refreshStandings(true))}
             disabled={tab === "matches" ? loading : standingsLoading}
             title="Yenile"
             aria-label="Yenile"
           >
-            <Icon name="refresh" size={14} />
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M14 8a6 6 0 1 1-6-6c1.68 0 3.29.67 4.5 1.83L14 5.3" />
+              <path d="M14 2v3.5h-3.5" />
+            </svg>
           </button>
         </div>
+      </div>
+
+      <div className="match-card-subbar">
+        <div className="ack-standings-tabs" role="tablist" aria-label="Görünüm">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "matches"}
+            className={`ack-standings-tab ${tab === "matches" ? "is-active" : ""}`}
+            onClick={() => setTab("matches")}
+          >
+            Takvim
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "standings"}
+            className={`ack-standings-tab ${tab === "standings" ? "is-active" : ""}`}
+            onClick={() => setTab("standings")}
+          >
+            Puan Durumu
+          </button>
+        </div>
+        {tab === "matches" && allUpcoming.length > 2 && (
+          <button
+            type="button"
+            className={`ack-standings-tab ${showAll ? "is-active" : ""}`}
+            onClick={() => setShowAll(prev => !prev)}
+          >
+            {showAll ? "Özet" : `Tümü (${allUpcoming.length})`}
+          </button>
+        )}
       </div>
 
       {tab === "standings" ? (

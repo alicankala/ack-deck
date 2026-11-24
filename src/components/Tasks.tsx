@@ -94,6 +94,19 @@ export function Tasks({
           )}
         </div>
         <div className="tasks-heading-actions">
+          <div className="dashboard-task-filters" role="group" aria-label="Görev filtresi">
+            {TASK_FILTERS.map(([key, label]) => (
+              <button
+                type="button"
+                key={key}
+                className={`dashboard-task-filter-btn ${filter === key ? "is-active" : ""}`}
+                aria-pressed={filter === key}
+                onClick={() => setFilter(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <span className="task-count">{remaining} KALDI</span>
           <button
             className="button button-primary task-create-button"
@@ -111,13 +124,6 @@ export function Tasks({
       </div>
 
       <div className="tasks-card surface">
-        <div className="task-filters tasks-filters-centered" role="group" aria-label="Görev filtresi">
-          {TASK_FILTERS.map(([key, label]) => (
-            <button type="button" key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>
-              {label}
-            </button>
-          ))}
-        </div>
         {error && <p className="tool-feedback error" role="alert">{error}</p>}
         {editor && (
           <TaskEditorDialog

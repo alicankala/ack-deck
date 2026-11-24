@@ -110,8 +110,43 @@ export function PomodoroTimer() {
       : ` · Kalan ${Math.ceil(liveTargetRemainingSeconds / 60)} dk`
     : "";
 
+  const ringRadius = 68;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+  const ringDashOffset = ringCircumference * (progressPercent / 100);
+
   return (
     <section className="dashboard-pomodoro surface" aria-labelledby="pomodoro-heading">
+      {pendingConfirm && (
+        <div className="pomodoro-confirm-banner" role="status">
+          <span>
+            <strong>{pendingConfirm.label}</strong> seansı bitti.
+          </span>
+          <div className="pomodoro-confirm-actions">
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={confirmPomodoroTargetDone}
+            >
+              ✓ {pendingConfirm.kind === "study" ? "Çalıştım İşaretle" : "Tamamlandı İşaretle"}
+            </button>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => extendPomodoro(15)}
+            >
+              +15 dk Uzat
+            </button>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={dismissPomodoroConfirm}
+            >
+              Kapat
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="dashboard-section-top">
         <div className="pomodoro-title-wrap">
           <span className="overview-icon-small">
@@ -147,120 +182,118 @@ export function PomodoroTimer() {
         </div>
       </div>
 
-      {pendingConfirm && (
-        <div className="pomodoro-confirm-banner" role="status">
-          <span>
-            <strong>{pendingConfirm.label}</strong> seansı bitti.
-          </span>
-          <div className="pomodoro-confirm-actions">
-            <button
-              type="button"
-              className="button button-primary"
-              onClick={confirmPomodoroTargetDone}
-            >
-              ✓ {pendingConfirm.kind === "study" ? "Çalıştım İşaretle" : "Tamamlandı İşaretle"}
-            </button>
-            <button
-              type="button"
-              className="button button-secondary"
-              onClick={() => extendPomodoro(15)}
-            >
-              +15 dk Uzat
-            </button>
-            <button
-              type="button"
-              className="button button-secondary"
-              onClick={dismissPomodoroConfirm}
-            >
-              Kapat
-            </button>
+      <div className="pomodoro-cockpit">
+        {/* Left: Circular SVG Progress Ring */}
+        <div
+          className={`pomodoro-ring-wrap ${isRunning ? "is-running" : ""}`}
+          role="progressbar"
+          aria-valuenow={Math.round(progressPercent)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Pomodoro ilerleme durumu"
+        >
+          <svg className="pomodoro-ring-svg" viewBox="0 0 160 160" aria-hidden="true">
+            <circle className="pomodoro-ring-track" cx="80" cy="80" r={ringRadius} />
+            <circle
+              className={`pomodoro-ring-arc mode-${mode}`}
+              cx="80"
+              cy="80"
+              r={ringRadius}
+              strokeDasharray={ringCircumference}
+              strokeDashoffset={ringDashOffset}
+            />
+          </svg>
+          <div className="pomodoro-ring-center">
+            <span className="pomodoro-digits">{timeFormatted}</span>
+            <span className={`pomodoro-mode-badge mode-${mode}`}>{MODE_LABELS[mode].title}</span>
           </div>
         </div>
-      )}
 
-      <div className="pomodoro-body">
-        {/* Big Time Display */}
-        <div className="pomodoro-timer-display">
-          <span className="pomodoro-digits">{timeFormatted}</span>
-          <span className={`pomodoro-mode-badge mode-${mode}`}>{MODE_LABELS[mode].title}</span>
-        </div>
-
-        {/* Bugünün Ders Programı / Serbest Odak Hapları */}
-        {(studies.length > 0 || target) && (
-          <div className="pomodoro-target-pills" role="group" aria-label="Odak seçimi">
+        {/* Center: Action Controls & Optional Study Targets */}
+        <div className="pomodoro-center-col">
+          <div className="pomodoro-controls">
             <button
               type="button"
-              className={`pomodoro-target-pill ${!target ? "is-active" : ""}`}
-              onClick={() => setPomodoroTarget(undefined, true)}
-              disabled={isRunning}
+              className={`button ${isRunning ? "button-secondary" : "button-primary"} pomodoro-action-btn`}
+              onClick={togglePomodoroPause}
+              aria-label={isRunning ? "Sayacı duraklat" : "Sayacı başlat"}
             >
-              Serbest · 25 dk
+              {isRunning ? "Duraklat" : "Başlat"}
             </button>
-            {studies.map(s => (
-              <button
-                type="button"
-                key={s.id}
-                className={`pomodoro-target-pill ${target?.id === s.id ? "is-active" : ""}`}
-                onClick={() => setPomodoroTarget(s)}
-                disabled={isRunning}
-              >
-                {s.label}{s.durationMinutes ? ` · ${s.durationMinutes} dk` : ""}
-              </button>
-            ))}
-            {target && !studies.some(s => s.id === target.id) && (
-              <button
-                type="button"
-                className="pomodoro-target-pill is-active"
-                disabled={isRunning}
-              >
-                {target.label}
-              </button>
-            )}
+            <button
+              type="button"
+              className="button button-secondary pomodoro-reset-btn"
+              onClick={resetPomodoro}
+              title="Sayacı sıfırla"
+            >
+              Sıfırla
+            </button>
+            <button
+              type="button"
+              className="button button-secondary pomodoro-skip-btn"
+              onClick={skipPhase}
+              title={mode === "pomodoro" ? "Molaya geç" : "Odağa geç"}
+            >
+              {mode === "pomodoro" ? "Molaya Geç" : "Odağa Dön"}
+            </button>
           </div>
-        )}
 
-        {/* Action Controls */}
-        <div className="pomodoro-controls">
-          <button
-            type="button"
-            className={`button ${isRunning ? "button-secondary" : "button-primary"} pomodoro-action-btn`}
-            onClick={togglePomodoroPause}
-            aria-label={isRunning ? "Sayacı duraklat" : "Sayacı başlat"}
-          >
-            {isRunning ? "Duraklat" : "Başlat"}
-          </button>
-          <button
-            type="button"
-            className="button button-secondary pomodoro-reset-btn"
-            onClick={resetPomodoro}
-            title="Sayacı sıfırla"
-          >
-            Sıfırla
-          </button>
-          <button
-            type="button"
-            className="button button-secondary pomodoro-skip-btn"
-            onClick={skipPhase}
-            title={mode === "pomodoro" ? "Molaya geç" : "Odağa geç"}
-          >
-            {mode === "pomodoro" ? "Molaya Geç" : "Odağa Dön"}
-          </button>
+          {(studies.length > 0 || target) && (
+            <div className="pomodoro-target-pills" role="group" aria-label="Odak seçimi">
+              <button
+                type="button"
+                className={`pomodoro-target-pill ${!target ? "is-active" : ""}`}
+                onClick={() => setPomodoroTarget(undefined, true)}
+                disabled={isRunning}
+              >
+                Serbest · 25 dk
+              </button>
+              {studies.map(s => (
+                <button
+                  type="button"
+                  key={s.id}
+                  className={`pomodoro-target-pill ${target?.id === s.id ? "is-active" : ""}`}
+                  onClick={() => setPomodoroTarget(s)}
+                  disabled={isRunning}
+                >
+                  {s.label}{s.durationMinutes ? ` · ${s.durationMinutes} dk` : ""}
+                </button>
+              ))}
+              {target && !studies.some(s => s.id === target.id) && (
+                <button
+                  type="button"
+                  className="pomodoro-target-pill is-active"
+                  disabled={isRunning}
+                >
+                  {target.label}
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Sessions Counter & Auto-break Checkbox */}
-        <div className="pomodoro-footer-options">
-          <div className="pomodoro-sessions-track" title={`${completedSessions} seans tamamlandı (Her 4 seansta bir uzun mola)`}>
-            <span className="pomodoro-session-label">Döngü:</span>
-            {Array.from({ length: 4 }).map((_, i) => (
-              <span
-                key={i}
-                className={`pomodoro-dot ${i < (completedSessions % 4) ? "is-done" : ""}`}
-                aria-hidden="true"
-              >
-                {i < (completedSessions % 4) ? "🍅" : "○"}
-              </span>
-            ))}
-            <span className="pomodoro-total-badge">Toplam {completedSessions}</span>
+        {/* Right: Compact Cycle & Stats Card */}
+        <div className="pomodoro-stats-box">
+          <div className="pomodoro-stat-row" title={`${completedSessions} seans tamamlandı (Her 4 seansta bir uzun mola)`}>
+            <span className="pomodoro-stat-key">Döngü</span>
+            <div className="pomodoro-sessions-track">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <span
+                  key={i}
+                  className={`pomodoro-dot ${i < (completedSessions % 4) ? "is-done" : ""}`}
+                  aria-hidden="true"
+                >
+                  {i < (completedSessions % 4) ? "🍅" : "○"}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="pomodoro-stat-row">
+            <span className="pomodoro-stat-key">Bugün</span>
+            <span className="pomodoro-stat-val">
+              {completedSessions} seans · {completedFocusMinutes ?? completedSessions * 25} dk
+            </span>
           </div>
 
           <label className="pomodoro-autobreak-label" title="25 dakika bittiğinde 5 dakikalık molayı otomatik başlatır">
@@ -272,11 +305,6 @@ export function PomodoroTimer() {
             <span>Otomatik molaya geç</span>
           </label>
         </div>
-      </div>
-
-      {/* Progress Bar at Bottom of Card */}
-      <div className="pomodoro-progress-bar" role="progressbar" aria-valuenow={progressPercent} aria-valuemin={0} aria-valuemax={100}>
-        <div className={`pomodoro-progress-fill mode-${mode}`} style={{ width: `${progressPercent}%` }} />
       </div>
     </section>
   );

@@ -92,6 +92,22 @@ export function Dashboard({ onNavigate, onAskAi, targetId }: Props) {
   const todayDateStr = localDateKey(now);
   const [selectedDate, setSelectedDate] = useState<string>(todayDateStr);
   const [attendance, setAttendance] = useState(() => loadStudyAttendance());
+  const bottomSplitRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const row = bottomSplitRef.current;
+    if (!row) return;
+    const matchCard = row.querySelector<HTMLElement>(".dashboard-matches-card");
+    if (!matchCard) return;
+    const syncHeight = () => {
+      if (matchCard.dataset.expanded === "true" || matchCard.querySelector('[aria-expanded="true"]')) return;
+      const h = Math.round(matchCard.getBoundingClientRect().height);
+      if (h > 0) row.style.setProperty("--pomodoro-synced-height", `${h}px`);
+    };
+    syncHeight();
+    const ro = new ResizeObserver(syncHeight);
+    ro.observe(matchCard);
+    return () => ro.disconnect();
+  }, []);
   useEffect(() => {
     const handleAtt = () => setAttendance(loadStudyAttendance());
     window.addEventListener("ack-study-attendance-changed", handleAtt);
@@ -627,7 +643,7 @@ export function Dashboard({ onNavigate, onAskAi, targetId }: Props) {
         </div>
 
         {/* Alt Şerit: Pomodoro Odak Sayacı + Maç Takvimi Yan Yana */}
-        <div className="dashboard-grid-row row-pomodoro dashboard-bottom-split">
+        <div className="dashboard-grid-row row-pomodoro dashboard-bottom-split" ref={bottomSplitRef}>
           <PomodoroTimer />
           <MatchWidget />
         </div>

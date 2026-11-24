@@ -1,11 +1,171 @@
 /* Pomodoro Odak Sayacı */
 .dashboard-pomodoro {
-  padding: 1.2rem 1.4rem;
+  padding: 1.15rem 1.35rem;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   gap: 0.9rem;
   position: relative;
   overflow: hidden;
+  min-height: var(--pomodoro-synced-height, auto);
+  box-sizing: border-box;
+}
+
+.pomodoro-cockpit {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(215px, auto);
+  align-items: center;
+  gap: 1.4rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.pomodoro-center-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.pomodoro-center-col .pomodoro-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.pomodoro-center-col .pomodoro-action-btn {
+  flex: 0 0 auto;
+  min-width: 8.5rem;
+}
+
+.pomodoro-stats-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.85rem 1.05rem;
+  border-radius: 0.75rem;
+  background: var(--app-control, rgba(255, 255, 255, 0.035));
+  border: 1px solid var(--app-border, rgba(255, 255, 255, 0.08));
+  min-width: 215px;
+}
+
+.pomodoro-stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  font-size: 0.78rem;
+}
+
+.pomodoro-stat-key {
+  color: var(--app-muted, #94a3b8);
+  font-weight: 550;
+}
+
+.pomodoro-stat-val {
+  color: var(--app-text, #f1f5f9);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.pomodoro-stats-box .pomodoro-autobreak-label {
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--app-border, rgba(255, 255, 255, 0.08));
+}
+
+.pomodoro-ring-wrap {
+  position: relative;
+  width: 152px;
+  height: 152px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+}
+
+.pomodoro-ring-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  overflow: visible;
+}
+
+.pomodoro-ring-track {
+  fill: none;
+  stroke: var(--app-border, rgba(255, 255, 255, 0.09));
+  stroke-width: 7.5;
+}
+
+.pomodoro-ring-arc {
+  fill: none;
+  stroke-width: 7.5;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.45s ease, stroke 0.25s ease;
+}
+
+.pomodoro-ring-arc.mode-pomodoro {
+  stroke: var(--app-accent, #38bdf8);
+  filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.32));
+}
+
+.pomodoro-ring-arc.mode-shortBreak {
+  stroke: #10b981;
+  filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.32));
+}
+
+.pomodoro-ring-arc.mode-longBreak {
+  stroke: #60a5fa;
+  filter: drop-shadow(0 0 6px rgba(96, 165, 250, 0.32));
+}
+
+.pomodoro-ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.38rem;
+  pointer-events: none;
+}
+
+.pomodoro-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+  min-width: 0;
+}
+
+.pomodoro-panel-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 820px) {
+  .pomodoro-cockpit {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 1rem;
+  }
+  .pomodoro-stats-box {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .pomodoro-cockpit {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+  .pomodoro-center-col,
+  .pomodoro-stats-box {
+    width: 100%;
+  }
 }
 
 .pomodoro-title-wrap {
@@ -54,7 +214,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1.5rem;
+  column-gap: 1.5rem;
+  row-gap: 1.15rem;
   flex-wrap: wrap;
 }
 
@@ -66,9 +227,9 @@
 
 .pomodoro-digits {
   font-family: var(--font-mono, monospace);
-  font-size: 2.2rem;
+  font-size: 1.75rem;
   font-weight: 750;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   color: var(--app-text);
   line-height: 1;
 }
@@ -93,8 +254,9 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  min-width: 6.5rem;
-  min-height: 2.35rem;
+  min-width: 7.5rem;
+  min-height: 2.65rem;
+  font-size: 0.9rem;
   font-weight: 650;
 }
 
@@ -104,16 +266,19 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  min-height: 2.35rem;
-  font-size: 0.82rem;
-  padding: 0.45rem 0.85rem;
+  min-height: 2.65rem;
+  font-size: 0.84rem;
+  padding: 0.5rem 0.95rem;
 }
 
 .pomodoro-footer-options {
   display: flex;
   align-items: center;
-  gap: 1.25rem;
+  justify-content: space-between;
+  gap: 0.85rem;
   flex-wrap: wrap;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--app-border, rgba(255, 255, 255, 0.08));
 }
 
 .pomodoro-sessions-track {
@@ -150,8 +315,8 @@
 }
 
 .pomodoro-mode-badge.mode-pomodoro {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.12);
+  color: var(--app-accent, #38bdf8);
+  background: var(--app-accent-soft, rgba(56, 189, 248, 0.14));
 }
 
 .pomodoro-mode-badge.mode-shortBreak {
@@ -908,7 +1073,6 @@ dialog,
   flex-direction: column;
   gap: 0.85rem;
   min-width: 0;
-  height: 100%;
   box-sizing: border-box;
 }
 
@@ -916,6 +1080,56 @@ dialog,
   display: flex;
   align-items: center;
   gap: 0.45rem;
+}
+
+.match-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--app-muted, #94a3b8);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.match-refresh-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--app-accent, #38bdf8);
+}
+
+.match-refresh-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.match-refresh-btn svg {
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.match-refresh-btn.is-spinning svg {
+  animation: match-refresh-spin 0.8s linear infinite;
+}
+
+@keyframes match-refresh-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+:root[data-theme="light"] .match-refresh-btn:hover:not(:disabled) {
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--app-accent, #0284c7);
+}
+
+.match-card-subbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
 }
 
 .match-summary-list {
@@ -1066,6 +1280,12 @@ dialog,
 
 .dashboard-grid-row.row-pomodoro.dashboard-bottom-split {
   align-items: start;
+}
+
+@media (max-width: 1120px) {
+  .dashboard-pomodoro {
+    min-height: 0;
+  }
 }
 
 .dashboard-matches-card .ack-standings-wrap {

@@ -11,9 +11,6 @@ export type SharedTaskFilter = "all" | "today" | "upcoming" | "undated" | "compl
 
 export const SHARED_TASK_FILTERS: [SharedTaskFilter, string][] = [
   ["all", "Aktif"],
-  ["today", "Bugün"],
-  ["upcoming", "Yaklaşan"],
-  ["undated", "Tarihsiz"],
   ["completed", "Tamamlanan"],
 ];
 

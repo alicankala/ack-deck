@@ -130,10 +130,12 @@ export async function fetchMatches(options?: { workerUrl?: string; force?: boole
   return payload;
 }
 
+const NON_SENIOR_MATCH_RE = /\b(u21|u20|u19|u18|u17|u16|u15|u14|ümit|umit|gençlik|genclik|kadın|kadin|espor|tefl|ampute|futsal|regions\s+cup|amatör|amator|plaj|beach|rezerv)\b/i;
+
 export function upcomingMatches(matches: MatchItem[], now = Date.now(), limit = 10): MatchItem[] {
   const cutoff = now - 150 * 60 * 1000; // Keep live/recently finished match visible for 2.5h
   return [...matches]
-    .filter(m => m.timestampMs >= cutoff)
+    .filter(m => m.timestampMs >= cutoff && !NON_SENIOR_MATCH_RE.test(`${m.home} ${m.away} ${m.league}`))
     .sort((a, b) => a.timestampMs - b.timestampMs)
     .slice(0, limit);
 }

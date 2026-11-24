@@ -80,21 +80,22 @@ export function DashboardTasksCard({
           </div>
           <h2 id="dashboard-tasks-heading">Görevler</h2>
         </div>
-        <span className="dashboard-tasks-remaining-pill">{totalRemainingCount} KALDI</span>
-      </div>
-
-      <div className="dashboard-task-filters" role="group" aria-label="Görev filtresi">
-        {TASK_FILTERS.map(([key, label]) => (
-          <button
-            type="button"
-            key={key}
-            className={`dashboard-task-filter-btn ${taskFilter === key ? "is-active" : ""}`}
-            aria-pressed={taskFilter === key}
-            onClick={() => setTaskFilter(key)}
-          >
-            {label}
-          </button>
-        ))}
+        <div className="dashboard-tasks-header-right">
+          <div className="dashboard-task-filters" role="group" aria-label="Görev filtresi">
+            {TASK_FILTERS.map(([key, label]) => (
+              <button
+                type="button"
+                key={key}
+                className={`dashboard-task-filter-btn ${taskFilter === key ? "is-active" : ""}`}
+                aria-pressed={taskFilter === key}
+                onClick={() => setTaskFilter(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <span className="dashboard-tasks-remaining-pill">{totalRemainingCount} KALDI</span>
+        </div>
       </div>
 
       {tasksLoad.warning && (

@@ -425,7 +425,7 @@ test('Dashboard Görevler card lists all tasks across mobile-style filters witho
   ];
   assert.equal(taskStore.saveTasks(seed, taskStore.loadTasks()), true);
 
-  assert.deepEqual(plain(actions.TASK_FILTERS.map(([, l]) => l)), ['Aktif', 'Bugün', 'Yaklaşan', 'Tarihsiz', 'Tamamlanan']);
+  assert.deepEqual(plain(actions.TASK_FILTERS.map(([, l]) => l)), ['Aktif', 'Tamamlanan']);
 
   // 'all' (Aktif) returns ALL 7 active tasks without 5-item cap or 2-day lookahead cap
   assert.deepEqual(
