@@ -256,6 +256,36 @@ test("parseEspnLineups requires 11 confirmed starters per team and groupLineupRo
   assert.equal(isLineupWindowOpen(kickoff, kickoff + 30 * 60_000), true);
 });
 
+test("groupLineupRows places ESPN shirt-numbered formationPlace players by actual position and left-to-right", () => {
+  const rows = groupLineupRows({
+    teamName: "Galatasaray",
+    formation: "4-2-3-1",
+    players: [
+      { name: "U. Çakir", jersey: "1", position: "G", formationPlace: 1 },
+      { name: "W. Singo", jersey: "90", position: "RB", formationPlace: 2 },
+      { name: "I. Jakobs", jersey: "4", position: "LB", formationPlace: 3 },
+      { name: "L. Torreira", jersey: "34", position: "LM", formationPlace: 4 },
+      { name: "D. Sánchez", jersey: "6", position: "CD-R", formationPlace: 5 },
+      { name: "A. Bardakçi", jersey: "42", position: "CD-L", formationPlace: 6 },
+      { name: "Y. Akgün", jersey: "11", position: "AM-R", formationPlace: 7 },
+      { name: "M. Lemina", jersey: "99", position: "RM", formationPlace: 8 },
+      { name: "B. Yilmaz", jersey: "53", position: "F", formationPlace: 9 },
+      { name: "A. Batrakov", jersey: "83", position: "AM", formationPlace: 10 },
+      { name: "E. Elmali", jersey: "17", position: "AM-L", formationPlace: 11 },
+    ],
+  });
+  assert.deepEqual(
+    rows.map((r) => r.map((p) => p.name)),
+    [
+      ["U. Çakir"],
+      ["I. Jakobs", "A. Bardakçi", "D. Sánchez", "W. Singo"],
+      ["L. Torreira", "M. Lemina"],
+      ["E. Elmali", "A. Batrakov", "Y. Akgün"],
+      ["B. Yilmaz"],
+    ],
+  );
+});
+
 test("parseEspnF1Race extracts only main Race session and selectSummaryMatches picks next 2 chronologically", () => {
   const f1 = parseEspnF1Race({
     id: "600052",

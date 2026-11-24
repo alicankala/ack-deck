@@ -167,12 +167,48 @@ export function shortPlayerName(fullName: string): string {
   return parts[parts.length - 1];
 }
 
+function positionDepthRank(position: string): number | null {
+  const pos = position.trim().toUpperCase();
+  if (!pos) return null;
+  if (pos === "G" || pos === "GK") return 0;
+  if (/^(LB|RB|DL|DR|CD|CB|DC|D|DF|SW|LCB|RCB)(-?[LR])?$/.test(pos)) return 10;
+  if (/^(LWB|RWB|WB-?[LR])$/.test(pos)) return 15;
+  if (/^(DM|CDM|LDM|RDM)(-?[LR])?$/.test(pos)) return 20;
+  if (/^(LM|RM|ML|MR|CM|MC|LCM|RCM|M|MF)(-?[LR])?$/.test(pos)) return 25;
+  if (/^(AM|CAM|AMC|LAM|RAM|LW|RW|WL|WR|LF|RF|SS)(-?[CLR]+)?$/.test(pos)) return 30;
+  if (/^(F|CF|ST|FW|S|LS|RS)(-?[LR])?$/.test(pos)) return 40;
+  return null;
+}
+
+function positionHorizontalRank(position: string): number {
+  const pos = position.trim().toUpperCase();
+  if (/^(LB|DL|LWB|WB-?L|LM|ML|LW|WL|LF|AM-L|LAM)$/.test(pos)) return -2;
+  if (/^(CD-L|LCB|CB-L|DC-L|DM-L|LDM|CDM-L|CM-L|LCM|MC-L|AM-CL|F-L|CF-L|ST-L|LS)$/.test(pos)) return -1;
+  if (/^(CD-R|RCB|CB-R|DC-R|DM-R|RDM|CDM-R|CM-R|RCM|MC-R|AM-CR|F-R|CF-R|ST-R|RS)$/.test(pos)) return 1;
+  if (/^(RB|DR|RWB|WB-?R|RM|MR|RW|WR|RF|AM-R|RAM)$/.test(pos)) return 2;
+  return 0;
+}
+
 /** Groups 11 starters into pitch lines from Goalkeeper (bottom) to Attack (top). */
 export function groupLineupRows(team: TeamLineup): LineupPlayer[][] {
-  const sorted = [...team.players].sort((a, b) => a.formationPlace - b.formationPlace);
-  if (sorted.length === 0) return [];
-  const gk = sorted[0];
-  const outfield = sorted.slice(1);
+  if (team.players.length === 0) return [];
+  const byPlace = [...team.players].sort((a, b) => a.formationPlace - b.formationPlace);
+  const gkIdx = byPlace.findIndex((p) => positionDepthRank(p.position) === 0);
+  const gk = gkIdx >= 0 ? byPlace[gkIdx] : byPlace[0];
+  const rawOutfield = byPlace.filter((p) => p !== gk);
+
+  const recognizedOutfield = rawOutfield.filter((p) => positionDepthRank(p.position) !== null).length;
+  const usePositionOrder = recognizedOutfield >= Math.ceil(rawOutfield.length / 2);
+
+  const outfield = usePositionOrder
+    ? [...rawOutfield].sort((a, b) => {
+        const da = positionDepthRank(a.position) ?? 25;
+        const db = positionDepthRank(b.position) ?? 25;
+        if (da !== db) return da - db;
+        return a.formationPlace - b.formationPlace;
+      })
+    : rawOutfield;
+
   const counts = (team.formation || "")
     .split("-")
     .map((n) => Number(n.trim()))
@@ -184,7 +220,17 @@ export function groupLineupRows(team: TeamLineup): LineupPlayer[][] {
   let cursor = 0;
   for (const count of lines) {
     const slice = outfield.slice(cursor, cursor + count);
-    if (slice.length > 0) rows.push(slice);
+    if (slice.length > 0) {
+      if (usePositionOrder) {
+        slice.sort((a, b) => {
+          const ha = positionHorizontalRank(a.position);
+          const hb = positionHorizontalRank(b.position);
+          if (ha !== hb) return ha - hb;
+          return a.formationPlace - b.formationPlace;
+        });
+      }
+      rows.push(slice);
+    }
     cursor += count;
   }
   if (cursor < outfield.length) {
