@@ -266,3 +266,116 @@ test("finishRecurringSeries permanently completes recurring tasks while keeping 
   assert.equal(phone.validTask(finished), true);
   assert.equal(taskStore.isTask({ id: "t-1", ...finished }), true);
 });
+
+test("completedTaskSortTime sorts dated tasks by actual lastCompletedAt first and falls back to dueDate for legacy items", () => {
+  const env = setupModules([], { react: reactStub });
+  const filters = env.load("../shared/taskFilters");
+
+  const babamiAra = {
+    text: "Babamı Ara ve Bileti Al",
+    completed: true,
+    dueDate: "2026-11-14",
+    dueTime: "20:00",
+    lastCompletedAt: new Date("2026-11-15T15:41:00").getTime(),
+  };
+  const amcamiAra = {
+    text: "Amcamı Ara",
+    completed: true,
+    dueDate: "2026-11-14",
+    dueTime: "15:00",
+    lastCompletedAt: new Date("2026-11-15T18:37:00").getTime(),
+  };
+  const legacyVize = {
+    text: "Vize Elektromanyetik Dalgalar",
+    completed: true,
+    dueDate: "2026-11-14",
+    dueTime: "13:00",
+    lastCompletedAt: null,
+  };
+
+  const ordered = filters.filterAndSortTaskItems([babamiAra, legacyVize, amcamiAra], "completed", "2026-11-25");
+  assert.deepEqual(Array.from(ordered, (t) => t.text), [
+    "Amcamı Ara",
+    "Babamı Ara ve Bileti Al",
+    "Vize Elektromanyetik Dalgalar",
+  ]);
+});
+
+test("subscription ledger helpers compute exact 100% shares, annual totals, countdowns, and reordering", () => {
+  const env = setupModules([], { react: reactStub });
+  const subs = env.load("../shared/subscriptions");
+
+  const base = {
+    category: "Dijital",
+    currency: "TRY",
+    cycle: "monthly",
+    periodDays: 30,
+    autoRenew: true,
+    status: "active",
+    website: "",
+    note: "",
+    icon: "",
+    reminderDays: null,
+    timezone: "Europe/Istanbul",
+    createdAt: 1000,
+    updatedAt: 1000,
+  };
+  const entries = [
+    { ...base, id: "gem", name: "Gemini", amount: 179.99, nextPayment: "2026-12-02" },
+    { ...base, id: "spo", name: "Spotify", amount: 199.0, nextPayment: "2026-12-21" },
+    { ...base, id: "yt", name: "Youtube Premium", amount: 239.99, nextPayment: "2026-12-21" },
+  ];
+
+  const shares = subs.subscriptionShares(entries, 4);
+  assert.equal(shares.length, 3);
+  assert.deepEqual(Array.from(shares, (s) => s.id), ["yt", "spo", "gem"]);
+  assert.equal(shares.reduce((acc, s) => acc + s.percent, 0), 100);
+  assert.deepEqual(Array.from(shares, (s) => s.percent), [39, 32, 29]);
+
+  const annual = subs.yearlyTotals(entries);
+  assert.equal(annual.length, 1);
+  assert.equal(annual[0][0], "TRY");
+  assert.equal(Math.round(annual[0][1]), 7428);
+
+  const now = new Date("2026-11-25T12:00:00+03:00").getTime();
+  assert.equal(subs.daysUntilPayment(entries[0], now), 7);
+  assert.equal(subs.paymentCountdownLabel(entries[0], now), "7 gün kaldı");
+  assert.equal(subs.daysUntilPayment(entries[1], now), 26);
+
+  const movedDown = subs.moveSubscriptionItem(entries, "gem", 2);
+  assert.deepEqual(Array.from(movedDown, (s) => s.id), ["spo", "yt", "gem"]);
+  const movedUp = subs.moveSubscriptionItem(movedDown, "gem", 0);
+  assert.deepEqual(Array.from(movedUp, (s) => s.id), ["gem", "spo", "yt"]);
+});
+
+test("editing an active study target duration (e.g. 90 -> 130 or 15) updates targetRemainingSeconds while preserving worked minutes", () => {
+  const env = setupModules([], { react: reactStub });
+  const pomodoro = env.load("pomodoroStore");
+  const today = pomodoro.getPomodoroSnapshot().sessionDate;
+  const id = `prog1:s1:${today}`;
+
+  // 1. Selected at 90m (0 worked), then edited to 130m -> immediately becomes 130m (7800s)
+  pomodoro.setPomodoroTarget({ kind: "study", id, label: "Fizik", durationMinutes: 90 });
+  assert.equal(pomodoro.getPomodoroSnapshot().targetRemainingSeconds, 90 * 60);
+  pomodoro.setPomodoroTarget({ kind: "study", id, label: "Fizik", durationMinutes: 130 }, false, true);
+  assert.equal(pomodoro.getPomodoroSnapshot().targetRemainingSeconds, 130 * 60);
+  assert.equal(pomodoro.getPomodoroSnapshot().timeLeft, 25 * 60);
+
+  // 2. Edited down to 15m before starting -> ring also shrinks to 15:00
+  pomodoro.setPomodoroTarget({ kind: "study", id, label: "Fizik", durationMinutes: 15 }, false, true);
+  assert.equal(pomodoro.getPomodoroSnapshot().targetRemainingSeconds, 15 * 60);
+  assert.equal(pomodoro.getPomodoroSnapshot().timeLeft, 15 * 60);
+
+  // 3. Reset to 90m, work 25m -> 65m remaining on shortBreak; then edit program to 130m -> 105m remaining while staying on shortBreak
+  pomodoro.clearPomodoroTargetAndReset();
+  pomodoro.setPomodoroTarget({ kind: "study", id, label: "Fizik", durationMinutes: 90 });
+  pomodoro.togglePomodoroPause();
+  const started = pomodoro.getPomodoroSnapshot();
+  pomodoro.switchPomodoroMode("shortBreak", started.endTimeMs); // 25m worked -> 65m remaining
+  assert.equal(pomodoro.getPomodoroSnapshot().mode, "shortBreak");
+  assert.equal(pomodoro.getPomodoroSnapshot().targetRemainingSeconds, 65 * 60);
+
+  pomodoro.setPomodoroTarget({ kind: "study", id, label: "Fizik", durationMinutes: 130 }, false, true);
+  assert.equal(pomodoro.getPomodoroSnapshot().mode, "shortBreak");
+  assert.equal(pomodoro.getPomodoroSnapshot().targetRemainingSeconds, 105 * 60);
+});

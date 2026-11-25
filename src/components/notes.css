@@ -174,6 +174,12 @@
   min-height: 0;
 }
 
+.note-list-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
 .main-content .notes-page .note-list-row {
   position: relative;
   display: flex;
@@ -188,7 +194,7 @@
   min-width: 0;
   min-height: 0;
   margin: 0;
-  padding: 0.85rem 2.35rem 0.85rem 1rem;
+  padding: 0.85rem 2.6rem 0.85rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.32rem;
@@ -258,47 +264,20 @@
   font-weight: 600;
 }
 
-.main-content .notes-page .note-list-item-reorder {
+.main-content .notes-page .note-list-item-menu {
   position: absolute;
   top: 0.55rem;
   right: 0.55rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.22rem;
-  opacity: 0;
-  transition: opacity 0.15s ease;
   z-index: 2;
 }
 
-.main-content .notes-page .note-list-row:hover .note-list-item-reorder,
-.main-content .notes-page .note-list-row:focus-within .note-list-item-reorder {
-  opacity: 1;
-}
-
-.main-content .notes-page .note-order-btn {
-  background: rgba(15, 23, 34, 0.9);
-  border: 1px solid var(--app-border);
-  border-radius: 0.35rem;
-  color: var(--app-muted);
-  width: 1.35rem;
-  height: 1.35rem;
+.main-content .notes-page .note-list-item-menu .record-menu-trigger {
+  width: 1.75rem;
+  height: 1.75rem;
+  min-height: 1.75rem;
   padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.main-content .notes-page .note-order-btn:hover:not(:disabled) {
-  background: var(--app-accent);
-  color: #fff;
-  border-color: transparent;
-}
-
-.main-content .notes-page .note-order-btn:disabled {
-  opacity: 0.25;
-  cursor: not-allowed;
+  border-radius: 0.45rem;
+  font-size: 0.95rem;
 }
 
 .notes-empty-list-box {
@@ -381,24 +360,15 @@
 }
 
 .notes-editor-actions .button {
-  padding: 0.38rem 0.78rem;
+  padding: 0.38rem 0.85rem;
   min-height: 2.05rem;
   font-size: 0.83rem;
 }
 
-.notes-copy-btn.is-copied {
-  background: rgba(16, 185, 129, 0.16) !important;
-  border-color: rgba(16, 185, 129, 0.42) !important;
-  color: #34d399 !important;
-}
-
-.notes-delete-btn {
-  color: #f87171 !important;
-}
-
-.notes-delete-btn:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.14) !important;
-  border-color: rgba(248, 113, 113, 0.45) !important;
+.notes-delete-confirm.is-sidebar {
+  margin-top: 0;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.8rem;
 }
 
 .notes-unsaved-confirm {
@@ -656,16 +626,6 @@
   background: rgba(220, 38, 38, 0.1);
   color: #dc2626;
   border-color: rgba(220, 38, 38, 0.28);
-}
-
-:root[data-theme="light"] .notes-copy-btn.is-copied {
-  background: rgba(22, 163, 74, 0.12) !important;
-  border-color: rgba(22, 163, 74, 0.35) !important;
-  color: #15803d !important;
-}
-
-:root[data-theme="light"] .notes-delete-btn {
-  color: #dc2626 !important;
 }
 
 :root[data-theme="light"] .notes-delete-confirm span {

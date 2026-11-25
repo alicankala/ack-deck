@@ -60,15 +60,16 @@ export function MobilePomodoroCard({
 
   const studySignature = studyTargets.map(s => `${s.id}:${s.durationMinutes}:${s.label}`).join("|");
   useEffect(() => {
-    if (!isRunning && mode === "pomodoro" && timeLeft === totalSeconds && !pendingConfirm) {
-      if (!target && !manualFreeFocus && studyTargets.length > 0) {
-        setMobilePomodoroTarget(studyTargets[0]);
-      } else if (target) {
-        const updated = studyTargets.find(s => s.id === target.id);
-        if (updated && (updated.durationMinutes !== target.durationMinutes || updated.label !== target.label)) {
-          setMobilePomodoroTarget(updated);
-        }
+    if (pendingConfirm) return;
+    if (target) {
+      const updated = studyTargets.find(s => s.id === target.id);
+      if (updated && (updated.durationMinutes !== target.durationMinutes || updated.label !== target.label)) {
+        setMobilePomodoroTarget(updated, false, true);
       }
+      return;
+    }
+    if (!isRunning && mode === "pomodoro" && timeLeft === totalSeconds && !manualFreeFocus && studyTargets.length > 0) {
+      setMobilePomodoroTarget(studyTargets[0]);
     }
   }, [isRunning, mode, timeLeft, totalSeconds, target, pendingConfirm, manualFreeFocus, studySignature]);
 

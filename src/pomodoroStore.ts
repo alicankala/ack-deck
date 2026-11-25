@@ -564,28 +564,48 @@ export function switchPomodoroMode(mode: PomodoroMode, now = Date.now()) {
   persistAndNotify();
 }
 
-export function setPomodoroTarget(target?: PomodoroTarget, manual = false) {
+function computeUpdatedTargetSeconds(
+  prevTarget: PomodoroTarget | undefined,
+  prevRemaining: number | undefined,
+  nextTarget: PomodoroTarget | undefined
+): number | undefined {
+  if (!nextTarget) return undefined;
+  const newTotalSec =
+    nextTarget.durationMinutes && nextTarget.durationMinutes > 0
+      ? Math.round(nextTarget.durationMinutes * 60)
+      : MODE_DURATIONS.pomodoro;
+  if (
+    prevTarget?.id === nextTarget.id &&
+    typeof prevRemaining === "number" &&
+    prevRemaining > 0
+  ) {
+    const oldTotalSec =
+      prevTarget.durationMinutes && prevTarget.durationMinutes > 0
+        ? Math.round(prevTarget.durationMinutes * 60)
+        : MODE_DURATIONS.pomodoro;
+    const workedSec = Math.max(0, oldTotalSec - prevRemaining);
+    return Math.max(60, newTotalSec - workedSec);
+  }
+  return newTotalSec;
+}
+
+export function setPomodoroTarget(target?: PomodoroTarget, manual = false, preservePhase = false) {
   syncPomodoroDay();
-  const isSameTargetWithProgress = Boolean(
-    target &&
-      state.target?.id === target.id &&
-      typeof state.targetRemainingSeconds === "number" &&
-      state.targetRemainingSeconds > 0
+  const totalTargetSec = computeUpdatedTargetSeconds(
+    state.target,
+    state.targetRemainingSeconds,
+    target
   );
-  const totalTargetSec = target
-    ? isSameTargetWithProgress
-      ? state.targetRemainingSeconds
-      : target.durationMinutes
-        ? Math.round(target.durationMinutes * 60)
-        : MODE_DURATIONS.pomodoro
-    : undefined;
   const nextChunk = totalTargetSec ? nextChunkSeconds(totalTargetSec) : MODE_DURATIONS.pomodoro;
+  const shouldUpdateRing =
+    !state.isRunning &&
+    (!preservePhase || (state.mode === "pomodoro" && state.timeLeft === state.totalSeconds));
   state = {
     ...state,
     target,
     targetRemainingSeconds: totalTargetSec,
     manualFreeFocus: target ? false : manual,
-    ...(!state.isRunning
+    ...(shouldUpdateRing
       ? { mode: "pomodoro" as PomodoroMode, timeLeft: nextChunk, totalSeconds: nextChunk }
       : {}),
   };

@@ -736,7 +736,9 @@ test('desktop Notes redesign preserves persistence/shortcuts contract and uses m
   assert.equal(notesTsx.includes('id="note-title"'), true);
   assert.equal(notesTsx.includes('id="note-content"'), true);
   assert.equal(notesTsx.includes('id="notes-search"'), true);
-  assert.equal(notesTsx.includes('✓ Kopyalandı'), true);
+  assert.equal(notesTsx.includes('notes-save-btn'), true);
+  assert.equal(notesTsx.includes('notes-cancel-btn'), true);
+  assert.equal(notesTsx.includes('copySelectedNote'), false);
   assert.equal(notesTsx.includes('notes-delete-confirm'), true);
   assert.equal(notesTsx.includes('offerUndo'), true);
   assert.equal(notesTsx.includes('satır ·'), true);
@@ -1825,6 +1827,51 @@ test('useAutoBackup resolves dynamic app version via getVersion and dispatches a
   const failEvent = vm3.events.find((e) => e.type === 'ack-auto-backup-failed');
   assert.ok(failEvent, 'Expected ack-auto-backup-failed CustomEvent');
   assert.match(failEvent.detail?.message ?? '', /Disk dolu/);
+
+  // 4. 5-minute check interval, focus catch-up, and missing-file regeneration before 4h elapses
+  shouldFailSave = false;
+  versionShouldFail = false;
+  savedPayloads.length = 0;
+  let diskFileExists = true;
+  const tauriListeners = new Map();
+  const vm4 = createTask8Vm({
+    tauri: true,
+    react: {
+      useEffect: (fn) => fn(),
+      useRef: (init) => ({ current: init }),
+    },
+    getVersion: async () => '2.3.5',
+    invoke: async (cmd, args) => {
+      if (cmd === 'desktop_status') return { preferences: { closeToTray: true, startInTray: false }, autoStart: false, version: '2.3.5' };
+      if (cmd === 'get_gemini_models') return { fast: 'gemini-3.5-flash-lite', powerful: 'gemini-3.8-flash' };
+      if (cmd === 'auto_backup_exists') return diskFileExists;
+      if (cmd === 'save_auto_backup') {
+        savedPayloads.push(JSON.parse(args.content));
+        return 'ACKDeck-AutoBackup-200.zip';
+      }
+      return null;
+    },
+  });
+  vm4.storage.setItem(
+    'ack-deck.last-auto-backup.v1',
+    JSON.stringify({ lastTime: Date.now() - 60_000, lastFile: 'ACKDeck-AutoBackup-199.zip' }),
+  );
+  const autoMod = vm4.load('useAutoBackup');
+  assert.equal(autoMod.AUTO_BACKUP_CHECK_MS, 5 * 60 * 1000);
+  autoMod.useAutoBackup();
+  assert.ok(vm4.intervals.some((i) => i.ms === 5 * 60 * 1000), 'Expected 5-minute check interval instead of 1-hour');
+
+  // File exists and <4h elapsed -> focus check skips backup
+  for (const fn of vm4.listeners.get('focus') ?? []) fn();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(savedPayloads.length, 0);
+
+  // User deleted the auto-backup file from disk -> focus check regenerates immediately even within 4h
+  diskFileExists = false;
+  for (const fn of vm4.listeners.get('focus') ?? []) fn();
+  await new Promise((r) => setTimeout(r, 30));
+  assert.equal(savedPayloads.length, 1);
+  assert.equal(savedPayloads[0].appVersion, '2.3.5');
 });
 
 test('Task 9 Part A: NotificationSettings and DisplayScaleControls use modular semantic CSS tokens with zero hardcoded dark inline colors', () => {

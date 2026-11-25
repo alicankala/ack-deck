@@ -171,6 +171,7 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         tray_ready: true,
     });
     crate::reminders::setup(app.handle())?;
+    crate::backup::setup_ticker(app.handle());
     if !hidden {
         show_window(app.handle(), None);
     }

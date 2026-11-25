@@ -202,6 +202,39 @@ pub async fn save_auto_backup(
     Ok(file_name)
 }
 
+pub(crate) fn valid_auto_backup_name(file_name: &str) -> bool {
+    file_name.len() <= 120
+        && file_name.starts_with("ACKDeck-AutoBackup-")
+        && (file_name.ends_with(".zip") || file_name.ends_with(".json"))
+        && !file_name.contains(['/', '\\'])
+        && !file_name.contains("..")
+}
+
+#[tauri::command]
+pub fn auto_backup_exists(app: tauri::AppHandle, file_name: String) -> Result<bool, String> {
+    if !valid_auto_backup_name(&file_name) {
+        return Ok(false);
+    }
+    let target = get_backup_dir(&app).join(file_name);
+    Ok(target.is_file())
+}
+
+pub fn setup_ticker(app: &tauri::AppHandle) {
+    use tauri::{Emitter, Manager};
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(5 * 60));
+        // Skip immediate tick at t=0 (frontend runs its own 15s startup check).
+        interval.tick().await;
+        loop {
+            interval.tick().await;
+            if let Some(window) = handle.get_webview_window("main") {
+                let _ = window.emit("ack-auto-backup-tick", ());
+            }
+        }
+    });
+}
+
 #[tauri::command]
 pub async fn open_auto_backup_dir(
     app: tauri::AppHandle,
@@ -327,5 +360,14 @@ mod tests {
             ensure_main_window("secondary").err().as_deref(),
             Some("Bu işlem ana pencereden yapılmalıdır.")
         );
+    }
+
+    #[test]
+    fn validates_auto_backup_filenames_strictly() {
+        assert!(valid_auto_backup_name("ACKDeck-AutoBackup-1795603105.zip"));
+        assert!(valid_auto_backup_name("ACKDeck-AutoBackup-1795603105.json"));
+        assert!(!valid_auto_backup_name("../ACKDeck-AutoBackup-1.zip"));
+        assert!(!valid_auto_backup_name("ACKDeck-AutoBackup-1/evil.zip"));
+        assert!(!valid_auto_backup_name("ACKDeck-Backup-1.zip"));
     }
 }

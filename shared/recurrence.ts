@@ -125,16 +125,13 @@ export function uncompleteOccurrence<T extends RecurringFields>(task: T): T {
 }
 
 export function completedTaskSortTime(task: { dueDate?: string | null; dueTime?: string | null; recurrence?: unknown; lastCompletedAt?: number | null }): number {
-  if (task.recurrence && task.lastCompletedAt && Number.isFinite(task.lastCompletedAt)) {
+  if (task.lastCompletedAt && Number.isFinite(task.lastCompletedAt)) {
     return task.lastCompletedAt;
   }
   if (task.dueDate) {
     const timeStr = task.dueTime || "00:00";
     const ts = new Date(`${task.dueDate}T${timeStr}:00`).getTime();
     if (Number.isFinite(ts)) return ts;
-  }
-  if (task.lastCompletedAt && Number.isFinite(task.lastCompletedAt)) {
-    return task.lastCompletedAt;
   }
   return 0;
 }

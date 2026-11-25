@@ -2,7 +2,20 @@ import { useState } from "react";
 import { ActionMenu } from "../../src/components/ActionMenu";
 import { MobileWeek } from "./ProductViews";
 import { newSubscription } from "../../shared/SubscriptionForm";
-import { money, cycleLabel, paymentLabel, monthlyTotals, type Subscription } from "../../shared/subscriptions";
+import {
+  money,
+  moneyRounded,
+  cycleLabel,
+  paymentLabel,
+  paymentShortLabel,
+  paymentOccurrence,
+  daysUntilPayment,
+  paymentCountdownLabel,
+  monthlyTotals,
+  yearlyTotals,
+  subscriptionShares,
+  type Subscription,
+} from "../../shared/subscriptions";
 import type { CloudRecord, Mutation } from "../../shared/phone";
 
 interface MobilePlanViewProps {
@@ -87,6 +100,16 @@ export function MobilePlanView({
   const hiddenSubRows = sortedSubs.filter(r => hiddenSubs.includes(r.id));
   const visibleIds = visibleSubs.map(r => r.id);
 
+  const allSubEntries = allSubRows.map(r => r.data as Subscription);
+  const totals = monthlyTotals(allSubEntries);
+  const annual = yearlyTotals(allSubEntries);
+  const shares = subscriptionShares(allSubEntries, 4);
+  const upcomingSubs = allSubEntries
+    .filter(s => s.status === "active" && paymentOccurrence(s))
+    .sort((a, b) => paymentOccurrence(a)!.at - paymentOccurrence(b)!.at);
+  const nextUpcoming = upcomingSubs[0];
+  const nextCountdown = nextUpcoming ? paymentCountdownLabel(nextUpcoming) : null;
+
   return (
     <>
       <div className="mobile-segmented-bar plan-toggle-bar">
@@ -112,17 +135,22 @@ export function MobilePlanView({
         <>
           <div className="subscription-totals">
             <div className="subscription-totals-head">
-              <div>
+              <div className="subscription-totals-copy">
                 <span className="subscription-totals-label">Aylık Karşılık</span>
                 <div className="subscription-totals-amounts">
-                  {monthlyTotals(allSubRows.map(r => r.data as Subscription)).length > 0 ? (
-                    monthlyTotals(allSubRows.map(r => r.data as Subscription)).map(([c, a]) => (
+                  {totals.length > 0 ? (
+                    totals.map(([c, a]) => (
                       <strong key={c}>{money(a, c)}</strong>
                     ))
                   ) : (
                     <strong>0,00 ₺</strong>
                   )}
                 </div>
+                {annual.length > 0 && (
+                  <span className="subscription-totals-annual">
+                    Yıllık ~{annual.map(([c, a]) => moneyRounded(a, c)).join(" + ")}
+                  </span>
+                )}
               </div>
               <button
                 type="button"
@@ -132,18 +160,78 @@ export function MobilePlanView({
                 + Abonelik Ekle
               </button>
             </div>
+
+            {shares.length > 0 && (
+              <div className="mobile-sub-shares">
+                <div className="mobile-sub-share-track" role="img" aria-label="Pay dağılımı">
+                  {shares.map(seg => (
+                    <span
+                      key={seg.id}
+                      className="mobile-sub-share-segment"
+                      style={{ width: `${Math.max(seg.exactPercent, 5)}%`, backgroundColor: seg.color }}
+                    />
+                  ))}
+                </div>
+                <div className="mobile-sub-share-legend">
+                  {shares.map(seg => (
+                    <span key={seg.id} className="mobile-sub-share-item">
+                      <i className="mobile-sub-share-dot" style={{ backgroundColor: seg.color }} aria-hidden="true" />
+                      <span>{seg.compactName} %{seg.percent}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {nextUpcoming && (
+              <div className="mobile-sub-upcoming-line">
+                <span className="mobile-sub-upcoming-label">Sıradaki:</span>
+                <strong className="mobile-sub-upcoming-name">{nextUpcoming.name}</strong>
+                <span className="mobile-sub-upcoming-meta">
+                  {nextCountdown ? `${nextCountdown} (${paymentShortLabel(nextUpcoming)})` : paymentShortLabel(nextUpcoming)}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="subscription-list">
             {visibleSubs.map((row, idx) => {
               const sub = row.data as Subscription;
+              const days = daysUntilPayment(sub);
+              const countdown = paymentCountdownLabel(sub);
+              const shareColor = shares.find(seg => seg.id === sub.id)?.color;
+
               return (
-                <article className="subscription-row" key={row.id}>
-                  <button className="mobile-task-open" type="button" onClick={() => onOpenSubscription(sub)}>
-                    <h3>{sub.name}</h3>
-                    <p className="subscription-price">{money(sub.amount, sub.currency)} / {cycleLabel(sub)}</p>
-                    <span className={`subscription-badge status-${sub.status}`}>
-                      {sub.status === "active" ? paymentLabel(sub) : sub.status === "paused" ? "Duraklatıldı" : "İptal edildi"}
+                <article className={`subscription-row ${sub.status !== "active" ? "is-inactive-sub" : ""}`} key={row.id}>
+                  <button className="mobile-task-open mobile-sub-ledger-open" type="button" onClick={() => onOpenSubscription(sub)}>
+                    <span
+                      className="mobile-sub-monogram"
+                      style={shareColor ? { borderColor: `${shareColor}44`, color: shareColor } : undefined}
+                      aria-hidden="true"
+                    >
+                      {sub.icon || sub.name.slice(0, 1).toLocaleUpperCase("tr")}
+                    </span>
+
+                    <span className="mobile-sub-ledger-body">
+                      <span className="mobile-sub-ledger-top">
+                        <h3 className="mobile-sub-title">{sub.name}</h3>
+                        <span className="mobile-sub-amount">
+                          <strong>{money(sub.amount, sub.currency)}</strong>
+                          <small>/{cycleLabel(sub)}</small>
+                        </span>
+                      </span>
+
+                      <span className="mobile-sub-ledger-bottom">
+                        {sub.status === "active" ? (
+                          <span className={`subscription-badge status-active ${days !== null && days <= 7 ? "is-soon" : ""}`}>
+                            {countdown ? `${countdown} · ${paymentLabel(sub)}` : paymentLabel(sub)}
+                          </span>
+                        ) : (
+                          <span className={`subscription-badge status-${sub.status}`}>
+                            {sub.status === "paused" ? "Duraklatıldı" : "İptal edildi"}
+                          </span>
+                        )}
+                      </span>
                     </span>
                   </button>
                   <div className="subscription-card-actions">

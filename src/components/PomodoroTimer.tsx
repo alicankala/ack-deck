@@ -73,15 +73,16 @@ export function PomodoroTimer() {
   const studies = useTodayStudyTargets();
 
   useEffect(() => {
-    if (!isRunning && mode === "pomodoro" && timeLeft === totalSeconds && !pendingConfirm) {
-      if (!target && !manualFreeFocus && studies.length > 0) {
-        setPomodoroTarget(studies[0]);
-      } else if (target) {
-        const updated = studies.find(s => s.id === target.id);
-        if (updated && (updated.durationMinutes !== target.durationMinutes || updated.label !== target.label)) {
-          setPomodoroTarget(updated);
-        }
+    if (pendingConfirm) return;
+    if (target) {
+      const updated = studies.find(s => s.id === target.id);
+      if (updated && (updated.durationMinutes !== target.durationMinutes || updated.label !== target.label)) {
+        setPomodoroTarget(updated, false, true);
       }
+      return;
+    }
+    if (!isRunning && mode === "pomodoro" && timeLeft === totalSeconds && !manualFreeFocus && studies.length > 0) {
+      setPomodoroTarget(studies[0]);
     }
   }, [isRunning, mode, timeLeft, totalSeconds, target, pendingConfirm, manualFreeFocus, studies]);
 

@@ -12,9 +12,24 @@ export function BackupSettings({ desktop }: { desktop: DesktopStatus | null }) {
   const [autoBackup, setAutoBackup] = useState(getAutoBackupInfo);
 
   useEffect(() => {
+    let cancelled = false;
+    const info = getAutoBackupInfo();
+    if (info.lastFile) {
+      invoke<boolean>("auto_backup_exists", { fileName: info.lastFile })
+        .then((exists) => {
+          if (!cancelled && exists === false) {
+            setAutoBackup({ lastTime: null, lastFile: null });
+            window.dispatchEvent(new Event("ack-auto-backup-recheck"));
+          }
+        })
+        .catch(() => {});
+    }
     const onBackupDone = () => setAutoBackup(getAutoBackupInfo());
     window.addEventListener("ack-auto-backup-completed", onBackupDone);
-    return () => window.removeEventListener("ack-auto-backup-completed", onBackupDone);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("ack-auto-backup-completed", onBackupDone);
+    };
   }, []);
 
   function notify(msg: string) {

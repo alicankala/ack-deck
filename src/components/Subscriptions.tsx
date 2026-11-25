@@ -1,16 +1,34 @@
 import { ActionMenu } from "./ActionMenu";
 import { useEffect, useState } from "react";
 import { loadSubscriptions, saveSubscriptions } from "../subscriptionStore";
-import { monthlyTotals, money, cycleLabel, paymentLabel, paymentOccurrence, type Subscription } from "../../shared/subscriptions";
+import {
+  monthlyTotals,
+  yearlyTotals,
+  money,
+  moneyRounded,
+  cycleLabel,
+  cycleAdjective,
+  paymentLabel,
+  paymentShortLabel,
+  paymentOccurrence,
+  daysUntilPayment,
+  paymentCountdownLabel,
+  subscriptionShares,
+  moveSubscriptionItem,
+  type Subscription,
+} from "../../shared/subscriptions";
 import { newSubscription, SubscriptionForm } from "../../shared/SubscriptionForm";
 import { EditorDialog } from "./EditorDialog";
 import { offerUndo } from "../recordUndo";
 import { Icon } from "./Icon";
+import "./subscriptions.css";
 
 export function Subscriptions({ compact = false, onOpen, initialId }: { compact?: boolean; onOpen?: () => void; initialId?: string }) {
   const [loaded, setLoaded] = useState(loadSubscriptions);
   const [draft, setDraft] = useState<Subscription | null>(null);
   const [error, setError] = useState("");
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   useEffect(() => {
     const refresh = () => setLoaded(loadSubscriptions());
@@ -31,6 +49,34 @@ export function Subscriptions({ compact = false, onOpen, initialId }: { compact?
   function commit(entries: Subscription[]) {
     if (!saveSubscriptions(entries)) throw Error("Abonelikler kaydedilemedi.");
     setLoaded(loadSubscriptions());
+  }
+
+  function reorderByStep(id: string, delta: -1 | 1) {
+    if (loaded.locked) return;
+    const current = loadSubscriptions().entries;
+    const idx = current.findIndex(item => item.id === id);
+    if (idx === -1) return;
+    const nextIdx = idx + delta;
+    if (nextIdx < 0 || nextIdx >= current.length) return;
+    try {
+      commit(moveSubscriptionItem(current, id, nextIdx));
+      setError("");
+    } catch {
+      setError("Sıralama kaydedilemedi.");
+    }
+  }
+
+  function reorderByDrop(fromId: string, targetId: string) {
+    if (loaded.locked || fromId === targetId) return;
+    const current = loadSubscriptions().entries;
+    const targetIdx = current.findIndex(item => item.id === targetId);
+    if (targetIdx === -1) return;
+    try {
+      commit(moveSubscriptionItem(current, fromId, targetIdx));
+      setError("");
+    } catch {
+      setError("Sıralama kaydedilemedi.");
+    }
   }
 
   const total = (
@@ -99,6 +145,11 @@ export function Subscriptions({ compact = false, onOpen, initialId }: { compact?
   }
 
   const nextUpcoming = upcoming[0];
+  const nextDays = nextUpcoming ? daysUntilPayment(nextUpcoming) : null;
+  const nextCountdown = nextUpcoming ? paymentCountdownLabel(nextUpcoming) : null;
+  const annual = yearlyTotals(loaded.entries);
+  const shares = subscriptionShares(loaded.entries, 4);
+  const inactiveCount = loaded.entries.length - active.length;
 
   return (
     <section className="subscriptions-page hub-page">
@@ -121,60 +172,91 @@ export function Subscriptions({ compact = false, onOpen, initialId }: { compact?
         <p className="tool-feedback error" role="alert">{loaded.warning || error}</p>
       )}
 
-      {/* Modern 3'lü KPI Özet Paneli */}
-      <div className="subscriptions-kpi-grid">
-        <div className="subscriptions-kpi-card surface">
-          <div className="subscriptions-kpi-header">
-            <span className="kpi-label">Toplam Aylık Karşılık</span>
-            <span className="kpi-icon-pill"><Icon name="archive" size={14} /></span>
-          </div>
-          <div className="subscriptions-kpi-value">
-            {totals.length > 0
-              ? totals.map(([cur, amt]) => <span key={cur} className="kpi-amount">{money(amt, cur)}</span>)
-              : <span className="kpi-amount">₺0,00</span>
-            }
-          </div>
-          <p className="kpi-hint">Farklı para birimleri ve dönemler aylık ortalamaya çevrilir.</p>
-        </div>
-
-        <div className="subscriptions-kpi-card surface">
-          <div className="subscriptions-kpi-header">
-            <span className="kpi-label">Aktif Abonelikler</span>
-            <span className={`kpi-status-badge ${active.length > 0 ? "badge-active" : "badge-empty"}`}>
-              {active.length > 0 ? `${active.length} Aktif` : "Kayıt Yok"}
+      {/* Tek Parça Bütçe Şeridi */}
+      <div className="subscriptions-budget-bar surface" aria-label="Bütçe özeti">
+        <div className="budget-bar-primary">
+          <div className="budget-bar-eyebrow">
+            <span>Aylık Karşılık</span>
+            <span className={`budget-count-pill ${active.length > 0 ? "is-active" : ""}`}>
+              {active.length} aktif{inactiveCount > 0 ? ` · ${inactiveCount} pasif` : ""}
             </span>
           </div>
-          <div className="subscriptions-kpi-value">
-            <span className="kpi-amount">{active.length} <small>hizmet</small></span>
+          <div className="budget-bar-figures">
+            {totals.length > 0 ? (
+              totals.map(([cur, amt]) => (
+                <strong key={cur} className="budget-monthly-amount">
+                  {money(amt, cur)} <small>/ ay</small>
+                </strong>
+              ))
+            ) : (
+              <strong className="budget-monthly-amount">₺0,00 <small>/ ay</small></strong>
+            )}
           </div>
-          <p className="kpi-hint">
-            {loaded.entries.length > active.length
-              ? `${loaded.entries.length - active.length} duraklatılmış abonelik bulunuyor.`
-              : "Tüm abonelikleriniz aktif olarak izleniyor."}
+          <p className="budget-bar-subline">
+            {annual.length > 0
+              ? `Yıllık ~${annual.map(([cur, amt]) => moneyRounded(amt, cur)).join(" + ")}`
+              : "Henüz aktif düzenli gider yok"}
           </p>
         </div>
 
-        <div className="subscriptions-kpi-card surface">
-          <div className="subscriptions-kpi-header">
-            <span className="kpi-label">En Yakın Ödeme</span>
-            <span className="kpi-icon-pill"><Icon name="speed" size={14} /></span>
-          </div>
-          <div className="subscriptions-kpi-value">
-            {nextUpcoming ? (
-              <span className="kpi-upcoming-name" title={nextUpcoming.name}>
-                {nextUpcoming.name}
-              </span>
-            ) : (
-              <span className="kpi-empty-text">Yaklaşan ödeme yok</span>
+        <div className="budget-bar-shares">
+          <div className="budget-bar-eyebrow">
+            <span>Pay Dağılımı</span>
+            {totals.length > 1 && shares[0] && (
+              <small className="budget-currency-note">{shares[0].currency} bazında</small>
             )}
           </div>
-          <p className="kpi-hint">
-            {nextUpcoming ? (
-              <span className="kpi-date-highlight">{paymentLabel(nextUpcoming)} · {money(nextUpcoming.amount, nextUpcoming.currency)}</span>
-            ) : (
-              "Planlanan bir sonraki fatura bulunmuyor."
-            )}
-          </p>
+          {shares.length > 0 ? (
+            <>
+              <div className="budget-share-track" role="img" aria-label="Harcama pay dağılımı">
+                {shares.map(seg => (
+                  <span
+                    key={seg.id}
+                    className="budget-share-segment"
+                    style={{ width: `${Math.max(seg.exactPercent, 4)}%`, backgroundColor: seg.color }}
+                    title={`${seg.name}: %${seg.percent}`}
+                  />
+                ))}
+              </div>
+              <div className="budget-share-legend">
+                {shares.map(seg => (
+                  <span key={seg.id} className="budget-share-item">
+                    <i className="budget-share-dot" style={{ backgroundColor: seg.color }} aria-hidden="true" />
+                    <span className="budget-share-name">{seg.name}</span>
+                    <strong>%{seg.percent}</strong>
+                  </span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="budget-bar-empty">Aktif abonelik eklendiğinde bütçe payları burada görünür.</p>
+          )}
+        </div>
+
+        <div className="budget-bar-upcoming">
+          <div className="budget-bar-eyebrow">
+            <span>Sıradaki Ödeme</span>
+          </div>
+          {nextUpcoming ? (
+            <>
+              <div className="budget-upcoming-main">
+                <strong className="budget-upcoming-name" title={nextUpcoming.name}>{nextUpcoming.name}</strong>
+                {nextCountdown && (
+                  <span className={`budget-upcoming-countdown ${nextDays !== null && nextDays <= 7 ? "is-soon" : ""}`}>
+                    {nextCountdown}
+                  </span>
+                )}
+              </div>
+              <p className="budget-bar-subline">
+                {paymentLabel(nextUpcoming)} · {money(nextUpcoming.amount, nextUpcoming.currency)}
+              </p>
+            </>
+          ) : (
+            <>
+              <strong className="budget-upcoming-empty">Yaklaşan ödeme yok</strong>
+              <p className="budget-bar-subline">Planlanan bir sonraki fatura bulunmuyor.</p>
+            </>
+          )}
         </div>
       </div>
 
@@ -189,111 +271,204 @@ export function Subscriptions({ compact = false, onOpen, initialId }: { compact?
             initial={draft}
             onCancel={() => setDraft(null)}
             onSave={s => {
-              commit([...loadSubscriptions().entries.filter(v => v.id !== s.id), s]);
+              const current = loadSubscriptions().entries;
+              const exists = current.some(v => v.id === s.id);
+              commit(exists ? current.map(v => (v.id === s.id ? s : v)) : [...current, s]);
               setDraft(null);
             }}
           />
         </EditorDialog>
       )}
 
-      {/* Kart Listesi */}
-      <div className="subscription-list">
-        {loaded.entries.map(s => {
-          const isPaused = s.status === "paused";
-          const isCancelled = s.status === "cancelled";
+      {/* Finans Listesi / Ledger */}
+      {loaded.entries.length > 0 && (
+        <div className="subscriptions-ledger surface" role="list" aria-label="Abonelik listesi">
+          {loaded.entries.map((s, idx) => {
+            const isPaused = s.status === "paused";
+            const isCancelled = s.status === "cancelled";
+            const days = daysUntilPayment(s);
+            const countdown = paymentCountdownLabel(s);
+            const shareColor = shares.find(seg => seg.id === s.id)?.color;
 
-          return (
-            <article
-              id={"subscription-" + s.id}
-              className={`surface subscription-row ${initialId === s.id ? "record-highlight" : ""} ${isPaused ? "sub-paused" : ""}`}
-              key={s.id}
-            >
-              <div className="subscription-card-top">
+            return (
+              <article
+                id={"subscription-" + s.id}
+                role="listitem"
+                draggable={!loaded.locked && loaded.entries.length > 1}
+                onDragStart={e => {
+                  setDraggedId(s.id);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", s.id);
+                }}
+                onDragOver={e => {
+                  if (!draggedId || draggedId === s.id) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  if (dragOverId !== s.id) setDragOverId(s.id);
+                }}
+                onDragLeave={e => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node | null) && dragOverId === s.id) {
+                    setDragOverId(null);
+                  }
+                }}
+                onDrop={e => {
+                  e.preventDefault();
+                  const fromId = draggedId || e.dataTransfer.getData("text/plain");
+                  setDraggedId(null);
+                  setDragOverId(null);
+                  if (fromId) reorderByDrop(fromId, s.id);
+                }}
+                onDragEnd={() => {
+                  setDraggedId(null);
+                  setDragOverId(null);
+                }}
+                className={[
+                  "subscription-ledger-row",
+                  initialId === s.id ? "record-highlight" : "",
+                  isPaused || isCancelled ? "is-inactive" : "",
+                  draggedId === s.id ? "is-dragging" : "",
+                  dragOverId === s.id ? "is-drag-over" : "",
+                ].filter(Boolean).join(" ")}
+                key={s.id}
+              >
                 <button
                   type="button"
-                  className="subscription-head-btn record-open"
+                  className="subscription-ledger-main"
                   disabled={loaded.locked}
                   onClick={() => setDraft(s)}
                 >
-                  <span className="subscription-initial" aria-hidden="true">
+                  <span
+                    className="subscription-monogram"
+                    style={shareColor ? { borderColor: `${shareColor}44`, color: shareColor } : undefined}
+                    aria-hidden="true"
+                  >
                     {s.icon || s.name.slice(0, 1).toLocaleUpperCase("tr")}
                   </span>
-                  <span className="subscription-head-copy">
-                    <h2 className="subscription-title">{s.name}</h2>
-                    <span className="subscription-cycle-sub">
-                      {s.autoRenew ? "Düzenli abonelik" : "Tekil / manuel dönem"}
+
+                  <span className="subscription-col-identity">
+                    <span className="subscription-title">{s.name}</span>
+                    {s.category.trim() && (
+                      <span className="subscription-category-sub">{s.category.trim()}</span>
+                    )}
+                  </span>
+
+                  <span className="subscription-col-cycle">
+                    <span className={`ledger-status-dot ${isPaused ? "dot-paused" : isCancelled ? "dot-cancelled" : "dot-active"}`} />
+                    <span>
+                      {isPaused
+                        ? `Duraklatıldı · ${cycleAdjective(s)}`
+                        : isCancelled
+                        ? "İptal Edildi"
+                        : `${s.autoRenew ? "Otomatik" : "Manuel"} · ${cycleAdjective(s)}`}
                     </span>
+                  </span>
+
+                  <span className="subscription-col-schedule">
+                    {s.status === "active" ? (
+                      countdown ? (
+                        <>
+                          <strong className={`ledger-countdown ${days !== null && days <= 7 ? "is-soon" : ""}`}>
+                            {countdown}
+                          </strong>
+                          <span className="ledger-date-paren">({paymentShortLabel(s)})</span>
+                        </>
+                      ) : (
+                        <span className="ledger-date-muted">{paymentShortLabel(s)}</span>
+                      )
+                    ) : (
+                      <span className="ledger-date-muted">—</span>
+                    )}
+                  </span>
+
+                  <span className="subscription-col-amount">
+                    <strong className="subscription-cost">{money(s.amount, s.currency)}</strong>
+                    <small>/ {cycleLabel(s)}</small>
                   </span>
                 </button>
 
-                <ActionMenu label={`${s.name} işlemleri`}>
-                  <button type="button" disabled={loaded.locked} onClick={() => setDraft(s)}>
-                    Düzenle
-                  </button>
-                  <button
-                    type="button"
-                    disabled={loaded.locked}
-                    onClick={() => {
-                      try {
-                        commit(
-                          loadSubscriptions().entries.map(v =>
-                            v.id === s.id
-                              ? { ...v, status: s.status === "active" ? "paused" : "active", updatedAt: Date.now() }
-                              : v
-                          )
-                        );
-                      } catch {
-                        setError("Durum kaydedilemedi.");
-                      }
-                    }}
-                  >
-                    {s.status === "active" ? "Duraklat" : "Etkinleştir"}
-                  </button>
-                  <button
-                    type="button"
-                    className="danger-action"
-                    disabled={loaded.locked}
-                    onClick={() => {
-                      if (window.confirm("Yalnızca ACKDeck abonelik kaydı silinsin mi? Hizmet sağlayıcısındaki aboneliğiniz değişmez.")) {
+                <div className="subscription-ledger-actions">
+                  {loaded.entries.length > 1 && (
+                    <div className="subscription-order-controls" role="group" aria-label={`${s.name} sırasını değiştir`}>
+                      <button
+                        type="button"
+                        className="ledger-order-btn"
+                        disabled={loaded.locked || idx === 0}
+                        onClick={() => reorderByStep(s.id, -1)}
+                        title="Yukarı taşı"
+                        aria-label={`${s.name} yukarı taşı`}
+                      >
+                        ▲
+                      </button>
+                      <button
+                        type="button"
+                        className="ledger-order-btn"
+                        disabled={loaded.locked || idx === loaded.entries.length - 1}
+                        onClick={() => reorderByStep(s.id, 1)}
+                        title="Aşağı taşı"
+                        aria-label={`${s.name} aşağı taşı`}
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  )}
+
+                  <ActionMenu label={`${s.name} işlemleri`}>
+                    <button type="button" disabled={loaded.locked} onClick={() => setDraft(s)}>
+                      Düzenle
+                    </button>
+                    {idx > 0 && (
+                      <button type="button" disabled={loaded.locked} onClick={() => reorderByStep(s.id, -1)}>
+                        Yukarı taşı
+                      </button>
+                    )}
+                    {idx < loaded.entries.length - 1 && (
+                      <button type="button" disabled={loaded.locked} onClick={() => reorderByStep(s.id, 1)}>
+                        Aşağı taşı
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={loaded.locked}
+                      onClick={() => {
                         try {
-                          commit(loadSubscriptions().entries.filter(v => v.id !== s.id));
-                          offerUndo({ source: "subscriptions", record: s });
+                          commit(
+                            loadSubscriptions().entries.map(v =>
+                              v.id === s.id
+                                ? { ...v, status: s.status === "active" ? "paused" : "active", updatedAt: Date.now() }
+                                : v
+                            )
+                          );
                         } catch {
-                          setError("Abonelik silinemedi.");
+                          setError("Durum kaydedilemedi.");
                         }
-                      }
-                    }}
-                  >
-                    Kaydı sil
-                  </button>
-                </ActionMenu>
-              </div>
-
-              <button
-                type="button"
-                className="subscription-info record-open"
-                disabled={loaded.locked}
-                onClick={() => setDraft(s)}
-              >
-                <div className="subscription-price-row">
-                  <span className="subscription-cost">
-                    {money(s.amount, s.currency)} <small>/ {cycleLabel(s)}</small>
-                  </span>
+                      }}
+                    >
+                      {s.status === "active" ? "Duraklat" : "Etkinleştir"}
+                    </button>
+                    <button
+                      type="button"
+                      className="danger-action"
+                      disabled={loaded.locked}
+                      onClick={() => {
+                        if (window.confirm("Yalnızca ACKDeck abonelik kaydı silinsin mi? Hizmet sağlayıcısındaki aboneliğiniz değişmez.")) {
+                          try {
+                            commit(loadSubscriptions().entries.filter(v => v.id !== s.id));
+                            offerUndo({ source: "subscriptions", record: s });
+                          } catch {
+                            setError("Abonelik silinemedi.");
+                          }
+                        }
+                      }}
+                    >
+                      Kaydı sil
+                    </button>
+                  </ActionMenu>
                 </div>
-
-                <div className="subscription-meta-row">
-                  <span className={`sub-status-pill ${isPaused ? "pill-paused" : isCancelled ? "pill-cancelled" : "pill-active"}`}>
-                    {isPaused ? "Duraklatıldı" : isCancelled ? "İptal Edildi" : s.autoRenew ? "Otomatik Yenileniyor" : "Manuel Ödeme"}
-                  </span>
-                  <span className="sub-date-pill">
-                    {paymentLabel(s)}
-                  </span>
-                </div>
-              </button>
-            </article>
-          );
-        })}
-      </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
 
       {!loaded.entries.length && !draft && (
         <div className="surface subscriptions-empty-box">

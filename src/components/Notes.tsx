@@ -1,3 +1,4 @@
+import { ActionMenu } from "./ActionMenu";
 import { offerUndo } from "../recordUndo";
 import { PhoneMedia } from "./PhoneMedia";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -30,15 +31,11 @@ function countNoteMetrics(content: string): { words: number; chars: number; line
 export function Notes({ initialId, createNew = false }: { initialId?: string; createNew?: boolean }) {
   const created = useRef(false);
   const editedNote = useRef<{ id: string; usedAt: number } | null>(null);
-  const copyTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {
       if (editedNote.current) {
         recordRecent("notes", editedNote.current.id, undefined, editedNote.current.usedAt);
-      }
-      if (copyTimerRef.current !== null) {
-        window.clearTimeout(copyTimerRef.current);
       }
     };
   }, []);
@@ -54,8 +51,7 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
   const [query, setQuery] = useState("");
   const [filterType, setFilterType] = useState<"all" | "attachments">("all");
   const [error, setError] = useState<string | null>(initial.error);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const selected = isNewDraft ? null : notes.find((note) => note.id === selectedId) ?? null;
   const hasDraftText = Boolean(draftTitle.trim() || draftContent.trim());
@@ -76,7 +72,7 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
     setDraftTitle(note?.title ?? "");
     setDraftContent(note?.content ?? "");
     setPendingSwitchId(null);
-    setConfirmDelete(false);
+    setConfirmDeleteId(null);
     setError(null);
   }
 
@@ -89,7 +85,7 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
     setQuery("");
     setFilterType("all");
     setError(null);
-    setConfirmDelete(false);
+    setConfirmDeleteId(null);
     requestAnimationFrame(() => {
       document.getElementById("note-title")?.focus();
     });
@@ -117,14 +113,6 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
     window.addEventListener("ack-data-changed", refresh);
     return () => window.removeEventListener("ack-data-changed", refresh);
   }, []);
-
-  useEffect(() => {
-    setCopied(false);
-    if (copyTimerRef.current !== null) {
-      window.clearTimeout(copyTimerRef.current);
-      copyTimerRef.current = null;
-    }
-  }, [selectedId, isNewDraft]);
 
   const search = query.trim().toLocaleLowerCase("tr-TR");
   const attachmentsNotesCount = useMemo(
@@ -257,52 +245,32 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
     }
   }
 
-  function remove() {
-    if (!selected) return;
+  function removeNoteById(noteId: string) {
     const current = loadNotes();
     if (current.error) {
       setError(current.error);
       return;
     }
-    const removed = current.notes.find((n) => n.id === selected.id);
+    const removed = current.notes.find((n) => n.id === noteId);
     if (!removed) return;
-    const next = current.notes.filter((note) => note.id !== selected.id);
+    const next = current.notes.filter((note) => note.id !== noteId);
     if (!saveNotes(next)) {
       setError("Not silinemedi. Depolama alanını kontrol edin.");
       return;
     }
     offerUndo({ source: "notes", record: removed });
     setNotes(next);
-    loadNoteIntoDraft(next[0] ?? null);
-  }
-
-  async function copySelectedNote() {
-    const title = draftTitle.trim();
-    const content = draftContent;
-    const payload = content.trim()
-      ? title && title !== "Yeni Not"
-        ? `${title}\n\n${content}`
-        : content
-      : title;
-    if (!payload) return;
-    try {
-      await navigator.clipboard.writeText(payload);
-      setCopied(true);
-      if (copyTimerRef.current !== null) {
-        window.clearTimeout(copyTimerRef.current);
-      }
-      copyTimerRef.current = window.setTimeout(() => {
-        setCopied(false);
-        copyTimerRef.current = null;
-      }, 1500);
-    } catch {
-      setError("Not panoya kopyalanamadı.");
+    setConfirmDeleteId(null);
+    setError(null);
+    if (!isNewDraft && selectedId === noteId) {
+      loadNoteIntoDraft(next[0] ?? null);
     }
   }
 
   const hasOpenEditor = Boolean(isNewDraft || selected);
   const metrics = hasOpenEditor ? countNoteMetrics(draftContent) : null;
   const canSave = !initial.error && hasDraftText && (isNewDraft || isDirty);
+  const canCancel = !initial.error && (isNewDraft || isDirty);
 
   return (
     <div
@@ -424,52 +392,75 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
                 const attachCount = note.attachments?.length ?? 0;
 
                 return (
-                  <div
-                    className={`note-list-row ${isSelectedRow ? "active" : ""}`}
-                    key={note.id}
-                  >
-                    <button
-                      className={`note-list-item ${isSelectedRow ? "active" : ""}`}
-                      type="button"
-                      onClick={() => requestSelectNote(note.id)}
-                    >
-                      <strong>{displayTitle.trim() || "Başlıksız not"}</strong>
-                      <span className="note-card-excerpt">{displayContent.trim() || "İçerik yok"}</span>
-                      <div className="note-card-meta">
-                        <time dateTime={new Date(note.updatedAt).toISOString()}>
-                          {dateFormatter.format(note.updatedAt)}
-                        </time>
-                        <span className="note-card-badges">
-                          {attachCount > 0 && (
-                            <span className="note-card-attach-badge">📎 {attachCount}</span>
-                          )}
-                          {noteStats.words > 0 && <span>{noteStats.words} kelime</span>}
-                        </span>
-                      </div>
-                    </button>
+                  <div className="note-list-entry" key={note.id}>
+                    <div className={`note-list-row ${isSelectedRow ? "active" : ""}`}>
+                      <button
+                        className={`note-list-item ${isSelectedRow ? "active" : ""}`}
+                        type="button"
+                        onClick={() => requestSelectNote(note.id)}
+                      >
+                        <strong>{displayTitle.trim() || "Başlıksız not"}</strong>
+                        <span className="note-card-excerpt">{displayContent.trim() || "İçerik yok"}</span>
+                        <div className="note-card-meta">
+                          <time dateTime={new Date(note.updatedAt).toISOString()}>
+                            {dateFormatter.format(note.updatedAt)}
+                          </time>
+                          <span className="note-card-badges">
+                            {attachCount > 0 && (
+                              <span className="note-card-attach-badge">📎 {attachCount}</span>
+                            )}
+                            {noteStats.words > 0 && <span>{noteStats.words} kelime</span>}
+                          </span>
+                        </div>
+                      </button>
 
-                    <div className="note-list-item-reorder" role="group" aria-label="Not sırası">
-                      <button
-                        type="button"
-                        className="note-order-btn"
-                        title="Öne taşı"
-                        aria-label={`${note.title.trim() || "Notu"} öne taşı`}
-                        disabled={index <= 0}
-                        onClick={() => reorder(note.id, -1)}
-                      >
-                        <Icon name="arrowUp" size={12} />
-                      </button>
-                      <button
-                        type="button"
-                        className="note-order-btn"
-                        title="Arkaya taşı"
-                        aria-label={`${note.title.trim() || "Notu"} arkaya taşı`}
-                        disabled={index < 0 || index >= notes.length - 1}
-                        onClick={() => reorder(note.id, 1)}
-                      >
-                        <Icon name="arrowDown" size={12} />
-                      </button>
+                      <div className="note-list-item-menu">
+                        <ActionMenu label={`${note.title.trim() || "Not"} işlemleri`}>
+                          <button
+                            type="button"
+                            disabled={index <= 0}
+                            onClick={() => reorder(note.id, -1)}
+                          >
+                            Öne taşı
+                          </button>
+                          <button
+                            type="button"
+                            disabled={index < 0 || index >= notes.length - 1}
+                            onClick={() => reorder(note.id, 1)}
+                          >
+                            Arkaya taşı
+                          </button>
+                          <button
+                            type="button"
+                            className="danger-action"
+                            disabled={!!initial.error}
+                            onClick={() => setConfirmDeleteId(note.id)}
+                          >
+                            Notu sil
+                          </button>
+                        </ActionMenu>
+                      </div>
                     </div>
+
+                    {confirmDeleteId === note.id && (
+                      <div className="notes-delete-confirm is-sidebar" role="group" aria-label="Notu silme onayı">
+                        <span>Bu not silinsin mi?</span>
+                        <button
+                          type="button"
+                          className="button button-secondary"
+                          onClick={() => removeNoteById(note.id)}
+                        >
+                          Evet, sil
+                        </button>
+                        <button
+                          type="button"
+                          className="button button-secondary"
+                          onClick={() => setConfirmDeleteId(null)}
+                        >
+                          Vazgeç
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })
@@ -515,15 +506,14 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
                 </span>
 
                 <div className="notes-editor-actions">
-                  {(isNewDraft || isDirty) && (
-                    <button
-                      type="button"
-                      className="button button-secondary"
-                      onClick={discardDraft}
-                    >
-                      Vazgeç
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className="button button-secondary notes-cancel-btn"
+                    onClick={discardDraft}
+                    disabled={!canCancel}
+                  >
+                    Vazgeç
+                  </button>
                   <button
                     type="button"
                     className="button button-primary notes-save-btn"
@@ -533,24 +523,6 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
                   >
                     Kaydet
                   </button>
-                  <button
-                    type="button"
-                    className={`button button-secondary notes-copy-btn ${copied ? "is-copied" : ""}`}
-                    onClick={() => void copySelectedNote()}
-                    disabled={!hasDraftText}
-                  >
-                    {copied ? "✓ Kopyalandı" : "Kopyala"}
-                  </button>
-                  {!isNewDraft && selected && (
-                    <button
-                      className="button button-secondary notes-delete-btn"
-                      type="button"
-                      onClick={() => setConfirmDelete(true)}
-                      disabled={!!initial.error}
-                    >
-                      <Icon name="trash" size={15} /> Notu Sil
-                    </button>
-                  )}
                 </div>
               </div>
 
@@ -577,18 +549,6 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
                     onClick={() => setPendingSwitchId(null)}
                   >
                     İptal
-                  </button>
-                </div>
-              )}
-
-              {confirmDelete && selected && (
-                <div className="notes-delete-confirm" role="group" aria-label="Notu silme onayı">
-                  <span>Bu not silinsin mi?</span>
-                  <button type="button" className="button button-secondary" onClick={remove}>
-                    Evet, sil
-                  </button>
-                  <button type="button" className="button button-secondary" onClick={() => setConfirmDelete(false)}>
-                    Vazgeç
                   </button>
                 </div>
               )}

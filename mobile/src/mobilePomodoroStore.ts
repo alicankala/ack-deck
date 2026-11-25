@@ -575,24 +575,48 @@ export function skipMobilePomodoroPhase() {
   }
 }
 
-export function setMobilePomodoroTarget(target?: MobilePomodoroTarget, manual = false) {
+function computeUpdatedMobileTargetSeconds(
+  prevTarget: MobilePomodoroTarget | undefined,
+  prevRemaining: number | undefined,
+  nextTarget: MobilePomodoroTarget | undefined
+): number | undefined {
+  if (!nextTarget) return undefined;
+  const newTotalSec =
+    nextTarget.durationMinutes && nextTarget.durationMinutes > 0
+      ? Math.round(nextTarget.durationMinutes * 60)
+      : MODE_DURATIONS.pomodoro;
+  if (
+    prevTarget?.id === nextTarget.id &&
+    typeof prevRemaining === "number" &&
+    prevRemaining > 0
+  ) {
+    const oldTotalSec =
+      prevTarget.durationMinutes && prevTarget.durationMinutes > 0
+        ? Math.round(prevTarget.durationMinutes * 60)
+        : MODE_DURATIONS.pomodoro;
+    const workedSec = Math.max(0, oldTotalSec - prevRemaining);
+    return Math.max(60, newTotalSec - workedSec);
+  }
+  return newTotalSec;
+}
+
+export function setMobilePomodoroTarget(
+  target?: MobilePomodoroTarget,
+  manual = false,
+  preservePhase = false
+) {
   syncMobilePomodoroDay();
   setState(prev => {
-    const isSameTargetWithProgress = Boolean(
-      target &&
-        prev.target?.id === target.id &&
-        typeof prev.targetRemainingSeconds === "number" &&
-        prev.targetRemainingSeconds > 0
+    const totalTargetSec = computeUpdatedMobileTargetSeconds(
+      prev.target,
+      prev.targetRemainingSeconds,
+      target
     );
-    const totalTargetSec = target
-      ? isSameTargetWithProgress
-        ? prev.targetRemainingSeconds
-        : target.durationMinutes && target.durationMinutes > 0
-          ? Math.round(target.durationMinutes * 60)
-          : MODE_DURATIONS.pomodoro
-      : undefined;
     const chunk = totalTargetSec ? nextChunkSeconds(totalTargetSec) : MODE_DURATIONS.pomodoro;
-    if (prev.isRunning) {
+    const shouldUpdateRing =
+      !prev.isRunning &&
+      (!preservePhase || (prev.mode === "pomodoro" && prev.timeLeft === prev.totalSeconds));
+    if (!shouldUpdateRing) {
       return {
         ...prev,
         target,

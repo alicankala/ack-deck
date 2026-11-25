@@ -703,21 +703,30 @@
   width: 100%;
 }
 
-/* Subscriptions Screen */
+/* Subscriptions Screen — 350px Mobile Ledger + Budget Bar */
 .subscription-totals {
   background: linear-gradient(135deg, #162436 0%, #0d1622 100%);
   border: 1px solid rgba(56, 189, 248, 0.22);
-  border-radius: 20px;
-  padding: 16px 18px;
+  border-radius: 18px;
+  padding: 15px 16px;
   margin-top: 6px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
 }
 .subscription-totals-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
+}
+.subscription-totals-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .subscription-totals-label {
   display: block;
@@ -726,52 +735,214 @@
   letter-spacing: 0.08em;
   color: var(--app-accent);
   text-transform: uppercase;
-  margin-bottom: 4px;
 }
 .subscription-totals-amounts {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 6px 14px;
+  gap: 4px 12px;
 }
 .subscription-totals strong {
-  font-size: 24px;
+  font-size: 23px;
   font-weight: 750;
   letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
   color: var(--app-text);
+  line-height: 1.15;
+}
+.subscription-totals-annual {
+  font-size: 11.5px;
+  color: var(--app-muted);
+  font-variant-numeric: tabular-nums;
 }
 .subscription-add-btn {
   flex-shrink: 0;
-  padding: 9px 15px;
-  font-size: 12.5px;
+  padding: 8px 13px;
+  font-size: 12px;
   font-weight: 650;
-  border-radius: 12px;
+  border-radius: 11px;
 }
-.subscription-list { display: flex; flex-direction: column; gap: 10px; }
+.mobile-sub-shares {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.mobile-sub-share-track {
+  display: flex;
+  gap: 3px;
+  height: 6px;
+  width: 100%;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.07);
+}
+.mobile-sub-share-segment {
+  display: block;
+  height: 100%;
+  border-radius: 9999px;
+}
+.mobile-sub-share-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 11px;
+  color: var(--app-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.mobile-sub-share-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.mobile-sub-share-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.mobile-sub-upcoming-line {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.mobile-sub-upcoming-label {
+  color: var(--app-muted);
+  flex-shrink: 0;
+}
+.mobile-sub-upcoming-name {
+  font-size: 12px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0 !important;
+  color: var(--app-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mobile-sub-upcoming-meta {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--app-accent);
+  font-weight: 600;
+  font-size: 11.5px;
+}
+.subscription-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 .subscription-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   background: var(--app-surface);
   border: 1px solid var(--app-border);
-  border-radius: 16px;
-  padding: 14px 16px;
+  border-radius: 15px;
+  padding: 12px 13px;
   margin: 0;
 }
-.subscription-row .mobile-task-open { flex: 1; min-width: 0; text-align: left; background: transparent; border: 0; padding: 0; cursor: pointer; }
+.subscription-row.is-inactive-sub {
+  opacity: 0.65;
+}
+.subscription-row .mobile-task-open {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.mobile-sub-ledger-open {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mobile-sub-monogram {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  background: rgba(56, 189, 248, 0.11);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  color: var(--app-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.mobile-sub-ledger-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mobile-sub-ledger-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.mobile-sub-title {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 650;
+  color: var(--app-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mobile-sub-amount {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.mobile-sub-amount strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--app-text);
+}
+.mobile-sub-amount small {
+  font-size: 11px;
+  color: var(--app-muted);
+}
+.mobile-sub-ledger-bottom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
 .subscription-price { font-size: 13px; font-weight: 600; color: var(--app-accent); margin: 2px 0 4px; }
 .subscription-badge {
   display: inline-flex;
   font-size: 11px;
   font-weight: 600;
   padding: 2px 8px;
-  border-radius: 8px;
+  border-radius: 7px;
+  font-variant-numeric: tabular-nums;
 }
 .subscription-badge.status-active {
-  background: rgba(52, 211, 153, 0.15);
+  background: rgba(52, 211, 153, 0.12);
   color: #6ee7b7;
-  border: 1px solid rgba(52, 211, 153, 0.3);
+  border: 1px solid rgba(52, 211, 153, 0.26);
+}
+.subscription-badge.status-active.is-soon {
+  background: rgba(56, 189, 248, 0.13);
+  color: #7dd3fc;
+  border-color: rgba(56, 189, 248, 0.3);
 }
 .subscription-badge.status-paused {
   background: rgba(251, 191, 36, 0.15);

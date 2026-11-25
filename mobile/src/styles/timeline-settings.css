@@ -852,6 +852,27 @@
 :root[data-theme="light"] .subscription-totals .sub-total-item span {
   color: var(--app-secondary);
 }
+:root[data-theme="light"] .mobile-sub-shares,
+:root[data-theme="light"] .mobile-sub-upcoming-line {
+  border-top-color: rgba(15, 23, 42, 0.09);
+}
+:root[data-theme="light"] .mobile-sub-share-track {
+  background: rgba(15, 23, 42, 0.09);
+}
+:root[data-theme="light"] .subscription-row {
+  background: #ffffff;
+  border-color: var(--app-border);
+}
+:root[data-theme="light"] .subscription-badge.status-active {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+:root[data-theme="light"] .subscription-badge.status-active.is-soon {
+  background: rgba(2, 132, 199, 0.11);
+  color: #0369a1;
+  border-color: rgba(2, 132, 199, 0.28);
+}
 
 :root[data-theme="light"] .mobile-week-cell {
   background: #f1f5f9;
