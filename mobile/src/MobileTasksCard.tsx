@@ -32,7 +32,7 @@ interface MobileTasksCardProps {
   onNewTask: (defaultToday: boolean) => void;
   onOpenTask: (row: CloudRecord) => void;
   onToggleStudyBlock: (blockId: string) => void;
-  onCompleteTask: (row: CloudRecord) => void;
+  onCompleteTask: (row: CloudRecord, finishSeries?: boolean) => void;
   onSnoozeTask: (row: CloudRecord, minutes: number) => void;
   onDeleteTask: (row: CloudRecord) => void;
 }
@@ -247,6 +247,11 @@ export function MobileTasksCard({
                     </button>
                   )}
                   <ActionMenu label={task.text + " işlemleri"}>
+                    {Boolean(task.recurrence && !task.completed) && (
+                      <button disabled={busy} onClick={() => { hapticSuccess(); onCompleteTask(row, true); }}>
+                        Tamamen bitir
+                      </button>
+                    )}
                     {isTaskDone && (
                       <button disabled={busy} onClick={() => { if (!isTaskDone) hapticSuccess(); else hapticLight(); onCompleteTask(row); }}>Yeniden Aç</button>
                     )}

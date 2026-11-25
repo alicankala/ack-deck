@@ -41,10 +41,7 @@ export function useMatchReminder(setNotice: (text: string) => void) {
       const f1Enabled = notif.matchTeamF1 !== false;
       if (!gsEnabled && !trEnabled && !f1Enabled) return;
 
-      const leadMinutes =
-        typeof notif.matchLeadMinutes === "number" && [15, 30, 60].includes(notif.matchLeadMinutes)
-          ? notif.matchLeadMinutes
-          : 30;
+      const leadMinutes = 30;
       const leadMs = leadMinutes * 60_000;
 
       try {

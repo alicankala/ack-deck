@@ -11,13 +11,14 @@ export function loadNotificationPreferences(): NotificationPreferences {
     const raw = window.localStorage.getItem(NOTIFICATION_PREFERENCES_KEY);
     if (!raw) return { ...DEFAULT_NOTIFICATION_PREFERENCES };
     const parsed = JSON.parse(raw);
-    if (validNotificationPreferences(parsed)) return parsed;
+    if (validNotificationPreferences(parsed)) return { ...parsed, matchLeadMinutes: 30 };
     if (parsed && typeof parsed === "object") {
       return {
         ...DEFAULT_NOTIFICATION_PREFERENCES,
         ...Object.fromEntries(
           Object.entries(parsed).filter(([k, v]) => k in DEFAULT_NOTIFICATION_PREFERENCES && typeof v === "boolean")
         ),
+        matchLeadMinutes: 30,
       };
     }
     return { ...DEFAULT_NOTIFICATION_PREFERENCES };

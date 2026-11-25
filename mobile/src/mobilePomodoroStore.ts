@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { dateKey } from "../../shared/weeklyPlan";
 
 export type PomodoroMode = "pomodoro" | "shortBreak" | "longBreak";
 
@@ -17,12 +18,25 @@ export type MobilePomodoroState = {
   endTimeMs: number | null;
   completedSessions: number;
   completedFocusMinutes: number;
+  sessionDate?: string;
   autoStartBreaks: boolean;
   target?: MobilePomodoroTarget;
   targetRemainingSeconds?: number;
   pendingConfirm?: MobilePomodoroTarget;
   manualFreeFocus?: boolean;
 };
+
+function getStorage(): Pick<Storage, "getItem" | "setItem"> | null {
+  try {
+    if (typeof window !== "undefined" && window.localStorage) return window.localStorage;
+    if (typeof localStorage !== "undefined") return localStorage;
+  } catch {}
+  return null;
+}
+
+function isStaleStudyTarget(target: MobilePomodoroTarget | undefined, today: string): boolean {
+  return Boolean(target && target.kind === "study" && !target.id.endsWith(`:${today}`));
+}
 
 function nextChunkSeconds(remainingSeconds?: number): number {
   if (!remainingSeconds || remainingSeconds <= 0) return MODE_DURATIONS.pomodoro;
@@ -89,7 +103,7 @@ function triggerMobileAlert(title: string, body: string) {
   } catch {}
 }
 
-function defaultState(): MobilePomodoroState {
+function defaultState(today = dateKey(new Date())): MobilePomodoroState {
   return {
     mode: "pomodoro",
     timeLeft: MODE_DURATIONS.pomodoro,
@@ -98,35 +112,44 @@ function defaultState(): MobilePomodoroState {
     endTimeMs: null,
     completedSessions: 0,
     completedFocusMinutes: 0,
+    sessionDate: today,
     autoStartBreaks: true,
   };
 }
 
-function loadInitialState(): MobilePomodoroState {
-  const base = defaultState();
+export function loadInitialMobilePomodoroState(now = Date.now()): MobilePomodoroState {
+  const today = dateKey(new Date(now));
+  const base = defaultState(today);
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = getStorage()?.getItem(STORAGE_KEY) ?? null;
     if (!raw) return base;
     const parsed = JSON.parse(raw);
     const curMode: PomodoroMode =
       parsed.mode && MODE_DURATIONS[parsed.mode as PomodoroMode] ? parsed.mode : "pomodoro";
-    const curSessions = typeof parsed.completedSessions === "number" ? parsed.completedSessions : 0;
-    const curFocusMinutes =
-      typeof parsed.completedFocusMinutes === "number"
+    const isSameDay = parsed.sessionDate === today;
+    const curSessions =
+      isSameDay && typeof parsed.completedSessions === "number" ? parsed.completedSessions : 0;
+    const curFocusMinutes = isSameDay
+      ? typeof parsed.completedFocusMinutes === "number"
         ? parsed.completedFocusMinutes
-        : curSessions * 25;
+        : curSessions * 25
+      : 0;
     const autoStartBreaks = typeof parsed.autoStartBreaks === "boolean" ? parsed.autoStartBreaks : true;
-    const target: MobilePomodoroTarget | undefined =
+    const rawTarget: MobilePomodoroTarget | undefined =
       parsed.target && typeof parsed.target.id === "string" ? parsed.target : undefined;
+    const dropStaleTarget = !parsed.isRunning && isStaleStudyTarget(rawTarget, today);
+    const target = dropStaleTarget ? undefined : rawTarget;
     const targetRemainingSeconds =
-      typeof parsed.targetRemainingSeconds === "number" && parsed.targetRemainingSeconds > 0
+      !dropStaleTarget && typeof parsed.targetRemainingSeconds === "number" && parsed.targetRemainingSeconds > 0
         ? parsed.targetRemainingSeconds
         : undefined;
-    const pendingConfirm: MobilePomodoroTarget | undefined =
+    const rawPending: MobilePomodoroTarget | undefined =
       parsed.pendingConfirm && typeof parsed.pendingConfirm.id === "string"
         ? parsed.pendingConfirm
         : undefined;
-    const manualFreeFocus = typeof parsed.manualFreeFocus === "boolean" ? parsed.manualFreeFocus : undefined;
+    const pendingConfirm = isStaleStudyTarget(rawPending, today) ? undefined : rawPending;
+    const manualFreeFocus =
+      isSameDay && typeof parsed.manualFreeFocus === "boolean" ? parsed.manualFreeFocus : undefined;
     const fallbackTotal =
       curMode === "pomodoro" && target?.durationMinutes
         ? nextChunkSeconds(target.durationMinutes * 60)
@@ -137,34 +160,42 @@ function loadInitialState(): MobilePomodoroState {
         : fallbackTotal;
 
     if (parsed.isRunning && typeof parsed.endTimeMs === "number") {
-      const now = Date.now();
       if (now >= parsed.endTimeMs) {
         if (curMode === "pomodoro") {
-          const nextSessions = curSessions + 1;
+          const finishedToday = dateKey(new Date(parsed.endTimeMs)) === today;
+          const nextSessions = finishedToday ? curSessions + 1 : 0;
           const addedMin = Math.max(1, Math.round(totalSeconds / 60));
-          const nextMode: PomodoroMode = nextSessions % 4 === 0 ? "longBreak" : "shortBreak";
-          const nextRemaining = target
+          const nextFocusMinutes = finishedToday ? curFocusMinutes + addedMin : 0;
+          const activeTarget = isStaleStudyTarget(target, today) ? undefined : target;
+          const nextRemaining = activeTarget
             ? Math.max(0, (targetRemainingSeconds ?? totalSeconds) - totalSeconds)
             : 0;
-          const hasMoreStudy = Boolean(target && nextRemaining > 0);
+          const hasMoreStudy = Boolean(activeTarget && nextRemaining > 0);
+          const nextMode: PomodoroMode = nextSessions > 0 && nextSessions % 4 === 0 ? "longBreak" : "shortBreak";
+          const breakDur = MODE_DURATIONS[nextMode];
+          const breakAlsoElapsed = now >= parsed.endTimeMs + breakDur * 1000;
+          const nextFocusDur = hasMoreStudy ? nextChunkSeconds(nextRemaining) : MODE_DURATIONS.pomodoro;
           return {
-            mode: nextMode,
-            timeLeft: MODE_DURATIONS[nextMode],
-            totalSeconds: MODE_DURATIONS[nextMode],
+            mode: breakAlsoElapsed ? "pomodoro" : nextMode,
+            timeLeft: breakAlsoElapsed ? nextFocusDur : breakDur,
+            totalSeconds: breakAlsoElapsed ? nextFocusDur : breakDur,
             isRunning: false,
             endTimeMs: null,
             completedSessions: nextSessions,
-            completedFocusMinutes: curFocusMinutes + addedMin,
+            completedFocusMinutes: nextFocusMinutes,
+            sessionDate: today,
             autoStartBreaks,
-            target: hasMoreStudy ? target : undefined,
+            target: hasMoreStudy ? activeTarget : undefined,
             targetRemainingSeconds: hasMoreStudy ? nextRemaining : undefined,
-            pendingConfirm: hasMoreStudy ? undefined : (target ?? pendingConfirm),
+            pendingConfirm: hasMoreStudy ? undefined : (activeTarget ?? pendingConfirm),
             manualFreeFocus,
           };
         }
+        const activeTarget = isStaleStudyTarget(target, today) ? undefined : target;
+        const activeRemaining = activeTarget ? targetRemainingSeconds : undefined;
         const nextFocusDur =
-          target && targetRemainingSeconds && targetRemainingSeconds > 0
-            ? nextChunkSeconds(targetRemainingSeconds)
+          activeTarget && activeRemaining && activeRemaining > 0
+            ? nextChunkSeconds(activeRemaining)
             : MODE_DURATIONS.pomodoro;
         return {
           mode: "pomodoro",
@@ -174,9 +205,10 @@ function loadInitialState(): MobilePomodoroState {
           endTimeMs: null,
           completedSessions: curSessions,
           completedFocusMinutes: curFocusMinutes,
+          sessionDate: today,
           autoStartBreaks,
-          target,
-          targetRemainingSeconds,
+          target: activeTarget,
+          targetRemainingSeconds: activeRemaining,
           pendingConfirm,
           manualFreeFocus,
         };
@@ -185,11 +217,12 @@ function loadInitialState(): MobilePomodoroState {
       return {
         mode: curMode,
         timeLeft: remaining,
-        totalSeconds,
+        totalSeconds: Math.max(totalSeconds, remaining),
         isRunning: true,
         endTimeMs: parsed.endTimeMs,
         completedSessions: curSessions,
         completedFocusMinutes: curFocusMinutes,
+        sessionDate: today,
         autoStartBreaks,
         target,
         targetRemainingSeconds,
@@ -198,30 +231,22 @@ function loadInitialState(): MobilePomodoroState {
       };
     }
 
-    if (typeof parsed.timeLeft === "number" && parsed.timeLeft > 0) {
-      return {
-        mode: curMode,
-        timeLeft: parsed.timeLeft,
-        totalSeconds,
-        isRunning: false,
-        endTimeMs: null,
-        completedSessions: curSessions,
-        completedFocusMinutes: curFocusMinutes,
-        autoStartBreaks,
-        target,
-        targetRemainingSeconds,
-        pendingConfirm,
-        manualFreeFocus,
-      };
-    }
-
+    const defaultIdleDur = MODE_DURATIONS[curMode];
+    const timeLeft = dropStaleTarget
+      ? defaultIdleDur
+      : typeof parsed.timeLeft === "number" && parsed.timeLeft > 0
+        ? parsed.timeLeft
+        : defaultIdleDur;
+    const effectiveTotal = dropStaleTarget ? defaultIdleDur : Math.max(totalSeconds, timeLeft);
     return {
-      ...base,
       mode: curMode,
-      timeLeft: totalSeconds,
-      totalSeconds,
+      timeLeft,
+      totalSeconds: effectiveTotal,
+      isRunning: false,
+      endTimeMs: null,
       completedSessions: curSessions,
       completedFocusMinutes: curFocusMinutes,
+      sessionDate: today,
       autoStartBreaks,
       target,
       targetRemainingSeconds,
@@ -233,13 +258,13 @@ function loadInitialState(): MobilePomodoroState {
   }
 }
 
-let state: MobilePomodoroState = loadInitialState();
+let state: MobilePomodoroState = loadInitialMobilePomodoroState();
 const listeners = new Set<() => void>();
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
 function persist(next: MobilePomodoroState) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    getStorage()?.setItem(STORAGE_KEY, JSON.stringify(next));
   } catch {}
 }
 
@@ -254,8 +279,32 @@ function setState(updater: MobilePomodoroState | ((prev: MobilePomodoroState) =>
   notify();
 }
 
+export function syncMobilePomodoroDay(now = Date.now()): boolean {
+  const today = dateKey(new Date(now));
+  if (state.sessionDate === today) return false;
+  const dropStale = !state.isRunning && isStaleStudyTarget(state.target, today);
+  const nextTarget = dropStale ? undefined : state.target;
+  const nextRemaining = dropStale ? undefined : state.targetRemainingSeconds;
+  const nextPending = isStaleStudyTarget(state.pendingConfirm, today) ? undefined : state.pendingConfirm;
+  const resetDur = dropStale && state.mode === "pomodoro" ? MODE_DURATIONS.pomodoro : undefined;
+  setState(prev => ({
+    ...prev,
+    completedSessions: 0,
+    completedFocusMinutes: 0,
+    sessionDate: today,
+    manualFreeFocus: false,
+    target: nextTarget,
+    targetRemainingSeconds: nextRemaining,
+    pendingConfirm: nextPending,
+    ...(resetDur ? { timeLeft: resetDur, totalSeconds: resetDur } : {}),
+  }));
+  return true;
+}
+
 function finishPhase() {
+  syncMobilePomodoroDay();
   const prev = state;
+  const today = dateKey(new Date());
   if (prev.mode === "pomodoro") {
     const nextSessions = prev.completedSessions + 1;
     const addedMinutes = Math.max(1, Math.round(prev.totalSeconds / 60));
@@ -293,6 +342,7 @@ function finishPhase() {
         totalSeconds: nextDuration,
         completedSessions: nextSessions,
         completedFocusMinutes: nextFocusMinutes,
+        sessionDate: today,
         isRunning: shouldStartBreak,
         endTimeMs: shouldStartBreak ? Date.now() + nextDuration * 1000 : null,
         target: finishedTarget,
@@ -308,6 +358,7 @@ function finishPhase() {
         totalSeconds: nextDuration,
         completedSessions: nextSessions,
         completedFocusMinutes: nextFocusMinutes,
+        sessionDate: today,
         isRunning: shouldAutoStart,
         endTimeMs: shouldAutoStart ? Date.now() + nextDuration * 1000 : null,
         target: undefined,
@@ -333,13 +384,15 @@ function finishPhase() {
       totalSeconds: nextFocusDur,
       isRunning: false,
       endTimeMs: null,
+      sessionDate: today,
     });
   }
 }
 
 function tick() {
+  syncMobilePomodoroDay();
   if (!state.isRunning || !state.endTimeMs) return;
-  const remaining = Math.round((state.endTimeMs - Date.now()) / 1000);
+  const remaining = Math.ceil((state.endTimeMs - Date.now()) / 1000);
   if (remaining <= 0) {
     finishPhase();
     return;
@@ -352,9 +405,9 @@ function tick() {
 }
 
 function syncInterval() {
-  if (state.isRunning && !intervalId) {
-    intervalId = setInterval(tick, 1000);
-  } else if (!state.isRunning && intervalId) {
+  if (state.isRunning && state.endTimeMs && !intervalId) {
+    intervalId = setInterval(tick, 500);
+  } else if ((!state.isRunning || !state.endTimeMs) && intervalId) {
     clearInterval(intervalId);
     intervalId = null;
   }
@@ -362,13 +415,31 @@ function syncInterval() {
 
 syncInterval();
 
+function currentFocusElapsedSeconds(now = Date.now()): number {
+  if (state.mode !== "pomodoro") return 0;
+  const liveLeft =
+    state.isRunning && state.endTimeMs
+      ? Math.max(0, Math.ceil((state.endTimeMs - now) / 1000))
+      : state.timeLeft;
+  return Math.max(0, state.totalSeconds - liveLeft);
+}
+
 export function useMobilePomodoroStore(): MobilePomodoroState {
-  const [snap, setSnap] = useState<MobilePomodoroState>(state);
+  const [snap, setSnap] = useState<MobilePomodoroState>(() => {
+    syncMobilePomodoroDay();
+    return state;
+  });
   useEffect(() => {
     const update = () => setSnap(state);
     listeners.add(update);
+    syncMobilePomodoroDay();
+    update();
+    const dayTimer = setInterval(() => {
+      syncMobilePomodoroDay();
+    }, 30_000);
     return () => {
       listeners.delete(update);
+      clearInterval(dayTimer);
     };
   }, []);
   return snap;
@@ -378,13 +449,15 @@ export function startMobilePomodoroFocus(options?: {
   target?: MobilePomodoroTarget;
   durationSeconds?: number;
 }) {
+  syncMobilePomodoroDay();
   const totalTargetSec =
     options?.durationSeconds && options.durationSeconds > 0
-      ? options.durationSeconds
+      ? Math.round(options.durationSeconds)
       : options?.target?.durationMinutes && options.target.durationMinutes > 0
-      ? options.target.durationMinutes * 60
+      ? Math.round(options.target.durationMinutes * 60)
       : MODE_DURATIONS.pomodoro;
   const chunk = nextChunkSeconds(totalTargetSec);
+  const nextTarget = options?.target ?? state.target;
   setState(prev => ({
     ...prev,
     mode: "pomodoro",
@@ -392,26 +465,37 @@ export function startMobilePomodoroFocus(options?: {
     totalSeconds: chunk,
     isRunning: true,
     endTimeMs: Date.now() + chunk * 1000,
-    target: options?.target,
-    targetRemainingSeconds: options?.target ? totalTargetSec : undefined,
+    sessionDate: dateKey(new Date()),
+    target: nextTarget,
+    targetRemainingSeconds: nextTarget ? totalTargetSec : undefined,
     pendingConfirm: undefined,
   }));
 }
 
 export function toggleMobilePomodoroPause() {
+  syncMobilePomodoroDay();
   setState(prev => {
     if (prev.isRunning) {
-      return { ...prev, isRunning: false, endTimeMs: null };
+      const remaining = prev.endTimeMs
+        ? Math.max(1, Math.ceil((prev.endTimeMs - Date.now()) / 1000))
+        : prev.timeLeft;
+      return { ...prev, timeLeft: remaining, isRunning: false, endTimeMs: null };
     }
+    const dur = prev.timeLeft > 0 ? prev.timeLeft : MODE_DURATIONS[prev.mode];
     return {
       ...prev,
+      timeLeft: dur,
+      totalSeconds: Math.max(prev.totalSeconds, dur),
       isRunning: true,
-      endTimeMs: Date.now() + prev.timeLeft * 1000,
+      endTimeMs: Date.now() + dur * 1000,
+      sessionDate: dateKey(new Date()),
+      pendingConfirm: undefined,
     };
   });
 }
 
 export function resetMobilePomodoro() {
+  syncMobilePomodoroDay();
   setState(prev => {
     const dur =
       prev.mode === "pomodoro" && prev.target
@@ -430,12 +514,41 @@ export function resetMobilePomodoro() {
   });
 }
 
-export function switchMobilePomodoroMode(newMode: PomodoroMode) {
-  const dur =
-    newMode === "pomodoro" && state.target
-      ? nextChunkSeconds(
+export function switchMobilePomodoroMode(newMode: PomodoroMode, nowOrEvent?: number | unknown) {
+  const now = typeof nowOrEvent === "number" ? nowOrEvent : Date.now();
+  syncMobilePomodoroDay(now);
+
+  let nextFocusMinutes = state.completedFocusMinutes;
+  let nextTarget = state.target;
+  let nextTargetRemaining = state.targetRemainingSeconds;
+  let nextPendingConfirm = state.pendingConfirm;
+
+  if (state.mode === "pomodoro" && newMode !== "pomodoro") {
+    const elapsed = currentFocusElapsedSeconds(now);
+    const workedMinutes = Math.floor(elapsed / 60);
+    if (workedMinutes >= 1) {
+      nextFocusMinutes = (state.completedFocusMinutes ?? 0) + workedMinutes;
+      if (state.target) {
+        const baseRem =
           state.targetRemainingSeconds ??
-            (state.target.durationMinutes ? state.target.durationMinutes * 60 : undefined)
+          (state.target.durationMinutes ? state.target.durationMinutes * 60 : state.totalSeconds);
+        const rem = Math.max(0, baseRem - workedMinutes * 60);
+        if (rem > 0) {
+          nextTargetRemaining = rem;
+        } else {
+          nextTarget = undefined;
+          nextTargetRemaining = undefined;
+          nextPendingConfirm = state.target;
+        }
+      }
+    }
+  }
+
+  const dur =
+    newMode === "pomodoro" && nextTarget
+      ? nextChunkSeconds(
+          nextTargetRemaining ??
+            (nextTarget.durationMinutes ? nextTarget.durationMinutes * 60 : undefined)
         )
       : MODE_DURATIONS[newMode];
   setState(prev => ({
@@ -445,20 +558,38 @@ export function switchMobilePomodoroMode(newMode: PomodoroMode) {
     totalSeconds: dur,
     isRunning: false,
     endTimeMs: null,
+    completedFocusMinutes: nextFocusMinutes,
+    sessionDate: dateKey(new Date(now)),
+    target: nextTarget,
+    targetRemainingSeconds: nextTargetRemaining,
+    pendingConfirm: nextPendingConfirm,
   }));
 }
 
 export function skipMobilePomodoroPhase() {
-  const nextMode: PomodoroMode = state.mode === "pomodoro" ? "shortBreak" : "pomodoro";
-  switchMobilePomodoroMode(nextMode);
+  if (state.mode === "pomodoro") {
+    const nextMode: PomodoroMode = (state.completedSessions + 1) % 4 === 0 ? "longBreak" : "shortBreak";
+    switchMobilePomodoroMode(nextMode);
+  } else {
+    switchMobilePomodoroMode("pomodoro");
+  }
 }
 
 export function setMobilePomodoroTarget(target?: MobilePomodoroTarget, manual = false) {
+  syncMobilePomodoroDay();
   setState(prev => {
+    const isSameTargetWithProgress = Boolean(
+      target &&
+        prev.target?.id === target.id &&
+        typeof prev.targetRemainingSeconds === "number" &&
+        prev.targetRemainingSeconds > 0
+    );
     const totalTargetSec = target
-      ? target.durationMinutes && target.durationMinutes > 0
-        ? target.durationMinutes * 60
-        : MODE_DURATIONS.pomodoro
+      ? isSameTargetWithProgress
+        ? prev.targetRemainingSeconds
+        : target.durationMinutes && target.durationMinutes > 0
+          ? Math.round(target.durationMinutes * 60)
+          : MODE_DURATIONS.pomodoro
       : undefined;
     const chunk = totalTargetSec ? nextChunkSeconds(totalTargetSec) : MODE_DURATIONS.pomodoro;
     if (prev.isRunning) {
@@ -486,6 +617,7 @@ export function setMobilePomodoroAutoBreaks(autoStartBreaks: boolean) {
 }
 
 export function clearMobilePomodoroTargetAndReset() {
+  syncMobilePomodoroDay();
   setState(prev => ({
     ...prev,
     mode: "pomodoro",
@@ -495,6 +627,7 @@ export function clearMobilePomodoroTargetAndReset() {
     endTimeMs: null,
     target: undefined,
     targetRemainingSeconds: undefined,
+    pendingConfirm: undefined,
   }));
 }
 

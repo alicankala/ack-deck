@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { moveBy } from "../../src/reorder";
 import type { CloudRecord, Mutation, PhoneNote, PhoneTask } from "../../shared/phone";
 import { productMetadata } from "../../shared/productivity";
-import { completeOccurrence, isOccurrenceCompleted, uncompleteOccurrence, type Recurrence } from "../../shared/recurrence";
+import { completeOccurrence, finishRecurringSeries, isOccurrenceCompleted, uncompleteOccurrence, type Recurrence } from "../../shared/recurrence";
 import type { Subscription } from "../../shared/subscriptions";
 import { buildSnoozedTaskData, buildTaskMutationData } from "./mobileAppHelpers";
 import { api, enqueue, json, readState, type MobileState } from "./store";
@@ -194,10 +194,14 @@ export function useMobileEditor({
     }
   }
 
-  async function complete(row: CloudRecord) {
+  async function complete(row: CloudRecord, finishSeries = false) {
     const task = row.data as PhoneTask;
     const isCompleted = isOccurrenceCompleted(task);
-    const nextData = isCompleted ? uncompleteOccurrence(task) : completeOccurrence(task);
+    const nextData = finishSeries
+      ? finishRecurringSeries(task)
+      : isCompleted
+        ? uncompleteOccurrence(task)
+        : completeOccurrence(task);
     try {
       await saveMutation({
         mutationId: crypto.randomUUID(),

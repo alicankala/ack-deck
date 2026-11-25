@@ -354,6 +354,12 @@
   border: 1px solid rgba(34, 197, 94, 0.28);
 }
 
+.note-save-pill.is-dirty {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.32);
+}
+
 .note-save-pill.is-error {
   background: rgba(239, 68, 68, 0.14);
   color: #fca5a5;
@@ -393,6 +399,25 @@
 .notes-delete-btn:hover:not(:disabled) {
   background: rgba(239, 68, 68, 0.14) !important;
   border-color: rgba(248, 113, 113, 0.45) !important;
+}
+
+.notes-unsaved-confirm {
+  margin-top: 0.85rem;
+  padding: 0.68rem 0.9rem;
+  border-radius: 0.7rem;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.32);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  font-size: 0.86rem;
+}
+
+.notes-unsaved-confirm span {
+  margin-right: auto;
+  color: #fde68a;
+  font-weight: 550;
 }
 
 .notes-delete-confirm {
@@ -615,6 +640,16 @@
   background: rgba(22, 163, 74, 0.1);
   color: #15803d;
   border-color: rgba(22, 163, 74, 0.28);
+}
+
+:root[data-theme="light"] .note-save-pill.is-dirty {
+  background: rgba(217, 119, 6, 0.1);
+  color: #b45309;
+  border-color: rgba(217, 119, 6, 0.3);
+}
+
+:root[data-theme="light"] .notes-unsaved-confirm span {
+  color: #92400e;
 }
 
 :root[data-theme="light"] .note-save-pill.is-error {

@@ -69,7 +69,7 @@ export const UNIFIED_CHANNELS: UnifiedChannelRow[] = [
   {
     id: "sports",
     title: "Spor (GS, A Milli & F1)",
-    description: "Maç ve F1 ana yarışı saati + yayın kanalı",
+    description: "Maç ve F1 ana yarışından 30 dk önce yayın kanalıyla hatırlatma",
     desktopKey: "desktopMatches",
     mobileKey: "mobileMatches",
   },

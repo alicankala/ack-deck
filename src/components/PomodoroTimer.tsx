@@ -157,9 +157,11 @@ export function PomodoroTimer() {
             <small>
               {target
                 ? `Hedef: ${target.label}${targetRemainingLabel}`
-                : completedSessions > 0
-                  ? `Bugün ${completedSessions} odak seansı tamamlandı (${completedFocusMinutes ?? completedSessions * 25} dk odak)`
-                  : "25 dakika odaklan, 5 dakika mola ver"}
+                : mode === "shortBreak"
+                  ? "Kısa mola · 5 dakika dinlen"
+                  : mode === "longBreak"
+                    ? "Uzun mola · 15 dakika dinlen"
+                    : "Hedef: Serbest Odak · 25 dk"}
             </small>
           </div>
         </div>

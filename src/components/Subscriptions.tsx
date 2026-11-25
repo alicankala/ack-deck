@@ -208,8 +208,65 @@ export function Subscriptions({ compact = false, onOpen, initialId }: { compact?
               className={`surface subscription-row ${initialId === s.id ? "record-highlight" : ""} ${isPaused ? "sub-paused" : ""}`}
               key={s.id}
             >
-              <div className="subscription-initial" aria-hidden="true">
-                {s.icon || s.name.slice(0, 1).toLocaleUpperCase("tr")}
+              <div className="subscription-card-top">
+                <button
+                  type="button"
+                  className="subscription-head-btn record-open"
+                  disabled={loaded.locked}
+                  onClick={() => setDraft(s)}
+                >
+                  <span className="subscription-initial" aria-hidden="true">
+                    {s.icon || s.name.slice(0, 1).toLocaleUpperCase("tr")}
+                  </span>
+                  <span className="subscription-head-copy">
+                    <h2 className="subscription-title">{s.name}</h2>
+                    <span className="subscription-cycle-sub">
+                      {s.autoRenew ? "Düzenli abonelik" : "Tekil / manuel dönem"}
+                    </span>
+                  </span>
+                </button>
+
+                <ActionMenu label={`${s.name} işlemleri`}>
+                  <button type="button" disabled={loaded.locked} onClick={() => setDraft(s)}>
+                    Düzenle
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loaded.locked}
+                    onClick={() => {
+                      try {
+                        commit(
+                          loadSubscriptions().entries.map(v =>
+                            v.id === s.id
+                              ? { ...v, status: s.status === "active" ? "paused" : "active", updatedAt: Date.now() }
+                              : v
+                          )
+                        );
+                      } catch {
+                        setError("Durum kaydedilemedi.");
+                      }
+                    }}
+                  >
+                    {s.status === "active" ? "Duraklat" : "Etkinleştir"}
+                  </button>
+                  <button
+                    type="button"
+                    className="danger-action"
+                    disabled={loaded.locked}
+                    onClick={() => {
+                      if (window.confirm("Yalnızca ACKDeck abonelik kaydı silinsin mi? Hizmet sağlayıcısındaki aboneliğiniz değişmez.")) {
+                        try {
+                          commit(loadSubscriptions().entries.filter(v => v.id !== s.id));
+                          offerUndo({ source: "subscriptions", record: s });
+                        } catch {
+                          setError("Abonelik silinemedi.");
+                        }
+                      }
+                    }}
+                  >
+                    Kaydı sil
+                  </button>
+                </ActionMenu>
               </div>
 
               <button
@@ -218,8 +275,7 @@ export function Subscriptions({ compact = false, onOpen, initialId }: { compact?
                 disabled={loaded.locked}
                 onClick={() => setDraft(s)}
               >
-                <div className="subscription-main-row">
-                  <h2 className="subscription-title">{s.name}</h2>
+                <div className="subscription-price-row">
                   <span className="subscription-cost">
                     {money(s.amount, s.currency)} <small>/ {cycleLabel(s)}</small>
                   </span>
@@ -230,52 +286,10 @@ export function Subscriptions({ compact = false, onOpen, initialId }: { compact?
                     {isPaused ? "Duraklatıldı" : isCancelled ? "İptal Edildi" : s.autoRenew ? "Otomatik Yenileniyor" : "Manuel Ödeme"}
                   </span>
                   <span className="sub-date-pill">
-                    · {paymentLabel(s)}
+                    {paymentLabel(s)}
                   </span>
                 </div>
               </button>
-
-              <ActionMenu label={`${s.name} işlemleri`}>
-                <button type="button" disabled={loaded.locked} onClick={() => setDraft(s)}>
-                  Düzenle
-                </button>
-                <button
-                  type="button"
-                  disabled={loaded.locked}
-                  onClick={() => {
-                    try {
-                      commit(
-                        loadSubscriptions().entries.map(v =>
-                          v.id === s.id
-                            ? { ...v, status: s.status === "active" ? "paused" : "active", updatedAt: Date.now() }
-                            : v
-                        )
-                      );
-                    } catch {
-                      setError("Durum kaydedilemedi.");
-                    }
-                  }}
-                >
-                  {s.status === "active" ? "Duraklat" : "Etkinleştir"}
-                </button>
-                <button
-                  type="button"
-                  className="danger-action"
-                  disabled={loaded.locked}
-                  onClick={() => {
-                    if (window.confirm("Yalnızca ACKDeck abonelik kaydı silinsin mi? Hizmet sağlayıcısındaki aboneliğiniz değişmez.")) {
-                      try {
-                        commit(loadSubscriptions().entries.filter(v => v.id !== s.id));
-                        offerUndo({ source: "subscriptions", record: s });
-                      } catch {
-                        setError("Abonelik silinemedi.");
-                      }
-                    }
-                  }}
-                >
-                  Kaydı sil
-                </button>
-              </ActionMenu>
             </article>
           );
         })}

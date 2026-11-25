@@ -15,6 +15,7 @@ import {
   deleteTaskRecord,
   filterAndSortTasks,
   filterLessonsForTaskTab,
+  finishTaskSeriesRecord,
   toggleTaskRecordCompletion,
 } from "../taskActions";
 import type { Task, TaskFilter, TaskLoad } from "../taskStore";
@@ -56,6 +57,13 @@ export function DashboardTasksCard({
   function handleToggleTask(taskId: string) {
     if (tasksLoad.locked) return;
     const res = toggleTaskRecordCompletion(taskId);
+    if (res.ok) onError("");
+    else onError(res.error);
+  }
+
+  function handleFinishSeries(taskId: string) {
+    if (tasksLoad.locked) return;
+    const res = finishTaskSeriesRecord(taskId);
     if (res.ok) onError("");
     else onError(res.error);
   }
@@ -267,6 +275,15 @@ export function DashboardTasksCard({
                   )}
 
                   <ActionMenu label={task.text + " işlemleri"}>
+                    {Boolean(task.recurrence && !task.completed) && (
+                      <button
+                        type="button"
+                        disabled={tasksLoad.locked}
+                        onClick={() => handleFinishSeries(task.id)}
+                      >
+                        Tamamen bitir
+                      </button>
+                    )}
                     {isTaskDone && (
                       <button
                         type="button"

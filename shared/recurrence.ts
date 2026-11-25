@@ -73,6 +73,31 @@ export function completeOccurrence<T extends RecurringFields>(task:T,now=Date.no
   return {...task,completed:!next,lastCompletedAt:current,occurrenceAt:next?.at??current,dueDate:next?.date??task.dueDate,dueTime:task.recurrence.time,dueAt:next?.at??task.dueAt,snoozedUntil:null,...("remindedFor" in task?{remindedFor:null}:{})};
 }
 
+/** Permanently completes a recurring task and turns off future recurrence while keeping valid date/time fields. */
+export function finishRecurringSeries<T extends RecurringFields>(task: T, now = Date.now()): T {
+  const tz = task.recurrence?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const finalDate = task.recurrence ? zonedParts(now, tz).date : (task.dueDate ?? null);
+  const finalTime = task.recurrence?.time ?? task.dueTime ?? null;
+  const finalDueAt =
+    "dueAt" in task
+      ? finalDate && finalTime
+        ? zonedAt(finalDate, finalTime, tz)
+        : (task.dueAt ?? null)
+      : undefined;
+  return {
+    ...task,
+    completed: true,
+    recurrence: null,
+    occurrenceAt: null,
+    snoozedUntil: null,
+    lastCompletedAt: now,
+    dueDate: finalDate,
+    dueTime: finalTime,
+    ...(finalDueAt !== undefined ? { dueAt: finalDueAt } : {}),
+    ...("remindedFor" in task ? { remindedFor: null } : {}),
+  };
+}
+
 export function isOccurrenceCompleted(task: RecurringFields): boolean {
   return task.completed || Boolean(task.recurrence && task.lastCompletedAt);
 }

@@ -45,30 +45,74 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
 
   const [initial] = useState(loadNotes);
   const [notes, setNotes] = useState<Note[]>(initial.notes);
-  const [selectedId, setSelectedId] = useState<string | null>(initialId ?? initial.notes[0]?.id ?? null);
+  const firstNote = initial.notes.find((n) => n.id === initialId) ?? initial.notes[0] ?? null;
+  const [selectedId, setSelectedId] = useState<string | null>(firstNote?.id ?? null);
+  const [isNewDraft, setIsNewDraft] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(firstNote?.title ?? "");
+  const [draftContent, setDraftContent] = useState(firstNote?.content ?? "");
+  const [pendingSwitchId, setPendingSwitchId] = useState<string | "new" | null>(null);
   const [query, setQuery] = useState("");
   const [filterType, setFilterType] = useState<"all" | "attachments">("all");
   const [error, setError] = useState<string | null>(initial.error);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const selected = isNewDraft ? null : notes.find((note) => note.id === selectedId) ?? null;
+  const hasDraftText = Boolean(draftTitle.trim() || draftContent.trim());
+  const isDirty = isNewDraft
+    ? hasDraftText
+    : Boolean(selected && (draftTitle !== selected.title || draftContent !== selected.content));
+
+  const isDirtyRef = useRef(isDirty);
+  isDirtyRef.current = isDirty;
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
+  const isNewDraftRef = useRef(isNewDraft);
+  isNewDraftRef.current = isNewDraft;
+
+  function loadNoteIntoDraft(note: Note | null) {
+    setIsNewDraft(false);
+    setSelectedId(note?.id ?? null);
+    setDraftTitle(note?.title ?? "");
+    setDraftContent(note?.content ?? "");
+    setPendingSwitchId(null);
+    setConfirmDelete(false);
+    setError(null);
+  }
+
+  function startNewDraft() {
+    setIsNewDraft(true);
+    setSelectedId(null);
+    setDraftTitle("");
+    setDraftContent("");
+    setPendingSwitchId(null);
+    setQuery("");
+    setFilterType("all");
+    setError(null);
+    setConfirmDelete(false);
+    requestAnimationFrame(() => {
+      document.getElementById("note-title")?.focus();
+    });
+  }
+
   useEffect(() => {
     if (createNew && !created.current) {
       created.current = true;
-      createNote();
+      startNewDraft();
     }
   }, [createNew]);
 
   useEffect(() => {
-    if (createNew && selectedId) {
-      document.getElementById("note-title")?.focus();
-    }
-  }, [createNew, selectedId]);
-
-  useEffect(() => {
     const refresh = () => {
       const loaded = loadNotes();
-      if (!loaded.error) setNotes(loaded.notes);
+      if (loaded.error) return;
+      setNotes(loaded.notes);
+      if (!isNewDraftRef.current && !isDirtyRef.current) {
+        const cur = loaded.notes.find((n) => n.id === selectedIdRef.current) ?? loaded.notes[0] ?? null;
+        setSelectedId(cur?.id ?? null);
+        setDraftTitle(cur?.title ?? "");
+        setDraftContent(cur?.content ?? "");
+      }
     };
     window.addEventListener("ack-data-changed", refresh);
     return () => window.removeEventListener("ack-data-changed", refresh);
@@ -80,9 +124,8 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
       window.clearTimeout(copyTimerRef.current);
       copyTimerRef.current = null;
     }
-  }, [selectedId]);
+  }, [selectedId, isNewDraft]);
 
-  const selected = notes.find((note) => note.id === selectedId) ?? null;
   const search = query.trim().toLocaleLowerCase("tr-TR");
   const attachmentsNotesCount = useMemo(
     () => notes.filter((n) => (n.attachments?.length ?? 0) > 0).length,
@@ -119,32 +162,98 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
     commit(next);
   }
 
-  function createNote() {
-    const note: Note = { id: crypto.randomUUID(), title: "Yeni Not", content: "", updatedAt: Date.now() };
-    const current = loadNotes();
-    if (initial.error || current.error || !saveNotes([note, ...current.notes])) {
-      setError(initial.error ?? "Not oluşturulamadı. Depolama alanını kontrol edin.");
-      return;
-    }
-    setNotes([note, ...current.notes]);
-    editedNote.current = { id: note.id, usedAt: note.updatedAt };
-    setSelectedId(note.id);
-    setQuery("");
-    setFilterType("all");
-    setError(null);
-    setConfirmDelete(false);
-  }
+  function saveDraft(): boolean {
+    if (initial.error) return false;
+    const cleanTitle = draftTitle.trim();
+    const cleanContent = draftContent;
+    if (!cleanTitle && !cleanContent.trim()) return false;
 
-  function edit(changes: Partial<Pick<Note, "title" | "content" | "projectId" | "workspaceId">>) {
-    if (!selected) return;
     const updatedAt = Date.now();
     const current = loadNotes();
-    if (current.error || !current.notes.some((n) => n.id === selected.id)) {
+    if (current.error) {
+      setError(current.error);
+      return false;
+    }
+
+    if (isNewDraft) {
+      const finalTitle = cleanTitle || "Başlıksız Not";
+      const note: Note = {
+        id: crypto.randomUUID(),
+        title: finalTitle,
+        content: cleanContent,
+        updatedAt,
+      };
+      const next = [note, ...current.notes];
+      if (!commit(next)) return false;
+      editedNote.current = { id: note.id, usedAt: updatedAt };
+      setIsNewDraft(false);
+      setSelectedId(note.id);
+      setDraftTitle(note.title);
+      setDraftContent(note.content);
+      setPendingSwitchId(null);
+      return true;
+    }
+
+    if (!selected) return false;
+    if (!current.notes.some((n) => n.id === selected.id)) {
       setError("Not başka bir cihazda değişti veya okunamıyor. Güncel kayıtları kontrol et.");
+      return false;
+    }
+    const next = current.notes.map((note) =>
+      note.id === selected.id
+        ? { ...note, title: draftTitle, content: cleanContent, updatedAt }
+        : note,
+    );
+    if (!commit(next)) return false;
+    editedNote.current = { id: selected.id, usedAt: updatedAt };
+    setPendingSwitchId(null);
+    return true;
+  }
+
+  function discardDraft() {
+    if (isNewDraft) {
+      loadNoteIntoDraft(notes[0] ?? null);
       return;
     }
-    if (commit(current.notes.map((note) => (note.id === selected.id ? { ...note, ...changes, updatedAt } : note)))) {
-      editedNote.current = { id: selected.id, usedAt: updatedAt };
+    if (selected) {
+      setDraftTitle(selected.title);
+      setDraftContent(selected.content);
+      setPendingSwitchId(null);
+      setError(null);
+    }
+  }
+
+  function requestSelectNote(targetId: string) {
+    if (!isNewDraft && selectedId === targetId) return;
+    if (isDirty) {
+      setPendingSwitchId(targetId);
+      return;
+    }
+    const target = notes.find((n) => n.id === targetId) ?? null;
+    loadNoteIntoDraft(target);
+  }
+
+  function requestCreateNote() {
+    if (isNewDraft && !hasDraftText) {
+      document.getElementById("note-title")?.focus();
+      return;
+    }
+    if (isDirty) {
+      setPendingSwitchId("new");
+      return;
+    }
+    startNewDraft();
+  }
+
+  function applyPendingSwitch(saveFirst: boolean) {
+    const target = pendingSwitchId;
+    if (!target) return;
+    if (saveFirst && !saveDraft()) return;
+    if (target === "new") {
+      startNewDraft();
+    } else {
+      const nextNote = loadNotes().notes.find((n) => n.id === target) ?? notes.find((n) => n.id === target) ?? null;
+      loadNoteIntoDraft(nextNote);
     }
   }
 
@@ -164,15 +273,12 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
     }
     offerUndo({ source: "notes", record: removed });
     setNotes(next);
-    setSelectedId(next[0]?.id ?? null);
-    setConfirmDelete(false);
-    setError(null);
+    loadNoteIntoDraft(next[0] ?? null);
   }
 
   async function copySelectedNote() {
-    if (!selected) return;
-    const title = selected.title.trim();
-    const content = selected.content;
+    const title = draftTitle.trim();
+    const content = draftContent;
     const payload = content.trim()
       ? title && title !== "Yeni Not"
         ? `${title}\n\n${content}`
@@ -194,10 +300,20 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
     }
   }
 
-  const metrics = selected ? countNoteMetrics(selected.content) : null;
+  const hasOpenEditor = Boolean(isNewDraft || selected);
+  const metrics = hasOpenEditor ? countNoteMetrics(draftContent) : null;
+  const canSave = !initial.error && hasDraftText && (isNewDraft || isDirty);
 
   return (
-    <div className="notes-page">
+    <div
+      className="notes-page"
+      onKeyDown={(e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+          e.preventDefault();
+          if (canSave) saveDraft();
+        }
+      }}
+    >
       <header className="feature-heading page-header notes-page-header">
         <div>
           <h1>Notlar</h1>
@@ -213,7 +329,7 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
           <button
             className="button button-primary"
             type="button"
-            onClick={createNote}
+            onClick={requestCreateNote}
             disabled={!!initial.error}
           >
             <Icon name="plus" size={16} /> Yeni Not
@@ -281,27 +397,44 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
           </div>
 
           <div className="notes-list">
+            {isNewDraft && (
+              <div className="note-list-row active">
+                <button className="note-list-item active" type="button">
+                  <strong>{draftTitle.trim() || "Yeni not (taslak)"}</strong>
+                  <span className="note-card-excerpt">{draftContent.trim() || "Henüz kaydedilmedi..."}</span>
+                  <div className="note-card-meta">
+                    <span>Taslak</span>
+                    {metrics && metrics.words > 0 && (
+                      <span className="note-card-badges">
+                        <span>{metrics.words} kelime</span>
+                      </span>
+                    )}
+                  </div>
+                </button>
+              </div>
+            )}
+
             {visible.length ? (
               visible.map((note) => {
                 const index = notes.findIndex((n) => n.id === note.id);
-                const noteStats = countNoteMetrics(note.content);
+                const isSelectedRow = !isNewDraft && selectedId === note.id;
+                const displayTitle = isSelectedRow ? draftTitle : note.title;
+                const displayContent = isSelectedRow ? draftContent : note.content;
+                const noteStats = countNoteMetrics(displayContent);
                 const attachCount = note.attachments?.length ?? 0;
 
                 return (
                   <div
-                    className={`note-list-row ${selectedId === note.id ? "active" : ""}`}
+                    className={`note-list-row ${isSelectedRow ? "active" : ""}`}
                     key={note.id}
                   >
                     <button
-                      className={`note-list-item ${selectedId === note.id ? "active" : ""}`}
+                      className={`note-list-item ${isSelectedRow ? "active" : ""}`}
                       type="button"
-                      onClick={() => {
-                        setSelectedId(note.id);
-                        setConfirmDelete(false);
-                      }}
+                      onClick={() => requestSelectNote(note.id)}
                     >
-                      <strong>{note.title.trim() || "Başlıksız not"}</strong>
-                      <span className="note-card-excerpt">{note.content.trim() || "İçerik yok"}</span>
+                      <strong>{displayTitle.trim() || "Başlıksız not"}</strong>
+                      <span className="note-card-excerpt">{displayContent.trim() || "İçerik yok"}</span>
                       <div className="note-card-meta">
                         <time dateTime={new Date(note.updatedAt).toISOString()}>
                           {dateFormatter.format(note.updatedAt)}
@@ -340,7 +473,7 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
                   </div>
                 );
               })
-            ) : (
+            ) : !isNewDraft ? (
               <div className="notes-empty-list-box">
                 <p>{search ? "Aramayla eşleşen not yok." : "Bu görünümde not yok."}</p>
                 {(search || filterType !== "all") && (
@@ -356,40 +489,99 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
                   </button>
                 )}
               </div>
-            )}
+            ) : null}
           </div>
         </aside>
 
         <section className="notes-editor" aria-label="Not düzenleyici">
-          {selected ? (
+          {hasOpenEditor ? (
             <>
               <div className="notes-editor-top">
-                <span className={`note-save-pill ${error ? "is-error" : "is-saved"}`}>
+                <span
+                  className={`note-save-pill ${
+                    error ? "is-error" : isNewDraft || isDirty ? "is-dirty" : "is-saved"
+                  }`}
+                >
                   <span className="note-save-dot" aria-hidden="true" />
-                  <span>{error ? "Kaydedilemedi" : "Kaydedildi"}</span>
+                  <span>
+                    {error
+                      ? "Kaydedilemedi"
+                      : isNewDraft
+                        ? "Yeni Taslak"
+                        : isDirty
+                          ? "Kaydedilmedi"
+                          : "Kaydedildi"}
+                  </span>
                 </span>
 
                 <div className="notes-editor-actions">
+                  {(isNewDraft || isDirty) && (
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      onClick={discardDraft}
+                    >
+                      Vazgeç
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="button button-primary notes-save-btn"
+                    onClick={saveDraft}
+                    disabled={!canSave}
+                    title="Notu kaydet (Ctrl+S)"
+                  >
+                    Kaydet
+                  </button>
                   <button
                     type="button"
                     className={`button button-secondary notes-copy-btn ${copied ? "is-copied" : ""}`}
                     onClick={() => void copySelectedNote()}
-                    disabled={!selected.title.trim() && !selected.content.trim()}
+                    disabled={!hasDraftText}
                   >
                     {copied ? "✓ Kopyalandı" : "Kopyala"}
                   </button>
-                  <button
-                    className="button button-secondary notes-delete-btn"
-                    type="button"
-                    onClick={() => setConfirmDelete(true)}
-                    disabled={!!initial.error}
-                  >
-                    <Icon name="trash" size={15} /> Notu Sil
-                  </button>
+                  {!isNewDraft && selected && (
+                    <button
+                      className="button button-secondary notes-delete-btn"
+                      type="button"
+                      onClick={() => setConfirmDelete(true)}
+                      disabled={!!initial.error}
+                    >
+                      <Icon name="trash" size={15} /> Notu Sil
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {confirmDelete && (
+              {pendingSwitchId && (
+                <div className="notes-unsaved-confirm" role="alert">
+                  <span>Kaydedilmemiş değişiklikler var.</span>
+                  <button
+                    type="button"
+                    className="button button-primary"
+                    onClick={() => applyPendingSwitch(true)}
+                  >
+                    Kaydet ve Geç
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={() => applyPendingSwitch(false)}
+                  >
+                    Kaydetmeden Geç
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={() => setPendingSwitchId(null)}
+                  >
+                    İptal
+                  </button>
+                </div>
+              )}
+
+              {confirmDelete && selected && (
                 <div className="notes-delete-confirm" role="group" aria-label="Notu silme onayı">
                   <span>Bu not silinsin mi?</span>
                   <button type="button" className="button button-secondary" onClick={remove}>
@@ -406,8 +598,8 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
                 <input
                   id="note-title"
                   className="notes-title"
-                  value={selected.title}
-                  onChange={(event) => edit({ title: event.target.value })}
+                  value={draftTitle}
+                  onChange={(event) => setDraftTitle(event.target.value)}
                   maxLength={160}
                   placeholder="Not başlığı"
                   disabled={!!initial.error}
@@ -417,8 +609,8 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
                   <textarea
                     id="note-content"
                     className="notes-content"
-                    value={selected.content}
-                    onChange={(event) => edit({ content: event.target.value })}
+                    value={draftContent}
+                    onChange={(event) => setDraftContent(event.target.value)}
                     maxLength={30000}
                     placeholder="Notunu buraya yaz..."
                     disabled={!!initial.error}
@@ -426,7 +618,7 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
                 </div>
               </div>
 
-              {(selected.attachments?.length ?? 0) > 0 && (
+              {selected && (selected.attachments?.length ?? 0) > 0 && (
                 <div className="notes-attachments-section">
                   {selected.attachments!.map((file) => (
                     <section className="note-attachment" key={file.id}>
@@ -439,10 +631,16 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
 
               <div className="notes-save-info">
                 <span>
-                  <time dateTime={new Date(selected.updatedAt).toISOString()}>
-                    {dateFormatter.format(selected.updatedAt)}
-                  </time>{" "}
-                  · Otomatik kaydedilir
+                  {selected ? (
+                    <>
+                      <time dateTime={new Date(selected.updatedAt).toISOString()}>
+                        {dateFormatter.format(selected.updatedAt)}
+                      </time>{" "}
+                      · {isDirty ? "Kaydedilmemiş değişiklik var (Kaydet veya Ctrl+S)" : "Kaydedildi"}
+                    </>
+                  ) : (
+                    "Henüz kaydedilmedi · Kaydet tuşu veya Ctrl+S ile kaydet"
+                  )}
                 </span>
                 {metrics && (
                   <span>
@@ -457,11 +655,11 @@ export function Notes({ initialId, createNew = false }: { initialId?: string; cr
                 <Icon name="note" size={24} />
               </span>
               <h2>Bir not seç veya yeni not oluştur</h2>
-              <p>Başlık ve içerik yazdıkça notun otomatik olarak kaydedilir.</p>
+              <p>Başlık ve içerik yazdıktan sonra Kaydet tuşuyla notunu kaydedebilirsin.</p>
               <button
                 type="button"
                 className="button button-primary"
-                onClick={createNote}
+                onClick={requestCreateNote}
                 disabled={!!initial.error}
               >
                 <Icon name="plus" size={16} /> Yeni Not Oluştur

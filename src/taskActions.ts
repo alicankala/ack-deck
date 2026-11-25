@@ -1,5 +1,6 @@
 import {
   completeOccurrence,
+  finishRecurringSeries,
   isOccurrenceCompleted,
   nextOccurrence,
   uncompleteOccurrence,
@@ -114,6 +115,23 @@ export function toggleTaskRecordCompletion(
   }
   const next = loaded.entries.map(item =>
     item.id === taskId ? (isOccurrenceCompleted(item) ? uncompleteOccurrence(item) : completeOccurrence(item)) : item
+  );
+  if (!saveTasks(next, loaded)) {
+    return { ok: false, error: "Görev kaydedilemedi. Mevcut veriler korunuyor." };
+  }
+  return { ok: true, next };
+}
+
+/** Permanently finishes a recurring task and disables future recurrence. */
+export function finishTaskSeriesRecord(
+  taskId: string
+): { ok: true; next: Task[] } | { ok: false; error: string } {
+  const loaded = loadTasks();
+  if (loaded.locked) {
+    return { ok: false, error: "Görevler okunamadı. Mevcut veriler korunuyor." };
+  }
+  const next = loaded.entries.map(item =>
+    item.id === taskId ? finishRecurringSeries(item) : item
   );
   if (!saveTasks(next, loaded)) {
     return { ok: false, error: "Görev kaydedilemedi. Mevcut veriler korunuyor." };

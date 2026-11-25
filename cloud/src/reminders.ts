@@ -81,8 +81,7 @@ export async function runReminders(env: Env, send = sendNotification, now = Date
   const matchTeamGalatasaray = notifPrefs.matchTeamGalatasaray !== false;
   const matchTeamTurkey = notifPrefs.matchTeamTurkey !== false;
   const matchTeamF1 = notifPrefs.matchTeamF1 !== false;
-  const rawLead = notifPrefs.matchLeadMinutes;
-  const matchLeadMinutes = typeof rawLead === "number" && [15, 30, 60].includes(rawLead) ? rawLead : 30;
+  const matchLeadMinutes = 30;
 
   const rows = await env.DB.prepare(`SELECT r.task_id,r.generation,r.due_at,r.kind,t.data,p.device_id,p.subscription FROM reminders r
     JOIN (SELECT kind,id,data,deleted FROM records UNION ALL SELECT kind,'subscription:'||id AS id,data,deleted FROM subscriptions) t ON t.kind=r.kind AND t.id=r.task_id AND t.deleted=0

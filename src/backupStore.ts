@@ -99,13 +99,14 @@ function validPomodoroTarget(value: unknown): boolean {
   );
 }
 function validPomodoroState(value: unknown): boolean {
-  if (!fields(value, ["mode", "timeLeft", "totalSeconds", "completedSessions", "completedFocusMinutes", "autoStartBreaks", "isRunning", "endTimeMs", "target", "targetRemainingSeconds", "pendingConfirm", "manualFreeFocus"]) || !object(value)) return false;
+  if (!fields(value, ["mode", "timeLeft", "totalSeconds", "completedSessions", "completedFocusMinutes", "sessionDate", "autoStartBreaks", "isRunning", "endTimeMs", "target", "targetRemainingSeconds", "pendingConfirm", "manualFreeFocus"]) || !object(value)) return false;
   return (
     ["pomodoro", "shortBreak", "longBreak"].includes(value.mode as string) &&
     typeof value.timeLeft === "number" && Number.isFinite(value.timeLeft) && value.timeLeft >= 0 && value.timeLeft <= 86400 &&
     (value.totalSeconds === undefined || (typeof value.totalSeconds === "number" && Number.isFinite(value.totalSeconds) && value.totalSeconds >= 0 && value.totalSeconds <= 86400)) &&
     typeof value.completedSessions === "number" && Number.isSafeInteger(value.completedSessions) && value.completedSessions >= 0 && value.completedSessions <= 1000000 &&
     (value.completedFocusMinutes === undefined || (typeof value.completedFocusMinutes === "number" && Number.isFinite(value.completedFocusMinutes) && value.completedFocusMinutes >= 0 && value.completedFocusMinutes <= 10000000)) &&
+    (value.sessionDate === undefined || (typeof value.sessionDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.sessionDate))) &&
     typeof value.autoStartBreaks === "boolean" &&
     typeof value.isRunning === "boolean" &&
     (value.endTimeMs === null || value.endTimeMs === undefined || (dateNumber(value.endTimeMs) && (value.endTimeMs as number) >= 0)) &&

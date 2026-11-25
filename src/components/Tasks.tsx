@@ -9,6 +9,7 @@ import {
   deleteTaskRecord,
   filterAndSortTasks,
   filterLessonsForTaskTab,
+  finishTaskSeriesRecord,
   toggleTaskRecordCompletion,
 } from "../taskActions";
 import { useEffect, useState } from "react";
@@ -251,6 +252,23 @@ export function Tasks({
                   )}
                 </div>
                 <ActionMenu label={task.text + " işlemleri"}>
+                  {Boolean(task.recurrence && !task.completed) && (
+                    <button
+                      type="button"
+                      disabled={loaded.locked}
+                      onClick={() => {
+                        const res = finishTaskSeriesRecord(task.id);
+                        if (res.ok) {
+                          setTasks(res.next);
+                          setError("");
+                        } else {
+                          setError(res.error);
+                        }
+                      }}
+                    >
+                      Tamamen bitir
+                    </button>
+                  )}
                   <button
                     className="task-details-button"
                     type="button"

@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { newStudyProgram, newStudySession, validStudyProgram, studyBlocks, studyConflicts, type StudyProgram, type StudySession } from "./studyPrograms";
+import { newStudyProgram, newStudySession, programToday, validStudyProgram, studyBlocks, studyConflicts, type StudyProgram, type StudySession } from "./studyPrograms";
+import { weekDates } from "./weeklyPlan";
 import "./planner.css";
 const weekdays = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
 export function StudyPrograms({ programs, onSave, onDelete, disabled = false, selectedId, onSelectionHandled, getReminder, onReminderChange }: {
@@ -34,7 +35,14 @@ export function StudyPrograms({ programs, onSave, onDelete, disabled = false, se
           <p>{[...new Set(p.sessions.map(s => s.subject))].join(" · ")}</p>
         </button>
         <div className="study-program-card-actions">
-          <button type="button" className="planner-secondary study-pause" disabled={disabled || busy} onClick={() => void action(() => onSave({ ...p, active: !p.active, updatedAt: Date.now() }))}>{p.active ? "Duraklat" : "Başlat"}</button>
+          <button type="button" className="planner-secondary study-pause" disabled={disabled || busy} onClick={() => void action(() => {
+            const nowMs = Date.now();
+            const today = programToday(p, nowMs);
+            const weekStart = weekDates(new Date(nowMs))[0];
+            const pausedBeforeWeek = programToday(p, p.updatedAt) < weekStart;
+            const nextStart = !p.active && pausedBeforeWeek && p.startDate < today && (!p.endDate || p.endDate >= today) ? today : p.startDate;
+            return onSave({ ...p, active: !p.active, startDate: nextStart, updatedAt: nowMs });
+          })}>{p.active ? "Duraklat" : "Başlat"}</button>
           <button type="button" className="planner-secondary" disabled={disabled || busy} onClick={() => { setDraft(structuredClone(p)); setError(""); }}>Düzenle</button>
           <button type="button" className="planner-secondary study-delete-btn" disabled={disabled || busy} onClick={() => setDeleteConfirmId(deleteConfirmId === p.id ? null : p.id)}>Sil / Bitir</button>
         </div>

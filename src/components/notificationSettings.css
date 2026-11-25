@@ -215,54 +215,34 @@
   line-height: 1.4;
 }
 
-.notification-test-row {
-  margin-top: 1.25rem;
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.notification-test-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.notification-inline-hint {
-  color: var(--app-muted);
-}
-
-.notification-devices-section {
-  margin-top: 1.5rem;
-  border-top: 1px solid var(--app-border);
-  padding-top: 1rem;
-}
-
-.notification-devices-section h3 {
-  font-size: 0.98rem;
-  margin: 0 0 0.5rem;
-  color: var(--app-text);
-}
-
 .notification-device-list {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.65rem;
 }
 
 .notification-device-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.65rem 0.85rem;
-  border-radius: 0.5rem;
-  background: var(--app-field);
+  padding: 0.72rem 0.95rem;
+  border-radius: 0.6rem;
+  background: var(--app-control);
   border: 1px solid var(--app-border);
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.75rem;
+}
+
+.notification-device-row.is-muted {
+  opacity: 0.75;
+}
+
+.notification-device-info {
+  min-width: 0;
+  flex: 1;
 }
 
 .notification-device-name {
+  display: block;
   font-size: 0.9rem;
   color: var(--app-text);
 }
@@ -270,7 +250,7 @@
 .notification-device-meta {
   font-size: 0.78rem;
   color: var(--app-muted);
-  margin-top: 0.1rem;
+  margin-top: 0.16rem;
 }
 
 .notification-device-state.is-allowed {
@@ -284,14 +264,14 @@
 }
 
 .notification-device-test-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-width: 13.25rem;
   font-size: 0.82rem;
-  padding: 0.3rem 0.7rem;
-}
-
-.notification-empty-devices {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--app-muted);
+  padding: 0.42rem 0.85rem;
+  flex-shrink: 0;
 }
 
 .notification-tips-card {
@@ -333,14 +313,6 @@
 :root[data-theme="light"] .notification-master-toggle.is-desktop-active {
   background: rgba(21, 128, 61, 0.1);
   border-color: rgba(21, 128, 61, 0.32);
-}
-
-.notification-lead-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.82rem;
-  color: var(--app-muted);
 }
 
 .notification-matrix-header {

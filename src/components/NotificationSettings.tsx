@@ -69,7 +69,7 @@ export function NotificationSettings() {
   }, []);
 
   function updatePrefs(patch: Partial<NotificationPreferences>) {
-    const next = { ...prefs, ...patch };
+    const next = { ...prefs, ...patch, matchLeadMinutes: 30 };
     setPrefs(next);
     saveNotificationPreferences(next);
   }
@@ -163,19 +163,6 @@ export function NotificationSettings() {
           </div>
 
           <div className="notification-status-actions">
-            <label className="notification-lead-label">
-              <span>Spor Uyarısı:</span>
-              <select
-                className="settings-select"
-                value={prefs.matchLeadMinutes ?? 30}
-                onChange={(e) => updatePrefs({ matchLeadMinutes: Number(e.target.value) })}
-                aria-label="Spor ve maç bildirimi erken uyarı süresi"
-              >
-                <option value={15}>15 dk önce</option>
-                <option value={30}>30 dk önce</option>
-                <option value={60}>60 dk önce</option>
-              </select>
-            </label>
             <button type="button" className="button button-secondary notification-action-btn" onClick={() => toggleAll(true)}>
               Tümünü Aç
             </button>
@@ -207,31 +194,17 @@ export function NotificationSettings() {
         onToggleChannel={(key, enabled) => updatePrefs({ [key]: enabled })}
       />
 
-      {/* Test & Paired Devices */}
-      <section className="settings-card surface local-settings" aria-label="Bildirim Testi ve Cihazlar">
-        <div className="notification-test-row" style={{ marginTop: 0 }}>
-          <button
-            type="button"
-            className="button button-secondary notification-test-btn"
-            onClick={handleTestDesktop}
-            disabled={testBusy || !prefs.desktopMaster}
-          >
-            <Icon name="bell" size={16} />
-            <span>{testBusy ? "Gönderiliyor..." : "Masaüstü Test Bildirimi Gönder"}</span>
-          </button>
-          <small className="notification-inline-hint">
-            Windows Bildirim Merkezi entegrasyonunu doğrular.
-          </small>
-        </div>
-
-        <NotificationDevicesCard
-          devices={devices}
-          phoneState={phoneState}
-          mobileMaster={prefs.mobileMaster}
-          testingDeviceId={testingDeviceId}
-          onTestDevicePush={handleTestDevicePush}
-        />
-      </section>
+      {/* Unified Desktop & Mobile Notification Test Card */}
+      <NotificationDevicesCard
+        devices={devices}
+        phoneState={phoneState}
+        desktopMaster={prefs.desktopMaster}
+        mobileMaster={prefs.mobileMaster}
+        testBusy={testBusy}
+        testingDeviceId={testingDeviceId}
+        onTestDesktop={handleTestDesktop}
+        onTestDevicePush={handleTestDevicePush}
+      />
     </div>
   );
 }

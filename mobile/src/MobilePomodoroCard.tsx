@@ -36,7 +36,6 @@ export function MobilePomodoroCard({
     totalSeconds,
     isRunning,
     completedSessions,
-    completedFocusMinutes,
     autoStartBreaks,
     target,
     targetRemainingSeconds,
@@ -121,9 +120,11 @@ export function MobilePomodoroCard({
             <span className="mobile-pomodoro-sub">
               {target
                 ? `Hedef: ${target.label}${targetRemainingLabel}`
-                : completedSessions > 0
-                ? `Bugün ${completedSessions} seans tamamlandı (${completedFocusMinutes ?? completedSessions * 25} dk odak)`
-                : "25 dk odaklan, 5 dk mola ver"}
+                : mode === "shortBreak"
+                ? "Kısa mola · 5 dk dinlen"
+                : mode === "longBreak"
+                ? "Uzun mola · 15 dk dinlen"
+                : "Hedef: Serbest Odak · 25 dk"}
             </span>
           </div>
         </div>

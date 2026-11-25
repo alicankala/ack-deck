@@ -300,7 +300,7 @@ function App() {
               if (defaultToday) setDate(today);
             }}
             onToggleStudyBlock={toggleMobileStudyBlock}
-            onCompleteTask={row => void complete(row)}
+            onCompleteTask={(row, finishSeries) => void complete(row, finishSeries)}
             onSnoozeTask={(row, mins) => void snooze(row, mins)}
             onSaveMutation={saveMutation}
             onDeleteTask={row => {
