@@ -110,7 +110,7 @@ export function PomodoroTimer() {
       : ` · Kalan ${Math.ceil(liveTargetRemainingSeconds / 60)} dk`
     : "";
 
-  const ringRadius = 68;
+  const ringRadius = 72;
   const ringCircumference = 2 * Math.PI * ringRadius;
   const ringDashOffset = ringCircumference * (progressPercent / 100);
 
@@ -164,6 +164,39 @@ export function PomodoroTimer() {
           </div>
         </div>
 
+        {Boolean(studies.length > 0 || target) && (
+          <div className="pomodoro-target-pills pomodoro-header-targets" role="group" aria-label="Odak seçimi">
+            <button
+              type="button"
+              className={`pomodoro-target-pill ${!target ? "is-active" : ""}`}
+              onClick={() => setPomodoroTarget(undefined, true)}
+              disabled={isRunning}
+            >
+              Serbest · 25 dk
+            </button>
+            {studies.map(s => (
+              <button
+                type="button"
+                key={s.id}
+                className={`pomodoro-target-pill ${target?.id === s.id ? "is-active" : ""}`}
+                onClick={() => setPomodoroTarget(s)}
+                disabled={isRunning}
+              >
+                {s.label}{s.durationMinutes ? ` · ${s.durationMinutes} dk` : ""}
+              </button>
+            ))}
+            {target && !studies.some(s => s.id === target.id) && (
+              <button
+                type="button"
+                className="pomodoro-target-pill is-active"
+                disabled={isRunning}
+              >
+                {target.label}
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Mode Selector Tabs */}
         <div className="pomodoro-modes" role="tablist" aria-label="Pomodoro modları">
           {(["pomodoro", "shortBreak", "longBreak"] as PomodoroMode[]).map(m => (
@@ -183,33 +216,35 @@ export function PomodoroTimer() {
       </div>
 
       <div className="pomodoro-cockpit">
-        {/* Left: Circular SVG Progress Ring */}
-        <div
-          className={`pomodoro-ring-wrap ${isRunning ? "is-running" : ""}`}
-          role="progressbar"
-          aria-valuenow={Math.round(progressPercent)}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label="Pomodoro ilerleme durumu"
-        >
-          <svg className="pomodoro-ring-svg" viewBox="0 0 160 160" aria-hidden="true">
-            <circle className="pomodoro-ring-track" cx="80" cy="80" r={ringRadius} />
-            <circle
-              className={`pomodoro-ring-arc mode-${mode}`}
-              cx="80"
-              cy="80"
-              r={ringRadius}
-              strokeDasharray={ringCircumference}
-              strokeDashoffset={ringDashOffset}
-            />
-          </svg>
-          <div className="pomodoro-ring-center">
-            <span className="pomodoro-digits">{timeFormatted}</span>
-            <span className={`pomodoro-mode-badge mode-${mode}`}>{MODE_LABELS[mode].title}</span>
+        {/* Left: Circular SVG Progress Ring (fixed slot prevents layout shift) */}
+        <div className="pomodoro-ring-slot">
+          <div
+            className={`pomodoro-ring-wrap ${isRunning ? "is-running" : ""}`}
+            role="progressbar"
+            aria-valuenow={Math.round(progressPercent)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Pomodoro ilerleme durumu"
+          >
+            <svg className="pomodoro-ring-svg" viewBox="0 0 160 160" aria-hidden="true">
+              <circle className="pomodoro-ring-track" cx="80" cy="80" r={ringRadius} />
+              <circle
+                className={`pomodoro-ring-arc mode-${mode}`}
+                cx="80"
+                cy="80"
+                r={ringRadius}
+                strokeDasharray={ringCircumference}
+                strokeDashoffset={ringDashOffset}
+              />
+            </svg>
+            <div className="pomodoro-ring-center">
+              <span className="pomodoro-digits">{timeFormatted}</span>
+              <span className={`pomodoro-mode-badge mode-${mode}`}>{MODE_LABELS[mode].title}</span>
+            </div>
           </div>
         </div>
 
-        {/* Center: Action Controls & Optional Study Targets */}
+        {/* Center: Action Controls */}
         <div className="pomodoro-center-col">
           <div className="pomodoro-controls">
             <button
@@ -237,39 +272,6 @@ export function PomodoroTimer() {
               {mode === "pomodoro" ? "Molaya Geç" : "Odağa Dön"}
             </button>
           </div>
-
-          {(studies.length > 0 || target) && (
-            <div className="pomodoro-target-pills" role="group" aria-label="Odak seçimi">
-              <button
-                type="button"
-                className={`pomodoro-target-pill ${!target ? "is-active" : ""}`}
-                onClick={() => setPomodoroTarget(undefined, true)}
-                disabled={isRunning}
-              >
-                Serbest · 25 dk
-              </button>
-              {studies.map(s => (
-                <button
-                  type="button"
-                  key={s.id}
-                  className={`pomodoro-target-pill ${target?.id === s.id ? "is-active" : ""}`}
-                  onClick={() => setPomodoroTarget(s)}
-                  disabled={isRunning}
-                >
-                  {s.label}{s.durationMinutes ? ` · ${s.durationMinutes} dk` : ""}
-                </button>
-              ))}
-              {target && !studies.some(s => s.id === target.id) && (
-                <button
-                  type="button"
-                  className="pomodoro-target-pill is-active"
-                  disabled={isRunning}
-                >
-                  {target.label}
-                </button>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Right: Compact Cycle & Stats Card */}
